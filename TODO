@@ -1,0 +1,18 @@
++ Unzip IPSW
+* Parse BuildManifest.plist
+* Submit TSS request to apple
+* Stitch new signatures onto firmware
+* Connect to iBoot
+* Upload iBEC and execute go
+* Reconnect to iBEC
+* Upload devicetree and execute devicetree
+* Upload ramdisk and execute ramdisk
+* Upload kernelcache and execute bootx
+* Send QueryType request
+* Send StartRestore request
+* Send source verification packets
+* Send filesystem payload
+* Send kernelcache payload
+* Send NOR firmware payload
+* Fetch activation ticket from apple
+* Send activation ticket to device
