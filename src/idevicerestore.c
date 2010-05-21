@@ -47,6 +47,7 @@ int main(int argc, char* argv[]) {
 	int mode = 0;
 	char* ipsw = NULL;
 	char* uuid = NULL;
+	uint64_t ecid = NULL;
 	while ((opt = getopt(argc, argv, "vdhi:u:")) > 0) {
 		switch (opt) {
 		case 'h':
@@ -81,56 +82,77 @@ int main(int argc, char* argv[]) {
 	}
 
 	idevice_t device = NULL;
-	irecv_device_t* recovery = NULL;
-	irecv_error_t recovery_error = IRECV_SUCCESS;
+	irecv_client_t recovery = NULL;
+	lockdownd_client_t lockdown = NULL;
+	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
-	info("Checking for device in normal mode\n");
-	if(uuid != NULL) {
-		device_error = idevice_new(&device, uuid);
-		if(device_error != IDEVICE_E_SUCCESS) {
-			info("Unable to find device in normal mode\n");
-			recovery = irecv_init();
-			recovery_error = irecv_open(recovery, uuid);
-			if(recovery_error != IRECV_SUCCESS) {
-				info("Unable to find device in recovery mode\n");
-				error("ERROR: Unable to find device, is it plugged in?\n");
-				irecv_exit(recovery);
-				return -1;
-			}
-			info("Found device in recovery mode\n");
-			mode = RECOVERY_MODE;
+	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
-		} else {
-			info("Found device in normal mode\n");
-			mode = NORMAL_MODE;
+	info("Checking for device in normal mode...\n");
+	device_error = idevice_new(&device, uuid);
+	if(device_error != IDEVICE_E_SUCCESS) {
+		info("Checking for the device in recovery mode...\n");
+		recovery_error = irecv_open(&recovery, uuid);
+		if(recovery_error != IRECV_E_SUCCESS) {
+			error("ERROR: Unable to find device, is it plugged in?\n");
+			return -1;
 		}
+		info("Found device in recovery mode\n");
+		mode = RECOVERY_MODE;
 
 	} else {
-		device_error = idevice_new(&device, NULL);
-		if(device_error != IDEVICE_E_SUCCESS) {
-			info("Unable to find device in normal mode\n");
-			recovery = irecv_init();
-			recovery_error = irecv_open(recovery, NULL);
-			if(recovery_error != IRECV_SUCCESS) {
-				info("Unable to find device in recovery mode\n");
-				error("ERROR: Unable to find device, is it plugged in?\n");
-				irecv_exit(recovery);
-				return -1;
-			}
-			info("Found device in recovery mode\n");
-			mode = RECOVERY_MODE;
+		info("Found device in normal mode\n");
+		mode = NORMAL_MODE;
+	}
 
-		} else {
-			info("Found device in normal mode\n");
-			mode = NORMAL_MODE;
+	if(mode == NORMAL_MODE) {
+		lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
+		if(lockdown_error != LOCKDOWN_E_SUCCESS) {
+			error("ERROR: Unable to connect to lockdownd\n");
+			idevice_free(device);
+			return -1;
 		}
+
+		plist_t unique_chip_node = NULL;
+		lockdown_error = lockdownd_get_value(lockdown, NULL, "UniqueChipID", &unique_chip_node);
+		if(lockdown_error != LOCKDOWN_E_SUCCESS) {
+			error("ERROR: Unable to get UniqueChipID from lockdownd\n");
+			lockdownd_client_free(lockdown);
+			idevice_free(device);
+			return -1;
+		}
+
+		if(!unique_chip_node || plist_get_node_type(unique_chip_node) != PLIST_UINT) {
+			error("ERROR: Unable to get ECID\n");
+			lockdownd_client_free(lockdown);
+			idevice_free(device);
+			return -1;
+		}
+
+		plist_get_uint_val(unique_chip_node, &ecid);
+		info("Found ECID %llu\n", ecid);
+	}
+
+	if(mode == RECOVERY_MODE) {
+		recovery_error = irecv_get_ecid(recovery, &ecid);
+		if(recovery_error != IRECV_E_SUCCESS) {
+			error("ERROR: Unable to get device ECID\n");
+			irecv_close(recovery);
+			return -1;
+		}
+		info("Found ECID %llu\n", ecid);
 	}
 
 	info("Extracting BuildManifest.plist from IPSW\n");
 	ipsw_archive* archive = ipsw_open(ipsw);
+	if(archive == NULL) {
+		error("ERROR: Unable to open IPSW\n");
+		return -1;
+	}
+
 	ipsw_file* buildmanifest = ipsw_extract_file(archive, "BuildManifest.plist");
 	if(buildmanifest == NULL) {
-		error("ERRPR: Unable to extract BuildManifest.plist IPSW\n");
+		error("ERROR: Unable to extract BuildManifest.plist IPSW\n");
 		ipsw_close(archive);
 		return -1;
 	}

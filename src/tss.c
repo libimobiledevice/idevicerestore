@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <plist/plist.h>
 
-plist_t tss_create_request(plist_t buildmanifest) {
+plist_t tss_create_request(plist_t buildmanifest, const char* ecid) {
 	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
 	if(!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
 		error("ERROR: Unable to find BuildIdentities array\n");
@@ -71,7 +71,6 @@ plist_t tss_create_request(plist_t buildmanifest) {
     }
     plist_get_string_val(security_domain_node, &security_domain_string);
     sscanf(security_domain_string, "%x", &security_domain);
-
 
 
 	return NULL;

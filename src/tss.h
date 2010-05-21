@@ -24,6 +24,6 @@
 
 #include <plist/plist.h>
 
-plist_t tss_create_request(plist_t buildmanifest);
+plist_t tss_create_request(plist_t buildmanifest, const char* ecid);
 
 #endif

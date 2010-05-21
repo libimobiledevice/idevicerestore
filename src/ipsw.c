@@ -24,6 +24,10 @@
 #include <string.h>
 #include "ipsw.h"
 
+#define error(...) fprintf(stderr, __VA_ARGS__)
+#define info(...) if(verbose >= 1) fprintf(stderr, __VA_ARGS__)
+#define debug(...) if(verbose >= 2) fprintf(stderr, __VA_ARGS__)
+
 ipsw_archive* ipsw_open(const char* ipsw) {
 	int err = 0;
 	ipsw_archive* archive = (ipsw_archive*) malloc(sizeof(ipsw_archive));
