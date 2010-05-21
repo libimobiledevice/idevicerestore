@@ -1,5 +1,6 @@
 + Unzip IPSW
 * Parse BuildManifest.plist
+* Build TSS request
 * Submit TSS request to apple
 * Stitch new signatures onto firmware
 * Connect to iBoot

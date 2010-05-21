@@ -72,5 +72,7 @@ plist_t tss_create_request(plist_t buildmanifest) {
     plist_get_string_val(security_domain_node, &security_domain_string);
     sscanf(security_domain_string, "%x", &security_domain);
 
+
+
 	return NULL;
 }
