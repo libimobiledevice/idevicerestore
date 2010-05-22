@@ -287,7 +287,7 @@ int main(int argc, char* argv[]) {
 	if(recovery_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send IMG3: %s\n", ibec_path);
 		irecv_close(recovery);
-		image3_free(ibec_img3);
+		img3_free(ibec_img3);
 	}
 
 	irecv_close(recovery);

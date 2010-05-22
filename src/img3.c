@@ -25,7 +25,7 @@
 #include "img3.h"
 #include "idevicerestore.h"
 
-img3_file* image3_parse_file(unsigned char* data, unsigned int size) {
+img3_file* img3_parse_file(unsigned char* data, unsigned int size) {
 	img3_header* header = (img3_header*) data;
 	if(header->imageType != kImg3Container) {
 		error("ERROR: Invalid IMG3 file\n");
@@ -34,7 +34,7 @@ img3_file* image3_parse_file(unsigned char* data, unsigned int size) {
 	return NULL;
 }
 
-void image3_free(img3_file* file) {
+void img3_free(img3_file* file) {
 	if(file != NULL) {
 		free(file);
 	}
