@@ -29,6 +29,7 @@
 #include <libimobiledevice/libimobiledevice.h>
 
 #include "tss.h"
+#include "img3.h"
 #include "ipsw.h"
 #include "idevicerestore.h"
 
@@ -130,6 +131,8 @@ int main(int argc, char* argv[]) {
 		plist_get_uint_val(unique_chip_node, &ecid);
 		lockdownd_client_free(lockdown);
 		idevice_free(device);
+		lockdown = NULL;
+		device = NULL;
 	}
 	else if(mode == RECOVERY_MODE) {
 		recovery_error = irecv_get_ecid(recovery, &ecid);
@@ -139,6 +142,7 @@ int main(int argc, char* argv[]) {
 			return -1;
 		}
 		irecv_close(recovery);
+		recovery = NULL;
 	}
 
 	if(ecid != 0) {
@@ -184,8 +188,109 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 	plist_free(tss_request);
-
 	info("Got TSS response\n");
+
+	if(mode == NORMAL_MODE) {
+		// Place the device in recovery mode
+		info("Entering recovery mode...\n");
+		device_error = idevice_new(&device, uuid);
+		if(device_error != IDEVICE_E_SUCCESS) {
+			error("ERROR: Unable to find device\n");
+			plist_free(tss_response);
+			return -1;
+		}
+
+		lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
+		if(lockdown_error != LOCKDOWN_E_SUCCESS) {
+			error("ERROR: Unable to connect to lockdownd service\n");
+			plist_free(tss_response);
+			idevice_free(device);
+			return -1;
+		}
+
+		lockdown_error = lockdownd_enter_recovery(lockdown);
+		if(lockdown_error != LOCKDOWN_E_SUCCESS) {
+			error("ERROR: Unable to place device in recovery mode\n");
+			lockdownd_client_free(lockdown);
+			plist_free(tss_response);
+			idevice_free(device);
+			return -1;
+		}
+
+		lockdownd_client_free(lockdown);
+		idevice_free(device);
+		lockdown = NULL;
+		device = NULL;
+	}
+
+	recovery_error = irecv_open(&recovery, uuid);
+	while(recovery_error != IRECV_E_SUCCESS) {
+		sleep(1);
+		info("Retrying connection...\n");
+		recovery_error = irecv_open(&recovery, uuid);
+		if(recovery_error == IRECV_E_SUCCESS) {
+			mode = RECOVERY_MODE;
+			break;
+		}
+	}
+
+	info("Extracting iBEC from IPSW\n");
+	archive = ipsw_open(ipsw);
+	if(archive == NULL) {
+		error("ERROR: Unable to open IPSW\n");
+		plist_free(tss_response);
+		irecv_close(recovery);
+		return -1;
+	}
+
+	plist_t ibec_entry = plist_dict_get_item(tss_response, "iBEC");
+	if(!ibec_entry || plist_get_node_type(ibec_entry) != PLIST_DICT) {
+		error("ERROR: Unable to find iBEC entry in TSS response\n");
+		plist_free(tss_response);
+		irecv_close(recovery);
+		ipsw_close(archive);
+		return -1;
+	}
+
+	char* ibec_path = NULL;
+	plist_t ibec_path_node = plist_dict_get_item(ibec_entry, "Path");
+	if(!ibec_path_node || plist_get_node_type(ibec_path_node) != PLIST_STRING) {
+		error("ERROR: Unable to find iBEC path in entry\n");
+		plist_free(tss_response);
+		plist_free(ibec_entry);
+		irecv_close(recovery);
+		ipsw_close(archive);
+	}
+	plist_get_string_val(ibec_path_node, &ibec_path);
+	plist_free(ibec_entry);
+
+	ipsw_file* ibec = ipsw_extract_file(archive, ibec_path);
+	if(ibec == NULL) {
+		error("ERROR: Unable to extract %s from IPSW\n", ibec_path);
+		irecv_close(recovery);
+		ipsw_close(archive);
+		return -1;
+	}
+	ipsw_close(archive);
+
+	img3_file* ibec_img3 = img3_parse_file(ibec->data, ibec->size);
+	if(ibec_img3 == NULL) {
+		error("ERROR: Unable to parse IMG3: %s\n", ibec_path);
+		irecv_close(recovery);
+		ipsw_free_file(ibec);
+		return -1;
+	}
+	ipsw_free_file(ibec);
+
+	tss_stitch_img3(tss_response, &ibec_img3);
+	recovery_error = irecv_send_file(recovery, ibec_img3->data);
+	if(recovery_error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to send IMG3: %s\n", ibec_path);
+		irecv_close(recovery);
+		image3_free(ibec_img3);
+	}
+
+	irecv_close(recovery);
 	plist_free(tss_response);
 	return 0;
 }

@@ -22,11 +22,9 @@
 #include <zip.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ipsw.h"
 
-#define error(...) fprintf(stderr, __VA_ARGS__)
-#define info(...) if(verbose >= 1) fprintf(stderr, __VA_ARGS__)
-#define debug(...) if(verbose >= 2) fprintf(stderr, __VA_ARGS__)
+#include "ipsw.h"
+#include "idevicerestore.h"
 
 ipsw_archive* ipsw_open(const char* ipsw) {
 	int err = 0;

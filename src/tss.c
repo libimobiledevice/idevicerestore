@@ -26,9 +26,15 @@
 #include <plist/plist.h>
 
 #include "tss.h"
+#include "img3.h"
 #include "idevicerestore.h"
 
 #define ECID_STRSIZE 0x20
+
+typedef struct {
+	int length;
+	char* content;
+} tss_response;
 
 plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 	// Fetch build information from BuildManifest
@@ -127,13 +133,14 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 
 		plist_t tss_entry = plist_copy(manifest_entry);
 		plist_dict_insert_item(tss_request, key, tss_entry);
+		free(key);
 	}
-	/*
-		int sz = 0;
-		char* xml = NULL;
-		plist_to_xml(tss_request, &xml, &sz);
-		printf("%s", xml);
-	*/
+
+	int sz = 0;
+	char* xml = NULL;
+	plist_to_xml(tss_request, &xml, &sz);
+	printf("%s", xml);
+
 	return tss_request;
 }
 
@@ -182,6 +189,7 @@ plist_t tss_send_request(plist_t tss_request) {
 		curl_easy_perform(handle);
 		curl_slist_free_all(header);
 		curl_easy_cleanup(handle);
+		free(request);
 	}
 	curl_global_cleanup();
 
@@ -204,11 +212,17 @@ plist_t tss_send_request(plist_t tss_request) {
 	plist_t tss_response = NULL;
 	tss_size = response->length - (tss_data - response->content);
 	plist_from_xml(tss_data, tss_size, &tss_response);
-/*
+	free(response->content);
+	free(response);
+
 	int sz = 0;
 	char* xml = NULL;
 	plist_to_xml(tss_response, &xml, &sz);
 	printf("%s", xml);
-*/
+
 	return tss_response;
+}
+
+void tss_stitch_img3(img3_file* file, plist_t signature) {
+
 }
