@@ -48,8 +48,7 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_idevicerestore_OBJECTS = idevicerestore-idevicerestore.$(OBJEXT) \
-	idevicerestore-ipsw.$(OBJEXT) idevicerestore-tss.$(OBJEXT) \
-	idevicerestore-base64.$(OBJEXT)
+	idevicerestore-ipsw.$(OBJEXT) idevicerestore-tss.$(OBJEXT)
 idevicerestore_OBJECTS = $(am_idevicerestore_OBJECTS)
 idevicerestore_LDADD = $(LDADD)
 idevicerestore_LINK = $(CCLD) $(idevicerestore_CFLAGS) $(CFLAGS) \
@@ -188,7 +187,7 @@ AM_LDFLAGS = \
 	$(libcurl_LIBS)            \
 	$(libirecovery_LIBS)
 
-idevicerestore_SOURCES = idevicerestore.c ipsw.c tss.c base64.c
+idevicerestore_SOURCES = idevicerestore.c ipsw.c tss.c
 idevicerestore_CFLAGS = $(AM_CFLAGS)
 idevicerestore_LDFLAGS = $(AM_LDFLAGS)
 all: all-am
@@ -272,7 +271,6 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/idevicerestore-base64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/idevicerestore-idevicerestore.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/idevicerestore-ipsw.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/idevicerestore-tss.Po@am__quote@
@@ -332,20 +330,6 @@ idevicerestore-tss.obj: tss.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tss.c' object='idevicerestore-tss.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(idevicerestore_CFLAGS) $(CFLAGS) -c -o idevicerestore-tss.obj `if test -f 'tss.c'; then $(CYGPATH_W) 'tss.c'; else $(CYGPATH_W) '$(srcdir)/tss.c'; fi`
-
-idevicerestore-base64.o: base64.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(idevicerestore_CFLAGS) $(CFLAGS) -MT idevicerestore-base64.o -MD -MP -MF $(DEPDIR)/idevicerestore-base64.Tpo -c -o idevicerestore-base64.o `test -f 'base64.c' || echo '$(srcdir)/'`base64.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/idevicerestore-base64.Tpo $(DEPDIR)/idevicerestore-base64.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='base64.c' object='idevicerestore-base64.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(idevicerestore_CFLAGS) $(CFLAGS) -c -o idevicerestore-base64.o `test -f 'base64.c' || echo '$(srcdir)/'`base64.c
-
-idevicerestore-base64.obj: base64.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(idevicerestore_CFLAGS) $(CFLAGS) -MT idevicerestore-base64.obj -MD -MP -MF $(DEPDIR)/idevicerestore-base64.Tpo -c -o idevicerestore-base64.obj `if test -f 'base64.c'; then $(CYGPATH_W) 'base64.c'; else $(CYGPATH_W) '$(srcdir)/base64.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/idevicerestore-base64.Tpo $(DEPDIR)/idevicerestore-base64.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='base64.c' object='idevicerestore-base64.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(idevicerestore_CFLAGS) $(CFLAGS) -c -o idevicerestore-base64.obj `if test -f 'base64.c'; then $(CYGPATH_W) 'base64.c'; else $(CYGPATH_W) '$(srcdir)/base64.c'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \

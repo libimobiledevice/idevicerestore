@@ -28,17 +28,15 @@
 #include <libimobiledevice/lockdown.h>
 #include <libimobiledevice/libimobiledevice.h>
 
+#include "tss.h"
 #include "ipsw.h"
-
-#define error(...) fprintf(stderr, __VA_ARGS__)
-#define info(...) if(verbose >= 1) fprintf(stderr, __VA_ARGS__)
-#define debug(...) if(verbose >= 2) fprintf(stderr, __VA_ARGS__)
+#include "idevicerestore.h"
 
 #define UNKNOWN_MODE   0
 #define RECOVERY_MODE  1
 #define NORMAL_MODE    2
 
-static int verbose = 0;
+int idevicerestore_debug = 0;
 
 void usage(int argc, char* argv[]);
 
@@ -47,7 +45,7 @@ int main(int argc, char* argv[]) {
 	int mode = 0;
 	char* ipsw = NULL;
 	char* uuid = NULL;
-	uint64_t ecid = NULL;
+	uint64_t ecid = 0;
 	while ((opt = getopt(argc, argv, "vdhi:u:")) > 0) {
 		switch (opt) {
 		case 'h':
@@ -55,11 +53,11 @@ int main(int argc, char* argv[]) {
 			break;
 
 		case 'v':
-			verbose += 1;
+			idevicerestore_debug += 1;
 			break;
 
 		case 'd':
-			verbose = 3;
+			idevicerestore_debug = 3;
 			break;
 
 		case 'i':
@@ -130,17 +128,24 @@ int main(int argc, char* argv[]) {
 		}
 
 		plist_get_uint_val(unique_chip_node, &ecid);
-		info("Found ECID %llu\n", ecid);
+		lockdownd_client_free(lockdown);
+		idevice_free(device);
 	}
-
-	if(mode == RECOVERY_MODE) {
+	else if(mode == RECOVERY_MODE) {
 		recovery_error = irecv_get_ecid(recovery, &ecid);
 		if(recovery_error != IRECV_E_SUCCESS) {
 			error("ERROR: Unable to get device ECID\n");
 			irecv_close(recovery);
 			return -1;
 		}
+		irecv_close(recovery);
+	}
+
+	if(ecid != 0) {
 		info("Found ECID %llu\n", ecid);
+	} else {
+		error("Unable to find device ECID\n");
+		return -1;
 	}
 
 	info("Extracting BuildManifest.plist from IPSW\n");
@@ -163,14 +168,25 @@ int main(int argc, char* argv[]) {
 	ipsw_close(archive);
 
 	info("Creating TSS request\n");
-	plist_t tss_request = tss_create_request(manifest);
+	plist_t tss_request = tss_create_request(manifest, ecid);
 	if(tss_request == NULL) {
 		error("ERROR: Unable to create TSS request\n");
 		plist_free(manifest);
 		return -1;
 	}
-
 	plist_free(manifest);
+
+	info("Sending TSS request\n");
+	plist_t tss_response = tss_send_request(tss_request);
+	if(tss_response == NULL) {
+		error("ERROR: Unable to get response from TSS server\n");
+		plist_free(tss_request);
+		return -1;
+	}
+	plist_free(tss_request);
+
+	info("Got TSS response\n");
+	plist_free(tss_response);
 	return 0;
 }
 

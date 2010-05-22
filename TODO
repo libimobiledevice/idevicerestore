@@ -1,7 +1,7 @@
-+ Unzip IPSW
-* Parse BuildManifest.plist
-* Build TSS request
-* Submit TSS request to apple
+x Unzip IPSW
+x Parse BuildManifest.plist
+x Build TSS request
+x Submit TSS request to apple
 * Stitch new signatures onto firmware
 * Connect to iBoot
 * Upload iBEC and execute go

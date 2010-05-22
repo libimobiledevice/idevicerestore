@@ -6,8 +6,7 @@ AC_INIT(idevicerestore, 1.0)
 
 AC_CANONICAL_SYSTEM
 AM_INIT_AUTOMAKE()
-
-AC_PROG_CC
+AM_PROG_CC_C_O
 
 PKG_CHECK_MODULES(libimobiledevice, libimobiledevice-1.0 >= 0.9.7)
 PKG_CHECK_MODULES(libplist, libplist >= 0.15)

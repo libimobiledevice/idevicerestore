@@ -1,6 +1,6 @@
 /*
- * ipsw.c
- * Definitions for communicating with Apple's TSS server.
+ * idevicerestore.g
+ * Restore device firmware and filesystem
  *
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
@@ -19,17 +19,13 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef TSS_H
-#define TSS_H
+#ifndef IDEVICERESTORE_H
+#define IDEVICERESTORE_H
 
-#include <plist/plist.h>
+#define error(...) fprintf(stderr, __VA_ARGS__)
+#define info(...) if(idevicerestore_debug >= 1) fprintf(stderr, __VA_ARGS__)
+#define debug(...) if(idevicerestore_debug >= 2) fprintf(stderr, __VA_ARGS__)
 
-typedef struct {
-	int length;
-	char* content;
-} tss_response;
-
-plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid);
-plist_t tss_send_request(plist_t tss_request);
+extern int idevicerestore_debug;
 
 #endif
