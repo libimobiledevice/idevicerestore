@@ -260,8 +260,25 @@ int main(int argc, char* argv[]) {
 		plist_free(ibec_entry);
 		irecv_close(recovery);
 		ipsw_close(archive);
+		recovery = NULL;
+		return -1;
 	}
 	plist_get_string_val(ibec_path_node, &ibec_path);
+
+	char* ibec_blob = NULL;
+	uint64_t ibec_blob_size = 0;
+	plist_t ibec_blob_node = plist_dict_get_item(ibec_entry, "Blob");
+	if(!ibec_blob_node || plist_get_node_type(ibec_blob_node) != PLIST_DATA) {
+		error("ERROR: Unable to find iBEC blob in entry\n");
+		plist_free(tss_response);
+		plist_free(ibec_entry);
+		irecv_close(recovery);
+		ipsw_close(archive);
+		recovery = NULL;
+		return -1;
+	}
+	plist_get_data_val(ibec_blob_node, &ibec_blob, &ibec_blob_size);
+	plist_free(ibec_blob_node);
 	plist_free(ibec_entry);
 
 	ipsw_file* ibec = ipsw_extract_file(archive, ibec_path);
@@ -269,6 +286,7 @@ int main(int argc, char* argv[]) {
 		error("ERROR: Unable to extract %s from IPSW\n", ibec_path);
 		irecv_close(recovery);
 		ipsw_close(archive);
+		recovery = NULL;
 		return -1;
 	}
 	ipsw_close(archive);
@@ -278,16 +296,19 @@ int main(int argc, char* argv[]) {
 		error("ERROR: Unable to parse IMG3: %s\n", ibec_path);
 		irecv_close(recovery);
 		ipsw_free_file(ibec);
+		recovery = NULL;
 		return -1;
 	}
 	ipsw_free_file(ibec);
 
-	tss_stitch_img3(tss_response, &ibec_img3);
-	recovery_error = irecv_send_file(recovery, ibec_img3->data);
+	img3_replace_signature(ibec_img3, ibec_blob);
+	recovery_error = irecv_send_file(recovery, img3_get_data(ibec_img3));
 	if(recovery_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send IMG3: %s\n", ibec_path);
 		irecv_close(recovery);
 		img3_free(ibec_img3);
+		recovery = NULL;
+		return -1;
 	}
 
 	irecv_close(recovery);

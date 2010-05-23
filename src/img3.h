@@ -38,6 +38,7 @@ typedef enum {
     kChipElement = 0x43484950, // CHIP
     kProdElement = 0x50524F44, // PROD
     kSdomElement = 0x53444F4D, // SDOM
+    kVersElement = 0x56455253, // VERS
     kBordElement = 0x424F5244, // BORD
     kSepoElement = 0x5345504F, // SEPO
     kEcidElement = 0x45434944  // ECID
@@ -45,23 +46,43 @@ typedef enum {
 
 typedef struct {
     unsigned int signature;
-    unsigned int fullSize;
-    unsigned int dataSize;
-    unsigned int shshOffset;
-    unsigned int imageType;
+    unsigned int full_size;
+    unsigned int data_size;
+    unsigned int shsh_offset;
+    unsigned int image_type;
 } img3_header;
 
 typedef struct {
     unsigned int signature;
-    unsigned int fullSize;
-    unsigned int dataSize;
+    unsigned int full_size;
+    unsigned int data_size;
 } img3_element_header;
 
 typedef struct {
+	img3_element_header* header;
+	img3_element_type type;
 	unsigned char* data;
+} img3_element;
+
+typedef struct {
+	char* data;
+	img3_header* header;
+	img3_element* type_element;
+	img3_element* data_element;
+	img3_element* vers_element;
+	img3_element* sepo_element;
+	img3_element* bord_element;
+	img3_element* kbag1_element;
+	img3_element* kbag2_element;
+	img3_element* ecid_element;
+	img3_element* shsh_element;
+	img3_element* cert_element;
 } img3_file;
 
-img3_file* img3_parse_file(unsigned char* data, unsigned int size);
-void img3_free(img3_file* file);
+img3_file* img3_parse_file(unsigned char* data, int size);
+img3_element* img3_parse_element(char* data);
+void img3_replace_signature(img3_file* image, char* signature);
+void img3_free(img3_file* image);
+char* img3_get_data(img3_file* image);
 
 #endif
