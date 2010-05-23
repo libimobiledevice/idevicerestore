@@ -79,10 +79,11 @@ typedef struct {
 	img3_element* cert_element;
 } img3_file;
 
-img3_file* img3_parse_file(unsigned char* data, int size);
+img3_file* img3_parse_file(char* data, int size);
 img3_element* img3_parse_element(char* data);
-void img3_replace_signature(img3_file* image, char* signature);
+int img3_replace_signature(img3_file* image, char* signature);
 void img3_free(img3_file* image);
-char* img3_get_data(img3_file* image);
+int img3_get_data(img3_file* image, char** pdata, int* psize);
+void img3_free_element(img3_element* element);
 
 #endif

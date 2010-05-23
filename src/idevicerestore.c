@@ -40,6 +40,7 @@
 int idevicerestore_debug = 0;
 
 void usage(int argc, char* argv[]);
+int write_file(const char* filename, char* data, int size);
 
 int main(int argc, char* argv[]) {
 	int opt = 0;
@@ -302,7 +303,12 @@ int main(int argc, char* argv[]) {
 	ipsw_free_file(ibec);
 
 	img3_replace_signature(ibec_img3, ibec_blob);
-	recovery_error = irecv_send_file(recovery, img3_get_data(ibec_img3));
+
+	int ibec_size = 0;
+	char* ibec_data = NULL;
+	img3_get_data(ibec_img3, &ibec_data, &ibec_size);
+	write_file("ibec.dfu", ibec_data, ibec_size);
+	recovery_error = irecv_send_buffer(recovery, ibec_data, ibec_size);
 	if(recovery_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send IMG3: %s\n", ibec_path);
 		irecv_close(recovery);
@@ -311,6 +317,16 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
+	recovery_error = irecv_send_command(recovery, "go");
+	if(recovery_error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to execute iBEC\n");
+		irecv_close(recovery);
+		img3_free(ibec_img3);
+		recovery = NULL;
+		return -1;
+	}
+
+	free(ibec_data);
 	irecv_close(recovery);
 	plist_free(tss_response);
 	return 0;
@@ -328,4 +344,23 @@ void usage(int argc, char* argv[]) {
 	printf("  -h, \t\tprints usage information\n");
 	printf("\n");
 	exit(1);
+}
+
+int write_file(const char* filename, char* data, int size) {
+	debug("Writing data to %s\n", filename);
+	FILE* file = fopen(filename, "wb");
+	if (file == NULL) {
+		error("read_file: Unable to open file %s\n", filename);
+		return -1;
+	}
+
+	int bytes = fwrite(data, 1, size, file);
+	fclose(file);
+
+	if(bytes != size) {
+		error("ERROR: Unable to write entire file: %s: %d %d\n", filename, bytes, size);
+		return -1;
+	}
+
+	return size;
 }
