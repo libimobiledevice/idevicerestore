@@ -26,6 +26,13 @@
 #include "ipsw.h"
 #include "idevicerestore.h"
 
+typedef struct {
+	struct zip* zip;
+} ipsw_archive;
+
+ipsw_archive* ipsw_open(const char* ipsw);
+void ipsw_close(ipsw_archive* archive);
+
 ipsw_archive* ipsw_open(const char* ipsw) {
 	int err = 0;
 	ipsw_archive* archive = (ipsw_archive*) malloc(sizeof(ipsw_archive));
@@ -44,7 +51,8 @@ ipsw_archive* ipsw_open(const char* ipsw) {
 	return archive;
 }
 
-ipsw_file* ipsw_extract_file(ipsw_archive* archive, const char* filename) {
+ipsw_file* ipsw_extract_file(const char* ipsw, const char* filename) {
+	ipsw_archive* archive = ipsw_open(ipsw);
 	if(archive == NULL || archive->zip == NULL) {
 		error("ERROR: Invalid archive\n");
 		return NULL;
@@ -95,6 +103,7 @@ ipsw_file* ipsw_extract_file(ipsw_archive* archive, const char* filename) {
 	}
 
 	zip_fclose(zfile);
+	ipsw_close(archive);
 	return file;
 }
 

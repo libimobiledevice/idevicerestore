@@ -109,6 +109,7 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 	plist_dict_insert_item(tss_request, "ApBoardID", plist_new_uint(board_id));
 	plist_dict_insert_item(tss_request, "ApSecurityDomain", plist_new_uint(security_domain));
 	plist_dict_insert_item(tss_request, "UniqueBuildID", plist_new_data(unique_build_data, unique_build_size));
+	free(unique_build_data);
 
 	// Add all firmware files to TSS request
 	plist_t manifest_node = plist_dict_get_item(restore_identity_dict, "Manifest");
@@ -135,11 +136,13 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 		plist_dict_insert_item(tss_request, key, tss_entry);
 		free(key);
 	}
+	plist_free(manifest_node);
 
 	int sz = 0;
 	char* xml = NULL;
 	plist_to_xml(tss_request, &xml, &sz);
-	printf("%s", xml);
+	debug("%s", xml);
+	free(xml);
 
 	return tss_request;
 }
@@ -218,7 +221,8 @@ plist_t tss_send_request(plist_t tss_request) {
 	int sz = 0;
 	char* xml = NULL;
 	plist_to_xml(tss_response, &xml, &sz);
-	printf("%s", xml);
+	debug("%s", xml);
+	free(xml);
 
 	return tss_response;
 }

@@ -25,19 +25,13 @@
 #include <zip.h>
 
 typedef struct {
-	struct zip* zip;
-} ipsw_archive;
-
-typedef struct {
 	int index;
 	char* name;
 	unsigned int size;
 	unsigned char* data;
 } ipsw_file;
 
-ipsw_archive* ipsw_open(const char* ipsw);
-ipsw_file* ipsw_extract_file(ipsw_archive* archive, const char* filename);
+ipsw_file* ipsw_extract_file(const char* ipsw, const char* filename);
 void ipsw_free_file(ipsw_file* file);
-void ipsw_close(ipsw_archive* archive);
 
 #endif
