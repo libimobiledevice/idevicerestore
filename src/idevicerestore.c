@@ -42,6 +42,7 @@ int idevicerestore_debug = 0;
 void usage(int argc, char* argv[]);
 int write_file(const char* filename, char* data, int size);
 int send_ibec(char* ipsw, plist_t tss);
+int send_applelogo(char* ipsw, plist_t tss);
 int send_devicetree(char* ipsw, plist_t tss);
 int send_ramdisk(char* ipsw, plist_t tss);
 int send_kernelcache(char* ipsw, plist_t tss);
@@ -226,6 +227,12 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 	sleep(1);
+
+	if (send_applelogo(ipsw, tss_response) < 0) {
+		error("ERROR: Unable to send AppleLogo\n");
+		plist_free(tss_response);
+		return -1;
+	}
 
 	if (send_devicetree(ipsw, tss_response) < 0) {
 		error("ERROR: Unable to send DeviceTree\n");
@@ -450,6 +457,136 @@ int send_ibec(char* ipsw, plist_t tss) {
 	return 0;
 }
 
+int send_applelogo(char* ipsw, plist_t tss) {
+	int i = 0;
+	irecv_error_t error = 0;
+	irecv_client_t client = NULL;
+	info("Sending AppleLogo...\n");
+	for (i = 10; i > 0; i--) {
+		error = irecv_open(&client);
+		if (error == IRECV_E_SUCCESS) {
+			break;
+		}
+
+		if (i == 0) {
+			error("Unable to connect to iBEC\n");
+			return -1;
+		}
+
+		sleep(3);
+		info("Retrying connection...\n");
+	}
+
+	char* path = NULL;
+	char* blob = NULL;
+	info("Extracting data from TSS response\n");
+	if (get_tss_data(tss, "RestoreLogo", &path, &blob) < 0) {
+		error("ERROR: Unable to get data for TSS entry\n");
+		irecv_close(client);
+		client = NULL;
+		return -1;
+	}
+
+	info("Extracting %s from %s\n", path, ipsw);
+	ipsw_file* applelogo = ipsw_extract_file(ipsw, path);
+	if (applelogo == NULL) {
+		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
+		irecv_close(client);
+		client = NULL;
+		free(path);
+		free(blob);
+		return -1;
+	}
+
+	img3_file* img3 = img3_parse_file(applelogo->data, applelogo->size);
+	if (img3 == NULL) {
+		error("ERROR: Unable to parse IMG3: %s\n", path);
+		ipsw_free_file(applelogo);
+		irecv_close(client);
+		client = NULL;
+		free(path);
+		free(blob);
+		return -1;
+	}
+	if (applelogo) {
+		ipsw_free_file(applelogo);
+		applelogo = NULL;
+	}
+
+	if (img3_replace_signature(img3, blob) < 0) {
+		error("ERROR: Unable to replace IMG3 signature\n");
+		irecv_close(client);
+		client = NULL;
+		free(path);
+		free(blob);
+		return -1;
+	}
+	if (blob) {
+		free(blob);
+		blob = NULL;
+	}
+
+	int size = 0;
+	char* data = NULL;
+	if (img3_get_data(img3, &data, &size) < 0) {
+		error("ERROR: Unable to reconstruct IMG3\n");
+		irecv_close(client);
+		img3_free(img3);
+		client = NULL;
+		free(path);
+		return -1;
+	}
+
+	if (idevicerestore_debug) {
+		char* out = strrchr(path, '/');
+		if (out != NULL) {
+			out++;
+		} else {
+			out = path;
+		}
+		write_file(out, data, size);
+	}
+
+	error = irecv_send_buffer(client, data, size);
+	if (error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to send IMG3: %s\n", path);
+		irecv_close(client);
+		img3_free(img3);
+		client = NULL;
+		free(data);
+		free(path);
+		return -1;
+	}
+	if (img3) {
+		img3_free(img3);
+		img3 = NULL;
+	}
+	if (data) {
+		free(data);
+		data = NULL;
+	}
+	if (path) {
+		free(path);
+		path = NULL;
+	}
+
+	error = irecv_send_command(client, "setpicture 1");
+	error = irecv_send_command(client, "bgcolor 0 0 0");
+	if (error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to set AppleLogo\n");
+		irecv_close(client);
+		client = NULL;
+		free(data);
+		return -1;
+	}
+
+	if (client) {
+		irecv_close(client);
+		client = NULL;
+	}
+	return 0;
+}
+
 int send_devicetree(char* ipsw, plist_t tss) {
 	int i = 0;
 	irecv_error_t error = 0;
@@ -473,7 +610,7 @@ int send_devicetree(char* ipsw, plist_t tss) {
 	char* path = NULL;
 	char* blob = NULL;
 	info("Extracting data from TSS response\n");
-	if (get_tss_data(tss, "DeviceTree", &path, &blob) < 0) {
+	if (get_tss_data(tss, "RestoreDeviceTree", &path, &blob) < 0) {
 		error("ERROR: Unable to get data for TSS entry\n");
 		irecv_close(client);
 		client = NULL;
@@ -731,7 +868,7 @@ int send_kernelcache(char* ipsw, plist_t tss) {
 	char* path = NULL;
 	char* blob = NULL;
 	info("Extracting data from TSS response\n");
-	if (get_tss_data(tss, "KernelCache", &path, &blob) < 0) {
+	if (get_tss_data(tss, "RestoreKernelCache", &path, &blob) < 0) {
 		error("ERROR: Unable to get data for TSS entry\n");
 		irecv_close(client);
 		client = NULL;
