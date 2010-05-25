@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
 	char* ipsw = NULL;
 	char* uuid = NULL;
 	uint64_t ecid = 0;
-	while ((opt = getopt(argc, argv, "vdhi:u:")) > 0) {
+	while ((opt = getopt(argc, argv, "vdhu:")) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -73,10 +73,6 @@ int main(int argc, char* argv[]) {
 			idevicerestore_debug = 3;
 			break;
 
-		case 'i':
-			ipsw = optarg;
-			break;
-
 		case 'u':
 			uuid = optarg;
 			break;
@@ -86,6 +82,12 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 	}
+
+	argc -= optind;
+	argv += optind;
+
+	if (argc == 1)
+		ipsw = argv[0];
 
 	if (ipsw == NULL) {
 		error("ERROR: Please supply an IPSW\n");
@@ -394,14 +396,12 @@ void device_callback(const idevice_event_t* event, void *user_data) {
 
 void usage(int argc, char* argv[]) {
 	char *name = strrchr(argv[0], '/');
-	printf("Usage: %s [OPTIONS]\n", (name ? name + 1 : argv[0]));
-	printf("Restore firmware and filesystem to iPhone/iPod Touch.\n");
+	printf("Usage: %s [OPTIONS] FILE\n", (name ? name + 1 : argv[0]));
+	printf("Restore/upgrade IPSW firmware FILE to an iPhone/iPod Touch.\n");
 	printf("  -d, \t\tenable communication debugging\n");
-	printf("  -v, \t\tenable incremental levels of verboseness\n");
-	//printf("  -r, \t\tput device into recovery mode\n");
-	printf("  -i, \t\ttarget filesystem to install onto device\n");
 	printf("  -u, \t\ttarget specific device by its 40-digit device UUID\n");
 	printf("  -h, \t\tprints usage information\n");
+	printf("  -v, \t\tenable incremental levels of verboseness\n");
 	printf("\n");
 	exit(1);
 }
