@@ -46,11 +46,11 @@ static int idevicerestore_mode = 0;
 
 void usage(int argc, char* argv[]);
 int write_file(const char* filename, char* data, int size);
-int send_ibec(char* ipsw, plist_t tss);
-int send_applelogo(char* ipsw, plist_t tss);
-int send_devicetree(char* ipsw, plist_t tss);
-int send_ramdisk(char* ipsw, plist_t tss);
-int send_kernelcache(char* ipsw, plist_t tss);
+int irecv_send_ibec(char* ipsw, plist_t tss);
+int irecv_send_applelogo(char* ipsw, plist_t tss);
+int irecv_send_devicetree(char* ipsw, plist_t tss);
+int irecv_send_ramdisk(char* ipsw, plist_t tss);
+int irecv_send_kernelcache(char* ipsw, plist_t tss);
 int get_tss_data(plist_t tss, const char* entry, char** path, char** blob);
 void device_callback(const idevice_event_t* event, void *user_data);
 
@@ -101,6 +101,7 @@ int main(int argc, char* argv[]) {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
+	/* determine recovery or normal mode */
 	info("Checking for device in normal mode...\n");
 	device_error = 1;//idevice_new(&device, uuid);
 	if (device_error != IDEVICE_E_SUCCESS) {
@@ -118,6 +119,7 @@ int main(int argc, char* argv[]) {
 		idevicerestore_mode = NORMAL_MODE;
 	}
 
+	/* retrieve ECID */
 	if (idevicerestore_mode == NORMAL_MODE) {
 		lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
 		if (lockdown_error != LOCKDOWN_E_SUCCESS) {
@@ -166,6 +168,7 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
+	/* parse buildmanifest */
 	int  buildmanifest_size = 0;
 	char* buildmanifest_data = NULL;
 	info("Extracting BuildManifest.plist from IPSW\n");
@@ -226,8 +229,8 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
+	/* place device into recovery mode if required */
 	if (idevicerestore_mode == NORMAL_MODE) {
-		// Place the device in recovery mode
 		info("Entering recovery mode...\n");
 		device_error = idevice_new(&device, uuid);
 		if (device_error != IDEVICE_E_SUCCESS) {
@@ -259,26 +262,27 @@ int main(int argc, char* argv[]) {
 		device = NULL;
 	}
 
-	if (send_ibec(ipsw, tss_response) < 0) {
+	/* upload data to make device boot restore mode */
+	if (irecv_send_ibec(ipsw, tss_response) < 0) {
 		error("ERROR: Unable to send iBEC\n");
 		plist_free(tss_response);
 		return -1;
 	}
 	sleep(1);
 
-	if (send_applelogo(ipsw, tss_response) < 0) {
+	if (irecv_send_applelogo(ipsw, tss_response) < 0) {
 		error("ERROR: Unable to send AppleLogo\n");
 		plist_free(tss_response);
 		return -1;
 	}
 
-	if (send_devicetree(ipsw, tss_response) < 0) {
+	if (irecv_send_devicetree(ipsw, tss_response) < 0) {
 		error("ERROR: Unable to send DeviceTree\n");
 		plist_free(tss_response);
 		return -1;
 	}
 
-	if (send_ramdisk(ipsw, tss_response) < 0) {
+	if (irecv_send_ramdisk(ipsw, tss_response) < 0) {
 		error("ERROR: Unable to send Ramdisk\n");
 		plist_free(tss_response);
 		return -1;
@@ -288,7 +292,7 @@ int main(int argc, char* argv[]) {
 	printf("Hit any key to continue...");
 	getchar();
 
-	if (send_kernelcache(ipsw, tss_response) < 0) {
+	if (irecv_send_kernelcache(ipsw, tss_response) < 0) {
 		error("ERROR: Unable to send KernelCache\n");
 		plist_free(tss_response);
 		return -1;
@@ -309,6 +313,7 @@ int main(int argc, char* argv[]) {
 		//return -1;
 	}
 	idevice_set_debug_level(5);
+
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = restored_client_new(device, &restore, "idevicerestore");
 	if (restore_error != RESTORE_E_SUCCESS) {
@@ -329,7 +334,7 @@ int main(int argc, char* argv[]) {
 	}
 	info("Device has successfully entered restore mode\n");
 
-	/* start restored service and retrieve port */
+	/* start restore process */
 	int quit_flag = 0;
 	char* kernelcache = NULL;
 	printf("Restore protocol version is %llu.\n", version);
@@ -343,18 +348,18 @@ int main(int argc, char* argv[]) {
 				char *msgtype = NULL;
 				plist_get_string_val(msgtype_node, &msgtype);
 				if (!strcmp(msgtype, "ProgressMsg")) {
-					restore_error = progress_msg(restore, message);
+					restore_error = restored_handle_progress_msg(restore, message);
 
 				} else if (!strcmp(msgtype, "DataRequestMsg")) {
-					//restore_error = data_request_msg(device, restore, message, filesystem);
+					//restore_error = restored_handle_data_request_msg(device, restore, message, filesystem);
 					plist_t datatype_node = plist_dict_get_item(message, "DataType");
 					if (datatype_node && PLIST_STRING == plist_get_node_type(datatype_node)) {
 						char *datatype = NULL;
 						plist_get_string_val(datatype_node, &datatype);
 						if (!strcmp(datatype, "SystemImageData")) {
-							send_system_data(device, restore, filesystem);
+							asr_send_system_image_data_from_file(device, restore, filesystem);
 						} else if (!strcmp(datatype, "KernelCache")) {
-							send_kernel_data(device, restore, kernelcache);
+							restored_send_kernel_cache_from_file(restore, kernelcache);
 						} else if (!strcmp(datatype, "NORData")) {
 							send_nor_data(device, restore);
 						} else {
@@ -365,7 +370,7 @@ int main(int argc, char* argv[]) {
 					}
 
 				} else if (!strcmp(msgtype, "StatusMsg")) {
-					restore_error = status_msg(restore, message);
+					restore_error = restored_handle_status_msg(restore, message);
 
 				} else {
 					printf("Received unknown message type: %s\n", msgtype);
@@ -406,20 +411,20 @@ void usage(int argc, char* argv[]) {
 	exit(1);
 }
 
-int progress_msg(restored_client_t client, plist_t msg) {
+int restored_handle_progress_msg(restored_client_t client, plist_t msg) {
 	info("Got progress message\n");
 	return 0;
 }
 
-int data_request_msg(idevice_t device, restored_client_t client, plist_t msg, const char *filesystem, const char *kernel) {
+int restored_handle_data_request_msg(idevice_t device, restored_client_t client, plist_t msg, const char *filesystem, const char *kernel) {
 	plist_t datatype_node = plist_dict_get_item(msg, "DataType");
 	if (datatype_node && PLIST_STRING == plist_get_node_type(datatype_node)) {
 		char *datatype = NULL;
 		plist_get_string_val(datatype_node, &datatype);
 		if (!strcmp(datatype, "SystemImageData")) {
-			send_system_data(device, client, filesystem);
+			asr_send_system_image_data_from_file(device, client, filesystem);
 		} else if (!strcmp(datatype, "KernelCache")) {
-			send_kernel_data(device, client, kernel);
+			restored_send_kernel_cache_from_file(client, kernel);
 		} else if (!strcmp(datatype, "NORData")) {
 			send_nor_data(device, client);
 		} else {
@@ -431,12 +436,12 @@ int data_request_msg(idevice_t device, restored_client_t client, plist_t msg, co
 	return 0;
 }
 
-int status_msg(restored_client_t client, plist_t msg) {
+int restored_handle_status_msg(restored_client_t client, plist_t msg) {
 	info("Got status message\n");
 	return 0;
 }
 
-int send_system_data(idevice_t device, restored_client_t client, const char *filesystem) {
+int asr_send_system_image_data_from_file(idevice_t device, restored_client_t client, const char *filesystem) {
 	int i = 0;
 	char buffer[0x1000];
 	uint32_t recv_bytes = 0;
@@ -600,7 +605,7 @@ int send_system_data(idevice_t device, restored_client_t client, const char *fil
 	return ret;
 }
 
-int send_kernel_data(idevice_t device, restored_client_t client, const char *kernel) {
+int restored_send_kernel_cache_from_file(restored_client_t client, const char *kernel) {
 	printf("Sending kernelcache\n");
 	FILE* fd = fopen(kernel, "rb");
 	if (fd == NULL) {
@@ -703,69 +708,42 @@ int get_tss_data(plist_t tss, const char* entry, char** ppath, char** pblob) {
 	return 0;
 }
 
-int send_ibec(char* ipsw, plist_t tss) {
-	int i = 0;
-	irecv_error_t error = 0;
-	irecv_client_t client = NULL;
-	info("Sending iBEC...\n");
-	for (i = 10; i > 0; i--) {
-		error = irecv_open(&client);
-		if (error == IRECV_E_SUCCESS) {
-			irecv_send_command(client, "setenv auto-boot true");
-			irecv_send_command(client, "saveenv");
-			break;
-		}
-
-		if (i == 0) {
-			error("Unable to connect to iBoot\n");
-			return -1;
-		}
-
-		sleep(2);
-		info("Retrying connection...\n");
-	}
-
+static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_t tss, char* component) {
 	char* path = NULL;
 	char* blob = NULL;
-	info("Extracting data from TSS response\n");
-	if (get_tss_data(tss, "iBEC", &path, &blob) < 0) {
-		error("ERROR: Unable to get data for TSS entry\n");
-		irecv_close(client);
-		client = NULL;
+	irecv_error_t error = 0;
+
+	info("Extracting %s from TSS response\n", component);
+	if (get_tss_data(tss, component, &path, &blob) < 0) {
+		error("ERROR: Unable to get data for TSS %s entry\n", component);
 		return -1;
 	}
 
-	int ibec_size = 0;
-	char* ibec_data = NULL;
+	int component_size = 0;
+	char* component_data = NULL;
 	info("Extracting %s from %s\n", path, ipsw);
-	if (ipsw_extract_to_memory(ipsw, path, &ibec_data, &ibec_size)) {
+	if (ipsw_extract_to_memory(ipsw, path, &component_data, &component_size) < 0) {
 		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
-		irecv_close(client);
-		client = NULL;
 		free(path);
 		free(blob);
 		return -1;
 	}
 
-	img3_file* img3 = img3_parse_file(ibec_data, ibec_size);
+	img3_file* img3 = img3_parse_file(component_data, component_size);
 	if (img3 == NULL) {
 		error("ERROR: Unable to parse IMG3: %s\n", path);
-		irecv_close(client);
-		client = NULL;
-		free(ibec_data);
+		free(component_data);
 		free(path);
 		free(blob);
 		return -1;
 	}
-	if (ibec_data) {
-		free(ibec_data);
-		ibec_data = NULL;
+	if (component_data) {
+		free(component_data);
+		component_data = NULL;
 	}
 
 	if (img3_replace_signature(img3, blob) < 0) {
 		error("ERROR: Unable to replace IMG3 signature\n");
-		irecv_close(client);
-		client = NULL;
 		free(path);
 		free(blob);
 		return -1;
@@ -779,9 +757,7 @@ int send_ibec(char* ipsw, plist_t tss) {
 	char* data = NULL;
 	if (img3_get_data(img3, &data, &size) < 0) {
 		error("ERROR: Unable to reconstruct IMG3\n");
-		irecv_close(client);
 		img3_free(img3);
-		client = NULL;
 		free(path);
 		return -1;
 	}
@@ -799,13 +775,13 @@ int send_ibec(char* ipsw, plist_t tss) {
 	error = irecv_send_buffer(client, data, size);
 	if (error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send IMG3: %s\n", path);
-		irecv_close(client);
 		img3_free(img3);
-		client = NULL;
 		free(data);
 		free(path);
 		return -1;
 	}
+
+leave:
 	if (img3) {
 		img3_free(img3);
 		img3 = NULL;
@@ -819,12 +795,59 @@ int send_ibec(char* ipsw, plist_t tss) {
 		path = NULL;
 	}
 
-	error = irecv_send_command(client, "go");
+	return 0;
+}
+
+static irecv_error_t irecv_open_with_timeout(irecv_client_t *client) {
+	irecv_error_t error = 0;
+	int i = 0;
+
+	for (i = 10; i > 0; i--) {
+		error = irecv_open(client);
+		if (error == IRECV_E_SUCCESS) {
+			break;
+		}
+
+		if (i == 0) {
+			error("Unable to connect to recovery device.\n");
+			return -1;
+		}
+
+		sleep(3);
+		info("Retrying connection...\n");
+	}
+
+	return error;
+}
+
+int irecv_send_ibec(char* ipsw, plist_t tss) {
+	irecv_error_t error = 0;
+	irecv_client_t client = NULL;
+	char *component = "iBEC";
+	info("Sending %s...\n", component);
+
+	error = irecv_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to execute iBEC\n");
 		irecv_close(client);
 		client = NULL;
-		free(data);
+		return -1;
+	}
+
+	irecv_send_command(client, "setenv auto-boot true");
+	irecv_send_command(client, "saveenv");	
+
+	if (irecv_send_signed_component(client, ipsw, tss, component) < 0) {
+		error("ERROR: Unable to send %s to device.\n", component);
+		irecv_close(client);
+		client = NULL;
+		return -1;
+	}
+
+	error = irecv_send_command(client, "go");
+	if (error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to execute %s\n", component);
+		irecv_close(client);
+		client = NULL;
 		return -1;
 	}
 
@@ -835,127 +858,33 @@ int send_ibec(char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int send_applelogo(char* ipsw, plist_t tss) {
-	int i = 0;
+int irecv_send_applelogo(char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
-	info("Sending AppleLogo...\n");
-	for (i = 10; i > 0; i--) {
-		error = irecv_open(&client);
-		if (error == IRECV_E_SUCCESS) {
-			break;
-		}
+	char *component = "AppleLogo";
 
-		if (i == 0) {
-			error("Unable to connect to iBEC\n");
-			return -1;
-		}
+	info("Sending %s...\n", component);
 
-		sleep(3);
-		info("Retrying connection...\n");
-	}
-
-	char* path = NULL;
-	char* blob = NULL;
-	info("Extracting data from TSS response\n");
-	if (get_tss_data(tss, "RestoreLogo", &path, &blob) < 0) {
-		error("ERROR: Unable to get data for TSS entry\n");
-		irecv_close(client);
-		client = NULL;
-		return -1;
-	}
-
-	int applelogo_size = 0;
-	char* applelogo_data = NULL;
-	info("Extracting %s from %s\n", path, ipsw);
-	if (ipsw_extract_to_memory(ipsw, path, &applelogo_data, &applelogo_size) < 0) {
-		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
-		irecv_close(client);
-		client = NULL;
-		free(path);
-		free(blob);
-		return -1;
-	}
-
-	img3_file* img3 = img3_parse_file(applelogo_data, applelogo_size);
-	if (img3 == NULL) {
-		error("ERROR: Unable to parse IMG3: %s\n", path);
-		irecv_close(client);
-		client = NULL;
-		free(applelogo_data);
-		free(path);
-		free(blob);
-		return -1;
-	}
-	if (applelogo_data) {
-		free(applelogo_data);
-		applelogo_data = NULL;
-	}
-
-	if (img3_replace_signature(img3, blob) < 0) {
-		error("ERROR: Unable to replace IMG3 signature\n");
-		irecv_close(client);
-		client = NULL;
-		free(path);
-		free(blob);
-		return -1;
-	}
-	if (blob) {
-		free(blob);
-		blob = NULL;
-	}
-
-	int size = 0;
-	char* data = NULL;
-	if (img3_get_data(img3, &data, &size) < 0) {
-		error("ERROR: Unable to reconstruct IMG3\n");
-		irecv_close(client);
-		img3_free(img3);
-		client = NULL;
-		free(path);
-		return -1;
-	}
-
-	if (idevicerestore_debug) {
-		char* out = strrchr(path, '/');
-		if (out != NULL) {
-			out++;
-		} else {
-			out = path;
-		}
-		write_file(out, data, size);
-	}
-
-	error = irecv_send_buffer(client, data, size);
+	error = irecv_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to send IMG3: %s\n", path);
 		irecv_close(client);
-		img3_free(img3);
 		client = NULL;
-		free(data);
-		free(path);
 		return -1;
 	}
-	if (img3) {
-		img3_free(img3);
-		img3 = NULL;
-	}
-	if (data) {
-		free(data);
-		data = NULL;
-	}
-	if (path) {
-		free(path);
-		path = NULL;
+
+	if (irecv_send_signed_component(client, ipsw, tss, component) < 0) {
+		error("ERROR: Unable to send %s to device.\n", component);
+		irecv_close(client);
+		client = NULL;
+		return -1;
 	}
 
 	error = irecv_send_command(client, "setpicture 1");
 	error = irecv_send_command(client, "bgcolor 0 0 0");
 	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to set AppleLogo\n");
+		error("ERROR: Unable to set %s\n", component);
 		irecv_close(client);
 		client = NULL;
-		free(data);
 		return -1;
 	}
 
@@ -966,126 +895,32 @@ int send_applelogo(char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int send_devicetree(char* ipsw, plist_t tss) {
-	int i = 0;
+int irecv_send_devicetree(char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
-	info("Sending DeviceTree...\n");
-	for (i = 10; i > 0; i--) {
-		error = irecv_open(&client);
-		if (error == IRECV_E_SUCCESS) {
-			break;
-		}
+	char *component = "RestoreDeviceTree";
 
-		if (i == 0) {
-			error("Unable to connect to iBEC\n");
-			return -1;
-		}
+	info("Sending %s...\n", component);
 
-		sleep(3);
-		info("Retrying connection...\n");
-	}
-
-	char* path = NULL;
-	char* blob = NULL;
-	info("Extracting data from TSS response\n");
-	if (get_tss_data(tss, "RestoreDeviceTree", &path, &blob) < 0) {
-		error("ERROR: Unable to get data for TSS entry\n");
-		irecv_close(client);
-		client = NULL;
-		return -1;
-	}
-
-	int devicetree_size = 0;
-	char* devicetree_data = NULL;
-	info("Extracting %s from %s\n", path, ipsw);
-	if (ipsw_extract_to_memory(ipsw, path, &devicetree_data, &devicetree_size) < 0) {
-		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
-		irecv_close(client);
-		client = NULL;
-		free(path);
-		free(blob);
-		return -1;
-	}
-
-	img3_file* img3 = img3_parse_file(devicetree_data, devicetree_size);
-	if (img3 == NULL) {
-		error("ERROR: Unable to parse IMG3: %s\n", path);
-		free(devicetree_data);
-		irecv_close(client);
-		client = NULL;
-		free(path);
-		free(blob);
-		return -1;
-	}
-	if (devicetree_data) {
-		free(devicetree_data);
-		devicetree_data = NULL;
-	}
-
-	if (img3_replace_signature(img3, blob) < 0) {
-		error("ERROR: Unable to replace IMG3 signature\n");
-		irecv_close(client);
-		client = NULL;
-		free(path);
-		free(blob);
-		return -1;
-	}
-	if (blob) {
-		free(blob);
-		blob = NULL;
-	}
-
-	int size = 0;
-	char* data = NULL;
-	if (img3_get_data(img3, &data, &size) < 0) {
-		error("ERROR: Unable to reconstruct IMG3\n");
-		irecv_close(client);
-		img3_free(img3);
-		client = NULL;
-		free(path);
-		return -1;
-	}
-
-	if (idevicerestore_debug) {
-		char* out = strrchr(path, '/');
-		if (out != NULL) {
-			out++;
-		} else {
-			out = path;
-		}
-		write_file(out, data, size);
-	}
-
-	error = irecv_send_buffer(client, data, size);
+	error = irecv_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to send IMG3: %s\n", path);
 		irecv_close(client);
-		img3_free(img3);
 		client = NULL;
-		free(data);
-		free(path);
 		return -1;
 	}
-	if (img3) {
-		img3_free(img3);
-		img3 = NULL;
-	}
-	if (data) {
-		free(data);
-		data = NULL;
-	}
-	if (path) {
-		free(path);
-		path = NULL;
+
+	if (irecv_send_signed_component(client, ipsw, tss, component) < 0) {
+		error("ERROR: Unable to send %s to device.\n", component);
+		irecv_close(client);
+		client = NULL;
+		return -1;
 	}
 
 	error = irecv_send_command(client, "devicetree");
 	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to execute DeviceTree\n");
+		error("ERROR: Unable to execute %s\n", component);
 		irecv_close(client);
 		client = NULL;
-		free(data);
 		return -1;
 	}
 
@@ -1096,126 +931,32 @@ int send_devicetree(char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int send_ramdisk(char* ipsw, plist_t tss) {
-	int i = 0;
+int irecv_send_ramdisk(char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
-	info("Sending Ramdisk...\n");
-	for (i = 10; i > 0; i--) {
-		error = irecv_open(&client);
-		if (error == IRECV_E_SUCCESS) {
-			break;
-		}
+	char *component = "RestoreRamDisk";
 
-		if (i == 0) {
-			error("Unable to connect to iBEC\n");
-			return -1;
-		}
+	info("Sending %s...\n", component);
 
-		sleep(3);
-		info("Retrying connection...\n");
-	}
-
-	char* path = NULL;
-	char* blob = NULL;
-	info("Extracting data from TSS response\n");
-	if (get_tss_data(tss, "RestoreRamDisk", &path, &blob) < 0) {
-		error("ERROR: Unable to get data for TSS entry\n");
-		irecv_close(client);
-		client = NULL;
-		return -1;
-	}
-
-	int ramdisk_size = 0;
-	char* ramdisk_data = NULL;
-	info("Extracting %s from %s\n", path, ipsw);
-	if (ipsw_extract_to_memory(ipsw, path, &ramdisk_data, &ramdisk_size) < 0) {
-		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
-		irecv_close(client);
-		client = NULL;
-		free(path);
-		free(blob);
-		return -1;
-	}
-
-	img3_file* img3 = img3_parse_file(ramdisk_data, ramdisk_size);
-	if (img3 == NULL) {
-		error("ERROR: Unable to parse IMG3: %s\n", path);
-		free(ramdisk_data);
-		irecv_close(client);
-		client = NULL;
-		free(path);
-		free(blob);
-		return -1;
-	}
-	if (ramdisk_data) {
-		free(ramdisk_data);
-		ramdisk_data = NULL;
-	}
-
-	if (img3_replace_signature(img3, blob) < 0) {
-		error("ERROR: Unable to replace IMG3 signature\n");
-		irecv_close(client);
-		client = NULL;
-		free(path);
-		free(blob);
-		return -1;
-	}
-	if (blob) {
-		free(blob);
-		blob = NULL;
-	}
-
-	int size = 0;
-	char* data = NULL;
-	if (img3_get_data(img3, &data, &size) < 0) {
-		error("ERROR: Unable to reconstruct IMG3\n");
-		irecv_close(client);
-		img3_free(img3);
-		client = NULL;
-		free(path);
-		return -1;
-	}
-
-	if (idevicerestore_debug) {
-		char* out = strrchr(path, '/');
-		if (out != NULL) {
-			out++;
-		} else {
-			out = path;
-		}
-		write_file(out, data, size);
-	}
-
-	error = irecv_send_buffer(client, data, size);
+	error = irecv_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to send IMG3: %s\n", path);
 		irecv_close(client);
-		img3_free(img3);
 		client = NULL;
-		free(data);
-		free(path);
 		return -1;
 	}
-	if (img3) {
-		img3_free(img3);
-		img3 = NULL;
-	}
-	if (data) {
-		free(data);
-		data = NULL;
-	}
-	if (path) {
-		free(path);
-		path = NULL;
+
+	if (irecv_send_signed_component(client, ipsw, tss, component) < 0) {
+		error("ERROR: Unable to send %s to device.\n", component);
+		irecv_close(client);
+		client = NULL;
+		return -1;
 	}
 
 	error = irecv_send_command(client, "ramdisk");
 	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to execute Ramdisk\n");
+		error("ERROR: Unable to execute %s\n", component);
 		irecv_close(client);
 		client = NULL;
-		free(data);
 		return -1;
 	}
 
@@ -1226,126 +967,32 @@ int send_ramdisk(char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int send_kernelcache(char* ipsw, plist_t tss) {
-	int i = 0;
+int irecv_send_kernelcache(char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
-	info("Sending KernelCache...\n");
-	for (i = 10; i > 0; i--) {
-		error = irecv_open(&client);
-		if (error == IRECV_E_SUCCESS) {
-			break;
-		}
+	char *component = "RestoreKernelCache";
 
-		if (i == 0) {
-			error("Unable to connect to iBEC\n");
-			return -1;
-		}
+	info("Sending %s...\n", component);
 
-		sleep(3);
-		info("Retrying connection...\n");
-	}
-
-	char* path = NULL;
-	char* blob = NULL;
-	info("Extracting data from TSS response\n");
-	if (get_tss_data(tss, "RestoreKernelCache", &path, &blob) < 0) {
-		error("ERROR: Unable to get data for TSS entry\n");
-		irecv_close(client);
-		client = NULL;
-		return -1;
-	}
-
-	int kernelcache_size = 0;
-	char* kernelcache_data = NULL;
-	info("Extracting %s from %s\n", path, ipsw);
-	if (ipsw_extract_to_memory(ipsw, path, &kernelcache_data, &kernelcache_size) < 0) {
-		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
-		irecv_close(client);
-		client = NULL;
-		free(path);
-		free(blob);
-		return -1;
-	}
-
-	img3_file* img3 = img3_parse_file(kernelcache_data, kernelcache_size);
-	if (img3 == NULL) {
-		error("ERROR: Unable to parse IMG3: %s\n", path);
-		free(kernelcache_data);
-		irecv_close(client);
-		client = NULL;
-		free(path);
-		free(blob);
-		return -1;
-	}
-	if (kernelcache_data) {
-		free(kernelcache_data);
-		kernelcache_data = NULL;
-	}
-
-	if (img3_replace_signature(img3, blob) < 0) {
-		error("ERROR: Unable to replace IMG3 signature\n");
-		irecv_close(client);
-		client = NULL;
-		free(path);
-		free(blob);
-		return -1;
-	}
-	if (blob) {
-		free(blob);
-		blob = NULL;
-	}
-
-	int size = 0;
-	char* data = NULL;
-	if (img3_get_data(img3, &data, &size) < 0) {
-		error("ERROR: Unable to reconstruct IMG3\n");
-		irecv_close(client);
-		img3_free(img3);
-		client = NULL;
-		free(path);
-		return -1;
-	}
-
-	if (idevicerestore_debug) {
-		char* out = strrchr(path, '/');
-		if (out != NULL) {
-			out++;
-		} else {
-			out = path;
-		}
-		write_file(out, data, size);
-	}
-
-	error = irecv_send_buffer(client, data, size);
+	error = irecv_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to send IMG3: %s\n", path);
 		irecv_close(client);
-		img3_free(img3);
 		client = NULL;
-		free(data);
-		free(path);
 		return -1;
 	}
-	if (img3) {
-		img3_free(img3);
-		img3 = NULL;
-	}
-	if (data) {
-		free(data);
-		data = NULL;
-	}
-	if (path) {
-		free(path);
-		path = NULL;
+
+	if (irecv_send_signed_component(client, ipsw, tss, component) < 0) {
+		error("ERROR: Unable to send %s to device.\n", component);
+		irecv_close(client);
+		client = NULL;
+		return -1;
 	}
 
 	error = irecv_send_command(client, "bootx");
 	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to execute iBEC\n");
+		error("ERROR: Unable to execute %s\n", component);
 		irecv_close(client);
 		client = NULL;
-		free(data);
 		return -1;
 	}
 
