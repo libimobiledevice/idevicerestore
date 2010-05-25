@@ -31,7 +31,7 @@ typedef struct {
 	unsigned char* data;
 } ipsw_file;
 
-ipsw_file* ipsw_extract_file(const char* ipsw, const char* filename);
+int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer, int* psize);
 void ipsw_free_file(ipsw_file* file);
 
 #endif

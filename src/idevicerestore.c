@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
 	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
 	info("Checking for device in normal mode...\n");
-	device_error = idevice_new(&device, uuid);
+	device_error = 1;//idevice_new(&device, uuid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		info("Checking for the device in recovery mode...\n");
 		recovery_error = irecv_open(&recovery);
@@ -164,16 +164,16 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
+	int  buildmanifest_size = 0;
+	char* buildmanifest_data = NULL;
 	info("Extracting BuildManifest.plist from IPSW\n");
-	ipsw_file* buildmanifest = ipsw_extract_file(ipsw, "BuildManifest.plist");
-	if (buildmanifest == NULL) {
+	if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &buildmanifest_data, &buildmanifest_size) < 0) {
 		error("ERROR: Unable to extract BuildManifest.plist IPSW\n");
 		return -1;
 	}
 
 	plist_t manifest = NULL;
-	plist_from_xml(buildmanifest->data, buildmanifest->size, &manifest);
-	ipsw_free_file(buildmanifest);
+	plist_from_xml(buildmanifest_data, buildmanifest_size, &manifest);
 
 	info("Creating TSS request\n");
 	plist_t tss_request = tss_create_request(manifest, ecid);
@@ -196,27 +196,33 @@ int main(int argc, char* argv[]) {
 	// Get name of filesystem DMG in IPSW
 	char* filesystem = NULL;
 	plist_t filesystem_node = plist_dict_get_item(tss_request, "OS");
-	if(!filesystem_node || plist_get_node_type(filesystem_node) != PLIST_DICT) {
+	if (!filesystem_node || plist_get_node_type(filesystem_node) != PLIST_DICT) {
 		error("ERROR: Unable to find OS filesystem\n");
 		plist_free(tss_request);
 		return -1;
 	}
 
 	plist_t filesystem_info_node = plist_dict_get_item(filesystem_node, "Info");
-	if(!filesystem_info_node || plist_get_node_type(filesystem_info_node) != PLIST_DICT) {
+	if (!filesystem_info_node || plist_get_node_type(filesystem_info_node) != PLIST_DICT) {
 		error("ERROR: Unable to find filesystem info node\n");
 		plist_free(tss_request);
 		return -1;
 	}
 
 	plist_t filesystem_info_path_node = plist_dict_get_item(filesystem_info_node, "Path");
-	if(!filesystem_info_path_node || plist_get_node_type(filesystem_info_path_node) != PLIST_STRING) {
+	if (!filesystem_info_path_node || plist_get_node_type(filesystem_info_path_node) != PLIST_STRING) {
 		error("ERROR: Unable to find filesystem info path node\n");
 		plist_free(tss_request);
 		return -1;
 	}
 	plist_get_string_val(filesystem_info_path_node, &filesystem);
 	plist_free(tss_request);
+
+	info("Extracting filesystem from IPSW\n");
+	if(ipsw_extract_to_file(ipsw, filesystem, filesystem) < 0) {
+		error("ERROR: Unable to extract filesystem\n");
+		return -1;
+	}
 
 	if (idevicerestore_mode == NORMAL_MODE) {
 		// Place the device in recovery mode
@@ -286,19 +292,24 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	idevice_event_subscribe(&device_callback, NULL);
+	//idevice_event_subscribe(&device_callback, NULL);
 	info("Waiting for device to enter restore mode\n");
-	while(idevicerestore_mode != RESTORE_MODE) sleep(1);
-	device_error = idevice_new(&device, uuid);
-	if (device_error != IDEVICE_E_SUCCESS) {
-		error("ERROR: Unable to open device\n");
-		plist_free(tss_response);
-		return -1;
+	while (idevicerestore_mode != RESTORE_MODE) {
+		device_error = idevice_new(&device, uuid);
+		if (device_error == IDEVICE_E_SUCCESS) {
+			idevicerestore_mode = RESTORE_MODE;
+			break;
+		}
+		sleep(2);
+		info("Got response %d\n", device_error);
+		info("Retrying connection...\n");
+		//plist_free(tss_response);
+		//return -1;
 	}
-
+	idevice_set_debug_level(5);
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = restored_client_new(device, &restore, "idevicerestore");
-	if(restore_error != RESTORE_E_SUCCESS) {
+	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to start restored client\n");
 		plist_free(tss_response);
 		idevice_free(device);
@@ -329,38 +340,32 @@ int main(int argc, char* argv[]) {
 			if (msgtype_node && PLIST_STRING == plist_get_node_type(msgtype_node)) {
 				char *msgtype = NULL;
 				plist_get_string_val(msgtype_node, &msgtype);
-				if(!strcmp(msgtype, "ProgressMsg")) {
+				if (!strcmp(msgtype, "ProgressMsg")) {
 					restore_error = progress_msg(restore, message);
 
-				}
-				else if(!strcmp(msgtype, "DataRequestMsg")) {
+				} else if (!strcmp(msgtype, "DataRequestMsg")) {
 					//restore_error = data_request_msg(device, restore, message, filesystem);
 					plist_t datatype_node = plist_dict_get_item(message, "DataType");
 					if (datatype_node && PLIST_STRING == plist_get_node_type(datatype_node)) {
 						char *datatype = NULL;
 						plist_get_string_val(datatype_node, &datatype);
-						if(!strcmp(datatype, "SystemImageData")) {
+						if (!strcmp(datatype, "SystemImageData")) {
 							send_system_data(device, restore, filesystem);
-						}
-						else if(!strcmp(datatype, "KernelCache")) {
+						} else if (!strcmp(datatype, "KernelCache")) {
 							send_kernel_data(device, restore, kernelcache);
-						}
-						else if(!strcmp(datatype, "NORData")) {
+						} else if (!strcmp(datatype, "NORData")) {
 							send_nor_data(device, restore);
-						}
-						else {
+						} else {
 							// Unknown DataType!!
 							error("Unknown DataType\n");
 							return -1;
 						}
 					}
 
-				}
-				else if(!strcmp(msgtype, "StatusMsg")) {
+				} else if (!strcmp(msgtype, "StatusMsg")) {
 					restore_error = status_msg(restore, message);
 
-				}
-				else {
+				} else {
 					printf("Received unknown message type: %s\n", msgtype);
 				}
 			}
@@ -382,7 +387,7 @@ int main(int argc, char* argv[]) {
 }
 
 void device_callback(const idevice_event_t* event, void *user_data) {
-	if(event->event == IDEVICE_DEVICE_ADD) {
+	if (event->event == IDEVICE_DEVICE_ADD) {
 		idevicerestore_mode = RESTORE_MODE;
 	}
 }
@@ -411,16 +416,13 @@ int data_request_msg(idevice_t device, restored_client_t client, plist_t msg, co
 	if (datatype_node && PLIST_STRING == plist_get_node_type(datatype_node)) {
 		char *datatype = NULL;
 		plist_get_string_val(datatype_node, &datatype);
-		if(!strcmp(datatype, "SystemImageData")) {
+		if (!strcmp(datatype, "SystemImageData")) {
 			send_system_data(device, client, filesystem);
-		}
-		else if(!strcmp(datatype, "KernelCache")) {
+		} else if (!strcmp(datatype, "KernelCache")) {
 			send_kernel_data(device, client, kernel);
-		}
-		else if(!strcmp(datatype, "NORData")) {
+		} else if (!strcmp(datatype, "NORData")) {
 			send_nor_data(device, client);
-		}
-		else {
+		} else {
 			// Unknown DataType!!
 			error("Unknown DataType\n");
 			return -1;
@@ -442,21 +444,21 @@ int send_system_data(idevice_t device, restored_client_t client, const char *fil
 	idevice_connection_t connection = NULL;
 	idevice_error_t ret = IDEVICE_E_UNKNOWN_ERROR;
 
-	for(i = 0; i < 5; i++) {
+	for (i = 0; i < 5; i++) {
 		ret = idevice_connect(device, ASR_PORT, &connection);
-		if(ret == IDEVICE_E_SUCCESS)
+		if (ret == IDEVICE_E_SUCCESS)
 			break;
 
 		else
 			sleep(1);
 	}
 
-	if(ret != IDEVICE_E_SUCCESS)
+	if (ret != IDEVICE_E_SUCCESS)
 		return ret;
 
 	memset(buffer, '\0', 0x1000);
-	ret = idevice_connection_receive(connection,  buffer, 0x1000, &recv_bytes);
-	if(ret != IDEVICE_E_SUCCESS) {
+	ret = idevice_connection_receive(connection, buffer, 0x1000, &recv_bytes);
+	if (ret != IDEVICE_E_SUCCESS) {
 		idevice_disconnect(connection);
 		return ret;
 	}
@@ -464,7 +466,7 @@ int send_system_data(idevice_t device, restored_client_t client, const char *fil
 	printf("%s", buffer);
 
 	FILE* fd = fopen(filesystem, "rb");
-	if(fd == NULL) {
+	if (fd == NULL) {
 		idevice_disconnect(connection);
 		return ret;
 	}
@@ -493,7 +495,7 @@ int send_system_data(idevice_t device, restored_client_t client, const char *fil
 	plist_to_xml(dict, &xml, &dict_size);
 
 	ret = idevice_connection_send(connection, xml, dict_size, &sent_bytes);
-	if(ret != IDEVICE_E_SUCCESS) {
+	if (ret != IDEVICE_E_SUCCESS) {
 		idevice_disconnect(connection);
 		return ret;
 	}
@@ -507,7 +509,7 @@ int send_system_data(idevice_t device, restored_client_t client, const char *fil
 	do {
 		memset(buffer, '\0', 0x1000);
 		ret = idevice_connection_receive(connection, buffer, 0x1000, &recv_bytes);
-		if(ret != IDEVICE_E_SUCCESS) {
+		if (ret != IDEVICE_E_SUCCESS) {
 			idevice_disconnect(connection);
 			return ret;
 		}
@@ -519,7 +521,7 @@ int send_system_data(idevice_t device, restored_client_t client, const char *fil
 		plist_t command_node = plist_dict_get_item(request, "Command");
 		if (command_node && PLIST_STRING == plist_get_node_type(command_node)) {
 			plist_get_string_val(command_node, &command);
-			if(!strcmp(command, "OOBData")) {
+			if (!strcmp(command, "OOBData")) {
 				plist_t oob_length_node = plist_dict_get_item(request, "OOB Length");
 				if (!oob_length_node || PLIST_UINT != plist_get_node_type(oob_length_node)) {
 					printf("Error fetching OOB Length\n");
@@ -539,14 +541,14 @@ int send_system_data(idevice_t device, restored_client_t client, const char *fil
 				plist_get_uint_val(oob_offset_node, &oob_offset);
 
 				char* oob_data = (char*) malloc(oob_length);
-				if(oob_data == NULL) {
+				if (oob_data == NULL) {
 					error("Out of memory\n");
 					idevice_disconnect(connection);
 					return IDEVICE_E_UNKNOWN_ERROR;
 				}
 
 				fseek(fd, oob_offset, SEEK_SET);
-				if(fread(oob_data, 1, oob_length, fd) != oob_length) {
+				if (fread(oob_data, 1, oob_length, fd) != oob_length) {
 					error("Unable to read filesystem offset\n");
 					idevice_disconnect(connection);
 					free(oob_data);
@@ -554,7 +556,7 @@ int send_system_data(idevice_t device, restored_client_t client, const char *fil
 				}
 
 				ret = idevice_connection_send(connection, oob_data, oob_length, &sent_bytes);
-				if(sent_bytes != oob_length || ret != IDEVICE_E_SUCCESS) {
+				if (sent_bytes != oob_length || ret != IDEVICE_E_SUCCESS) {
 					printf("Unable to send %d bytes to asr\n", sent_bytes);
 					idevice_disconnect(connection);
 					free(oob_data);
@@ -565,17 +567,17 @@ int send_system_data(idevice_t device, restored_client_t client, const char *fil
 			}
 		}
 
-	} while(strcmp(command, "Payload"));
+	} while (strcmp(command, "Payload"));
 
 	fseek(fd, 0, SEEK_SET);
 	char data[1450];
-	for(i = len; i > 0; i -= 1450) {
+	for (i = len; i > 0; i -= 1450) {
 		int size = 1450;
-		if(i < 1450) {
+		if (i < 1450) {
 			size = i;
 		}
 
-		if(fread(data, 1, size, fd) != (unsigned int)size) {
+		if (fread(data, 1, size, fd) != (unsigned int) size) {
 			fclose(fd);
 			idevice_disconnect(connection);
 			printf("Error reading filesystem\n");
@@ -583,11 +585,11 @@ int send_system_data(idevice_t device, restored_client_t client, const char *fil
 		}
 
 		ret = idevice_connection_send(connection, data, size, &sent_bytes);
-		if(ret != IDEVICE_E_SUCCESS) {
+		if (ret != IDEVICE_E_SUCCESS) {
 			fclose(fd);
 		}
 
-		if(i % (1450*1000) == 0) {
+		if (i % (1450 * 1000) == 0) {
 			printf(".");
 		}
 	}
@@ -601,7 +603,7 @@ int send_system_data(idevice_t device, restored_client_t client, const char *fil
 int send_kernel_data(idevice_t device, restored_client_t client, const char *kernel) {
 	printf("Sending kernelcache\n");
 	FILE* fd = fopen(kernel, "rb");
-	if(fd == NULL) {
+	if (fd == NULL) {
 		info("Unable to open kernelcache");
 		return -1;
 	}
@@ -611,13 +613,13 @@ int send_kernel_data(idevice_t device, restored_client_t client, const char *ker
 	fseek(fd, 0, SEEK_SET);
 
 	char* kernel_data = (char*) malloc(len);
-	if(kernel_data == NULL) {
+	if (kernel_data == NULL) {
 		error("Unable to allocate memory for kernel data");
 		fclose(fd);
 		return -1;
 	}
 
-	if(fread(kernel_data, 1, len, fd) != len) {
+	if (fread(kernel_data, 1, len, fd) != len) {
 		error("Unable to read kernel data\n");
 		free(kernel_data);
 		fclose(fd);
@@ -631,7 +633,7 @@ int send_kernel_data(idevice_t device, restored_client_t client, const char *ker
 	plist_dict_insert_item(dict, "KernelCacheFile", kernelcache_node);
 
 	restored_error_t ret = restored_send(client, dict);
-	if(ret != RESTORE_E_SUCCESS) {
+	if (ret != RESTORE_E_SUCCESS) {
 		error("Unable to send kernelcache data\n");
 		free(kernel_data);
 		plist_free(dict);
@@ -643,7 +645,6 @@ int send_kernel_data(idevice_t device, restored_client_t client, const char *ker
 	plist_free(dict);
 	return 0;
 }
-
 
 int send_nor_data(idevice_t device, restored_client_t client) {
 	info("Not implemented\n");
@@ -734,9 +735,10 @@ int send_ibec(char* ipsw, plist_t tss) {
 		return -1;
 	}
 
+	int ibec_size = 0;
+	char* ibec_data = NULL;
 	info("Extracting %s from %s\n", path, ipsw);
-	ipsw_file* ibec = ipsw_extract_file(ipsw, path);
-	if (ibec == NULL) {
+	if (ipsw_extract_to_memory(ipsw, path, &ibec_data, &ibec_size)) {
 		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
 		irecv_close(client);
 		client = NULL;
@@ -745,19 +747,19 @@ int send_ibec(char* ipsw, plist_t tss) {
 		return -1;
 	}
 
-	img3_file* img3 = img3_parse_file(ibec->data, ibec->size);
+	img3_file* img3 = img3_parse_file(ibec_data, ibec_size);
 	if (img3 == NULL) {
 		error("ERROR: Unable to parse IMG3: %s\n", path);
-		ipsw_free_file(ibec);
 		irecv_close(client);
 		client = NULL;
+		free(ibec_data);
 		free(path);
 		free(blob);
 		return -1;
 	}
-	if (ibec) {
-		ipsw_free_file(ibec);
-		ibec = NULL;
+	if (ibec_data) {
+		free(ibec_data);
+		ibec_data = NULL;
 	}
 
 	if (img3_replace_signature(img3, blob) < 0) {
@@ -863,9 +865,10 @@ int send_applelogo(char* ipsw, plist_t tss) {
 		return -1;
 	}
 
+	int applelogo_size = 0;
+	char* applelogo_data = NULL;
 	info("Extracting %s from %s\n", path, ipsw);
-	ipsw_file* applelogo = ipsw_extract_file(ipsw, path);
-	if (applelogo == NULL) {
+	if (ipsw_extract_to_memory(ipsw, path, &applelogo_data, &applelogo_size) < 0) {
 		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
 		irecv_close(client);
 		client = NULL;
@@ -874,19 +877,19 @@ int send_applelogo(char* ipsw, plist_t tss) {
 		return -1;
 	}
 
-	img3_file* img3 = img3_parse_file(applelogo->data, applelogo->size);
+	img3_file* img3 = img3_parse_file(applelogo_data, applelogo_size);
 	if (img3 == NULL) {
 		error("ERROR: Unable to parse IMG3: %s\n", path);
-		ipsw_free_file(applelogo);
 		irecv_close(client);
 		client = NULL;
+		free(applelogo_data);
 		free(path);
 		free(blob);
 		return -1;
 	}
-	if (applelogo) {
-		ipsw_free_file(applelogo);
-		applelogo = NULL;
+	if (applelogo_data) {
+		free(applelogo_data);
+		applelogo_data = NULL;
 	}
 
 	if (img3_replace_signature(img3, blob) < 0) {
@@ -993,9 +996,10 @@ int send_devicetree(char* ipsw, plist_t tss) {
 		return -1;
 	}
 
+	int devicetree_size = 0;
+	char* devicetree_data = NULL;
 	info("Extracting %s from %s\n", path, ipsw);
-	ipsw_file* devicetree = ipsw_extract_file(ipsw, path);
-	if (devicetree == NULL) {
+	if (ipsw_extract_to_memory(ipsw, path, &devicetree_data, &devicetree_size) < 0) {
 		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
 		irecv_close(client);
 		client = NULL;
@@ -1004,19 +1008,19 @@ int send_devicetree(char* ipsw, plist_t tss) {
 		return -1;
 	}
 
-	img3_file* img3 = img3_parse_file(devicetree->data, devicetree->size);
+	img3_file* img3 = img3_parse_file(devicetree_data, devicetree_size);
 	if (img3 == NULL) {
 		error("ERROR: Unable to parse IMG3: %s\n", path);
-		ipsw_free_file(devicetree);
+		free(devicetree_data);
 		irecv_close(client);
 		client = NULL;
 		free(path);
 		free(blob);
 		return -1;
 	}
-	if (devicetree) {
-		ipsw_free_file(devicetree);
-		devicetree = NULL;
+	if (devicetree_data) {
+		free(devicetree_data);
+		devicetree_data = NULL;
 	}
 
 	if (img3_replace_signature(img3, blob) < 0) {
@@ -1122,9 +1126,10 @@ int send_ramdisk(char* ipsw, plist_t tss) {
 		return -1;
 	}
 
+	int ramdisk_size = 0;
+	char* ramdisk_data = NULL;
 	info("Extracting %s from %s\n", path, ipsw);
-	ipsw_file* ramdisk = ipsw_extract_file(ipsw, path);
-	if (ramdisk == NULL) {
+	if (ipsw_extract_to_memory(ipsw, path, &ramdisk_data, &ramdisk_size) < 0) {
 		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
 		irecv_close(client);
 		client = NULL;
@@ -1133,19 +1138,19 @@ int send_ramdisk(char* ipsw, plist_t tss) {
 		return -1;
 	}
 
-	img3_file* img3 = img3_parse_file(ramdisk->data, ramdisk->size);
+	img3_file* img3 = img3_parse_file(ramdisk_data, ramdisk_size);
 	if (img3 == NULL) {
 		error("ERROR: Unable to parse IMG3: %s\n", path);
-		ipsw_free_file(ramdisk);
+		free(ramdisk_data);
 		irecv_close(client);
 		client = NULL;
 		free(path);
 		free(blob);
 		return -1;
 	}
-	if (ramdisk) {
-		ipsw_free_file(ramdisk);
-		ramdisk = NULL;
+	if (ramdisk_data) {
+		free(ramdisk_data);
+		ramdisk_data = NULL;
 	}
 
 	if (img3_replace_signature(img3, blob) < 0) {
@@ -1251,9 +1256,10 @@ int send_kernelcache(char* ipsw, plist_t tss) {
 		return -1;
 	}
 
+	int kernelcache_size = 0;
+	char* kernelcache_data = NULL;
 	info("Extracting %s from %s\n", path, ipsw);
-	ipsw_file* kernelcache = ipsw_extract_file(ipsw, path);
-	if (kernelcache == NULL) {
+	if (ipsw_extract_to_memory(ipsw, path, &kernelcache_data, &kernelcache_size) < 0) {
 		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
 		irecv_close(client);
 		client = NULL;
@@ -1262,19 +1268,19 @@ int send_kernelcache(char* ipsw, plist_t tss) {
 		return -1;
 	}
 
-	img3_file* img3 = img3_parse_file(kernelcache->data, kernelcache->size);
+	img3_file* img3 = img3_parse_file(kernelcache_data, kernelcache_size);
 	if (img3 == NULL) {
 		error("ERROR: Unable to parse IMG3: %s\n", path);
-		ipsw_free_file(kernelcache);
+		free(kernelcache_data);
 		irecv_close(client);
 		client = NULL;
 		free(path);
 		free(blob);
 		return -1;
 	}
-	if (kernelcache) {
-		ipsw_free_file(kernelcache);
-		kernelcache = NULL;
+	if (kernelcache_data) {
+		free(kernelcache_data);
+		kernelcache_data = NULL;
 	}
 
 	if (img3_replace_signature(img3, blob) < 0) {
@@ -1344,6 +1350,7 @@ int send_kernelcache(char* ipsw, plist_t tss) {
 	}
 
 	if (client) {
+		irecv_set_configuration(client, 4);
 		irecv_close(client);
 		client = NULL;
 	}
