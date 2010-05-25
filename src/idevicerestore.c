@@ -53,6 +53,7 @@ int irecv_send_ramdisk(char* ipsw, plist_t tss);
 int irecv_send_kernelcache(char* ipsw, plist_t tss);
 int get_tss_data(plist_t tss, const char* entry, char** path, char** blob);
 void device_callback(const idevice_event_t* event, void *user_data);
+int get_signed_component(char* ipsw, plist_t tss, char* component, char** pdata, int* psize);
 
 int main(int argc, char* argv[]) {
 	int opt = 0;
@@ -103,7 +104,7 @@ int main(int argc, char* argv[]) {
 
 	/* determine recovery or normal mode */
 	info("Checking for device in normal mode...\n");
-	device_error = 1;//idevice_new(&device, uuid);
+	device_error = idevice_new(&device, uuid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		info("Checking for the device in recovery mode...\n");
 		recovery_error = irecv_open(&recovery);
@@ -146,6 +147,7 @@ int main(int argc, char* argv[]) {
 
 		plist_get_uint_val(unique_chip_node, &ecid);
 		lockdownd_client_free(lockdown);
+		plist_free(unique_chip_node);
 		idevice_free(device);
 		lockdown = NULL;
 		device = NULL;
@@ -169,7 +171,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	/* parse buildmanifest */
-	int  buildmanifest_size = 0;
+	int buildmanifest_size = 0;
 	char* buildmanifest_data = NULL;
 	info("Extracting BuildManifest.plist from IPSW\n");
 	if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &buildmanifest_data, &buildmanifest_size) < 0) {
@@ -202,7 +204,7 @@ int main(int argc, char* argv[]) {
 	char* filesystem = NULL;
 	plist_t filesystem_node = plist_dict_get_item(tss_request, "OS");
 	if (!filesystem_node || plist_get_node_type(filesystem_node) != PLIST_DICT) {
-		error("ERROR: Unable to find OS filesystem\n");
+		error("ERROR: Unable to find filesystem node\n");
 		plist_free(tss_request);
 		return -1;
 	}
@@ -224,7 +226,7 @@ int main(int argc, char* argv[]) {
 	plist_free(tss_request);
 
 	info("Extracting filesystem from IPSW\n");
-	if(ipsw_extract_to_file(ipsw, filesystem, filesystem) < 0) {
+	if (ipsw_extract_to_file(ipsw, filesystem, filesystem) < 0) {
 		error("ERROR: Unable to extract filesystem\n");
 		return -1;
 	}
@@ -298,21 +300,18 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	//idevice_event_subscribe(&device_callback, NULL);
+	idevice_event_subscribe(&device_callback, NULL);
 	info("Waiting for device to enter restore mode\n");
 	while (idevicerestore_mode != RESTORE_MODE) {
-		device_error = idevice_new(&device, uuid);
-		if (device_error == IDEVICE_E_SUCCESS) {
-			idevicerestore_mode = RESTORE_MODE;
-			break;
-		}
 		sleep(2);
-		info("Got response %d\n", device_error);
-		info("Retrying connection...\n");
-		//plist_free(tss_response);
-		//return -1;
 	}
-	idevice_set_debug_level(5);
+
+	device_error = idevice_new(&device, uuid);
+	if (device_error != IDEVICE_E_SUCCESS) {
+		error("ERROR: Unable to open device\n");
+		plist_free(tss_response);
+		return -1;
+	}
 
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = restored_client_new(device, &restore, "idevicerestore");
@@ -326,7 +325,7 @@ int main(int argc, char* argv[]) {
 	char* type = NULL;
 	uint64_t version = 0;
 	if (restored_query_type(restore, &type, &version) != RESTORE_E_SUCCESS) {
-		printf("ERROR: Device is not in restore mode. QueryType returned \"%s\"\n", type);
+		error("ERROR: Device is not in restore mode. QueryType returned \"%s\"\n", type);
 		plist_free(tss_response);
 		restored_client_free(restore);
 		idevice_free(device);
@@ -337,7 +336,7 @@ int main(int argc, char* argv[]) {
 	/* start restore process */
 	int quit_flag = 0;
 	char* kernelcache = NULL;
-	printf("Restore protocol version is %llu.\n", version);
+	info("Restore protocol version is %llu.\n", version);
 	restore_error = restored_start_restore(restore);
 	if (restore_error == RESTORE_E_SUCCESS) {
 		while (!quit_flag) {
@@ -358,10 +357,20 @@ int main(int argc, char* argv[]) {
 						plist_get_string_val(datatype_node, &datatype);
 						if (!strcmp(datatype, "SystemImageData")) {
 							asr_send_system_image_data_from_file(device, restore, filesystem);
+
 						} else if (!strcmp(datatype, "KernelCache")) {
-							restored_send_kernel_cache_from_file(restore, kernelcache);
+							int kernelcache_size = 0;
+							char* kernelcache_data = NULL;
+							if(get_signed_component(ipsw, tss_response, "KernelCache", &kernelcache_data, &kernelcache_size) < 0) {
+								error("ERROR: Unable to get kernelcache file\n");
+								return -1;
+							}
+							restored_send_kernelcache(restore, kernelcache_data, kernelcache_size);
+							free(kernelcache_data);
+
 						} else if (!strcmp(datatype, "NORData")) {
 							send_nor_data(device, restore);
+
 						} else {
 							// Unknown DataType!!
 							error("Unknown DataType\n");
@@ -373,23 +382,24 @@ int main(int argc, char* argv[]) {
 					restore_error = restored_handle_status_msg(restore, message);
 
 				} else {
-					printf("Received unknown message type: %s\n", msgtype);
+					info("Received unknown message type: %s\n", msgtype);
 				}
 			}
 
 			if (RESTORE_E_SUCCESS != restore_error) {
-				printf("Invalid return status %d\n", restore_error);
+				error("Invalid return status %d\n", restore_error);
 			}
 
 			plist_free(message);
 		}
 	} else {
-		printf("ERROR: Could not start restore. %d\n", restore_error);
+		error("ERROR: Could not start restore. %d\n", restore_error);
 	}
 
 	restored_client_free(restore);
-	idevice_free(device);
 	plist_free(tss_response);
+	idevice_free(device);
+	unlink(filesystem);
 	return 0;
 }
 
@@ -424,7 +434,7 @@ int restored_handle_data_request_msg(idevice_t device, restored_client_t client,
 		if (!strcmp(datatype, "SystemImageData")) {
 			asr_send_system_image_data_from_file(device, client, filesystem);
 		} else if (!strcmp(datatype, "KernelCache")) {
-			restored_send_kernel_cache_from_file(client, kernel);
+			restored_send_kernelcache(client, kernel);
 		} else if (!strcmp(datatype, "NORData")) {
 			send_nor_data(device, client);
 		} else {
@@ -467,8 +477,8 @@ int asr_send_system_image_data_from_file(idevice_t device, restored_client_t cli
 		idevice_disconnect(connection);
 		return ret;
 	}
-	printf("Received %d bytes\n", recv_bytes);
-	printf("%s", buffer);
+	info("Received %d bytes\n", recv_bytes);
+	info("%s", buffer);
 
 	FILE* fd = fopen(filesystem, "rb");
 	if (fd == NULL) {
@@ -480,7 +490,7 @@ int asr_send_system_image_data_from_file(idevice_t device, restored_client_t cli
 	uint64_t len = ftell(fd);
 	fseek(fd, 0, SEEK_SET);
 
-	printf("Connected to ASR\n");
+	info("Connected to ASR\n");
 	plist_t dict = plist_new_dict();
 	plist_dict_insert_item(dict, "FEC Slice Stride", plist_new_uint(40));
 	plist_dict_insert_item(dict, "Packet Payload Size", plist_new_uint(1450));
@@ -505,8 +515,8 @@ int asr_send_system_image_data_from_file(idevice_t device, restored_client_t cli
 		return ret;
 	}
 
-	printf("Sent %d bytes\n", sent_bytes);
-	printf("%s", xml);
+	info("Sent %d bytes\n", sent_bytes);
+	info("%s", xml);
 	plist_free(dict);
 	free(xml);
 
@@ -529,7 +539,7 @@ int asr_send_system_image_data_from_file(idevice_t device, restored_client_t cli
 			if (!strcmp(command, "OOBData")) {
 				plist_t oob_length_node = plist_dict_get_item(request, "OOB Length");
 				if (!oob_length_node || PLIST_UINT != plist_get_node_type(oob_length_node)) {
-					printf("Error fetching OOB Length\n");
+					error("Error fetching OOB Length\n");
 					idevice_disconnect(connection);
 					return IDEVICE_E_UNKNOWN_ERROR;
 				}
@@ -562,7 +572,7 @@ int asr_send_system_image_data_from_file(idevice_t device, restored_client_t cli
 
 				ret = idevice_connection_send(connection, oob_data, oob_length, &sent_bytes);
 				if (sent_bytes != oob_length || ret != IDEVICE_E_SUCCESS) {
-					printf("Unable to send %d bytes to asr\n", sent_bytes);
+					error("Unable to send %d bytes to asr\n", sent_bytes);
 					idevice_disconnect(connection);
 					free(oob_data);
 					return ret;
@@ -585,7 +595,7 @@ int asr_send_system_image_data_from_file(idevice_t device, restored_client_t cli
 		if (fread(data, 1, size, fd) != (unsigned int) size) {
 			fclose(fd);
 			idevice_disconnect(connection);
-			printf("Error reading filesystem\n");
+			error("Error reading filesystem\n");
 			return IDEVICE_E_UNKNOWN_ERROR;
 		}
 
@@ -595,42 +605,18 @@ int asr_send_system_image_data_from_file(idevice_t device, restored_client_t cli
 		}
 
 		if (i % (1450 * 1000) == 0) {
-			printf(".");
+			info(".");
 		}
 	}
 
-	printf("Done sending filesystem\n");
+	info("Done sending filesystem\n");
 	fclose(fd);
 	ret = idevice_disconnect(connection);
 	return ret;
 }
 
-int restored_send_kernel_cache_from_file(restored_client_t client, const char *kernel) {
-	printf("Sending kernelcache\n");
-	FILE* fd = fopen(kernel, "rb");
-	if (fd == NULL) {
-		info("Unable to open kernelcache");
-		return -1;
-	}
-
-	fseek(fd, 0, SEEK_END);
-	uint64_t len = ftell(fd);
-	fseek(fd, 0, SEEK_SET);
-
-	char* kernel_data = (char*) malloc(len);
-	if (kernel_data == NULL) {
-		error("Unable to allocate memory for kernel data");
-		fclose(fd);
-		return -1;
-	}
-
-	if (fread(kernel_data, 1, len, fd) != len) {
-		error("Unable to read kernel data\n");
-		free(kernel_data);
-		fclose(fd);
-		return -1;
-	}
-	fclose(fd);
+int restored_send_kernelcache(restored_client_t client, char *kernel_data, int len) {
+	info("Sending kernelcache\n");
 
 	plist_t kernelcache_node = plist_new_data(kernel_data, len);
 
@@ -639,14 +625,12 @@ int restored_send_kernel_cache_from_file(restored_client_t client, const char *k
 
 	restored_error_t ret = restored_send(client, dict);
 	if (ret != RESTORE_E_SUCCESS) {
-		error("Unable to send kernelcache data\n");
-		free(kernel_data);
+		error("ERROR: Unable to send kernelcache data\n");
 		plist_free(dict);
 		return -1;
 	}
 
 	info("Done sending kernelcache\n");
-	free(kernel_data);
 	plist_free(dict);
 	return 0;
 }
@@ -708,9 +692,12 @@ int get_tss_data(plist_t tss, const char* entry, char** ppath, char** pblob) {
 	return 0;
 }
 
-static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_t tss, char* component) {
+int get_signed_component(char* ipsw, plist_t tss, char* component, char** pdata, int* psize) {
+	int size = 0;
+	char* data = NULL;
 	char* path = NULL;
 	char* blob = NULL;
+	img3_file* img3 = NULL;
 	irecv_error_t error = 0;
 
 	info("Extracting %s from TSS response\n", component);
@@ -719,27 +706,25 @@ static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_
 		return -1;
 	}
 
-	int component_size = 0;
-	char* component_data = NULL;
 	info("Extracting %s from %s\n", path, ipsw);
-	if (ipsw_extract_to_memory(ipsw, path, &component_data, &component_size) < 0) {
+	if (ipsw_extract_to_memory(ipsw, path, &data, &size) < 0) {
 		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
 		free(path);
 		free(blob);
 		return -1;
 	}
 
-	img3_file* img3 = img3_parse_file(component_data, component_size);
+	img3 = img3_parse_file(data, size);
 	if (img3 == NULL) {
 		error("ERROR: Unable to parse IMG3: %s\n", path);
-		free(component_data);
+		free(data);
 		free(path);
 		free(blob);
 		return -1;
 	}
-	if (component_data) {
-		free(component_data);
-		component_data = NULL;
+	if (data) {
+		free(data);
+		data = NULL;
 	}
 
 	if (img3_replace_signature(img3, blob) < 0) {
@@ -748,13 +733,7 @@ static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_
 		free(blob);
 		return -1;
 	}
-	if (blob) {
-		free(blob);
-		blob = NULL;
-	}
 
-	int size = 0;
-	char* data = NULL;
 	if (img3_get_data(img3, &data, &size) < 0) {
 		error("ERROR: Unable to reconstruct IMG3\n");
 		img3_free(img3);
@@ -762,6 +741,37 @@ static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_
 		return -1;
 	}
 
+	if (img3) {
+		img3_free(img3);
+		img3 = NULL;
+	}
+	if (blob) {
+		free(blob);
+		blob = NULL;
+	}
+	if (path) {
+		free(path);
+		path = NULL;
+	}
+
+	*pdata = data;
+	*psize = size;
+	return 0;
+}
+
+static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_t tss, char* component) {
+	int size = 0;
+	char* data = NULL;
+	char* path = NULL;
+	char* blob = NULL;
+	img3_file* img3 = NULL;
+	irecv_error_t error = 0;
+
+	if (get_signed_component(ipsw, tss, component, &data, &size) < 0) {
+		error("ERROR: Unable to get signed component: %s\n", component);
+		return -1;
+	}
+/*
 	if (idevicerestore_debug) {
 		char* out = strrchr(path, '/');
 		if (out != NULL) {
@@ -771,7 +781,8 @@ static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_
 		}
 		write_file(out, data, size);
 	}
-
+*/
+	info("Sending %s...\n", component);
 	error = irecv_send_buffer(client, data, size);
 	if (error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send IMG3: %s\n", path);
@@ -781,60 +792,56 @@ static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_
 		return -1;
 	}
 
-leave:
-	if (img3) {
-		img3_free(img3);
-		img3 = NULL;
-	}
 	if (data) {
 		free(data);
 		data = NULL;
-	}
-	if (path) {
-		free(path);
-		path = NULL;
 	}
 
 	return 0;
 }
 
-static irecv_error_t irecv_open_with_timeout(irecv_client_t *client) {
-	irecv_error_t error = 0;
+static irecv_error_t irecv_open_with_timeout(irecv_client_t* client) {
 	int i = 0;
-
+	irecv_error_t error = 0;
 	for (i = 10; i > 0; i--) {
 		error = irecv_open(client);
 		if (error == IRECV_E_SUCCESS) {
-			break;
+			return error;
 		}
 
-		if (i == 0) {
-			error("Unable to connect to recovery device.\n");
-			return -1;
-		}
-
-		sleep(3);
+		sleep(2);
 		info("Retrying connection...\n");
 	}
 
+	error("ERROR: Unable to connect to recovery device.\n");
 	return error;
 }
 
 int irecv_send_ibec(char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
-	char *component = "iBEC";
-	info("Sending %s...\n", component);
+	char* component = "iBEC";
 
 	error = irecv_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
+		return -1;
+	}
+
+	error = irecv_send_command(client, "setenv auto-boot true");
+	if (error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to set auto-boot environmental variable\n");
 		irecv_close(client);
 		client = NULL;
 		return -1;
 	}
 
-	irecv_send_command(client, "setenv auto-boot true");
-	irecv_send_command(client, "saveenv");	
+	error = irecv_send_command(client, "saveenv");
+	if (error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to save environmental variable\n");
+		irecv_close(client);
+		client = NULL;
+		return -1;
+	}
 
 	if (irecv_send_signed_component(client, ipsw, tss, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
@@ -861,14 +868,12 @@ int irecv_send_ibec(char* ipsw, plist_t tss) {
 int irecv_send_applelogo(char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
-	char *component = "AppleLogo";
+	char* component = "AppleLogo";
 
 	info("Sending %s...\n", component);
 
 	error = irecv_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
-		irecv_close(client);
-		client = NULL;
 		return -1;
 	}
 
@@ -880,9 +885,16 @@ int irecv_send_applelogo(char* ipsw, plist_t tss) {
 	}
 
 	error = irecv_send_command(client, "setpicture 1");
+	if(error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to set %s\n", component);
+		irecv_close(client);
+		client = NULL;
+		return -1;
+	}
+
 	error = irecv_send_command(client, "bgcolor 0 0 0");
 	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to set %s\n", component);
+		error("ERROR: Unable to display %s\n", component);
 		irecv_close(client);
 		client = NULL;
 		return -1;
@@ -900,12 +912,8 @@ int irecv_send_devicetree(char* ipsw, plist_t tss) {
 	irecv_client_t client = NULL;
 	char *component = "RestoreDeviceTree";
 
-	info("Sending %s...\n", component);
-
 	error = irecv_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
-		irecv_close(client);
-		client = NULL;
 		return -1;
 	}
 
@@ -936,12 +944,8 @@ int irecv_send_ramdisk(char* ipsw, plist_t tss) {
 	irecv_client_t client = NULL;
 	char *component = "RestoreRamDisk";
 
-	info("Sending %s...\n", component);
-
 	error = irecv_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
-		irecv_close(client);
-		client = NULL;
 		return -1;
 	}
 
@@ -972,12 +976,8 @@ int irecv_send_kernelcache(char* ipsw, plist_t tss) {
 	irecv_client_t client = NULL;
 	char *component = "RestoreKernelCache";
 
-	info("Sending %s...\n", component);
-
 	error = irecv_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
-		irecv_close(client);
-		client = NULL;
 		return -1;
 	}
 
@@ -997,7 +997,6 @@ int irecv_send_kernelcache(char* ipsw, plist_t tss) {
 	}
 
 	if (client) {
-		irecv_set_configuration(client, 4);
 		irecv_close(client);
 		client = NULL;
 	}
