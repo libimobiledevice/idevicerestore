@@ -125,7 +125,8 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 	plist_dict_new_iter(manifest_node, &iter);
 	while (1) {
 		plist_dict_next_item(manifest_node, iter, &key, &manifest_entry);
-		if (key == NULL) break;
+		if (key == NULL)
+			break;
 		if (!manifest_entry || plist_get_node_type(manifest_entry) != PLIST_DICT) {
 			error("ERROR: Unable to fetch BuildManifest entry\n");
 			free(tss_request);
@@ -148,15 +149,15 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 }
 
 size_t tss_write_callback(char* data, size_t size, size_t nmemb, tss_response* response) {
-  size_t total = size * nmemb;
-  if (total != 0) {
-    response->content = realloc(response->content, response->length + total + 1);
-    memcpy(response->content + response->length, data, total);
-    response->content[response->length + total] = '\0';
-    response->length += total;
-  }
+	size_t total = size * nmemb;
+	if (total != 0) {
+		response->content = realloc(response->content, response->length + total + 1);
+		memcpy(response->content + response->length, data, total);
+		response->content[response->length + total] = '\0';
+		response->length += total;
+	}
 
-  return total;
+	return total;
 }
 
 plist_t tss_send_request(plist_t tss_request) {
@@ -196,7 +197,7 @@ plist_t tss_send_request(plist_t tss_request) {
 	}
 	curl_global_cleanup();
 
-	if(strstr(response->content, "MESSAGE=SUCCESS") == NULL) {
+	if (strstr(response->content, "MESSAGE=SUCCESS") == NULL) {
 		error("ERROR: Unable to get signature from this firmware\n");
 		free(response->content);
 		free(response);
@@ -204,7 +205,7 @@ plist_t tss_send_request(plist_t tss_request) {
 	}
 
 	char* tss_data = strstr(response->content, "<?xml");
-	if(tss_data == NULL) {
+	if (tss_data == NULL) {
 		error("ERROR: Incorrectly formatted TSS response\n");
 		free(response->content);
 		free(response);

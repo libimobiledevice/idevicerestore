@@ -51,9 +51,11 @@ int irecv_send_applelogo(char* ipsw, plist_t tss);
 int irecv_send_devicetree(char* ipsw, plist_t tss);
 int irecv_send_ramdisk(char* ipsw, plist_t tss);
 int irecv_send_kernelcache(char* ipsw, plist_t tss);
-int get_tss_data(plist_t tss, const char* entry, char** path, char** blob);
+int get_tss_data_by_name(plist_t tss, const char* entry, char** path, char** blob);
+int get_tss_data_by_path(plist_t tss, const char* path, char** name, char** blob);
 void device_callback(const idevice_event_t* event, void *user_data);
-int get_signed_component(char* ipsw, plist_t tss, char* component, char** pdata, int* psize);
+int get_signed_component_by_name(char* ipsw, plist_t tss, char* component, char** pdata, int* psize);
+int get_signed_component_by_path(char* ipsw, plist_t tss, char* path, char** pdata, int* psize);
 
 int main(int argc, char* argv[]) {
 	int opt = 0;
@@ -290,6 +292,8 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
+	// for some reason iboot requires a hard reset after ramdisk
+	//   or things start getting wacky
 	printf("Please unplug your device, then plug it back in\n");
 	printf("Hit any key to continue...");
 	getchar();
@@ -302,8 +306,9 @@ int main(int argc, char* argv[]) {
 
 	idevice_event_subscribe(&device_callback, NULL);
 	info("Waiting for device to enter restore mode\n");
+	// block program until device has entered restore mode
 	while (idevicerestore_mode != RESTORE_MODE) {
-		sleep(2);
+		sleep(1);
 	}
 
 	device_error = idevice_new(&device, uuid);
@@ -350,7 +355,7 @@ int main(int argc, char* argv[]) {
 					restore_error = restored_handle_progress_msg(restore, message);
 
 				} else if (!strcmp(msgtype, "DataRequestMsg")) {
-					//restore_error = restored_handle_data_request_msg(device, restore, message, filesystem);
+					// device is requesting data to be sent
 					plist_t datatype_node = plist_dict_get_item(message, "DataType");
 					if (datatype_node && PLIST_STRING == plist_get_node_type(datatype_node)) {
 						char *datatype = NULL;
@@ -361,7 +366,7 @@ int main(int argc, char* argv[]) {
 						} else if (!strcmp(datatype, "KernelCache")) {
 							int kernelcache_size = 0;
 							char* kernelcache_data = NULL;
-							if(get_signed_component(ipsw, tss_response, "KernelCache", &kernelcache_data, &kernelcache_size) < 0) {
+							if (get_signed_component_by_name(ipsw, tss_response, "KernelCache", &kernelcache_data, &kernelcache_size) < 0) {
 								error("ERROR: Unable to get kernelcache file\n");
 								return -1;
 							}
@@ -369,7 +374,7 @@ int main(int argc, char* argv[]) {
 							free(kernelcache_data);
 
 						} else if (!strcmp(datatype, "NORData")) {
-							send_nor_data(device, restore);
+							send_nor_data(restore, ipsw, tss_response);
 
 						} else {
 							// Unknown DataType!!
@@ -388,6 +393,7 @@ int main(int argc, char* argv[]) {
 
 			if (RESTORE_E_SUCCESS != restore_error) {
 				error("Invalid return status %d\n", restore_error);
+				quit_flag = 1;
 			}
 
 			plist_free(message);
@@ -635,8 +641,93 @@ int restored_send_kernelcache(restored_client_t client, char *kernel_data, int l
 	return 0;
 }
 
-int send_nor_data(idevice_t device, restored_client_t client) {
-	info("Not implemented\n");
+int send_nor_data(restored_client_t client, char* ipsw, plist_t tss) {
+	char* llb_path = NULL;
+	char* llb_blob = NULL;
+	if(get_tss_data_by_name(tss, "LLB", &llb_path, &llb_blob) < 0) {
+		error("ERROR: Unable to get LLB info from TSS response\n");
+		return -1;
+	}
+
+	char* llb_filename = strstr(llb_path, "LLB");
+	if(llb_filename == NULL) {
+		error("ERROR: Unable to extrac firmware path from LLB filename\n");
+		free(llb_path);
+		free(llb_blob);
+		return -1;
+	}
+
+	char firmware_path[256];
+	memset(firmware_path, '\0', sizeof(firmware_path));
+	memcpy(firmware_path, llb_path, (llb_filename-1) - llb_path);
+	info("Found firmware path %s\n", firmware_path);
+
+	char manifest_file[256];
+	memset(manifest_file, '\0', sizeof(manifest_file));
+	snprintf(manifest_file, sizeof(manifest_file), "%s/manifest", firmware_path);
+	info("Getting firmware manifest %s\n", manifest_file);
+
+	int manifest_size = 0;
+	char* manifest_data = NULL;
+	if(ipsw_extract_to_memory(ipsw, manifest_file, &manifest_data, &manifest_size) < 0) {
+		error("ERROR: Unable to extract firmware manifest from ipsw\n");
+		free(llb_path);
+		free(llb_blob);
+		return -1;
+	}
+
+	char firmware_filename[256];
+	memset(firmware_filename, '\0', sizeof(firmware_filename));
+
+	int llb_size = 0;
+	char* llb_data = NULL;
+	plist_t dict = plist_new_dict();
+	char* filename = strtok(manifest_data, "\n");
+	if(filename != NULL) {
+		memset(firmware_filename, '\0', sizeof(firmware_filename));
+		snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
+		if(get_signed_component_by_path(ipsw, tss, firmware_filename, &llb_data, &llb_size) < 0) {
+			error("ERROR: Unable to get signed LLB\n");
+			return -1;
+		}
+
+		plist_dict_insert_item(dict, "LlbImageData", plist_new_data(llb_data, (uint64_t)llb_size));
+	}
+
+	int nor_size = 0;
+	char* nor_data = NULL;
+	filename = strtok(NULL, "\n");
+	plist_t norimage_array = plist_new_array();
+	while(filename != NULL) {
+		memset(firmware_filename, '\0', sizeof(firmware_filename));
+		snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
+		if(get_signed_component_by_path(ipsw, tss, firmware_filename, &nor_data, &nor_size) < 0) {
+			error("ERROR: Unable to get signed firmware %s\n", firmware_filename);
+			break;
+		}
+
+		plist_array_append_item(norimage_array, plist_new_data(nor_data, (uint64_t)nor_size));
+		free(nor_data);
+		nor_data = NULL;
+		nor_size = 0;
+		filename = strtok(NULL, "\n");
+	}
+	plist_dict_insert_item(dict, "NorImageData", norimage_array);
+
+	int sz = 0;
+	char* xml = NULL;
+	plist_to_xml(dict, &xml, &sz);
+	debug("%s", xml);
+	free(xml);
+
+	restored_error_t ret = restored_send(client, dict);
+	if (ret != RESTORE_E_SUCCESS) {
+		error("ERROR: Unable to send kernelcache data\n");
+		plist_free(dict);
+		return -1;
+	}
+
+	plist_free(dict);
 	return 0;
 }
 
@@ -659,7 +750,53 @@ int write_file(const char* filename, char* data, int size) {
 	return size;
 }
 
-int get_tss_data(plist_t tss, const char* entry, char** ppath, char** pblob) {
+int get_tss_data_by_path(plist_t tss, const char* path, char** pname, char** pblob) {
+	*pname = NULL;
+	*pblob = NULL;
+
+	char* key = NULL;
+	plist_t tss_entry = NULL;
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(tss, &iter);
+	while (1) {
+		plist_dict_next_item(tss, iter, &key, &tss_entry);
+		if (key == NULL)
+			break;
+
+		if (!tss_entry || plist_get_node_type(tss_entry) != PLIST_DICT) {
+			continue;
+		}
+
+		char* entry_path = NULL;
+		plist_t entry_path_node = plist_dict_get_item(tss_entry, "Path");
+		if(!entry_path_node || plist_get_node_type(entry_path_node) != PLIST_STRING) {
+			error("ERROR: Unable to find TSS path node in entry %s\n", key);
+			return -1;
+		}
+		plist_get_string_val(entry_path_node, &entry_path);
+		if(strcmp(path, entry_path) == 0) {
+			char* blob = NULL;
+			uint64_t blob_size = 0;
+			plist_t blob_node = plist_dict_get_item(tss_entry, "Blob");
+			if (!blob_node || plist_get_node_type(blob_node) != PLIST_DATA) {
+				error("ERROR: Unable to find TSS blob node in entry %s\n", key);
+				free(path);
+				return -1;
+			}
+			plist_get_data_val(blob_node, &blob, &blob_size);
+			*pname = key;
+			*pblob = blob;
+			return 0;
+		}
+
+		free(key);
+	}
+	plist_free(tss_entry);
+
+	return -1;
+}
+
+int get_tss_data_by_name(plist_t tss, const char* entry, char** ppath, char** pblob) {
 	*ppath = NULL;
 	*pblob = NULL;
 
@@ -672,7 +809,7 @@ int get_tss_data(plist_t tss, const char* entry, char** ppath, char** pblob) {
 	char* path = NULL;
 	plist_t path_node = plist_dict_get_item(node, "Path");
 	if (!path_node || plist_get_node_type(path_node) != PLIST_STRING) {
-		error("ERROR: Unable to find %s path in entry\n", entry);
+		error("ERROR: Unable to find %s path in entry\n", path);
 		return -1;
 	}
 	plist_get_string_val(path_node, &path);
@@ -681,7 +818,7 @@ int get_tss_data(plist_t tss, const char* entry, char** ppath, char** pblob) {
 	uint64_t blob_size = 0;
 	plist_t blob_node = plist_dict_get_item(node, "Blob");
 	if (!blob_node || plist_get_node_type(blob_node) != PLIST_DATA) {
-		error("ERROR: Unable to find %s blob in entry\n", entry);
+		error("ERROR: Unable to find %s blob in entry\n", path);
 		free(path);
 		return -1;
 	}
@@ -692,7 +829,7 @@ int get_tss_data(plist_t tss, const char* entry, char** ppath, char** pblob) {
 	return 0;
 }
 
-int get_signed_component(char* ipsw, plist_t tss, char* component, char** pdata, int* psize) {
+int get_signed_component_by_name(char* ipsw, plist_t tss, char* component, char** pdata, int* psize) {
 	int size = 0;
 	char* data = NULL;
 	char* path = NULL;
@@ -701,7 +838,7 @@ int get_signed_component(char* ipsw, plist_t tss, char* component, char** pdata,
 	irecv_error_t error = 0;
 
 	info("Extracting %s from TSS response\n", component);
-	if (get_tss_data(tss, component, &path, &blob) < 0) {
+	if (get_tss_data_by_name(tss, component, &path, &blob) < 0) {
 		error("ERROR: Unable to get data for TSS %s entry\n", component);
 		return -1;
 	}
@@ -741,6 +878,16 @@ int get_signed_component(char* ipsw, plist_t tss, char* component, char** pdata,
 		return -1;
 	}
 
+	if (idevicerestore_debug) {
+		char* out = strrchr(path, '/');
+		if (out != NULL) {
+			out++;
+		} else {
+			out = path;
+		}
+		write_file(out, data, size);
+	}
+
 	if (img3) {
 		img3_free(img3);
 		img3 = NULL;
@@ -759,19 +906,55 @@ int get_signed_component(char* ipsw, plist_t tss, char* component, char** pdata,
 	return 0;
 }
 
-static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_t tss, char* component) {
+int get_signed_component_by_path(char* ipsw, plist_t tss, char* path, char** pdata, int* psize) {
 	int size = 0;
 	char* data = NULL;
-	char* path = NULL;
+	char* name = NULL;
 	char* blob = NULL;
 	img3_file* img3 = NULL;
 	irecv_error_t error = 0;
 
-	if (get_signed_component(ipsw, tss, component, &data, &size) < 0) {
-		error("ERROR: Unable to get signed component: %s\n", component);
+	info("Extracting %s from TSS response\n", path);
+	if (get_tss_data_by_path(tss, path, &name, &blob) < 0) {
+		error("ERROR: Unable to get data for TSS %s entry\n", path);
 		return -1;
 	}
-/*
+
+	info("Extracting %s from %s\n", path, ipsw);
+	if (ipsw_extract_to_memory(ipsw, path, &data, &size) < 0) {
+		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
+		free(path);
+		free(blob);
+		return -1;
+	}
+
+	img3 = img3_parse_file(data, size);
+	if (img3 == NULL) {
+		error("ERROR: Unable to parse IMG3: %s\n", path);
+		free(data);
+		free(path);
+		free(blob);
+		return -1;
+	}
+	if (data) {
+		free(data);
+		data = NULL;
+	}
+
+	if (img3_replace_signature(img3, blob) < 0) {
+		error("ERROR: Unable to replace IMG3 signature\n");
+		free(name);
+		free(blob);
+		return -1;
+	}
+
+	if (img3_get_data(img3, &data, &size) < 0) {
+		error("ERROR: Unable to reconstruct IMG3\n");
+		img3_free(img3);
+		free(name);
+		return -1;
+	}
+
 	if (idevicerestore_debug) {
 		char* out = strrchr(path, '/');
 		if (out != NULL) {
@@ -781,7 +964,38 @@ static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_
 		}
 		write_file(out, data, size);
 	}
-*/
+
+	if (img3) {
+		img3_free(img3);
+		img3 = NULL;
+	}
+	if (blob) {
+		free(blob);
+		blob = NULL;
+	}
+	if (path) {
+		free(name);
+		name = NULL;
+	}
+
+	*pdata = data;
+	*psize = size;
+	return 0;
+}
+
+static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_t tss, char* component) {
+	int size = 0;
+	char* data = NULL;
+	char* path = NULL;
+	char* blob = NULL;
+	img3_file* img3 = NULL;
+	irecv_error_t error = 0;
+
+	if (get_signed_component_by_name(ipsw, tss, component, &data, &size) < 0) {
+		error("ERROR: Unable to get signed component: %s\n", component);
+		return -1;
+	}
+
 	info("Sending %s...\n", component);
 	error = irecv_send_buffer(client, data, size);
 	if (error != IRECV_E_SUCCESS) {
@@ -885,7 +1099,7 @@ int irecv_send_applelogo(char* ipsw, plist_t tss) {
 	}
 
 	error = irecv_send_command(client, "setpicture 1");
-	if(error != IRECV_E_SUCCESS) {
+	if (error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to set %s\n", component);
 		irecv_close(client);
 		client = NULL;

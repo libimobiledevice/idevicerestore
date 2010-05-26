@@ -74,7 +74,7 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 	}
 
 	char* buffer = (char*) malloc(BUFSIZE);
-	if(buffer == NULL) {
+	if (buffer == NULL) {
 		error("ERROR: Unable to allocate memory\n");
 		return -1;
 	}
@@ -86,7 +86,7 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 	}
 
 	FILE* fd = fopen(outfile, "wb");
-	if(fd == NULL) {
+	if (fd == NULL) {
 		error("ERROR: Unable to open output file: %s\n", outfile);
 		zip_fclose(zfile);
 		return -1;
@@ -96,8 +96,10 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 	int size = 0;
 	int count = 0;
 	for (i = zstat.size; i > 0; i -= count) {
-		if(i < BUFSIZE) size = i;
-		else size = BUFSIZE;
+		if (i < BUFSIZE)
+			size = i;
+		else
+			size = BUFSIZE;
 		count = zip_fread(zfile, buffer, size);
 		if (count < 0) {
 			error("ERROR: zip_fread: %s\n", infile);
