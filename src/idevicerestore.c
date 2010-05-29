@@ -43,14 +43,15 @@
 
 int idevicerestore_debug = 0;
 static int idevicerestore_mode = 0;
+static int idevicerestore_custom = 0;
 
 void usage(int argc, char* argv[]);
 int write_file(const char* filename, char* data, int size);
-int irecv_send_ibec(char* ipsw, plist_t tss);
-int irecv_send_applelogo(char* ipsw, plist_t tss);
-int irecv_send_devicetree(char* ipsw, plist_t tss);
-int irecv_send_ramdisk(char* ipsw, plist_t tss);
-int irecv_send_kernelcache(char* ipsw, plist_t tss);
+int recovery_send_ibec(char* ipsw, plist_t tss);
+int recovery_send_applelogo(char* ipsw, plist_t tss);
+int recovery_send_devicetree(char* ipsw, plist_t tss);
+int recovery_send_ramdisk(char* ipsw, plist_t tss);
+int recovery_send_kernelcache(char* ipsw, plist_t tss);
 int get_tss_data_by_name(plist_t tss, const char* entry, char** path, char** blob);
 int get_tss_data_by_path(plist_t tss, const char* path, char** name, char** blob);
 void device_callback(const idevice_event_t* event, void *user_data);
@@ -62,7 +63,7 @@ int main(int argc, char* argv[]) {
 	char* ipsw = NULL;
 	char* uuid = NULL;
 	uint64_t ecid = 0;
-	while ((opt = getopt(argc, argv, "vdhu:")) > 0) {
+	while ((opt = getopt(argc, argv, "vdhcu:")) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -70,6 +71,10 @@ int main(int argc, char* argv[]) {
 
 		case 'v':
 			idevicerestore_debug += 1;
+			break;
+
+		case 'c':
+			idevicerestore_custom = 1;
 			break;
 
 		case 'd':
@@ -267,26 +272,26 @@ int main(int argc, char* argv[]) {
 	}
 
 	/* upload data to make device boot restore mode */
-	if (irecv_send_ibec(ipsw, tss_response) < 0) {
+	if (recovery_send_ibec(ipsw, tss_response) < 0) {
 		error("ERROR: Unable to send iBEC\n");
 		plist_free(tss_response);
 		return -1;
 	}
 	sleep(1);
 
-	if (irecv_send_applelogo(ipsw, tss_response) < 0) {
+	if (recovery_send_applelogo(ipsw, tss_response) < 0) {
 		error("ERROR: Unable to send AppleLogo\n");
 		plist_free(tss_response);
 		return -1;
 	}
 
-	if (irecv_send_devicetree(ipsw, tss_response) < 0) {
+	if (recovery_send_devicetree(ipsw, tss_response) < 0) {
 		error("ERROR: Unable to send DeviceTree\n");
 		plist_free(tss_response);
 		return -1;
 	}
 
-	if (irecv_send_ramdisk(ipsw, tss_response) < 0) {
+	if (recovery_send_ramdisk(ipsw, tss_response) < 0) {
 		error("ERROR: Unable to send Ramdisk\n");
 		plist_free(tss_response);
 		return -1;
@@ -298,7 +303,7 @@ int main(int argc, char* argv[]) {
 	printf("Hit any key to continue...");
 	getchar();
 
-	if (irecv_send_kernelcache(ipsw, tss_response) < 0) {
+	if (recovery_send_kernelcache(ipsw, tss_response) < 0) {
 		error("ERROR: Unable to send KernelCache\n");
 		plist_free(tss_response);
 		return -1;
@@ -352,7 +357,7 @@ int main(int argc, char* argv[]) {
 				char *msgtype = NULL;
 				plist_get_string_val(msgtype_node, &msgtype);
 				if (!strcmp(msgtype, "ProgressMsg")) {
-					restore_error = restored_handle_progress_msg(restore, message);
+					restore_error = restore_handle_progress_msg(restore, message);
 
 				} else if (!strcmp(msgtype, "DataRequestMsg")) {
 					// device is requesting data to be sent
@@ -370,7 +375,7 @@ int main(int argc, char* argv[]) {
 								error("ERROR: Unable to get kernelcache file\n");
 								return -1;
 							}
-							restored_send_kernelcache(restore, kernelcache_data, kernelcache_size);
+							restore_send_kernelcache(restore, kernelcache_data, kernelcache_size);
 							free(kernelcache_data);
 
 						} else if (!strcmp(datatype, "NORData")) {
@@ -384,7 +389,7 @@ int main(int argc, char* argv[]) {
 					}
 
 				} else if (!strcmp(msgtype, "StatusMsg")) {
-					restore_error = restored_handle_status_msg(restore, message);
+					restore_error = restore_handle_status_msg(restore, message);
 
 				} else {
 					info("Received unknown message type: %s\n", msgtype);
@@ -393,7 +398,7 @@ int main(int argc, char* argv[]) {
 
 			if (RESTORE_E_SUCCESS != restore_error) {
 				error("Invalid return status %d\n", restore_error);
-				quit_flag = 1;
+				//quit_flag = 1;
 			}
 
 			plist_free(message);
@@ -422,17 +427,18 @@ void usage(int argc, char* argv[]) {
 	printf("  -d, \t\tenable communication debugging\n");
 	printf("  -u, \t\ttarget specific device by its 40-digit device UUID\n");
 	printf("  -h, \t\tprints usage information\n");
+	printf("  -c, \t\trestore with a custom firmware\n");
 	printf("  -v, \t\tenable incremental levels of verboseness\n");
 	printf("\n");
 	exit(1);
 }
 
-int restored_handle_progress_msg(restored_client_t client, plist_t msg) {
+int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 	info("Got progress message\n");
 	return 0;
 }
 
-int restored_handle_data_request_msg(idevice_t device, restored_client_t client, plist_t msg, const char *filesystem, const char *kernel) {
+int restore_handle_data_request_msg(idevice_t device, restored_client_t client, plist_t msg, const char *filesystem, const char *kernel) {
 	plist_t datatype_node = plist_dict_get_item(msg, "DataType");
 	if (datatype_node && PLIST_STRING == plist_get_node_type(datatype_node)) {
 		char *datatype = NULL;
@@ -440,7 +446,7 @@ int restored_handle_data_request_msg(idevice_t device, restored_client_t client,
 		if (!strcmp(datatype, "SystemImageData")) {
 			asr_send_system_image_data_from_file(device, client, filesystem);
 		} else if (!strcmp(datatype, "KernelCache")) {
-			restored_send_kernelcache(client, kernel);
+			restore_send_kernelcache(client, kernel);
 		} else if (!strcmp(datatype, "NORData")) {
 			send_nor_data(device, client);
 		} else {
@@ -452,7 +458,7 @@ int restored_handle_data_request_msg(idevice_t device, restored_client_t client,
 	return 0;
 }
 
-int restored_handle_status_msg(restored_client_t client, plist_t msg) {
+int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 	info("Got status message\n");
 	return 0;
 }
@@ -621,7 +627,7 @@ int asr_send_system_image_data_from_file(idevice_t device, restored_client_t cli
 	return ret;
 }
 
-int restored_send_kernelcache(restored_client_t client, char *kernel_data, int len) {
+int restore_send_kernelcache(restored_client_t client, char *kernel_data, int len) {
 	info("Sending kernelcache\n");
 
 	plist_t kernelcache_node = plist_new_data(kernel_data, len);
@@ -644,13 +650,13 @@ int restored_send_kernelcache(restored_client_t client, char *kernel_data, int l
 int send_nor_data(restored_client_t client, char* ipsw, plist_t tss) {
 	char* llb_path = NULL;
 	char* llb_blob = NULL;
-	if(get_tss_data_by_name(tss, "LLB", &llb_path, &llb_blob) < 0) {
+	if (get_tss_data_by_name(tss, "LLB", &llb_path, &llb_blob) < 0) {
 		error("ERROR: Unable to get LLB info from TSS response\n");
 		return -1;
 	}
 
 	char* llb_filename = strstr(llb_path, "LLB");
-	if(llb_filename == NULL) {
+	if (llb_filename == NULL) {
 		error("ERROR: Unable to extrac firmware path from LLB filename\n");
 		free(llb_path);
 		free(llb_blob);
@@ -659,7 +665,7 @@ int send_nor_data(restored_client_t client, char* ipsw, plist_t tss) {
 
 	char firmware_path[256];
 	memset(firmware_path, '\0', sizeof(firmware_path));
-	memcpy(firmware_path, llb_path, (llb_filename-1) - llb_path);
+	memcpy(firmware_path, llb_path, (llb_filename - 1) - llb_path);
 	info("Found firmware path %s\n", firmware_path);
 
 	char manifest_file[256];
@@ -669,7 +675,7 @@ int send_nor_data(restored_client_t client, char* ipsw, plist_t tss) {
 
 	int manifest_size = 0;
 	char* manifest_data = NULL;
-	if(ipsw_extract_to_memory(ipsw, manifest_file, &manifest_data, &manifest_size) < 0) {
+	if (ipsw_extract_to_memory(ipsw, manifest_file, &manifest_data, &manifest_size) < 0) {
 		error("ERROR: Unable to extract firmware manifest from ipsw\n");
 		free(llb_path);
 		free(llb_blob);
@@ -683,30 +689,30 @@ int send_nor_data(restored_client_t client, char* ipsw, plist_t tss) {
 	char* llb_data = NULL;
 	plist_t dict = plist_new_dict();
 	char* filename = strtok(manifest_data, "\n");
-	if(filename != NULL) {
+	if (filename != NULL) {
 		memset(firmware_filename, '\0', sizeof(firmware_filename));
 		snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
-		if(get_signed_component_by_path(ipsw, tss, firmware_filename, &llb_data, &llb_size) < 0) {
+		if (get_signed_component_by_path(ipsw, tss, firmware_filename, &llb_data, &llb_size) < 0) {
 			error("ERROR: Unable to get signed LLB\n");
 			return -1;
 		}
 
-		plist_dict_insert_item(dict, "LlbImageData", plist_new_data(llb_data, (uint64_t)llb_size));
+		plist_dict_insert_item(dict, "LlbImageData", plist_new_data(llb_data, (uint64_t) llb_size));
 	}
 
 	int nor_size = 0;
 	char* nor_data = NULL;
 	filename = strtok(NULL, "\n");
 	plist_t norimage_array = plist_new_array();
-	while(filename != NULL) {
+	while (filename != NULL) {
 		memset(firmware_filename, '\0', sizeof(firmware_filename));
 		snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
-		if(get_signed_component_by_path(ipsw, tss, firmware_filename, &nor_data, &nor_size) < 0) {
+		if (get_signed_component_by_path(ipsw, tss, firmware_filename, &nor_data, &nor_size) < 0) {
 			error("ERROR: Unable to get signed firmware %s\n", firmware_filename);
 			break;
 		}
 
-		plist_array_append_item(norimage_array, plist_new_data(nor_data, (uint64_t)nor_size));
+		plist_array_append_item(norimage_array, plist_new_data(nor_data, (uint64_t) nor_size));
 		free(nor_data);
 		nor_data = NULL;
 		nor_size = 0;
@@ -769,12 +775,12 @@ int get_tss_data_by_path(plist_t tss, const char* path, char** pname, char** pbl
 
 		char* entry_path = NULL;
 		plist_t entry_path_node = plist_dict_get_item(tss_entry, "Path");
-		if(!entry_path_node || plist_get_node_type(entry_path_node) != PLIST_STRING) {
+		if (!entry_path_node || plist_get_node_type(entry_path_node) != PLIST_STRING) {
 			error("ERROR: Unable to find TSS path node in entry %s\n", key);
 			return -1;
 		}
 		plist_get_string_val(entry_path_node, &entry_path);
-		if(strcmp(path, entry_path) == 0) {
+		if (strcmp(path, entry_path) == 0) {
 			char* blob = NULL;
 			uint64_t blob_size = 0;
 			plist_t blob_node = plist_dict_get_item(tss_entry, "Blob");
@@ -864,11 +870,13 @@ int get_signed_component_by_name(char* ipsw, plist_t tss, char* component, char*
 		data = NULL;
 	}
 
-	if (img3_replace_signature(img3, blob) < 0) {
-		error("ERROR: Unable to replace IMG3 signature\n");
-		free(path);
-		free(blob);
-		return -1;
+	if (idevicerestore_custom == 0) {
+		if (img3_replace_signature(img3, blob) < 0) {
+			error("ERROR: Unable to replace IMG3 signature\n");
+			free(path);
+			free(blob);
+			return -1;
+		}
 	}
 
 	if (img3_get_data(img3, &data, &size) < 0) {
@@ -941,11 +949,13 @@ int get_signed_component_by_path(char* ipsw, plist_t tss, char* path, char** pda
 		data = NULL;
 	}
 
-	if (img3_replace_signature(img3, blob) < 0) {
-		error("ERROR: Unable to replace IMG3 signature\n");
-		free(name);
-		free(blob);
-		return -1;
+	if (idevicerestore_custom == 0) {
+		if (img3_replace_signature(img3, blob) < 0) {
+			error("ERROR: Unable to replace IMG3 signature\n");
+			free(name);
+			free(blob);
+			return -1;
+		}
 	}
 
 	if (img3_get_data(img3, &data, &size) < 0) {
@@ -983,7 +993,7 @@ int get_signed_component_by_path(char* ipsw, plist_t tss, char* path, char** pda
 	return 0;
 }
 
-static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_t tss, char* component) {
+static int recovery_send_signed_component(irecv_client_t client, char* ipsw, plist_t tss, char* component) {
 	int size = 0;
 	char* data = NULL;
 	char* path = NULL;
@@ -1014,7 +1024,7 @@ static int irecv_send_signed_component(irecv_client_t client, char* ipsw, plist_
 	return 0;
 }
 
-static irecv_error_t irecv_open_with_timeout(irecv_client_t* client) {
+static irecv_error_t recovery_open_with_timeout(irecv_client_t* client) {
 	int i = 0;
 	irecv_error_t error = 0;
 	for (i = 10; i > 0; i--) {
@@ -1031,12 +1041,12 @@ static irecv_error_t irecv_open_with_timeout(irecv_client_t* client) {
 	return error;
 }
 
-int irecv_send_ibec(char* ipsw, plist_t tss) {
+int recovery_send_ibec(char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
 	char* component = "iBEC";
 
-	error = irecv_open_with_timeout(&client);
+	error = recovery_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
 		return -1;
 	}
@@ -1057,7 +1067,7 @@ int irecv_send_ibec(char* ipsw, plist_t tss) {
 		return -1;
 	}
 
-	if (irecv_send_signed_component(client, ipsw, tss, component) < 0) {
+	if (recovery_send_signed_component(client, ipsw, tss, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
 		irecv_close(client);
 		client = NULL;
@@ -1079,19 +1089,19 @@ int irecv_send_ibec(char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int irecv_send_applelogo(char* ipsw, plist_t tss) {
+int recovery_send_applelogo(char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
 	char* component = "AppleLogo";
 
 	info("Sending %s...\n", component);
 
-	error = irecv_open_with_timeout(&client);
+	error = recovery_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
 		return -1;
 	}
 
-	if (irecv_send_signed_component(client, ipsw, tss, component) < 0) {
+	if (recovery_send_signed_component(client, ipsw, tss, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
 		irecv_close(client);
 		client = NULL;
@@ -1121,17 +1131,17 @@ int irecv_send_applelogo(char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int irecv_send_devicetree(char* ipsw, plist_t tss) {
+int recovery_send_devicetree(char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
 	char *component = "RestoreDeviceTree";
 
-	error = irecv_open_with_timeout(&client);
+	error = recovery_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
 		return -1;
 	}
 
-	if (irecv_send_signed_component(client, ipsw, tss, component) < 0) {
+	if (recovery_send_signed_component(client, ipsw, tss, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
 		irecv_close(client);
 		client = NULL;
@@ -1153,17 +1163,17 @@ int irecv_send_devicetree(char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int irecv_send_ramdisk(char* ipsw, plist_t tss) {
+int recovery_send_ramdisk(char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
 	char *component = "RestoreRamDisk";
 
-	error = irecv_open_with_timeout(&client);
+	error = recovery_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
 		return -1;
 	}
 
-	if (irecv_send_signed_component(client, ipsw, tss, component) < 0) {
+	if (recovery_send_signed_component(client, ipsw, tss, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
 		irecv_close(client);
 		client = NULL;
@@ -1185,17 +1195,17 @@ int irecv_send_ramdisk(char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int irecv_send_kernelcache(char* ipsw, plist_t tss) {
+int recovery_send_kernelcache(char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
 	char *component = "RestoreKernelCache";
 
-	error = irecv_open_with_timeout(&client);
+	error = recovery_open_with_timeout(&client);
 	if (error != IRECV_E_SUCCESS) {
 		return -1;
 	}
 
-	if (irecv_send_signed_component(client, ipsw, tss, component) < 0) {
+	if (recovery_send_signed_component(client, ipsw, tss, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
 		irecv_close(client);
 		client = NULL;
