@@ -13,7 +13,7 @@ X Send QueryType request
 X Send StartRestore request
 X Send source verification packets
 X Send filesystem payload
-* Send kernelcache payload
-* Send NOR firmware payload
+X Send kernelcache payload
+X Send NOR firmware payload
 * Fetch activation ticket from apple
 * Send activation ticket to device
