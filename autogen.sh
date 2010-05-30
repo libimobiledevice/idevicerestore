@@ -2,3 +2,4 @@
 aclocal
 autoconf
 automake
+./configure
