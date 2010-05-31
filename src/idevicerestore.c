@@ -434,7 +434,72 @@ void usage(int argc, char* argv[]) {
 }
 
 int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
-	info("Got progress message\n");
+	const char operation_name[][35] = {
+		"Unknown 1",
+		"Unknown 2",
+		"Unknown 3",
+		"Unknown 4",
+		"Unknown 5",
+		"Unknown 6",
+		"Unknown 7",
+		"Unknown 8",
+		"Unknown 9",
+		"Unknown 10",
+		"Unknown 11",
+		"Creating partition map",
+		"Creating filesystem",
+		"Restoring image",
+		"Verifying restore",
+		"Checking filesystems",
+		"Mounting filesystems",
+		"Unknown 18",
+		"Flashing NOR",
+		"Updating baseband",
+		"Finalizing NAND epoch update",
+		"Unknown 22",
+		"Unknown 23",
+		"Unknown 24",
+		"Unknown 25",
+		"Modifying persistent boot-args",
+		"Unknown 27",
+		"Unknown 28",
+		"Waiting for NAND",
+		"Unmounting filesystems",
+		"Unknown 31",
+		"Unknown 32",
+		"Waiting for Device...",
+		"Unknown 34",
+		"Unknown 35",
+		"Loading NOR data to flash"
+	};
+
+	plist_t node = NULL;
+	uint64_t operation = 0;
+	uint64_t uprogress = 0;
+	int progress = 0;
+
+	node = plist_dict_get_item(msg, "Operation");
+	if (node && PLIST_UINT == plist_get_node_type(node)) {
+		plist_get_uint_val(node, &operation);
+	} else {
+		debug("Failed to parse operation from ProgressMsg plist\n");
+		return 0;
+	}
+
+	node = plist_dict_get_item(msg, "Progress");
+	if (node && PLIST_UINT == plist_get_node_type(node)) {
+		plist_get_uint_val(node, &uprogress);
+		progress = (int) uprogress;
+	} else {
+		debug("Failed to parse progress from ProgressMsg plist \n");
+		return 0;
+	}
+
+	if ((progress > 0) && (progress < 100))
+		info("%s - Progress: %llu%\n", operation_name[operation], progress);
+	else
+		info("%s\n", operation_name[operation]);
+
 	return 0;
 }
 
