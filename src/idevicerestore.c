@@ -786,7 +786,6 @@ int get_tss_data_by_path(plist_t tss, const char* path, char** pname, char** pbl
 			plist_t blob_node = plist_dict_get_item(tss_entry, "Blob");
 			if (!blob_node || plist_get_node_type(blob_node) != PLIST_DATA) {
 				error("ERROR: Unable to find TSS blob node in entry %s\n", key);
-				free(path);
 				return -1;
 			}
 			plist_get_data_val(blob_node, &blob, &blob_size);
