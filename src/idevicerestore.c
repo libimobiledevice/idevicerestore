@@ -43,6 +43,7 @@
 
 int idevicerestore_debug = 0;
 static int idevicerestore_mode = 0;
+static int idevicerestore_quit = 0;
 static int idevicerestore_custom = 0;
 
 void usage(int argc, char* argv[]);
@@ -344,12 +345,11 @@ int main(int argc, char* argv[]) {
 	info("Device has successfully entered restore mode\n");
 
 	/* start restore process */
-	int quit_flag = 0;
 	char* kernelcache = NULL;
 	info("Restore protocol version is %llu.\n", version);
 	restore_error = restored_start_restore(restore);
 	if (restore_error == RESTORE_E_SUCCESS) {
-		while (!quit_flag) {
+		while (!idevicerestore_quit) {
 			plist_t message = NULL;
 			restore_error = restored_receive(restore, &message);
 			plist_t msgtype_node = plist_dict_get_item(message, "MsgType");
@@ -398,7 +398,7 @@ int main(int argc, char* argv[]) {
 
 			if (RESTORE_E_SUCCESS != restore_error) {
 				error("Invalid return status %d\n", restore_error);
-				//quit_flag = 1;
+				//idevicerestore_quit = 1;
 			}
 
 			plist_free(message);
@@ -417,6 +417,8 @@ int main(int argc, char* argv[]) {
 void device_callback(const idevice_event_t* event, void *user_data) {
 	if (event->event == IDEVICE_DEVICE_ADD) {
 		idevicerestore_mode = RESTORE_MODE;
+	} else if(event->event == IDEVICE_DEVICE_REMOVE) {
+		idevicerestore_quit = 1;
 	}
 }
 
