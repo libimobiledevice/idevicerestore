@@ -19,11 +19,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef DFU_H
-#define DFU_H
+#ifndef IDEVICERESTORE_DFU_H
+#define IDEVICERESTORE_DFU_H
 
 #include <stdint.h>
 
+int dfu_check_mode();
+int dfu_get_cpid(uint32_t* cpid);
+int dfu_get_bdid(uint32_t* bdid);
 int dfu_get_ecid(uint64_t* ecid);
 
 #endif

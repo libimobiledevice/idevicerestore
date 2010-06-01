@@ -19,8 +19,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef IMG3_H
-#define IMG3_H
+#ifndef IDEVICERESTORE_IMG3_H
+#define IDEVICERESTORE_IMG3_H
 
 typedef enum {
     kNorContainer  = 0x696D6733, // img3

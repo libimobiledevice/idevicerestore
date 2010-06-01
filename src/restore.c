@@ -44,6 +44,39 @@
 #define WAIT_FOR_DEVICE        33
 #define LOAD_NOR               36
 
+int restore_check_mode(const char* uuid) {
+	char* type = NULL;
+	uint64_t version = 0;
+	idevice_t device = NULL;
+	restored_client_t restore = NULL;
+	idevice_error_t device_error = IDEVICE_E_SUCCESS;
+	restored_error_t restore_error = RESTORE_E_SUCCESS;
+
+	device_error = idevice_new(&device, uuid);
+	if (device_error != IDEVICE_E_SUCCESS) {
+		return -1;
+	}
+
+	restore_error = restored_client_new(device, &restore, "idevicerestore");
+	if (restore_error != RESTORE_E_SUCCESS) {
+		idevice_free(device);
+		return -1;
+	}
+
+	restore_error = restored_query_type(restore, &type, &version);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		restored_client_free(restore);
+		idevice_free(device);
+		return -1;
+	}
+
+	restored_client_free(restore);
+	idevice_free(device);
+	restore = NULL;
+	device = NULL;
+	return 0;
+}
+
 const char* restore_progress_string(unsigned int operation) {
 	switch(operation) {
 	case CREATE_PARTITION_MAP:
@@ -98,7 +131,7 @@ int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 	plist_t node = NULL;
 	uint64_t operation = 0;
 	uint64_t uprogress = 0;
-	uint32_t progress = 0;
+	uint64_t progress = 0;
 
 	node = plist_dict_get_item(msg, "Operation");
 	if (node && PLIST_UINT == plist_get_node_type(node)) {
@@ -111,14 +144,14 @@ int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 	node = plist_dict_get_item(msg, "Progress");
 	if (node && PLIST_UINT == plist_get_node_type(node)) {
 		plist_get_uint_val(node, &uprogress);
-		progress = (uint32_t) uprogress;
+		progress = uprogress;
 	} else {
 		debug("Failed to parse progress from ProgressMsg plist \n");
 		return 0;
 	}
 
 	if ((progress > 0) && (progress < 100))
-		info("%s - Progress: %ul%%\n", restore_progress_string(operation), progress);
+		info("%s - Progress: %02ull%%\n", restore_progress_string(operation), progress);
 	else
 		info("%s\n", restore_progress_string(operation));
 
@@ -130,7 +163,7 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 	return 0;
 }
 
-int asr_send_system_image_data_from_file(idevice_t device, restored_client_t client, const char *filesystem) {
+int restore_send_filesystem(idevice_t device, restored_client_t client, const char *filesystem) {
 	int i = 0;
 	char buffer[0x1000];
 	uint32_t recv_bytes = 0;
@@ -314,7 +347,7 @@ int restore_send_kernelcache(restored_client_t client, char *kernel_data, int le
 	return 0;
 }
 
-int restore_send_nor_data(restored_client_t client, char* ipsw, plist_t tss) {
+int restore_send_nor(restored_client_t client, char* ipsw, plist_t tss) {
 	char* llb_path = NULL;
 	char* llb_blob = NULL;
 	if (get_tss_data_by_name(tss, "LLB", &llb_path, &llb_blob) < 0) {

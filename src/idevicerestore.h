@@ -22,10 +22,61 @@
 #ifndef IDEVICERESTORE_H
 #define IDEVICERESTORE_H
 
+#define info(...) printf(__VA_ARGS__)
 #define error(...) fprintf(stderr, __VA_ARGS__)
-#define info(...) if(idevicerestore_debug >= 1) fprintf(stderr, __VA_ARGS__)
-#define debug(...) if(idevicerestore_debug >= 2) fprintf(stderr, __VA_ARGS__)
+#define debug(...) if(idevicerestore_debug >= 1) fprintf(stderr, __VA_ARGS__)
 
+#define IPHONE2G_CPID    8900
+#define IPHONE3G_CPID    8900
+#define IPHONE3GS_CPID   8920
+#define IPOD1G_CPID      8900
+#define IPOD2G_CPID      8720
+#define IPOD3G_CPID      8922
+#define IPAD1G_CPID      8930
+
+#define IPHONE2G_BDID       0
+#define IPHONE3G_BDID       4
+#define IPHONE3GS_BDID      0
+#define IPOD1G_BDID         2
+#define IPOD2G_BDID         0
+#define IPOD3G_BDID         2
+#define IPAD1G_BDID         2
+
+typedef enum {
+	UNKNOWN_MODE =       -1,
+	DFU_MODE =            0,
+	NORMAL_MODE =         1,
+	RECOVERY_MODE =       2,
+	RESTORE_MODE =        3
+} idevicerestore_mode_t;
+
+typedef enum {
+	UNKNOWN_DEVICE =     -1,
+	IPHONE2G_DEVICE =     0,
+	IPHONE3G_DEVICE =     1,
+	IPHONE3GS_DEVICE =    2,
+	IPOD1G_DEVICE =       3,
+	IPOD2G_DEVICE =       4,
+	IPOD3G_DEVICE =       5,
+	IPAD1G_DEVICE =       6
+} idevicerestore_device_t;
+
+static char* idevicerestore_products[] = {
+	"iPhone1,1",
+	"iPhone1,2",
+	"iPhone2,1",
+	"iPod1,1",
+	"iPod2,1",
+	"iPod3,1",
+	"iPad1,1",
+	NULL
+};
+
+extern int idevicerestore_quit;
 extern int idevicerestore_debug;
+extern int idevicerestore_custom;
+extern int idevicerestore_verbose;
+extern idevicerestore_mode_t idevicerestore_mode;
+extern idevicerestore_device_t idevicerestore_device;
 
 #endif

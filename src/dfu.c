@@ -20,8 +20,36 @@
  */
 
 #include <stdint.h>
+#include <libirecovery.h>
 
 #include "dfu.h"
+
+int dfu_check_mode() {
+	irecv_client_t dfu = NULL;
+	irecv_error_t dfu_error = IRECV_E_SUCCESS;
+
+	dfu_error = irecv_open(&dfu);
+	if (dfu_error != IRECV_E_SUCCESS) {
+		return -1;
+	}
+
+	if(dfu->mode != kDfuMode) {
+		irecv_close(dfu);
+		return -1;
+	}
+
+	irecv_close(dfu);
+	dfu = NULL;
+	return 0;
+}
+
+int dfu_get_cpid(uint32_t* cpid) {
+	return 0;
+}
+
+int dfu_get_bdid(uint32_t* bdid) {
+	return 0;
+}
 
 int dfu_get_ecid(uint64_t* ecid) {
 	return 0;
