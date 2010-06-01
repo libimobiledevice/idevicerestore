@@ -19,19 +19,22 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef RECOVERY_H
-#define RECOVERY_H
+#ifndef IDEVICERESTORE_RECOVERY_H
+#define IDEVICERESTORE_RECOVERY_H
 
 #include <stdint.h>
 #include <plist/plist.h>
 
-int recovery_send_signed_component(irecv_client_t client, char* ipsw, plist_t tss, char* component);
+int recovery_check_mode();
+int recovery_send_signed_component(irecv_client_t client, const char* ipsw, plist_t tss, char* component);
 irecv_error_t recovery_open_with_timeout(irecv_client_t* client);
-int recovery_send_ibec(char* ipsw, plist_t tss);
-int recovery_send_applelogo(char* ipsw, plist_t tss);
-int recovery_send_devicetree(char* ipsw, plist_t tss);
-int recovery_send_ramdisk(char* ipsw, plist_t tss);
-int recovery_send_kernelcache(char* ipsw, plist_t tss);
+int recovery_send_ibec(const char* ipsw, plist_t tss);
+int recovery_send_applelogo(const char* ipsw, plist_t tss);
+int recovery_send_devicetree(const char* ipsw, plist_t tss);
+int recovery_send_ramdisk(const char* ipsw, plist_t tss);
+int recovery_send_kernelcache(const char* ipsw, plist_t tss);
 int recovery_get_ecid(uint64_t* ecid);
+int recovery_get_cpid(uint32_t* cpid);
+int recovery_get_bdid(uint32_t* bdid);
 
 #endif

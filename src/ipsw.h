@@ -19,8 +19,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef IPSW_H
-#define IPSW_H
+#ifndef IDEVICERESTORE_IPSW_H
+#define IDEVICERESTORE_IPSW_H
 
 #include <zip.h>
 

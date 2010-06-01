@@ -29,7 +29,26 @@
 #include "recovery.h"
 #include "idevicerestore.h"
 
-int recovery_send_signed_component(irecv_client_t client, char* ipsw, plist_t tss, char* component) {
+int recovery_check_mode() {
+	irecv_client_t recovery = NULL;
+	irecv_error_t recovery_error = IRECV_E_SUCCESS;
+
+	recovery_error = irecv_open(&recovery);
+	if (recovery_error != IRECV_E_SUCCESS) {
+		return -1;
+	}
+
+	if(recovery->mode == kDfuMode) {
+		irecv_close(recovery);
+		return -1;
+	}
+
+	irecv_close(recovery);
+	recovery = NULL;
+	return 0;
+}
+
+int recovery_send_signed_component(irecv_client_t client, const char* ipsw, plist_t tss, char* component) {
 	int size = 0;
 	char* data = NULL;
 	char* path = NULL;
@@ -77,7 +96,7 @@ irecv_error_t recovery_open_with_timeout(irecv_client_t* client) {
 	return error;
 }
 
-int recovery_send_ibec(char* ipsw, plist_t tss) {
+int recovery_send_ibec(const char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
 	char* component = "iBEC";
@@ -125,7 +144,7 @@ int recovery_send_ibec(char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int recovery_send_applelogo(char* ipsw, plist_t tss) {
+int recovery_send_applelogo(const char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
 	char* component = "AppleLogo";
@@ -167,7 +186,7 @@ int recovery_send_applelogo(char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int recovery_send_devicetree(char* ipsw, plist_t tss) {
+int recovery_send_devicetree(const char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
 	char *component = "RestoreDeviceTree";
@@ -199,7 +218,7 @@ int recovery_send_devicetree(char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int recovery_send_ramdisk(char* ipsw, plist_t tss) {
+int recovery_send_ramdisk(const char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
 	char *component = "RestoreRamDisk";
@@ -231,7 +250,7 @@ int recovery_send_ramdisk(char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int recovery_send_kernelcache(char* ipsw, plist_t tss) {
+int recovery_send_kernelcache(const char* ipsw, plist_t tss) {
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
 	char *component = "RestoreKernelCache";
@@ -265,5 +284,52 @@ int recovery_send_kernelcache(char* ipsw, plist_t tss) {
 
 
 int recovery_get_ecid(uint64_t* ecid) {
+	irecv_client_t recovery = NULL;
+	if(recovery_open_with_timeout(&recovery) < 0) {
+		return -1;
+	}
+
+	irecv_error_t error = irecv_get_ecid(recovery, ecid);
+	if (error != IRECV_E_SUCCESS) {
+		irecv_close(recovery);
+		return -1;
+	}
+
+	irecv_close(recovery);
+	recovery = NULL;
+	return 0;
+}
+
+int recovery_get_cpid(uint32_t* cpid) {
+	irecv_client_t recovery = NULL;
+	if(recovery_open_with_timeout(&recovery) < 0) {
+		return -1;
+	}
+
+	irecv_error_t error = irecv_get_ecid(recovery, cpid);
+	if (error != IRECV_E_SUCCESS) {
+		irecv_close(recovery);
+		return -1;
+	}
+
+	irecv_close(recovery);
+	recovery = NULL;
+	return 0;
+}
+
+int recovery_get_bdid(uint32_t* bdid) {
+	irecv_client_t recovery = NULL;
+	if(recovery_open_with_timeout(&recovery) < 0) {
+		return -1;
+	}
+
+	irecv_error_t error = irecv_get_ecid(recovery, bdid);
+	if (error != IRECV_E_SUCCESS) {
+		irecv_close(recovery);
+		return -1;
+	}
+
+	irecv_close(recovery);
+	recovery = NULL;
 	return 0;
 }

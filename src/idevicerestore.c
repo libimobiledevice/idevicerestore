@@ -38,24 +38,202 @@
 #include "recovery.h"
 #include "idevicerestore.h"
 
-#define UNKNOWN_MODE   0
-#define DFU_MODE       1
-#define NORMAL_MODE    2
-#define RECOVERY_MODE  3
-#define RESTORE_MODE   4
-
+int idevicerestore_quit = 0;
 int idevicerestore_debug = 0;
-static int idevicerestore_mode = 0;
-static int idevicerestore_quit = 0;
-static int idevicerestore_custom = 0;
+int idevicerestore_custom = 0;
+int idevicerestore_verbose = 0;
+idevicerestore_mode_t idevicerestore_mode = UNKNOWN_MODE;
+idevicerestore_device_t idevicerestore_device = UNKNOWN_DEVICE;
 
 void usage(int argc, char* argv[]);
+int get_device(const char* uuid);
+idevicerestore_mode_t check_mode(const char* uuid);
+int get_ecid(const char* uuid, uint64_t* ecid);
+int get_bdid(const char* uuid, uint32_t* bdid);
+int get_cpid(const char* uuid, uint32_t* cpid);
 int write_file(const char* filename, char* data, int size);
+int extract_buildmanifest(const char* ipsw, plist_t* buildmanifest);
 int get_tss_data_by_name(plist_t tss, const char* entry, char** path, char** blob);
 int get_tss_data_by_path(plist_t tss, const char* path, char** name, char** blob);
 void device_callback(const idevice_event_t* event, void *user_data);
 int get_signed_component_by_name(char* ipsw, plist_t tss, char* component, char** pdata, int* psize);
 int get_signed_component_by_path(char* ipsw, plist_t tss, char* path, char** pdata, int* psize);
+
+idevicerestore_mode_t check_mode(const char* uuid) {
+	if(normal_check_mode(uuid) == 0) {
+		info("Found device in normal mode\n");
+		idevicerestore_mode = NORMAL_MODE;
+	}
+
+	else if(recovery_check_mode() == 0) {
+		info("Found device in recovery mode\n");
+		idevicerestore_mode = RECOVERY_MODE;
+	}
+
+	else if(dfu_check_mode() == 0) {
+		info("Found device in DFU mode\n");
+		idevicerestore_mode = DFU_MODE;
+	}
+
+	else if(restore_check_mode(uuid) == 0) {
+		info("Found device in restore mode\n");
+		idevicerestore_mode = RESTORE_MODE;
+	}
+
+	return idevicerestore_mode;
+}
+
+int get_device(const char* uuid) {
+	uint32_t bdid = 0;
+	uint32_t cpid = 0;
+
+	if(get_cpid(uuid, &cpid) < 0) {
+		error("ERROR: Unable to get device CPID\n");
+		return -1;
+	}
+
+	switch(cpid) {
+	case IPHONE2G_CPID:
+		// iPhone1,1 iPhone1,2 and iPod1,1 all share the same ChipID
+		//   so we need to check the BoardID
+		if(get_bdid(uuid, &bdid) < 0) {
+			error("ERROR: Unable to get device BDID\n");
+			return -1;
+		}
+
+		switch(bdid) {
+		case IPHONE2G_BDID:
+			idevicerestore_device = IPHONE2G_DEVICE;
+			break;
+
+		case IPHONE3G_BDID:
+			idevicerestore_device = IPHONE3G_DEVICE;
+			break;
+
+		case IPOD1G_BDID:
+			idevicerestore_device = IPOD1G_DEVICE;
+			break;
+
+		default:
+			idevicerestore_device = UNKNOWN_DEVICE;
+			break;
+		}
+		break;
+
+	case IPHONE3GS_CPID:
+		idevicerestore_device = IPHONE3GS_DEVICE;
+		break;
+
+	case IPOD2G_CPID:
+		idevicerestore_device = IPOD2G_DEVICE;
+		break;
+
+	case IPOD3G_CPID:
+		idevicerestore_device = IPOD3G_DEVICE;
+		break;
+
+	case IPAD1G_CPID:
+		idevicerestore_device = IPAD1G_DEVICE;
+		break;
+
+	default:
+		idevicerestore_device = UNKNOWN_DEVICE;
+		break;
+	}
+
+	return idevicerestore_device;
+}
+
+int get_bdid(const char* uuid, uint32_t* bdid) {
+	switch(idevicerestore_mode) {
+	case NORMAL_MODE:
+		if(normal_get_bdid(uuid, bdid) < 0) {
+			*bdid = -1;
+			return -1;
+		}
+		break;
+
+	case RECOVERY_MODE:
+		if(recovery_get_bdid(bdid) < 0) {
+			*bdid = -1;
+			return -1;
+		}
+		break;
+
+	case DFU_MODE:
+		if(dfu_get_bdid(bdid) < 0) {
+			*bdid = -1;
+			return -1;
+		}
+		break;
+
+	default:
+		error("ERROR: Device is in an invalid state\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int get_cpid(const char* uuid, uint32_t* cpid) {
+	switch(idevicerestore_mode) {
+	case NORMAL_MODE:
+		if(normal_get_cpid(uuid, cpid) < 0) {
+			*cpid = -1;
+			return -1;
+		}
+		break;
+
+	case RECOVERY_MODE:
+		if(recovery_get_cpid(cpid) < 0) {
+			*cpid = -1;
+			return -1;
+		}
+		break;
+
+	case DFU_MODE:
+		if(dfu_get_cpid(cpid) < 0) {
+			*cpid = -1;
+			return -1;
+		}
+		break;
+
+	default:
+		error("ERROR: Device is in an invalid state\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int get_ecid(const char* uuid, uint64_t* ecid) {
+	if(normal_get_ecid(uuid, ecid) == 0) {
+		info("Found device in normal mode\n");
+		idevicerestore_mode = NORMAL_MODE;
+	}
+
+	else if(recovery_get_ecid(ecid) == 0) {
+		info("Found device in recovery mode\n");
+		idevicerestore_mode = RECOVERY_MODE;
+	}
+
+	else if(dfu_get_ecid(ecid) == 0) {
+		info("Found device in DFU mode\n");
+		idevicerestore_mode = DFU_MODE;
+	}
+
+	return idevicerestore_mode;
+}
+
+int extract_buildmanifest(const char* ipsw, plist_t* buildmanifest) {
+	int size = 0;
+	char* data = NULL;
+	if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &data, &size) < 0) {
+		return -1;
+	}
+	plist_from_xml(data, size, buildmanifest);
+	return 0;
+}
 
 int main(int argc, char* argv[]) {
 	int opt = 0;
@@ -68,16 +246,16 @@ int main(int argc, char* argv[]) {
 			usage(argc, argv);
 			break;
 
-		case 'v':
-			idevicerestore_debug += 1;
+		case 'd':
+			idevicerestore_debug = 1;
 			break;
 
 		case 'c':
 			idevicerestore_custom = 1;
 			break;
 
-		case 'd':
-			idevicerestore_debug = 3;
+		case 'v':
+			idevicerestore_verbose = 1;
 			break;
 
 		case 'u':
@@ -86,7 +264,7 @@ int main(int argc, char* argv[]) {
 
 		default:
 			usage(argc, argv);
-			break;
+			return -1;
 		}
 	}
 
@@ -97,105 +275,40 @@ int main(int argc, char* argv[]) {
 		ipsw = argv[0];
 
 	if (ipsw == NULL) {
+		usage(argc, argv);
 		error("ERROR: Please supply an IPSW\n");
 		return -1;
 	}
 
-	idevice_t device = NULL;
-	irecv_client_t recovery = NULL;
-	lockdownd_client_t lockdown = NULL;
-	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-	idevice_error_t device_error = IDEVICE_E_SUCCESS;
-	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
-
-	/* determine recovery or normal mode */
-	info("Checking for device in normal mode...\n");
-	device_error = idevice_new(&device, uuid);
-	if (device_error != IDEVICE_E_SUCCESS) {
-		info("Checking for the device in recovery mode...\n");
-		recovery_error = irecv_open(&recovery);
-		if (recovery_error != IRECV_E_SUCCESS) {
-			error("ERROR: Unable to find device, is it plugged in?\n");
-			return -1;
-		}
-		info("Found device in recovery mode\n");
-		idevicerestore_mode = RECOVERY_MODE;
-
-	} else {
-		info("Found device in normal mode\n");
-		idevicerestore_mode = NORMAL_MODE;
-	}
-
-	/* retrieve ECID */
-	if (idevicerestore_mode == NORMAL_MODE) {
-		lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
-		if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-			error("ERROR: Unable to connect to lockdownd\n");
-			idevice_free(device);
-			return -1;
-		}
-
-		plist_t unique_chip_node = NULL;
-		lockdown_error = lockdownd_get_value(lockdown, NULL, "UniqueChipID", &unique_chip_node);
-		if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-			error("ERROR: Unable to get UniqueChipID from lockdownd\n");
-			lockdownd_client_free(lockdown);
-			idevice_free(device);
-			return -1;
-		}
-
-		if (!unique_chip_node || plist_get_node_type(unique_chip_node) != PLIST_UINT) {
-			error("ERROR: Unable to get ECID\n");
-			lockdownd_client_free(lockdown);
-			idevice_free(device);
-			return -1;
-		}
-
-		plist_get_uint_val(unique_chip_node, &ecid);
-		lockdownd_client_free(lockdown);
-		plist_free(unique_chip_node);
-		idevice_free(device);
-		lockdown = NULL;
-		device = NULL;
-
-	} else if (idevicerestore_mode == RECOVERY_MODE) {
-		recovery_error = irecv_get_ecid(recovery, &ecid);
-		if (recovery_error != IRECV_E_SUCCESS) {
-			error("ERROR: Unable to get device ECID\n");
-			irecv_close(recovery);
-			return -1;
-		}
-		irecv_close(recovery);
-		recovery = NULL;
-	}
-
-	if (ecid != 0) {
-		info("Found ECID %llu\n", ecid);
-	} else {
-		error("Unable to find device ECID\n");
+	/* discover the device type */
+	if(get_device(uuid) < 0) {
+		error("ERROR: Unable to find device type\n");
 		return -1;
 	}
 
-	/* parse buildmanifest */
-	int buildmanifest_size = 0;
-	char* buildmanifest_data = NULL;
+	/* get the device ECID and determine mode */
+	if(get_ecid(uuid, &ecid) < 0 || ecid == 0) {
+		error("ERROR: Unable to find device ECID\n");
+		return -1;
+	}
+	info("Found ECID %llu\n", ecid);
+
+	/* extract buildmanifest */
+	plist_t buildmanifest = NULL;
 	info("Extracting BuildManifest.plist from IPSW\n");
-	if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &buildmanifest_data, &buildmanifest_size) < 0) {
-		error("ERROR: Unable to extract BuildManifest.plist IPSW\n");
+	if(extract_buildmanifest(ipsw, &buildmanifest) < 0) {
+		error("ERROR: Unable to extract BuildManifest from %s\n", ipsw);
 		return -1;
 	}
-
-	plist_t manifest = NULL;
-	plist_from_xml(buildmanifest_data, buildmanifest_size, &manifest);
 
 	info("Creating TSS request\n");
-	plist_t tss_request = tss_create_request(manifest, ecid);
+	plist_t tss_request = tss_create_request(buildmanifest, ecid);
 	if (tss_request == NULL) {
 		error("ERROR: Unable to create TSS request\n");
-		plist_free(manifest);
+		plist_free(buildmanifest);
 		return -1;
 	}
-	plist_free(manifest);
+	plist_free(buildmanifest);
 
 	info("Sending TSS request\n");
 	plist_t tss_response = tss_send_request(tss_request);
@@ -240,34 +353,12 @@ int main(int argc, char* argv[]) {
 	/* place device into recovery mode if required */
 	if (idevicerestore_mode == NORMAL_MODE) {
 		info("Entering recovery mode...\n");
-		device_error = idevice_new(&device, uuid);
-		if (device_error != IDEVICE_E_SUCCESS) {
-			error("ERROR: Unable to find device\n");
+		if(normal_enter_recovery(uuid) < 0) {
+			error("ERROR: Unable to place device into recovery mode\n");
 			plist_free(tss_response);
 			return -1;
 		}
 
-		lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
-		if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-			error("ERROR: Unable to connect to lockdownd service\n");
-			plist_free(tss_response);
-			idevice_free(device);
-			return -1;
-		}
-
-		lockdown_error = lockdownd_enter_recovery(lockdown);
-		if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-			error("ERROR: Unable to place device in recovery mode\n");
-			lockdownd_client_free(lockdown);
-			plist_free(tss_response);
-			idevice_free(device);
-			return -1;
-		}
-
-		lockdownd_client_free(lockdown);
-		idevice_free(device);
-		lockdown = NULL;
-		device = NULL;
 	}
 
 	/* upload data to make device boot restore mode */
@@ -315,7 +406,8 @@ int main(int argc, char* argv[]) {
 		sleep(1);
 	}
 
-	device_error = idevice_new(&device, uuid);
+	idevice_t device = NULL;
+	idevice_error_t device_error = idevice_new(&device, uuid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		error("ERROR: Unable to open device\n");
 		plist_free(tss_response);
@@ -364,7 +456,7 @@ int main(int argc, char* argv[]) {
 						char *datatype = NULL;
 						plist_get_string_val(datatype_node, &datatype);
 						if (!strcmp(datatype, "SystemImageData")) {
-							asr_send_system_image_data_from_file(device, restore, filesystem);
+							restore_send_filesystem(device, restore, filesystem);
 
 						} else if (!strcmp(datatype, "KernelCache")) {
 							int kernelcache_size = 0;
@@ -377,7 +469,7 @@ int main(int argc, char* argv[]) {
 							free(kernelcache_data);
 
 						} else if (!strcmp(datatype, "NORData")) {
-							restore_send_nor_data(restore, ipsw, tss_response);
+							restore_send_nor(restore, ipsw, tss_response);
 
 						} else {
 							// Unknown DataType!!
@@ -428,9 +520,8 @@ void usage(int argc, char* argv[]) {
 	printf("  -u, \t\ttarget specific device by its 40-digit device UUID\n");
 	printf("  -h, \t\tprints usage information\n");
 	printf("  -c, \t\trestore with a custom firmware\n");
-	printf("  -v, \t\tenable incremental levels of verboseness\n");
+	printf("  -v, \t\tenable verbose output\n");
 	printf("\n");
-	exit(1);
 }
 
 int write_file(const char* filename, char* data, int size) {

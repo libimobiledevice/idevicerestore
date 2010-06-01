@@ -19,18 +19,19 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef RESTORED_H
-#define RESTORED_H
+#ifndef IDEVICERESTORE_RESTORE_H
+#define IDEVICERESTORE_RESTORE_H
 
 #include <libimobiledevice/restore.h>
 
 #include "restore.h"
 
+int restore_check_mode(const char* uuid);
 int restore_handle_progress_msg(restored_client_t client, plist_t msg);
 int restore_handle_status_msg(restored_client_t client, plist_t msg);
-int asr_send_system_image_data_from_file(idevice_t device, restored_client_t client, const char *filesystem);
+int restore_send_filesystem(idevice_t device, restored_client_t client, const char *filesystem);
 int restore_send_kernelcache(restored_client_t client, char *kernel_data, int len);
-int restore_send_nor_data(restored_client_t client, char* ipsw, plist_t tss);
+int restore_send_nor(restored_client_t client, char* ipsw, plist_t tss);
 const char* restore_progress_string(unsigned int operation);
 
 #endif
