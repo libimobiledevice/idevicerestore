@@ -45,18 +45,18 @@
 typedef enum {
 	UNKNOWN_MODE =       -1,
 	DFU_MODE =            0,
-	NORMAL_MODE =         1,
-	RECOVERY_MODE =       2,
-	RESTORE_MODE =        3
+	RECOVERY_MODE =       1,
+	RESTORE_MODE =        2,
+	NORMAL_MODE =         3,
 } idevicerestore_mode_t;
 
 typedef enum {
 	UNKNOWN_DEVICE =     -1,
 	IPHONE2G_DEVICE =     0,
 	IPHONE3G_DEVICE =     1,
-	IPHONE3GS_DEVICE =    2,
-	IPOD1G_DEVICE =       3,
-	IPOD2G_DEVICE =       4,
+	IPOD1G_DEVICE =       2,
+	IPOD2G_DEVICE =       3,
+	IPHONE3GS_DEVICE =    4,
 	IPOD3G_DEVICE =       5,
 	IPAD1G_DEVICE =       6
 } idevicerestore_device_t;
@@ -74,6 +74,7 @@ static char* idevicerestore_products[] = {
 
 extern int idevicerestore_quit;
 extern int idevicerestore_debug;
+extern int idevicerestore_erase;
 extern int idevicerestore_custom;
 extern int idevicerestore_verbose;
 extern idevicerestore_mode_t idevicerestore_mode;

@@ -40,6 +40,7 @@
 
 int idevicerestore_quit = 0;
 int idevicerestore_debug = 0;
+int idevicerestore_erase = 0;
 int idevicerestore_custom = 0;
 int idevicerestore_verbose = 0;
 idevicerestore_mode_t idevicerestore_mode = UNKNOWN_MODE;
@@ -47,121 +48,141 @@ idevicerestore_device_t idevicerestore_device = UNKNOWN_DEVICE;
 
 void usage(int argc, char* argv[]);
 int get_device(const char* uuid);
-idevicerestore_mode_t check_mode(const char* uuid);
+int check_mode(const char* uuid);
 int get_ecid(const char* uuid, uint64_t* ecid);
 int get_bdid(const char* uuid, uint32_t* bdid);
 int get_cpid(const char* uuid, uint32_t* cpid);
 int write_file(const char* filename, char* data, int size);
 int extract_buildmanifest(const char* ipsw, plist_t* buildmanifest);
+plist_t get_build_identity(plist_t buildmanifest, uint32_t identity);
+int extract_filesystem(const char* ipsw, plist_t buildmanifest, char** filesystem);
 int get_tss_data_by_name(plist_t tss, const char* entry, char** path, char** blob);
 int get_tss_data_by_path(plist_t tss, const char* path, char** name, char** blob);
 void device_callback(const idevice_event_t* event, void *user_data);
 int get_signed_component_by_name(char* ipsw, plist_t tss, char* component, char** pdata, int* psize);
 int get_signed_component_by_path(char* ipsw, plist_t tss, char* path, char** pdata, int* psize);
 
-idevicerestore_mode_t check_mode(const char* uuid) {
-	if(normal_check_mode(uuid) == 0) {
+int check_mode(const char* uuid) {
+	idevicerestore_mode_t mode = UNKNOWN_MODE;
+	if (normal_check_mode(uuid) == 0) {
 		info("Found device in normal mode\n");
-		idevicerestore_mode = NORMAL_MODE;
+		mode = NORMAL_MODE;
 	}
 
-	else if(recovery_check_mode() == 0) {
+	else if (recovery_check_mode() == 0) {
 		info("Found device in recovery mode\n");
-		idevicerestore_mode = RECOVERY_MODE;
+		mode = RECOVERY_MODE;
 	}
 
-	else if(dfu_check_mode() == 0) {
+	else if (dfu_check_mode() == 0) {
 		info("Found device in DFU mode\n");
-		idevicerestore_mode = DFU_MODE;
+		mode = DFU_MODE;
 	}
 
-	else if(restore_check_mode(uuid) == 0) {
+	else if (restore_check_mode(uuid) == 0) {
 		info("Found device in restore mode\n");
-		idevicerestore_mode = RESTORE_MODE;
+		mode = RESTORE_MODE;
 	}
 
-	return idevicerestore_mode;
+	return mode;
 }
 
 int get_device(const char* uuid) {
 	uint32_t bdid = 0;
 	uint32_t cpid = 0;
+	idevicerestore_device_t device = UNKNOWN_DEVICE;
 
-	if(get_cpid(uuid, &cpid) < 0) {
-		error("ERROR: Unable to get device CPID\n");
-		return -1;
-	}
+	switch (idevicerestore_mode) {
+	case NORMAL_MODE:
+		if (normal_get_device(uuid) < 0) {
+			device = UNKNOWN_DEVICE;
+		}
+		break;
 
-	switch(cpid) {
-	case IPHONE2G_CPID:
-		// iPhone1,1 iPhone1,2 and iPod1,1 all share the same ChipID
-		//   so we need to check the BoardID
-		if(get_bdid(uuid, &bdid) < 0) {
-			error("ERROR: Unable to get device BDID\n");
-			return -1;
+	case DFU_MODE:
+	case RECOVERY_MODE:
+		if (get_cpid(uuid, &cpid) < 0) {
+			error("ERROR: Unable to get device CPID\n");
+			break;
 		}
 
-		switch(bdid) {
-		case IPHONE2G_BDID:
-			idevicerestore_device = IPHONE2G_DEVICE;
+		switch (cpid) {
+		case IPHONE2G_CPID:
+			// iPhone1,1 iPhone1,2 and iPod1,1 all share the same ChipID
+			//   so we need to check the BoardID
+			if (get_bdid(uuid, &bdid) < 0) {
+				error("ERROR: Unable to get device BDID\n");
+				break;
+			}
+
+			switch (bdid) {
+			case IPHONE2G_BDID:
+				device = IPHONE2G_DEVICE;
+				break;
+
+			case IPHONE3G_BDID:
+				device = IPHONE3G_DEVICE;
+				break;
+
+			case IPOD1G_BDID:
+				device = IPOD1G_DEVICE;
+				break;
+
+			default:
+				device = UNKNOWN_DEVICE;
+				break;
+			}
 			break;
 
-		case IPHONE3G_BDID:
-			idevicerestore_device = IPHONE3G_DEVICE;
+		case IPHONE3GS_CPID:
+			device = IPHONE3GS_DEVICE;
 			break;
 
-		case IPOD1G_BDID:
-			idevicerestore_device = IPOD1G_DEVICE;
+		case IPOD2G_CPID:
+			device = IPOD2G_DEVICE;
+			break;
+
+		case IPOD3G_CPID:
+			device = IPOD3G_DEVICE;
+			break;
+
+		case IPAD1G_CPID:
+			device = IPAD1G_DEVICE;
 			break;
 
 		default:
-			idevicerestore_device = UNKNOWN_DEVICE;
+			device = UNKNOWN_DEVICE;
 			break;
 		}
 		break;
 
-	case IPHONE3GS_CPID:
-		idevicerestore_device = IPHONE3GS_DEVICE;
-		break;
-
-	case IPOD2G_CPID:
-		idevicerestore_device = IPOD2G_DEVICE;
-		break;
-
-	case IPOD3G_CPID:
-		idevicerestore_device = IPOD3G_DEVICE;
-		break;
-
-	case IPAD1G_CPID:
-		idevicerestore_device = IPAD1G_DEVICE;
-		break;
-
 	default:
-		idevicerestore_device = UNKNOWN_DEVICE;
+		device = UNKNOWN_MODE;
 		break;
+
 	}
 
-	return idevicerestore_device;
+	return device;
 }
 
 int get_bdid(const char* uuid, uint32_t* bdid) {
-	switch(idevicerestore_mode) {
+	switch (idevicerestore_mode) {
 	case NORMAL_MODE:
-		if(normal_get_bdid(uuid, bdid) < 0) {
+		if (normal_get_bdid(uuid, bdid) < 0) {
 			*bdid = -1;
 			return -1;
 		}
 		break;
 
 	case RECOVERY_MODE:
-		if(recovery_get_bdid(bdid) < 0) {
+		if (recovery_get_bdid(bdid) < 0) {
 			*bdid = -1;
 			return -1;
 		}
 		break;
 
 	case DFU_MODE:
-		if(dfu_get_bdid(bdid) < 0) {
+		if (dfu_get_bdid(bdid) < 0) {
 			*bdid = -1;
 			return -1;
 		}
@@ -176,24 +197,24 @@ int get_bdid(const char* uuid, uint32_t* bdid) {
 }
 
 int get_cpid(const char* uuid, uint32_t* cpid) {
-	switch(idevicerestore_mode) {
+	switch (idevicerestore_mode) {
 	case NORMAL_MODE:
-		if(normal_get_cpid(uuid, cpid) < 0) {
-			*cpid = -1;
+		if (normal_get_cpid(uuid, cpid) < 0) {
+			*cpid = 0;
 			return -1;
 		}
 		break;
 
 	case RECOVERY_MODE:
-		if(recovery_get_cpid(cpid) < 0) {
-			*cpid = -1;
+		if (recovery_get_cpid(cpid) < 0) {
+			*cpid = 0;
 			return -1;
 		}
 		break;
 
 	case DFU_MODE:
-		if(dfu_get_cpid(cpid) < 0) {
-			*cpid = -1;
+		if (dfu_get_cpid(cpid) < 0) {
+			*cpid = 0;
 			return -1;
 		}
 		break;
@@ -207,31 +228,116 @@ int get_cpid(const char* uuid, uint32_t* cpid) {
 }
 
 int get_ecid(const char* uuid, uint64_t* ecid) {
-	if(normal_get_ecid(uuid, ecid) == 0) {
-		info("Found device in normal mode\n");
-		idevicerestore_mode = NORMAL_MODE;
+	switch (idevicerestore_mode) {
+	case NORMAL_MODE:
+		if (normal_get_ecid(uuid, ecid) < 0) {
+			*ecid = 0;
+			return -1;
+		}
+		break;
+
+	case RECOVERY_MODE:
+		if (recovery_get_ecid(ecid) < 0) {
+			*ecid = 0;
+			return -1;
+		}
+		break;
+
+	case DFU_MODE:
+		if (dfu_get_ecid(ecid) < 0) {
+			*ecid = 0;
+			return -1;
+		}
+		break;
+
+	default:
+		error("ERROR: Device is in an invalid state\n");
+		return -1;
 	}
 
-	else if(recovery_get_ecid(ecid) == 0) {
-		info("Found device in recovery mode\n");
-		idevicerestore_mode = RECOVERY_MODE;
-	}
-
-	else if(dfu_get_ecid(ecid) == 0) {
-		info("Found device in DFU mode\n");
-		idevicerestore_mode = DFU_MODE;
-	}
-
-	return idevicerestore_mode;
+	return 0;
 }
 
 int extract_buildmanifest(const char* ipsw, plist_t* buildmanifest) {
 	int size = 0;
 	char* data = NULL;
-	if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &data, &size) < 0) {
+	if (idevicerestore_device >= IPHONE2G_DEVICE && idevicerestore_device <= IPOD2G_DEVICE) {
+		// Older devices that don't require personalized firmwares use BuildManifesto.plist
+		if (ipsw_extract_to_memory(ipsw, "BuildManifesto.plist", &data, &size) < 0) {
+			return -1;
+		}
+
+	} else if (idevicerestore_device >= IPHONE3GS_DEVICE && idevicerestore_device <= IPAD1G_DEVICE) {
+		// Whereas newer devices that do require personalized firmwares use BuildManifest.plist
+		if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &data, &size) < 0) {
+			return -1;
+		}
+
+	} else {
 		return -1;
 	}
+
 	plist_from_xml(data, size, buildmanifest);
+	return 0;
+}
+
+plist_t get_build_identity(plist_t buildmanifest, uint32_t identity) {
+	// fetch build identities array from BuildManifest
+	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
+	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
+		error("ERROR: Unable to find build identities node\n");
+		return NULL;
+	}
+
+	// check and make sure this identity exists in buildmanifest
+	if(identity >= plist_array_get_size(build_identities_array)) {
+		return NULL;
+	}
+
+	plist_t build_identity = plist_array_get_item(build_identities_array, identity);
+	if (!build_identity || plist_get_node_type(build_identity) != PLIST_DICT) {
+		error("ERROR: Unable to find build identities node\n");
+		return NULL;
+	}
+
+	return build_identity;
+}
+
+int extract_filesystem(const char* ipsw, plist_t build_identity, char** filesystem) {
+	char* filename = NULL;
+
+	plist_t manifest_node = plist_dict_get_item(build_identity, "OS");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: Unable to find manifest node\n");
+		return -1;
+	}
+
+	plist_t filesystem_node = plist_dict_get_item(build_identity, "OS");
+	if (!filesystem_node || plist_get_node_type(filesystem_node) != PLIST_DICT) {
+		error("ERROR: Unable to find filesystem node\n");
+		return -1;
+	}
+
+	plist_t filesystem_info_node = plist_dict_get_item(filesystem_node, "Info");
+	if (!filesystem_info_node || plist_get_node_type(filesystem_info_node) != PLIST_DICT) {
+		error("ERROR: Unable to find filesystem info node\n");
+		return -1;
+	}
+
+	plist_t filesystem_info_path_node = plist_dict_get_item(filesystem_info_node, "Path");
+	if (!filesystem_info_path_node || plist_get_node_type(filesystem_info_path_node) != PLIST_STRING) {
+		error("ERROR: Unable to find filesystem info path node\n");
+		return -1;
+	}
+	plist_get_string_val(filesystem_info_path_node, &filename);
+
+	info("Extracting filesystem from IPSW\n");
+	if (ipsw_extract_to_file(ipsw, filename, filename) < 0) {
+		error("ERROR: Unable to extract filesystem\n");
+		return -1;
+	}
+
+	*filesystem = filename;
 	return 0;
 }
 
@@ -240,7 +346,7 @@ int main(int argc, char* argv[]) {
 	char* ipsw = NULL;
 	char* uuid = NULL;
 	uint64_t ecid = 0;
-	while ((opt = getopt(argc, argv, "vdhcu:")) > 0) {
+	while ((opt = getopt(argc, argv, "vdhceu:")) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -248,6 +354,10 @@ int main(int argc, char* argv[]) {
 
 		case 'd':
 			idevicerestore_debug = 1;
+			break;
+
+		case 'e':
+			idevicerestore_erase = 1;
 			break;
 
 		case 'c':
@@ -280,85 +390,101 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	/* discover the device type */
-	if(get_device(uuid) < 0) {
-		error("ERROR: Unable to find device type\n");
+	// check which mode the device is currently in so we know where to start
+	idevicerestore_mode = check_mode(uuid);
+	if (idevicerestore_mode < 0) {
+		error("ERROR: Unable to discover device current mode\n");
 		return -1;
 	}
 
-	/* get the device ECID and determine mode */
-	if(get_ecid(uuid, &ecid) < 0 || ecid == 0) {
-		error("ERROR: Unable to find device ECID\n");
+	// discover the device type
+	idevicerestore_device = get_device(uuid);
+	if (idevicerestore_device < 0) {
+		error("ERROR: Unable to discover device type\n");
 		return -1;
 	}
-	info("Found ECID %llu\n", ecid);
 
-	/* extract buildmanifest */
+	// extract buildmanifest
 	plist_t buildmanifest = NULL;
-	info("Extracting BuildManifest.plist from IPSW\n");
-	if(extract_buildmanifest(ipsw, &buildmanifest) < 0) {
+	info("Extracting BuildManifest from IPSW\n");
+	if (extract_buildmanifest(ipsw, &buildmanifest) < 0) {
 		error("ERROR: Unable to extract BuildManifest from %s\n", ipsw);
 		return -1;
 	}
 
-	info("Creating TSS request\n");
-	plist_t tss_request = tss_create_request(buildmanifest, ecid);
-	if (tss_request == NULL) {
-		error("ERROR: Unable to create TSS request\n");
+	// choose whether this is an upgrade or a restore (default to upgrade)
+	plist_t build_identity = NULL;
+	if(idevicerestore_erase) {
+		build_identity = get_build_identity(buildmanifest, 0);
+		if(build_identity == NULL) {
+			error("ERROR: Unable to find build any identities\n");
+			plist_free(buildmanifest);
+			return -1;
+		}
+
+	} else {
+		build_identity = get_build_identity(buildmanifest, 1);
+		if(build_identity == NULL) {
+			build_identity = get_build_identity(buildmanifest, 0);
+			if(build_identity == NULL) {
+				error("ERROR: Unable to find build any identities\n");
+				plist_free(buildmanifest);
+				return -1;
+			}
+			info("No upgrade ramdisk found, default to full restore\n");
+		}
+	}
+
+	// devices are listed in order from oldest to newest
+	// devices that come after iPod2g require personalized firmwares
+	plist_t tss_request = NULL;
+	plist_t tss_response = NULL;
+	if(idevicerestore_device > IPOD2G_DEVICE) {
+
+		info("Creating TSS request\n");
+		// fetch the device's ECID for the TSS request
+		if (get_ecid(uuid, &ecid) < 0 || ecid == 0) {
+			error("ERROR: Unable to find device ECID\n");
+			return -1;
+		}
+		info("Found ECID %llu\n", ecid);
+
+		tss_request = tss_create_request(build_identity, ecid);
+		if (tss_request == NULL) {
+			error("ERROR: Unable to create TSS request\n");
+			plist_free(buildmanifest);
+			return -1;
+		}
+		plist_free(buildmanifest);
+
+		info("Sending TSS request\n");
+		tss_response = tss_send_request(tss_request);
+		if (tss_response == NULL) {
+			error("ERROR: Unable to get response from TSS server\n");
+			plist_free(tss_request);
+			return -1;
+		}
+		info("Got TSS response\n");
+		plist_free(tss_request);
+	}
+
+	// Extract filesystem from IPSW and return its name
+	char* filesystem = NULL;
+	if(extract_filesystem(ipsw, build_identity, &filesystem) < 0) {
+		error("ERROR: Unable to extract filesystem from IPSW\n");
+		if(tss_response) plist_free(tss_response);
 		plist_free(buildmanifest);
 		return -1;
 	}
-	plist_free(buildmanifest);
 
-	info("Sending TSS request\n");
-	plist_t tss_response = tss_send_request(tss_request);
-	if (tss_response == NULL) {
-		error("ERROR: Unable to get response from TSS server\n");
-		plist_free(tss_request);
-		return -1;
-	}
-	info("Got TSS response\n");
-
-	// Get name of filesystem DMG in IPSW
-	char* filesystem = NULL;
-	plist_t filesystem_node = plist_dict_get_item(tss_request, "OS");
-	if (!filesystem_node || plist_get_node_type(filesystem_node) != PLIST_DICT) {
-		error("ERROR: Unable to find filesystem node\n");
-		plist_free(tss_request);
-		return -1;
-	}
-
-	plist_t filesystem_info_node = plist_dict_get_item(filesystem_node, "Info");
-	if (!filesystem_info_node || plist_get_node_type(filesystem_info_node) != PLIST_DICT) {
-		error("ERROR: Unable to find filesystem info node\n");
-		plist_free(tss_request);
-		return -1;
-	}
-
-	plist_t filesystem_info_path_node = plist_dict_get_item(filesystem_info_node, "Path");
-	if (!filesystem_info_path_node || plist_get_node_type(filesystem_info_path_node) != PLIST_STRING) {
-		error("ERROR: Unable to find filesystem info path node\n");
-		plist_free(tss_request);
-		return -1;
-	}
-	plist_get_string_val(filesystem_info_path_node, &filesystem);
-	plist_free(tss_request);
-
-	info("Extracting filesystem from IPSW\n");
-	if (ipsw_extract_to_file(ipsw, filesystem, filesystem) < 0) {
-		error("ERROR: Unable to extract filesystem\n");
-		return -1;
-	}
-
-	/* place device into recovery mode if required */
+	// place device into recovery mode if required
 	if (idevicerestore_mode == NORMAL_MODE) {
 		info("Entering recovery mode...\n");
-		if(normal_enter_recovery(uuid) < 0) {
+		if (normal_enter_recovery(uuid) < 0) {
 			error("ERROR: Unable to place device into recovery mode\n");
 			plist_free(tss_response);
 			return -1;
 		}
-
 	}
 
 	/* upload data to make device boot restore mode */
@@ -507,7 +633,7 @@ int main(int argc, char* argv[]) {
 void device_callback(const idevice_event_t* event, void *user_data) {
 	if (event->event == IDEVICE_DEVICE_ADD) {
 		idevicerestore_mode = RESTORE_MODE;
-	} else if(event->event == IDEVICE_DEVICE_REMOVE) {
+	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
 		idevicerestore_quit = 1;
 	}
 }

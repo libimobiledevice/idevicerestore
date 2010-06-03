@@ -151,7 +151,7 @@ int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 	}
 
 	if ((progress > 0) && (progress < 100))
-		info("%s - Progress: %02ull%%\n", restore_progress_string(operation), progress);
+		info("%s - Progress: %llu%%\n", restore_progress_string(operation), progress);
 	else
 		info("%s\n", restore_progress_string(operation));
 
