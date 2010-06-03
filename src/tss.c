@@ -36,23 +36,10 @@ typedef struct {
 	char* content;
 } tss_response;
 
-plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
-	// Fetch build information from BuildManifest
-	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
-	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
-		error("ERROR: Unable to find BuildIdentities array\n");
-		return NULL;
-	}
-
-	plist_t restore_identity_dict = plist_array_get_item(build_identities_array, 0);
-	if (!restore_identity_dict || plist_get_node_type(restore_identity_dict) != PLIST_DICT) {
-		error("ERROR: Unable to find restore identity\n");
-		return NULL;
-	}
-
+plist_t tss_create_request(plist_t build_identity, uint64_t ecid) {
 	uint64_t unique_build_size = 0;
 	char* unique_build_data = NULL;
-	plist_t unique_build_node = plist_dict_get_item(restore_identity_dict, "UniqueBuildID");
+	plist_t unique_build_node = plist_dict_get_item(build_identity, "UniqueBuildID");
 	if (!unique_build_node || plist_get_node_type(unique_build_node) != PLIST_DATA) {
 		error("ERROR: Unable to find UniqueBuildID node\n");
 		return NULL;
@@ -61,7 +48,7 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 
 	int chip_id = 0;
 	char* chip_id_string = NULL;
-	plist_t chip_id_node = plist_dict_get_item(restore_identity_dict, "ApChipID");
+	plist_t chip_id_node = plist_dict_get_item(build_identity, "ApChipID");
 	if (!chip_id_node || plist_get_node_type(chip_id_node) != PLIST_STRING) {
 		error("ERROR: Unable to find ApChipID node\n");
 		return NULL;
@@ -71,7 +58,7 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 
 	int board_id = 0;
 	char* board_id_string = NULL;
-	plist_t board_id_node = plist_dict_get_item(restore_identity_dict, "ApBoardID");
+	plist_t board_id_node = plist_dict_get_item(build_identity, "ApBoardID");
 	if (!board_id_node || plist_get_node_type(board_id_node) != PLIST_STRING) {
 		error("ERROR: Unable to find ApBoardID node\n");
 		return NULL;
@@ -81,7 +68,7 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 
 	int security_domain = 0;
 	char* security_domain_string = NULL;
-	plist_t security_domain_node = plist_dict_get_item(restore_identity_dict, "ApSecurityDomain");
+	plist_t security_domain_node = plist_dict_get_item(build_identity, "ApSecurityDomain");
 	if (!security_domain_node || plist_get_node_type(security_domain_node) != PLIST_STRING) {
 		error("ERROR: Unable to find ApSecurityDomain node\n");
 		return NULL;
@@ -112,7 +99,7 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 	free(unique_build_data);
 
 	// Add all firmware files to TSS request
-	plist_t manifest_node = plist_dict_get_item(restore_identity_dict, "Manifest");
+	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
 	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
 		error("ERROR: Unable to find restore manifest\n");
 		plist_free(tss_request);

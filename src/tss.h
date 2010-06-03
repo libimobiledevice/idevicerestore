@@ -26,7 +26,7 @@
 
 #include "img3.h"
 
-plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid);
+plist_t tss_create_request(plist_t build_identity, uint64_t ecid);
 plist_t tss_send_request(plist_t tss_request);
 void tss_stitch_img3(img3_file* file, plist_t signature);
 
