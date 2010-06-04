@@ -21,10 +21,12 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <libirecovery.h>
 #include <libimobiledevice/lockdown.h>
 #include <libimobiledevice/libimobiledevice.h>
 
 #include "normal.h"
+#include "recovery.h"
 #include "idevicerestore.h"
 
 int normal_check_mode(const char* uuid) {
@@ -112,9 +114,11 @@ int normal_get_device(const char* uuid) {
 
 int normal_enter_recovery(const char* uuid) {
 	idevice_t device = NULL;
+	irecv_client_t recovery = NULL;
 	lockdownd_client_t lockdown = NULL;
+	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
-	lockdownd_error_t lockdown_error = IDEVICE_E_SUCCESS;
+	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
 	device_error = idevice_new(&device, uuid);
 	if (device_error != IDEVICE_E_SUCCESS) {
@@ -141,6 +145,29 @@ int normal_enter_recovery(const char* uuid) {
 	idevice_free(device);
 	lockdown = NULL;
 	device = NULL;
+
+	if(recovery_open_with_timeout(&recovery) < 0) {
+		error("ERROR: Unable to enter recovery mode\n");
+		return -1;
+	}
+
+	recovery_error = irecv_send_command(recovery, "setenv auto-boot true");
+	if (recovery_error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to reset auto-boot variable\n");
+		irecv_close(recovery);
+		return -1;
+	}
+
+	recovery_error = irecv_send_command(recovery, "saveenv");
+	if (recovery_error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to save auto-boot variable\n");
+		irecv_close(recovery);
+		return -1;
+	}
+
+	idevicerestore_mode = RECOVERY_MODE;
+	irecv_close(recovery);
+	recovery = NULL;
 	return 0;
 }
 
@@ -192,4 +219,5 @@ int normal_get_ecid(const char* uuid, uint64_t* ecid) {
 	idevice_free(device);
 	lockdown = NULL;
 	device = NULL;
+	return 0;
 }
