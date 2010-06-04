@@ -302,7 +302,7 @@ plist_t get_build_identity(plist_t buildmanifest, uint32_t identity) {
 		return NULL;
 	}
 
-	return plist_copy(build_identity);
+	return build_identity;
 }
 
 int extract_filesystem(const char* ipsw, plist_t build_identity, char** filesystem) {
