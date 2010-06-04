@@ -94,7 +94,8 @@ int get_device(const char* uuid) {
 
 	switch (idevicerestore_mode) {
 	case NORMAL_MODE:
-		if (normal_get_device(uuid) < 0) {
+		device = normal_get_device(uuid);
+		if (device < 0) {
 			device = UNKNOWN_DEVICE;
 		}
 		break;
@@ -282,6 +283,7 @@ int extract_buildmanifest(const char* ipsw, plist_t* buildmanifest) {
 }
 
 plist_t get_build_identity(plist_t buildmanifest, uint32_t identity) {
+
 	// fetch build identities array from BuildManifest
 	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
 	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
@@ -300,19 +302,25 @@ plist_t get_build_identity(plist_t buildmanifest, uint32_t identity) {
 		return NULL;
 	}
 
-	return build_identity;
+	return plist_copy(build_identity);
 }
 
 int extract_filesystem(const char* ipsw, plist_t build_identity, char** filesystem) {
 	char* filename = NULL;
 
-	plist_t manifest_node = plist_dict_get_item(build_identity, "OS");
+	int sz = 0;
+	char* xml = NULL;
+	plist_to_xml(build_identity, &xml, &sz);
+	debug("%s", xml);
+	free(xml);
+
+	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
 	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
 		error("ERROR: Unable to find manifest node\n");
 		return -1;
 	}
 
-	plist_t filesystem_node = plist_dict_get_item(build_identity, "OS");
+	plist_t filesystem_node = plist_dict_get_item(manifest_node, "OS");
 	if (!filesystem_node || plist_get_node_type(filesystem_node) != PLIST_DICT) {
 		error("ERROR: Unable to find filesystem node\n");
 		return -1;
@@ -438,7 +446,7 @@ int main(int argc, char* argv[]) {
 	// devices are listed in order from oldest to newest
 	// devices that come after iPod2g require personalized firmwares
 	plist_t tss_request = NULL;
-	plist_t tss_response = NULL;
+	plist_t tss = NULL;
 	if(idevicerestore_device > IPOD2G_DEVICE) {
 
 		info("Creating TSS request\n");
@@ -455,11 +463,10 @@ int main(int argc, char* argv[]) {
 			plist_free(buildmanifest);
 			return -1;
 		}
-		plist_free(buildmanifest);
 
 		info("Sending TSS request\n");
-		tss_response = tss_send_request(tss_request);
-		if (tss_response == NULL) {
+		tss = tss_send_request(tss_request);
+		if (tss == NULL) {
 			error("ERROR: Unable to get response from TSS server\n");
 			plist_free(tss_request);
 			return -1;
@@ -472,7 +479,7 @@ int main(int argc, char* argv[]) {
 	char* filesystem = NULL;
 	if(extract_filesystem(ipsw, build_identity, &filesystem) < 0) {
 		error("ERROR: Unable to extract filesystem from IPSW\n");
-		if(tss_response) plist_free(tss_response);
+		if(tss) plist_free(tss);
 		plist_free(buildmanifest);
 		return -1;
 	}
@@ -482,47 +489,20 @@ int main(int argc, char* argv[]) {
 		info("Entering recovery mode...\n");
 		if (normal_enter_recovery(uuid) < 0) {
 			error("ERROR: Unable to place device into recovery mode\n");
-			plist_free(tss_response);
+			if(tss) plist_free(tss);
+			plist_free(buildmanifest);
 			return -1;
 		}
 	}
 
-	/* upload data to make device boot restore mode */
-	if (recovery_send_ibec(ipsw, tss_response) < 0) {
-		error("ERROR: Unable to send iBEC\n");
-		plist_free(tss_response);
-		return -1;
-	}
-	sleep(1);
-
-	if (recovery_send_applelogo(ipsw, tss_response) < 0) {
-		error("ERROR: Unable to send AppleLogo\n");
-		plist_free(tss_response);
-		return -1;
-	}
-
-	if (recovery_send_devicetree(ipsw, tss_response) < 0) {
-		error("ERROR: Unable to send DeviceTree\n");
-		plist_free(tss_response);
-		return -1;
-	}
-
-	if (recovery_send_ramdisk(ipsw, tss_response) < 0) {
-		error("ERROR: Unable to send Ramdisk\n");
-		plist_free(tss_response);
-		return -1;
-	}
-
-	// for some reason iboot requires a hard reset after ramdisk
-	//   or things start getting wacky
-	printf("Please unplug your device, then plug it back in\n");
-	printf("Hit any key to continue...");
-	getchar();
-
-	if (recovery_send_kernelcache(ipsw, tss_response) < 0) {
-		error("ERROR: Unable to send KernelCache\n");
-		plist_free(tss_response);
-		return -1;
+	// place device into restore mode if required
+	if (idevicerestore_mode == RECOVERY_MODE) {
+		if (recovery_enter_restore(ipsw, tss) < 0) {
+			error("ERROR: Unable to place device into restore mode\n");
+			if(tss) plist_free(tss);
+			plist_free(buildmanifest);
+			return -1;
+		}
 	}
 
 	idevice_event_subscribe(&device_callback, NULL);
@@ -536,7 +516,7 @@ int main(int argc, char* argv[]) {
 	idevice_error_t device_error = idevice_new(&device, uuid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		error("ERROR: Unable to open device\n");
-		plist_free(tss_response);
+		plist_free(tss);
 		return -1;
 	}
 
@@ -544,7 +524,7 @@ int main(int argc, char* argv[]) {
 	restored_error_t restore_error = restored_client_new(device, &restore, "idevicerestore");
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to start restored client\n");
-		plist_free(tss_response);
+		plist_free(tss);
 		idevice_free(device);
 		return -1;
 	}
@@ -553,7 +533,7 @@ int main(int argc, char* argv[]) {
 	uint64_t version = 0;
 	if (restored_query_type(restore, &type, &version) != RESTORE_E_SUCCESS) {
 		error("ERROR: Device is not in restore mode. QueryType returned \"%s\"\n", type);
-		plist_free(tss_response);
+		plist_free(tss);
 		restored_client_free(restore);
 		idevice_free(device);
 		return -1;
@@ -587,7 +567,7 @@ int main(int argc, char* argv[]) {
 						} else if (!strcmp(datatype, "KernelCache")) {
 							int kernelcache_size = 0;
 							char* kernelcache_data = NULL;
-							if (get_signed_component_by_name(ipsw, tss_response, "KernelCache", &kernelcache_data, &kernelcache_size) < 0) {
+							if (get_signed_component_by_name(ipsw, tss, "KernelCache", &kernelcache_data, &kernelcache_size) < 0) {
 								error("ERROR: Unable to get kernelcache file\n");
 								return -1;
 							}
@@ -595,7 +575,7 @@ int main(int argc, char* argv[]) {
 							free(kernelcache_data);
 
 						} else if (!strcmp(datatype, "NORData")) {
-							restore_send_nor(restore, ipsw, tss_response);
+							restore_send_nor(restore, ipsw, tss);
 
 						} else {
 							// Unknown DataType!!
@@ -624,7 +604,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	restored_client_free(restore);
-	plist_free(tss_response);
+	plist_free(tss);
 	idevice_free(device);
 	unlink(filesystem);
 	return 0;

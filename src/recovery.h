@@ -26,6 +26,7 @@
 #include <plist/plist.h>
 
 int recovery_check_mode();
+int recovery_enter_restore(const char* ipsw, plist_t tss);
 int recovery_send_signed_component(irecv_client_t client, const char* ipsw, plist_t tss, char* component);
 irecv_error_t recovery_open_with_timeout(irecv_client_t* client);
 int recovery_send_ibec(const char* ipsw, plist_t tss);

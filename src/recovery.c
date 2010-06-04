@@ -48,6 +48,43 @@ int recovery_check_mode() {
 	return 0;
 }
 
+int recovery_enter_restore(const char* ipsw, plist_t tss) {
+	// upload data to make device boot restore mode
+	if (recovery_send_ibec(ipsw, tss) < 0) {
+		error("ERROR: Unable to send iBEC\n");
+		return -1;
+	}
+	sleep(1);
+
+	if (recovery_send_applelogo(ipsw, tss) < 0) {
+		error("ERROR: Unable to send AppleLogo\n");
+		return -1;
+	}
+
+	if (recovery_send_devicetree(ipsw, tss) < 0) {
+		error("ERROR: Unable to send DeviceTree\n");
+		return -1;
+	}
+
+	if (recovery_send_ramdisk(ipsw, tss) < 0) {
+		error("ERROR: Unable to send Ramdisk\n");
+		return -1;
+	}
+
+	// for some reason iboot requires a hard reset after ramdisk
+	//   or things start getting wacky
+	printf("Please unplug your device, then plug it back in\n");
+	printf("Hit any key to continue...");
+	getchar();
+
+	if (recovery_send_kernelcache(ipsw, tss) < 0) {
+		error("ERROR: Unable to send KernelCache\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int recovery_send_signed_component(irecv_client_t client, const char* ipsw, plist_t tss, char* component) {
 	int size = 0;
 	char* data = NULL;
@@ -306,7 +343,7 @@ int recovery_get_cpid(uint32_t* cpid) {
 		return -1;
 	}
 
-	irecv_error_t error = irecv_get_ecid(recovery, cpid);
+	irecv_error_t error = irecv_get_cpid(recovery, cpid);
 	if (error != IRECV_E_SUCCESS) {
 		irecv_close(recovery);
 		return -1;
@@ -323,7 +360,7 @@ int recovery_get_bdid(uint32_t* bdid) {
 		return -1;
 	}
 
-	irecv_error_t error = irecv_get_ecid(recovery, bdid);
+	irecv_error_t error = irecv_get_bdid(recovery, bdid);
 	if (error != IRECV_E_SUCCESS) {
 		irecv_close(recovery);
 		return -1;

@@ -124,7 +124,6 @@ plist_t tss_create_request(plist_t build_identity, uint64_t ecid) {
 		plist_dict_insert_item(tss_request, key, tss_entry);
 		free(key);
 	}
-	plist_free(manifest_node);
 
 	int sz = 0;
 	char* xml = NULL;
