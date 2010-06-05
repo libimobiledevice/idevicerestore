@@ -22,6 +22,9 @@
 #ifndef IDEVICERESTORE_H
 #define IDEVICERESTORE_H
 
+#include <stdint.h>
+#include <plist/plist.h>
+
 #define info(...) printf(__VA_ARGS__)
 #define error(...) fprintf(stderr, __VA_ARGS__)
 #define debug(...) if(idevicerestore_debug >= 1) fprintf(stderr, __VA_ARGS__)
@@ -76,8 +79,23 @@ extern int idevicerestore_quit;
 extern int idevicerestore_debug;
 extern int idevicerestore_erase;
 extern int idevicerestore_custom;
+extern int idevicerestore_exclude;
 extern int idevicerestore_verbose;
 extern idevicerestore_mode_t idevicerestore_mode;
 extern idevicerestore_device_t idevicerestore_device;
+
+int check_mode(const char* uuid);
+int check_device(const char* uuid);
+void usage(int argc, char* argv[]);
+int get_ecid(const char* uuid, uint64_t* ecid);
+int get_bdid(const char* uuid, uint32_t* bdid);
+int get_cpid(const char* uuid, uint32_t* cpid);
+int extract_buildmanifest(const char* ipsw, plist_t* buildmanifest);
+plist_t get_build_identity(plist_t buildmanifest, uint32_t identity);
+int write_file(const char* filename, const void* data, size_t size);
+int get_shsh_blobs(uint64_t ecid, plist_t build_identity, plist_t* tss);
+int extract_filesystem(const char* ipsw, plist_t buildmanifest, char** filesystem);
+int get_signed_component(char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size);
+
 
 #endif
