@@ -23,10 +23,9 @@
 #define IDEVICERESTORE_DFU_H
 
 #include <stdint.h>
+#include <plist/plist.h>
 
 int dfu_check_mode();
-int dfu_get_cpid(uint32_t* cpid);
-int dfu_get_bdid(uint32_t* bdid);
-int dfu_get_ecid(uint64_t* ecid);
+int dfu_enter_recovery(const char* ipsw, plist_t tss);
 
 #endif

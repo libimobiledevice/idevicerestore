@@ -20,6 +20,7 @@
  */
 
 #include <zip.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -119,7 +120,7 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 	return 0;
 }
 
-int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer, int* psize) {
+int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer, uint32_t* psize) {
 	ipsw_archive* archive = ipsw_open(ipsw);
 	if (archive == NULL || archive->zip == NULL) {
 		error("ERROR: Invalid archive\n");

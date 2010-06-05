@@ -25,6 +25,8 @@
 #include <plist/plist.h>
 #include <libimobiledevice/lockdown.h>
 
+int activate_device(const char* uuid);
+int activate_check_status(const char* uuid);
 int activate_fetch_record(lockdownd_client_t lockdown, plist_t* record);
 
 #endif
