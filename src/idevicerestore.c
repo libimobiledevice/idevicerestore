@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <plist/plist.h>
 #include <libirecovery.h>
 #include <libimobiledevice/restore.h>
@@ -43,42 +44,42 @@ int idevicerestore_debug = 0;
 int idevicerestore_erase = 0;
 int idevicerestore_custom = 0;
 int idevicerestore_verbose = 0;
+int idevicerestore_exclude = 0;
 idevicerestore_mode_t idevicerestore_mode = UNKNOWN_MODE;
 idevicerestore_device_t idevicerestore_device = UNKNOWN_DEVICE;
 
-int check_mode(const char* uuid);
-int check_device(const char* uuid);
-void usage(int argc, char* argv[]);
-int get_ecid(const char* uuid, uint64_t* ecid);
-int get_bdid(const char* uuid, uint32_t* bdid);
-int get_cpid(const char* uuid, uint32_t* cpid);
-void device_callback(const idevice_event_t* event, void* user_data);
-int extract_buildmanifest(const char* ipsw, plist_t* buildmanifest);
-plist_t get_build_identity(plist_t buildmanifest, uint32_t identity);
-int write_file(const char* filename, const char* data, uint32_t size);
-int get_shsh_blobs(uint64_t ecid, plist_t build_identity, plist_t* tss);
-int extract_filesystem(const char* ipsw, plist_t buildmanifest, char** filesystem);
-int get_signed_component_by_name(char* ipsw, plist_t tss, const char* component, char** data, uint32_t* size);
-int get_signed_component(char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size);
+static struct option long_opts[] = {
+	{ "uuid",    required_argument,  NULL, 'u' },
+	{ "debug",   no_argument,        NULL, 'd' },
+	{ "verbose", no_argument,        NULL, 'v' },
+	{ "help",    no_argument,        NULL, 'h' },
+	{ "erase",   no_argument,        NULL, 'e' },
+	{ "custom",  no_argument,        NULL, 'c' },
+	{ "exclude", no_argument,        NULL, 'x' },
+	{ NULL, 0, NULL, 0}
+};
 
 void usage(int argc, char* argv[]) {
 	char *name = strrchr(argv[0], '/');
 	printf("Usage: %s [OPTIONS] FILE\n", (name ? name + 1 : argv[0]));
 	printf("Restore/upgrade IPSW firmware FILE to an iPhone/iPod Touch.\n");
-	printf("  -d, \t\tenable communication debugging\n");
-	printf("  -u, \t\ttarget specific device by its 40-digit device UUID\n");
-	printf("  -h, \t\tprints usage information\n");
-	printf("  -c, \t\trestore with a custom firmware\n");
-	printf("  -v, \t\tenable verbose output\n");
+	printf("  -u, --uuid UUID\ttarget specific device by its 40-digit device UUID\n");
+	printf("  -d, --debug\t\tenable communication debugging\n");
+	printf("  -v, --verbose\t\tenable verbose output\n");
+	printf("  -h, --help\t\tprints usage information\n");
+	printf("  -e, --erase\t\tperform a full restore, erasing all data\n");
+	printf("  -c, --custom\t\trestore with a custom firmware\n");
+	printf("  -x, --exclude\t\texclude nor/baseband upgrade\n");
 	printf("\n");
 }
 
 int main(int argc, char* argv[]) {
 	int opt = 0;
+	int optindex = 0;
 	char* ipsw = NULL;
 	char* uuid = NULL;
 	uint64_t ecid = 0;
-	while ((opt = getopt(argc, argv, "vdhceu:")) > 0) {
+	while (opt = getopt_long(argc, argv, "vdhceu:", long_opts, &optindex) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -94,6 +95,10 @@ int main(int argc, char* argv[]) {
 
 		case 'c':
 			idevicerestore_custom = 1;
+			break;
+
+		case 'x':
+			idevicerestore_exclude = 1;
 			break;
 
 		case 'v':
@@ -113,12 +118,10 @@ int main(int argc, char* argv[]) {
 	argc -= optind;
 	argv += optind;
 
-	if (argc == 1)
+	if (argc == 1) {
 		ipsw = argv[0];
-
-	if (ipsw == NULL) {
+	} else {
 		usage(argc, argv);
-		error("ERROR: Please supply an IPSW\n");
 		return -1;
 	}
 
@@ -631,15 +634,18 @@ int get_signed_component(char* ipsw, plist_t tss, const char* path, char** data,
 	return 0;
 }
 
-int write_file(const char* filename, const char* data, uint32_t size) {
+int write_file(const char* filename, const void* data, size_t size) {
+	size_t bytes = 0;
+	FILE* file = NULL;
+
 	info("Writing data to %s\n", filename);
-	FILE* file = fopen(filename, "wb");
+	file = fopen(filename, "wb");
 	if (file == NULL) {
 		error("read_file: Unable to open file %s\n", filename);
 		return -1;
 	}
 
-	int bytes = fwrite(data, 1, size, file);
+	bytes = fwrite(data, 1, size, file);
 	fclose(file);
 
 	if (bytes != size) {
