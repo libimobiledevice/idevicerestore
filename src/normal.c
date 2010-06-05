@@ -62,6 +62,7 @@ int normal_check_mode(const char* uuid) {
 }
 
 int normal_check_device(const char* uuid) {
+	int i = 0;
 	idevice_t device = NULL;
 	char* product_type = NULL;
 	plist_t product_type_node = NULL;
@@ -87,30 +88,25 @@ int normal_check_device(const char* uuid) {
 		return -1;
 	}
 
-	if (!product_type_node || plist_get_node_type(product_type_node) != PLIST_STRING) {
-		if (product_type_node)
-			plist_free(product_type_node);
-		lockdownd_client_free(lockdown);
-		idevice_free(device);
-		return -1;
-	}
-	plist_get_string_val(product_type_node, &product_type);
-	plist_free(product_type_node);
-
 	lockdownd_client_free(lockdown);
 	idevice_free(device);
 	lockdown = NULL;
 	device = NULL;
 
-	int i = 0;
-	for (i = 0; idevicerestore_products[i] != NULL; i++) {
-		if (!strcmp(product_type, idevicerestore_products[i])) {
-			idevicerestore_device = i;
+	if (!product_type_node || plist_get_node_type(product_type_node) != PLIST_STRING) {
+		if (product_type_node) plist_free(product_type_node);
+		return -1;
+	}
+	plist_get_string_val(product_type_node, &product_type);
+	plist_free(product_type_node);
+
+	for (i = 0; idevicerestore_devices[i].product != NULL; i++) {
+		if (!strcmp(product_type, idevicerestore_devices[i].product)) {
 			break;
 		}
 	}
 
-	return idevicerestore_device;
+	return idevicerestore_devices[i].device_id;
 }
 
 int normal_enter_recovery(const char* uuid) {
@@ -166,7 +162,7 @@ int normal_enter_recovery(const char* uuid) {
 		return -1;
 	}
 
-	idevicerestore_mode = RECOVERY_MODE;
+	idevicerestore_mode = MODE_RECOVERY;
 	irecv_close(recovery);
 	recovery = NULL;
 	return 0;

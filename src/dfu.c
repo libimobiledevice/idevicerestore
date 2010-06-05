@@ -80,7 +80,7 @@ int dfu_enter_recovery(const char* ipsw, plist_t tss) {
 		return -1;
 	}
 
-	idevicerestore_mode = RECOVERY_MODE;
+	idevicerestore_mode = MODE_RECOVERY;
 	irecv_close(dfu);
 	dfu = NULL;
 	return 0;
