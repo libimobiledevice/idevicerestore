@@ -80,6 +80,64 @@ int restore_check_mode(const char* uuid) {
 	return 0;
 }
 
+int restore_check_device(const char* uuid) {
+	int i = 0;
+	char* type = NULL;
+	char* model = NULL;
+	plist_t node = NULL;
+	uint64_t version = 0;
+	idevice_t device = NULL;
+	restored_client_t restore = NULL;
+	idevice_error_t device_error = IDEVICE_E_SUCCESS;
+	restored_error_t restore_error = RESTORE_E_SUCCESS;
+
+	device_error = idevice_new(&device, uuid);
+	if (device_error != IDEVICE_E_SUCCESS) {
+		return -1;
+	}
+
+	restore_error = restored_client_new(device, &restore, "idevicerestore");
+	if (restore_error != RESTORE_E_SUCCESS) {
+		idevice_free(device);
+		return -1;
+	}
+
+	restore_error = restored_query_type(restore, &type, &version);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		restored_client_free(restore);
+		idevice_free(device);
+		return -1;
+	}
+
+	restore_error = restored_get_value(restore, "HardwareModel", &node);
+	if(restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: Unable to get HardwareModel from restored\n");
+		restored_client_free(restore);
+		idevice_free(device);
+		return -1;
+	}
+
+	restored_client_free(restore);
+	idevice_free(device);
+	restore = NULL;
+	device = NULL;
+
+	if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		error("ERROR: Unable to get HardwareModel information\n");
+		if(node) plist_free(node);
+		return -1;
+	}
+	plist_get_string_val(node, &model);
+
+	for(i = 0; idevicerestore_devices[i].model != NULL; i++) {
+		if(!strcasecmp(model, idevicerestore_devices[i].model)) {
+			break;
+		}
+	}
+
+	return idevicerestore_devices[i].device_id;
+}
+
 void restore_device_callback(const idevice_event_t* event, void* user_data) {
 	if (event->event == IDEVICE_DEVICE_ADD) {
 		restore_device_connected = 1;

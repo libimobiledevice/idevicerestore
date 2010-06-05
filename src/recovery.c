@@ -132,15 +132,15 @@ int recovery_open_with_timeout(irecv_client_t* client) {
 	int i = 0;
 	int attempts = 10;
 	irecv_client_t recovery = NULL;
-	irecv_error_t recovery_error = IRECV_E_SUCCESS;
+	irecv_error_t recovery_error = IRECV_E_UNKNOWN_ERROR;
 
 	for (i = 1; i <= attempts; i++) {
-		recovery_error = irecv_open(client);
+		recovery_error = irecv_open(&recovery);
 		if (recovery_error == IRECV_E_SUCCESS) {
 			break;
 		}
 
-		if (i == attempts) {
+		if (i >= attempts) {
 			error("ERROR: Unable to connect to device in recovery mode\n");
 			return -1;
 		}

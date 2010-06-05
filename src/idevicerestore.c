@@ -45,8 +45,8 @@ int idevicerestore_erase = 0;
 int idevicerestore_custom = 0;
 int idevicerestore_verbose = 0;
 int idevicerestore_exclude = 0;
-idevicerestore_mode_t idevicerestore_mode = UNKNOWN_MODE;
-idevicerestore_device_t idevicerestore_device = UNKNOWN_DEVICE;
+int idevicerestore_mode = MODE_UNKNOWN;
+idevicerestore_device_t* idevicerestore_device = NULL;
 
 static struct option long_opts[] = {
 	{ "uuid",    required_argument,  NULL, 'u' },
@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
 	char* ipsw = NULL;
 	char* uuid = NULL;
 	uint64_t ecid = 0;
-	while (opt = getopt_long(argc, argv, "vdhceu:", long_opts, &optindex) > 0) {
+	while ((opt = getopt_long(argc, argv, "vdhcexu:", long_opts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -123,6 +123,10 @@ int main(int argc, char* argv[]) {
 	} else {
 		usage(argc, argv);
 		return -1;
+	}
+
+	if(idevicerestore_debug) {
+		idevice_set_debug_level(5);
 	}
 
 	// check which mode the device is currently in so we know where to start
@@ -174,7 +178,7 @@ int main(int argc, char* argv[]) {
 	// devices that come after iPod2g require personalized firmwares
 	plist_t tss_request = NULL;
 	plist_t tss = NULL;
-	if (idevicerestore_device > IPOD2G_DEVICE) {
+	if (idevicerestore_device > DEVICE_IPOD2G) {
 		info("Creating TSS request\n");
 		// fetch the device's ECID for the TSS request
 		if (get_ecid(uuid, &ecid) < 0 || ecid == 0) {
@@ -222,7 +226,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// if the device is in normal mode, place device into recovery mode
-	if (idevicerestore_mode == NORMAL_MODE) {
+	if (idevicerestore_mode == MODE_NORMAL) {
 		info("Entering recovery mode...\n");
 		if (normal_enter_recovery(uuid) < 0) {
 			error("ERROR: Unable to place device into recovery mode\n");
@@ -234,7 +238,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// if the device is in DFU mode, place device into recovery mode
-	if (idevicerestore_mode == DFU_MODE) {
+	if (idevicerestore_mode == MODE_DFU) {
 		if (dfu_enter_recovery(ipsw, tss) < 0) {
 			error("ERROR: Unable to place device into recovery mode\n");
 			plist_free(buildmanifest);
@@ -245,7 +249,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// if the device is in recovery mode, place device into restore mode
-	if (idevicerestore_mode == RECOVERY_MODE) {
+	if (idevicerestore_mode == MODE_RECOVERY) {
 		if (recovery_enter_restore(uuid, ipsw, tss) < 0) {
 			error("ERROR: Unable to place device into restore mode\n");
 			plist_free(buildmanifest);
@@ -256,7 +260,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// device is finally in restore mode, let's do this
-	if (idevicerestore_mode == RESTORE_MODE) {
+	if (idevicerestore_mode == MODE_RESTORE) {
 		info("Restoring device... \n");
 		if (restore_device(uuid, ipsw, tss, filesystem) < 0) {
 			error("ERROR: Unable to restore device\n");
@@ -265,7 +269,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// device has finished restoring, lets see if we need to activate
-	if (idevicerestore_mode == NORMAL_MODE) {
+	if (idevicerestore_mode == MODE_NORMAL) {
 		info("Checking activation status\n");
 		int activation = activate_check_status(uuid);
 		if (activation < 0) {
@@ -291,52 +295,60 @@ int main(int argc, char* argv[]) {
 }
 
 int check_mode(const char* uuid) {
-	idevicerestore_mode_t mode = UNKNOWN_MODE;
-	if (normal_check_mode(uuid) == 0) {
-		info("Found device in normal mode\n");
-		mode = NORMAL_MODE;
-	}
+	int mode = MODE_UNKNOWN;
 
-	else if (recovery_check_mode() == 0) {
+	if (recovery_check_mode() == 0) {
 		info("Found device in recovery mode\n");
-		mode = RECOVERY_MODE;
+		mode = MODE_RECOVERY;
 	}
 
 	else if (dfu_check_mode() == 0) {
 		info("Found device in DFU mode\n");
-		mode = DFU_MODE;
+		mode = MODE_DFU;
+	}
+
+	else if (normal_check_mode(uuid) == 0) {
+		info("Found device in normal mode\n");
+		mode = MODE_NORMAL;
 	}
 
 	else if (restore_check_mode(uuid) == 0) {
 		info("Found device in restore mode\n");
-		mode = RESTORE_MODE;
+		mode = MODE_RESTORE;
 	}
 
 	return mode;
 }
 
 int check_device(const char* uuid) {
+	int device = DEVICE_UNKNOWN;
 	uint32_t bdid = 0;
 	uint32_t cpid = 0;
-	idevicerestore_device_t device = UNKNOWN_DEVICE;
 
 	switch (idevicerestore_mode) {
-	case NORMAL_MODE:
-		device = normal_check_device(uuid);
+	case MODE_RESTORE:
+		device = restore_check_device(uuid);
 		if (device < 0) {
-			device = UNKNOWN_DEVICE;
+			device = DEVICE_UNKNOWN;
 		}
 		break;
 
-	case DFU_MODE:
-	case RECOVERY_MODE:
+	case MODE_NORMAL:
+		device = normal_check_device(uuid);
+		if (device < 0) {
+			device = DEVICE_UNKNOWN;
+		}
+		break;
+
+	case MODE_DFU:
+	case MODE_RECOVERY:
 		if (get_cpid(uuid, &cpid) < 0) {
 			error("ERROR: Unable to get device CPID\n");
 			break;
 		}
 
 		switch (cpid) {
-		case IPHONE2G_CPID:
+		case CPID_IPHONE2G:
 			// iPhone1,1 iPhone1,2 and iPod1,1 all share the same ChipID
 			//   so we need to check the BoardID
 			if (get_bdid(uuid, &bdid) < 0) {
@@ -345,48 +357,48 @@ int check_device(const char* uuid) {
 			}
 
 			switch (bdid) {
-			case IPHONE2G_BDID:
-				device = IPHONE2G_DEVICE;
+			case BDID_IPHONE2G:
+				device = DEVICE_IPHONE2G;
 				break;
 
-			case IPHONE3G_BDID:
-				device = IPHONE3G_DEVICE;
+			case BDID_IPHONE3G:
+				device = DEVICE_IPHONE3G;
 				break;
 
-			case IPOD1G_BDID:
-				device = IPOD1G_DEVICE;
+			case BDID_IPOD1G:
+				device = DEVICE_IPOD1G;
 				break;
 
 			default:
-				device = UNKNOWN_DEVICE;
+				device = DEVICE_UNKNOWN;
 				break;
 			}
 			break;
 
-		case IPHONE3GS_CPID:
-			device = IPHONE3GS_DEVICE;
+		case CPID_IPHONE3GS:
+			device = DEVICE_IPHONE3GS;
 			break;
 
-		case IPOD2G_CPID:
-			device = IPOD2G_DEVICE;
+		case CPID_IPOD2G:
+			device = DEVICE_IPOD2G;
 			break;
 
-		case IPOD3G_CPID:
-			device = IPOD3G_DEVICE;
+		case CPID_IPOD3G:
+			device = DEVICE_IPOD3G;
 			break;
 
-		case IPAD1G_CPID:
-			device = IPAD1G_DEVICE;
+		case CPID_IPAD1G:
+			device = DEVICE_IPAD1G;
 			break;
 
 		default:
-			device = UNKNOWN_DEVICE;
+			device = DEVICE_UNKNOWN;
 			break;
 		}
 		break;
 
 	default:
-		device = UNKNOWN_MODE;
+		device = DEVICE_UNKNOWN;
 		break;
 
 	}
@@ -396,15 +408,15 @@ int check_device(const char* uuid) {
 
 int get_bdid(const char* uuid, uint32_t* bdid) {
 	switch (idevicerestore_mode) {
-	case NORMAL_MODE:
+	case MODE_NORMAL:
 		if (normal_get_bdid(uuid, bdid) < 0) {
 			*bdid = -1;
 			return -1;
 		}
 		break;
 
-	case DFU_MODE:
-	case RECOVERY_MODE:
+	case MODE_DFU:
+	case MODE_RECOVERY:
 		if (recovery_get_bdid(bdid) < 0) {
 			*bdid = -1;
 			return -1;
@@ -421,15 +433,15 @@ int get_bdid(const char* uuid, uint32_t* bdid) {
 
 int get_cpid(const char* uuid, uint32_t* cpid) {
 	switch (idevicerestore_mode) {
-	case NORMAL_MODE:
+	case MODE_NORMAL:
 		if (normal_get_cpid(uuid, cpid) < 0) {
 			*cpid = 0;
 			return -1;
 		}
 		break;
 
-	case DFU_MODE:
-	case RECOVERY_MODE:
+	case MODE_DFU:
+	case MODE_RECOVERY:
 		if (recovery_get_cpid(cpid) < 0) {
 			*cpid = 0;
 			return -1;
@@ -446,15 +458,15 @@ int get_cpid(const char* uuid, uint32_t* cpid) {
 
 int get_ecid(const char* uuid, uint64_t* ecid) {
 	switch (idevicerestore_mode) {
-	case NORMAL_MODE:
+	case MODE_NORMAL:
 		if (normal_get_ecid(uuid, ecid) < 0) {
 			*ecid = 0;
 			return -1;
 		}
 		break;
 
-	case DFU_MODE:
-	case RECOVERY_MODE:
+	case MODE_DFU:
+	case MODE_RECOVERY:
 		if (recovery_get_ecid(ecid) < 0) {
 			*ecid = 0;
 			return -1;
@@ -472,13 +484,14 @@ int get_ecid(const char* uuid, uint64_t* ecid) {
 int extract_buildmanifest(const char* ipsw, plist_t* buildmanifest) {
 	int size = 0;
 	char* data = NULL;
-	if (idevicerestore_device >= IPHONE2G_DEVICE && idevicerestore_device <= IPOD2G_DEVICE) {
+	int device = idevicerestore_device->device_id;
+	if (device >= DEVICE_IPHONE2G && device <= DEVICE_IPOD2G) {
 		// Older devices that don't require personalized firmwares use BuildManifesto.plist
 		if (ipsw_extract_to_memory(ipsw, "BuildManifesto.plist", &data, &size) < 0) {
 			return -1;
 		}
 
-	} else if (idevicerestore_device >= IPHONE3GS_DEVICE && idevicerestore_device <= IPAD1G_DEVICE) {
+	} else if (device >= DEVICE_IPHONE3GS && device <= DEVICE_IPAD1G) {
 		// Whereas newer devices that do require personalized firmwares use BuildManifest.plist
 		if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &data, &size) < 0) {
 			return -1;
@@ -602,7 +615,7 @@ int get_signed_component(char* ipsw, plist_t tss, const char* path, char** data,
 		return -1;
 	}
 
-	if (idevicerestore_device > IPOD2G_DEVICE && idevicerestore_custom == 0) {
+	if (idevicerestore_device->device_id > DEVICE_IPOD2G && idevicerestore_custom == 0) {
 		if (img3_replace_signature(img3, component_blob) < 0) {
 			error("ERROR: Unable to replace IMG3 signature\n");
 			free(component_blob);

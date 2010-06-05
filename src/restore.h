@@ -27,6 +27,7 @@
 #include <libimobiledevice/libimobiledevice.h>
 
 int restore_check_mode(const char* uuid);
+int restore_check_device(const char* uuid);
 const char* restore_progress_string(unsigned int operation);
 void restore_close(idevice_t device, restored_client_t restore);
 int restore_handle_status_msg(restored_client_t client, plist_t msg);
