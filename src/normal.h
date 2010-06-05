@@ -25,7 +25,7 @@
 #include <stdint.h>
 
 int normal_check_mode(const char* uuid);
-int normal_get_device(const char* uuid);
+int normal_check_device(const char* uuid);
 int normal_enter_recovery(const char* uuid);
 int normal_get_cpid(const char* uuid, uint32_t* cpid);
 int normal_get_bdid(const char* uuid, uint32_t* cpid);

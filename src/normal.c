@@ -61,7 +61,7 @@ int normal_check_mode(const char* uuid) {
 	return 0;
 }
 
-int normal_get_device(const char* uuid) {
+int normal_check_device(const char* uuid) {
 	idevice_t device = NULL;
 	char* product_type = NULL;
 	plist_t product_type_node = NULL;
@@ -88,7 +88,8 @@ int normal_get_device(const char* uuid) {
 	}
 
 	if (!product_type_node || plist_get_node_type(product_type_node) != PLIST_STRING) {
-		if(product_type_node) plist_free(product_type_node);
+		if (product_type_node)
+			plist_free(product_type_node);
 		lockdownd_client_free(lockdown);
 		idevice_free(device);
 		return -1;
@@ -102,8 +103,8 @@ int normal_get_device(const char* uuid) {
 	device = NULL;
 
 	int i = 0;
-	for(i = 0; idevicerestore_products[i] != NULL; i++) {
-		if(!strcmp(product_type, idevicerestore_products[i])) {
+	for (i = 0; idevicerestore_products[i] != NULL; i++) {
+		if (!strcmp(product_type, idevicerestore_products[i])) {
 			idevicerestore_device = i;
 			break;
 		}
@@ -146,7 +147,7 @@ int normal_enter_recovery(const char* uuid) {
 	lockdown = NULL;
 	device = NULL;
 
-	if(recovery_open_with_timeout(&recovery) < 0) {
+	if (recovery_open_with_timeout(&recovery) < 0) {
 		error("ERROR: Unable to enter recovery mode\n");
 		return -1;
 	}
@@ -187,7 +188,7 @@ int normal_get_ecid(const char* uuid, uint64_t* ecid) {
 	lockdownd_error_t lockdown_error = IDEVICE_E_SUCCESS;
 
 	device_error = idevice_new(&device, uuid);
-	if(device_error != IDEVICE_E_SUCCESS) {
+	if (device_error != IDEVICE_E_SUCCESS) {
 		return -1;
 	}
 

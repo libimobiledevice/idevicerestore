@@ -252,3 +252,11 @@ int activate_fetch_record(lockdownd_client_t client, plist_t* record) {
 	//free(request);
 	return 0;
 }
+
+int activate_check_status(const char* uuid) {
+	return 1;
+}
+
+int activate_device(const char* uuid) {
+	return 0;
+}
