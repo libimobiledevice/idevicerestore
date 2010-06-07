@@ -144,6 +144,13 @@ int main(int argc, char* argv[]) {
 	}
 	idevicerestore_device = &idevicerestore_devices[id];
 
+	if (idevicerestore_mode == MODE_RESTORE) {
+		if (restore_reboot(uuid) < 0) {
+			error("ERROR: Unable to exit restore mode\n");
+			return -1;
+		}
+	}
+
 	// extract buildmanifest
 	plist_t buildmanifest = NULL;
 	info("Extracting BuildManifest from IPSW\n");
@@ -590,7 +597,7 @@ int extract_filesystem(const char* ipsw, plist_t build_identity, char** filesyst
 	return 0;
 }
 
-int get_signed_component(char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size) {
+int get_signed_component(const char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size) {
 	img3_file* img3 = NULL;
 	uint32_t component_size = 0;
 	char* component_data = NULL;

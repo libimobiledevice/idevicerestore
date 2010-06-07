@@ -26,6 +26,7 @@
 #include <libimobiledevice/restore.h>
 #include <libimobiledevice/libimobiledevice.h>
 
+int restore_reboot(const char* uuid);
 int restore_check_mode(const char* uuid);
 int restore_check_device(const char* uuid);
 const char* restore_progress_string(unsigned int operation);
