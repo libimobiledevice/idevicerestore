@@ -137,11 +137,12 @@ int main(int argc, char* argv[]) {
 	}
 
 	// discover the device type
-	idevicerestore_device = check_device(uuid);
-	if (idevicerestore_device < 0) {
+	int id = check_device(uuid);
+	if (id < 0) {
 		error("ERROR: Unable to discover device type\n");
 		return -1;
 	}
+	idevicerestore_device = &idevicerestore_devices[id];
 
 	// extract buildmanifest
 	plist_t buildmanifest = NULL;
@@ -178,7 +179,7 @@ int main(int argc, char* argv[]) {
 	// devices that come after iPod2g require personalized firmwares
 	plist_t tss_request = NULL;
 	plist_t tss = NULL;
-	if (idevicerestore_device > DEVICE_IPOD2G) {
+	if (idevicerestore_device->device_id > DEVICE_IPOD2G) {
 		info("Creating TSS request\n");
 		// fetch the device's ECID for the TSS request
 		if (get_ecid(uuid, &ecid) < 0 || ecid == 0) {

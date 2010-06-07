@@ -31,6 +31,13 @@
 #include "recovery.h"
 #include "idevicerestore.h"
 
+int recovery_progress_callback(irecv_client_t client, const irecv_event_t* event) {
+	if (event->type == IRECV_PROGRESS) {
+		print_progress_bar(event->data, event->progress);
+	}
+	return 0;
+}
+
 int recovery_check_mode() {
 	irecv_client_t recovery = NULL;
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
@@ -92,8 +99,9 @@ int recovery_enter_restore(const char* uuid, const char* ipsw, plist_t tss) {
 		error("ERROR: Unable to connect to device in restore mode\n");
 		return -1;
 	}
-	restore_close(device, restore);
 
+	restore_close(device, restore);
+	idevicerestore_mode = MODE_RESTORE;
 	return 0;
 }
 
@@ -149,6 +157,7 @@ int recovery_open_with_timeout(irecv_client_t* client) {
 		debug("Retrying connection...\n");
 	}
 
+	irecv_event_subscribe(recovery, IRECV_PROGRESS, &recovery_progress_callback, NULL);
 	*client = recovery;
 	return 0;
 }

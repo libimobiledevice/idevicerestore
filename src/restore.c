@@ -208,7 +208,7 @@ void restore_close(idevice_t device, restored_client_t restore) {
 		restored_client_free(restore);
 	if (device)
 		idevice_free(device);
-	idevice_event_unsubscribe();
+	//idevice_event_unsubscribe();
 }
 
 const char* restore_progress_string(unsigned int operation) {
