@@ -1,5 +1,5 @@
 /*
- * idevicerestore.g
+ * idevicerestore.h
  * Restore device firmware and filesystem
  *
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
@@ -22,7 +22,8 @@
 #ifndef IDEVICERESTORE_H
 #define IDEVICERESTORE_H
 
-#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <plist/plist.h>
 
 #define info(...) printf(__VA_ARGS__)
@@ -101,7 +102,7 @@ plist_t get_build_identity(plist_t buildmanifest, uint32_t identity);
 int write_file(const char* filename, const void* data, size_t size);
 int get_shsh_blobs(uint64_t ecid, plist_t build_identity, plist_t* tss);
 int extract_filesystem(const char* ipsw, plist_t buildmanifest, char** filesystem);
-int get_signed_component(char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size);
+int get_signed_component(const char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size);
 
 inline static void debug_plist(plist_t plist) {
 	int size = 0;
