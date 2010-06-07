@@ -111,4 +111,18 @@ inline static void debug_plist(plist_t plist) {
 	free(data);
 }
 
+inline static void print_progress_bar(const char* operation, double progress) {
+	int i = 0;
+	if(progress < 0) return;
+	if(progress > 100) progress = 100;
+	info("\r%s [", operation);
+	for(i = 0; i < 50; i++) {
+		if(i < progress / 2) info("=");
+		else info(" ");
+	}
+	info("] %3.1f%%", progress);
+	if(progress == 100) info("\n");
+	fflush(stdout);
+}
+
 #endif
