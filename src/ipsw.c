@@ -98,7 +98,7 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 	int bytes = 0;
 	int count = 0;
 	double progress = 0;
-	for (i = zstat.size; i > 0; i -= count) {
+	for(i = zstat.size; i > 0; i -= count) {
 		if (i < BUFSIZE)
 			size = i;
 		else

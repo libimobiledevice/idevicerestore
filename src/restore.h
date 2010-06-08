@@ -37,6 +37,6 @@ int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss);
 int restore_send_kernelcache(restored_client_t client, char *kernel_data, int len);
 int restore_device(const char* uuid, const char* ipsw, plist_t tss, const char* filesystem);
 int restore_open_with_timeout(const char* uuid, idevice_t* device, restored_client_t* client);
-int restore_send_filesystem(idevice_t device, restored_client_t client, const char *filesystem);
+int restore_send_filesystem(idevice_t device, const char* filesystem);
 
 #endif

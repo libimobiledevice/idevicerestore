@@ -602,23 +602,28 @@ int get_signed_component(const char* ipsw, plist_t tss, const char* path, char**
 	uint32_t component_size = 0;
 	char* component_data = NULL;
 	char* component_blob = NULL;
+	char* component_name = NULL;
 
-	info("Extracting %s from %s\n", path, ipsw);
+	component_name = strrchr(path, '/');
+	if (component_name != NULL) component_name++;
+	else component_name = (char*) path;
+
+	info("Extracting %s\n", component_name);
 	if (ipsw_extract_to_memory(ipsw, path, &component_data, &component_size) < 0) {
-		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
+		error("ERROR: Unable to extract %s from %s\n", component_name, ipsw);
 		return -1;
 	}
 
 	img3 = img3_parse_file(component_data, component_size);
 	if (img3 == NULL) {
-		error("ERROR: Unable to parse IMG3: %s\n", path);
+		error("ERROR: Unable to parse IMG3: %s\n", component_name);
 		free(component_data);
 		return -1;
 	}
 	free(component_data);
 
 	if (tss_get_blob_by_path(tss, path, &component_blob) < 0) {
-		error("ERROR: Unable to get SHSH blob for TSS %s entry\n", path);
+		error("ERROR: Unable to get SHSH blob for TSS %s entry\n", component_name);
 		img3_free(img3);
 		return -1;
 	}
@@ -641,13 +646,7 @@ int get_signed_component(const char* ipsw, plist_t tss, const char* path, char**
 	img3_free(img3);
 
 	if (idevicerestore_debug) {
-		char* out = strrchr(path, '/');
-		if (out != NULL) {
-			out++;
-		} else {
-			out = (char*) path;
-		}
-		write_file(out, component_data, component_size);
+		write_file(component_name, component_data, component_size);
 	}
 
 	*data = component_data;
@@ -676,3 +675,44 @@ int write_file(const char* filename, const void* data, size_t size) {
 
 	return size;
 }
+
+int read_file(const char* filename, char** data, uint32_t* size) {
+	size_t bytes = 0;
+	size_t length = 0;
+	FILE* file = NULL;
+	char* buffer = NULL;
+	debug("Reading data from %s\n", filename);
+
+	*size = 0;
+	*data = NULL;
+
+	file = fopen(filename, "rb");
+	if (file == NULL) {
+		error("read_file: File %s not found\n", filename);
+		return -1;
+	}
+
+	fseek(file, 0, SEEK_END);
+	length = ftell(file);
+	rewind(file);
+
+	buffer = (char*) malloc(length);
+	if(buffer == NULL) {
+		error("ERROR: Out of memory\n");
+		fclose(file);
+		return -1;
+	}
+	bytes = fread(buffer, 1, length, file);
+	fclose(file);
+
+	if(bytes != length) {
+		error("ERROR: Unable to read entire file\n");
+		free(buffer);
+		return -1;
+	}
+
+	*size = length;
+	*data = buffer;
+	return 0;
+}
+
