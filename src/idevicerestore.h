@@ -63,6 +63,16 @@
 #define DEVICE_IPOD3G        5
 #define DEVICE_IPAD1G        6
 
+typedef struct idevicerestore_entry {
+	char* name;
+	char* path;
+	char* filename;
+	char* blob_data;
+	uint32_t blob_size;
+	struct idevicerestore_entry* next;
+	struct idevicerestore_entry* prev;
+} idevicerestore_entry_t;
+
 typedef struct {
 	int device_id;
 	const char* product;
@@ -70,7 +80,21 @@ typedef struct {
 	int board_id;
 	int chip_id;
 } idevicerestore_device_t;
-
+/*
+typedef struct {
+	int mode;
+	idevice_t device;
+	irecv_client_t recovery;
+	restored_client_t restore;
+	lockdownd_client_t lockdown;
+	int erase; // 1
+	int custom; // 2
+	int exclude; // 4
+	int verbose; // 8
+	idevicerestore_device_t* idevicerestore_device;
+	idevicerestore_entry_t** entries;
+} idevicerestore_context_t;
+*/
 static idevicerestore_device_t idevicerestore_devices[] = {
 	{  0, "iPhone1,1", "M68AP",  0,  8900 },
 	{  1, "iPod1,1",   "N45AP",  2,  8900 },
@@ -79,6 +103,7 @@ static idevicerestore_device_t idevicerestore_devices[] = {
 	{  4, "iPhone2,1", "N88AP",  0,  8920 },
 	{  5, "iPod3,1",   "N18AP",  2,  8922 },
 	{  6, "iPad1,1",   "K48AP",  2,  8930 },
+	{  6, "iPhone4,1", "XXXAP",  0,     0 },
 	{ -1,  NULL,        NULL,   -1,    -1 }
 };
 
@@ -90,6 +115,7 @@ extern int idevicerestore_custom;
 extern int idevicerestore_exclude;
 extern int idevicerestore_verbose;
 extern idevicerestore_device_t* idevicerestore_device;
+extern idevicerestore_entry_t** idevicerestore_entries;
 
 int check_mode(const char* uuid);
 int check_device(const char* uuid);
@@ -100,6 +126,7 @@ int get_cpid(const char* uuid, uint32_t* cpid);
 int extract_buildmanifest(const char* ipsw, plist_t* buildmanifest);
 plist_t get_build_identity(plist_t buildmanifest, uint32_t identity);
 int write_file(const char* filename, const void* data, size_t size);
+int read_file(const char* filename, char** data, uint32_t* size);
 int get_shsh_blobs(uint64_t ecid, plist_t build_identity, plist_t* tss);
 int extract_filesystem(const char* ipsw, plist_t buildmanifest, char** filesystem);
 int get_signed_component(const char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size);
