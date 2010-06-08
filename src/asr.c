@@ -48,7 +48,7 @@ int asr_open_with_timeout(idevice_t device, idevice_connection_t* asr) {
 		if (device_error == IDEVICE_E_SUCCESS) {
 			break;
 		}
-
+plist_new_
 		if (i >= attempts) {
 			error("ERROR: Unable to connect to ASR client\n");
 			return -1;
@@ -103,6 +103,7 @@ int asr_send(idevice_connection_t asr, plist_t* data) {
 		return -1;
 	}
 
+	debug("Sent %d bytes:\n%s", bytes, debug_plist(data));
 	free(buffer);
 	return 0;
 }
@@ -117,7 +118,6 @@ int asr_send_buffer(idevice_connection_t asr, const char* data, uint32_t size) {
 		return -1;
 	}
 
-	debug("Sent %d bytes:\n%s", bytes, data);
 	return 0;
 }
 
@@ -165,12 +165,7 @@ int asr_perform_validation(idevice_connection_t asr, const char* filesystem) {
 	}
 	plist_free(packet_info);
 
-	char* oob_data = NULL;
-	uint64_t oob_offset = 0;
-	uint64_t oob_length = 0;
-	plist_t oob_length_node = NULL;
-	plist_t oob_offset_node = NULL;
-	do {
+	while (1) {
 		if (asr_receive(asr, &packet) < 0) {
 			error("ERROR: Unable to receive validation packet\n");
 			return -1;
@@ -184,48 +179,69 @@ int asr_perform_validation(idevice_connection_t asr, const char* filesystem) {
 		plist_get_string_val(node, &command);
 
 		if (!strcmp(command, "OOBData")) {
-			oob_length_node = plist_dict_get_item(packet, "OOB Length");
-			if (!oob_length_node || PLIST_UINT != plist_get_node_type(oob_length_node)) {
-				error("ERROR: Unable to find OOB data length\n");
-				return -1;
-			}
-			plist_get_uint_val(oob_length_node, &oob_length);
+			asr_handle_oob_data_request(asr, packet, file);
 
-			oob_offset_node = plist_dict_get_item(packet, "OOB Offset");
-			if (!oob_offset_node || PLIST_UINT != plist_get_node_type(oob_offset_node)) {
-				error("ERROR: Unable to find OOB data offset\n");
-				return -1;
-			}
-			plist_get_uint_val(oob_offset_node, &oob_offset);
-
-			oob_data = (char*) malloc(oob_length);
-			if (oob_data == NULL) {
-				error("ERROR: Out of memory\n");
-				plist_free(packet);
-				return -1;
-			}
-
-			fseek(file, oob_offset, SEEK_SET);
-			if (fread(oob_data, 1, oob_length, file) != oob_length) {
-				error("ERROR: Unable to read OOB data from filesystem offset\n");
-				plist_free(packet);
-				free(oob_data);
-				return -1;
-			}
-
-			if (asr_send_buffer(asr, oob_data, oob_length) < 0) {
-				error("ERROR: Unable to send OOB data to ASR\n");
-				plist_free(packet);
-				free(oob_data);
-				return -1;
-			}
 
 			plist_free(packet);
-			free(oob_data);
 
+		} else if(!strcmp(command, "Payload")) {
+			plist_free(packet);
+			break;
+
+		} else {
+			error("ERROR: Unknown command received from ASR\n");
+			plist_free(packet);
+			return -1;
 		}
+	}
 
-	} while (strcmp(packet, "Payload"));
+	return 0;
+}
+
+int asr_handle_oob_data_request(idevice_connection_t asr, plist_t packet, FILE* file) {
+	char* oob_data = NULL;
+	uint64_t oob_offset = 0;
+	uint64_t oob_length = 0;
+	plist_t oob_length_node = NULL;
+	plist_t oob_offset_node = NULL;
+
+	oob_length_node = plist_dict_get_item(packet, "OOB Length");
+	if (!oob_length_node || PLIST_UINT != plist_get_node_type(oob_length_node)) {
+		error("ERROR: Unable to find OOB data length\n");
+		return -1;
+	}
+	plist_get_uint_val(oob_length_node, &oob_length);
+
+	oob_offset_node = plist_dict_get_item(packet, "OOB Offset");
+	if (!oob_offset_node || PLIST_UINT != plist_get_node_type(oob_offset_node)) {
+		error("ERROR: Unable to find OOB data offset\n");
+		return -1;
+	}
+	plist_get_uint_val(oob_offset_node, &oob_offset);
+
+	oob_data = (char*) malloc(oob_length);
+	if (oob_data == NULL) {
+		error("ERROR: Out of memory\n");
+		plist_free(packet);
+		return -1;
+	}
+
+	fseek(file, oob_offset, SEEK_SET);
+	if (fread(oob_data, 1, oob_length, file) != oob_length) {
+		error("ERROR: Unable to read OOB data from filesystem offset\n");
+		plist_free(packet);
+		free(oob_data);
+		return -1;
+	}
+
+	if (asr_send_buffer(asr, oob_data, oob_length) < 0) {
+		error("ERROR: Unable to send OOB data to ASR\n");
+		plist_free(packet);
+		free(oob_data);
+		return -1;
+	}
+	free(oob_data);
+	return 0;
 }
 
 int asr_send_payload(idevice_connection_t asr, const char* filesystem) {

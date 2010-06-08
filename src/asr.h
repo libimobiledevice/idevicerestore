@@ -1,6 +1,6 @@
 /*
- * dfu.h
- * Functions for handling idevices in normal mode
+ * asr.h
+ * Functions for handling asr connections
  *
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
@@ -31,5 +31,6 @@ int asr_send_buffer(idevice_connection_t asr, const char* data, uint32_t size);
 void asr_close(idevice_connection_t asr);
 int asr_perform_validation(idevice_connection_t asr, const char* filesystem);
 int asr_send_payload(idevice_connection_t asr, const char* filesystem);
+int asr_handle_oob_data_request(idevice_connection_t asr, plist_t packet, FILE* file);
 
 #endif
