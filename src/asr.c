@@ -48,7 +48,7 @@ int asr_open_with_timeout(idevice_t device, idevice_connection_t* asr) {
 		if (device_error == IDEVICE_E_SUCCESS) {
 			break;
 		}
-plist_new_
+
 		if (i >= attempts) {
 			error("ERROR: Unable to connect to ASR client\n");
 			return -1;
@@ -103,7 +103,8 @@ int asr_send(idevice_connection_t asr, plist_t* data) {
 		return -1;
 	}
 
-	debug("Sent %d bytes:\n%s", bytes, debug_plist(data));
+	debug("Sent %d bytes:\n", size);
+	debug_plist(data);
 	free(buffer);
 	return 0;
 }
