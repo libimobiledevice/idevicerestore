@@ -1,6 +1,6 @@
 /*
- * dfu.h
- * Functions for handling idevices in normal mode
+ * asr.h
+ * Functions for handling asr connections
  *
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
