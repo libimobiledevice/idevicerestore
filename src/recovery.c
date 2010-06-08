@@ -157,6 +157,10 @@ int recovery_open_with_timeout(irecv_client_t* client) {
 		debug("Retrying connection...\n");
 	}
 
+	if (idevicerestore_debug) {
+		irecv_set_debug(recovery, idevicerestore_debug);
+	}
+
 	irecv_event_subscribe(recovery, IRECV_PROGRESS, &recovery_progress_callback, NULL);
 	*client = recovery;
 	return 0;
