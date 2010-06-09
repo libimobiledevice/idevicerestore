@@ -144,6 +144,7 @@ void restore_device_callback(const idevice_event_t* event, void* user_data) {
 
 	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
 		restore_device_connected = 0;
+		idevicerestore_quit = 1;
 	}
 }
 
@@ -498,7 +499,11 @@ int restore_handle_data_request_msg(idevice_t device, restored_client_t restore,
 		}
 
 		else if (!strcmp(type, "NORData")) {
-			restore_send_nor(restore, ipsw, tss);
+			if(!idevicerestore_exclude) {
+				restore_send_nor(restore, ipsw, tss);
+			} else {
+				idevicerestore_quit = 1;
+			}
 
 		} else {
 			// Unknown DataType!!

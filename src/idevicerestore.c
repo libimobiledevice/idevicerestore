@@ -73,6 +73,33 @@ void usage(int argc, char* argv[]) {
 	printf("\n");
 }
 
+int get_build_count(plist_t buildmanifest) {
+	// fetch build identities array from BuildManifest
+	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
+	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
+		error("ERROR: Unable to find build identities node\n");
+		return -1;
+	}
+
+	// check and make sure this identity exists in buildmanifest
+	return plist_array_get_size(build_identities_array);
+}
+
+const char* get_build_name(plist build_identity, int identity) {
+	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: Unable to find restore manifest\n");
+		plist_free(tss_request);
+		return NULL;
+	}
+
+	plist_t filesystem_info_node = plist_dict_get_item(filesystem_node, "Info");
+	if (!filesystem_info_node || plist_get_node_type(filesystem_info_node) != PLIST_DICT) {
+		error("ERROR: Unable to find filesystem info node\n");
+		return -1;
+	}
+}
+
 int main(int argc, char* argv[]) {
 	int opt = 0;
 	int optindex = 0;
@@ -159,6 +186,18 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
+	// devices are listed in order from oldest to newest
+	// so we'll need their ECID
+	if (idevicerestore_device->device_id > DEVICE_IPOD2G) {
+		info("Creating TSS request\n");
+		// fetch the device's ECID for the TSS request
+		if (get_ecid(uuid, &ecid) < 0 || ecid == 0) {
+			error("ERROR: Unable to find device ECID\n");
+			return -1;
+		}
+		debug("Found ECID %llu\n", ecid);
+	}
+
 	// choose whether this is an upgrade or a restore (default to upgrade)
 	plist_t build_identity = NULL;
 	if (idevicerestore_erase) {
@@ -170,15 +209,20 @@ int main(int argc, char* argv[]) {
 		}
 
 	} else {
-		build_identity = get_build_identity(buildmanifest, 1);
-		if (build_identity == NULL) {
-			build_identity = get_build_identity(buildmanifest, 0);
-			if (build_identity == NULL) {
-				error("ERROR: Unable to find build any identities\n");
-				plist_free(buildmanifest);
-				return -1;
+		// loop through all build identities in the build manifest
+		// and list the valid ones
+		int valid_builds = 0;
+		int build_count = get_build_count(buildmanifest);
+		for(i = 0; i < build_count; i++) {
+			if (idevicerestore_device->device_id > DEVICE_IPOD2G) {
+				if (get_shsh_blobs(ecid, i, &tss) < 0) {
+					// if this fails then no SHSH blobs have been saved
+					// for this build identity, so check the next one
+					continue;
+				}
+				info("[%d] %s\n" i, get_build_name(buildmanifest, i));
+				valid_builds++;
 			}
-			info("No upgrade ramdisk found, default to full restore\n");
 		}
 	}
 
@@ -514,7 +558,6 @@ int extract_buildmanifest(const char* ipsw, plist_t* buildmanifest) {
 }
 
 plist_t get_build_identity(plist_t buildmanifest, uint32_t identity) {
-
 	// fetch build identities array from BuildManifest
 	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
 	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {

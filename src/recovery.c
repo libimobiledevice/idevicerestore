@@ -131,8 +131,8 @@ int recovery_send_signed_component(irecv_client_t client, const char* ipsw, plis
 		free(data);
 		return -1;
 	}
-	free(data);
 
+	free(data);
 	return 0;
 }
 
