@@ -1,1 +1,70 @@
-Sample readme file for idevicerestore project.
+
+## ---Installing idevicerestore---
+
+## First We Need to Install the dependencies
+
+sudo apt-get install build-essential automake cmake autoconf \
+libreadline6 autotools-dev libcurl4-openssl-dev \
+libplist1 libplist-utils libplist-dev libplist++-dev \
+libzip-dev git-core git-arch git-cvs git-svn git-email \
+git-daemon-run gitk gitweb git-doc rsync curl libgnutls-dev libtool 
+python-dev libreadline-dev libusb-dev
+
+## Now to get what we need from Git
+
+git clone git://git.marcansoft.com/usbmuxd.git
+cd usbmuxd
+cmake ~/usbmuxd
+make && sudo make install
+
+cd ~
+
+git clone http://github.com/chronicdev/libirecovery.git
+cd libirecovery
+make linux && sudo make install
+
+cd ~
+
+git clone http://git.sukimashita.com/libimobiledevice.git
+cd libimobiledevice
+./autogen.sh
+make && sudo make install
+
+sudo ldconfig
+
+## Now we can compile idevicerestore
+
+cd ~
+
+git clone http://github.com/posixninja/idevicerestore.git
+cd idevicerestore
+./autogen.sh
+make && sudo make install
+sudo ldconfig
+
+## We also need ideviceactivate to activate the device
+
+git clone http://github.com/posixninja/ideviceactivate.git
+cd ideviceactivate 
+make
+
+## idevicerestore usage - may need to be run as root
+
+idevicerestore [-d] [-u] [-c] [-v] [-h] <input.ipsw>
+
+  -d, 		enable communication debugging
+  -u, 		target specific device by its 40-digit device UUID
+  -h, 		prints usage information
+  -c, 		restore with a custom firmware
+  -v, 		enable incremental levels of verboseness
+
+
+## ideviceactivate usage - may need to be run as root
+
+./ideviceactivate [-x] [-d] [-h] [-u] [-f]
+
+  -x		deactivate the target device
+  -d		enable communication debugging
+  -h		prints usage information
+  -u UUID	target specific device by its 40-digit device UUID
+  -f FILE	activates device with local activation record
