@@ -1,6 +1,6 @@
 /*
- * recovery.h
- * Functions for handling idevices in recovery mode
+ * activate.h
+ * Functions to fetch activation records from Apple's servers
  *
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
@@ -19,23 +19,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef IDEVICERESTORE_RECOVERY_H
-#define IDEVICERESTORE_RECOVERY_H
+#ifndef ACTIVATE_H
+#define ACTIVATE_H
 
-#include <stdint.h>
 #include <plist/plist.h>
+#include <libimobiledevice/lockdown.h>
 
-int recovery_check_mode();
-int recovery_enter_restore(const char* uuid, const char* ipsw, plist_t tss);
-int recovery_send_signed_component(irecv_client_t client, const char* ipsw, plist_t tss, char* component);
-irecv_error_t recovery_open_with_timeout(irecv_client_t* client);
-int recovery_send_ibec(const char* ipsw, plist_t tss);
-int recovery_send_applelogo(const char* ipsw, plist_t tss);
-int recovery_send_devicetree(const char* ipsw, plist_t tss);
-int recovery_send_ramdisk(const char* ipsw, plist_t tss);
-int recovery_send_kernelcache(const char* ipsw, plist_t tss);
-int recovery_get_ecid(uint64_t* ecid);
-int recovery_get_cpid(uint32_t* cpid);
-int recovery_get_bdid(uint32_t* bdid);
+int activate_device(const char* uuid);
+int activate_check_status(const char* uuid);
+int activate_fetch_record(lockdownd_client_t lockdown, plist_t* record);
 
 #endif

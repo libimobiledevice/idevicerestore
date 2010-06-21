@@ -36,23 +36,10 @@ typedef struct {
 	char* content;
 } tss_response;
 
-plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
-	// Fetch build information from BuildManifest
-	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
-	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
-		error("ERROR: Unable to find BuildIdentities array\n");
-		return NULL;
-	}
-
-	plist_t restore_identity_dict = plist_array_get_item(build_identities_array, 0);
-	if (!restore_identity_dict || plist_get_node_type(restore_identity_dict) != PLIST_DICT) {
-		error("ERROR: Unable to find restore identity\n");
-		return NULL;
-	}
-
+plist_t tss_create_request(plist_t build_identity, uint64_t ecid) {
 	uint64_t unique_build_size = 0;
 	char* unique_build_data = NULL;
-	plist_t unique_build_node = plist_dict_get_item(restore_identity_dict, "UniqueBuildID");
+	plist_t unique_build_node = plist_dict_get_item(build_identity, "UniqueBuildID");
 	if (!unique_build_node || plist_get_node_type(unique_build_node) != PLIST_DATA) {
 		error("ERROR: Unable to find UniqueBuildID node\n");
 		return NULL;
@@ -61,7 +48,7 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 
 	int chip_id = 0;
 	char* chip_id_string = NULL;
-	plist_t chip_id_node = plist_dict_get_item(restore_identity_dict, "ApChipID");
+	plist_t chip_id_node = plist_dict_get_item(build_identity, "ApChipID");
 	if (!chip_id_node || plist_get_node_type(chip_id_node) != PLIST_STRING) {
 		error("ERROR: Unable to find ApChipID node\n");
 		return NULL;
@@ -71,7 +58,7 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 
 	int board_id = 0;
 	char* board_id_string = NULL;
-	plist_t board_id_node = plist_dict_get_item(restore_identity_dict, "ApBoardID");
+	plist_t board_id_node = plist_dict_get_item(build_identity, "ApBoardID");
 	if (!board_id_node || plist_get_node_type(board_id_node) != PLIST_STRING) {
 		error("ERROR: Unable to find ApBoardID node\n");
 		return NULL;
@@ -81,7 +68,7 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 
 	int security_domain = 0;
 	char* security_domain_string = NULL;
-	plist_t security_domain_node = plist_dict_get_item(restore_identity_dict, "ApSecurityDomain");
+	plist_t security_domain_node = plist_dict_get_item(build_identity, "ApSecurityDomain");
 	if (!security_domain_node || plist_get_node_type(security_domain_node) != PLIST_STRING) {
 		error("ERROR: Unable to find ApSecurityDomain node\n");
 		return NULL;
@@ -112,7 +99,7 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 	free(unique_build_data);
 
 	// Add all firmware files to TSS request
-	plist_t manifest_node = plist_dict_get_item(restore_identity_dict, "Manifest");
+	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
 	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
 		error("ERROR: Unable to find restore manifest\n");
 		plist_free(tss_request);
@@ -137,13 +124,14 @@ plist_t tss_create_request(plist_t buildmanifest, uint64_t ecid) {
 		plist_dict_insert_item(tss_request, key, tss_entry);
 		free(key);
 	}
-	plist_free(manifest_node);
 
-	int sz = 0;
-	char* xml = NULL;
-	plist_to_xml(tss_request, &xml, &sz);
-	debug("%s", xml);
-	free(xml);
+	if (idevicerestore_debug) {
+		int sz = 0;
+		char* xml = NULL;
+		plist_to_xml(tss_request, &xml, &sz);
+		debug("%s", xml);
+		free(xml);
+	}
 
 	return tss_request;
 }
@@ -198,7 +186,6 @@ plist_t tss_send_request(plist_t tss_request) {
 	curl_global_cleanup();
 
 	if (strstr(response->content, "MESSAGE=SUCCESS") == NULL) {
-		error("ERROR: Unable to get signature from this firmware\n");
 		free(response->content);
 		free(response);
 		return NULL;
@@ -219,15 +206,115 @@ plist_t tss_send_request(plist_t tss_request) {
 	free(response->content);
 	free(response);
 
-	int sz = 0;
-	char* xml = NULL;
-	plist_to_xml(tss_response, &xml, &sz);
-	debug("%s", xml);
-	free(xml);
+	if (idevicerestore_debug) {
+		int sz = 0;
+		char* xml = NULL;
+		plist_to_xml(tss_response, &xml, &sz);
+		debug("%s", xml);
+		free(xml);
+	}
 
 	return tss_response;
 }
 
-void tss_stitch_img3(img3_file* file, plist_t signature) {
+int tss_get_entry_path(plist_t tss, const char* entry, char** path) {
+	char* path_string = NULL;
+	plist_t path_node = NULL;
+	plist_t entry_node = NULL;
 
+	*path = NULL;
+
+	entry_node = plist_dict_get_item(tss, entry);
+	if (!entry_node || plist_get_node_type(entry_node) != PLIST_DICT) {
+		error("ERROR: Unable to find %s entry in TSS response\n", entry);
+		return -1;
+	}
+
+	path_node = plist_dict_get_item(entry_node, "Path");
+	if (!path_node || plist_get_node_type(path_node) != PLIST_STRING) {
+		error("ERROR: Unable to find %s path in entry\n", path_string);
+		return -1;
+	}
+	plist_get_string_val(path_node, &path_string);
+
+	*path = path_string;
+	return 0;
+}
+
+int tss_get_blob_by_path(plist_t tss, const char* path, char** blob) {
+	int i = 0;
+	uint32_t tss_size = 0;
+	uint64_t blob_size = 0;
+	char* entry_key = NULL;
+	char* blob_data = NULL;
+	char* entry_path = NULL;
+	plist_t tss_entry = NULL;
+	plist_t blob_node = NULL;
+	plist_t path_node = NULL;
+	plist_dict_iter iter = NULL;
+
+	*blob = NULL;
+
+	plist_dict_new_iter(tss, &iter);
+	tss_size = plist_dict_get_size(tss);
+	for (i = 0; i < tss_size; i++) {
+		plist_dict_next_item(tss, iter, &entry_key, &tss_entry);
+		if (entry_key == NULL)
+			break;
+
+		if (!tss_entry || plist_get_node_type(tss_entry) != PLIST_DICT) {
+			continue;
+		}
+
+		path_node = plist_dict_get_item(tss_entry, "Path");
+		if (!path_node || plist_get_node_type(path_node) != PLIST_STRING) {
+			error("ERROR: Unable to find TSS path node in entry %s\n", entry_key);
+			return -1;
+		}
+
+		plist_get_string_val(path_node, &entry_path);
+		if (strcmp(path, entry_path) == 0) {
+			blob_node = plist_dict_get_item(tss_entry, "Blob");
+			if (!blob_node || plist_get_node_type(blob_node) != PLIST_DATA) {
+				error("ERROR: Unable to find TSS blob node in entry %s\n", entry_key);
+				return -1;
+			}
+			plist_get_data_val(blob_node, &blob_data, &blob_size);
+			break;
+		}
+
+		free(entry_key);
+	}
+
+	if (blob_data == NULL || blob_size <= 0) {
+		return -1;
+	}
+
+	*blob = blob_data;
+	return 0;
+}
+
+int tss_get_blob_by_name(plist_t tss, const char* entry, char** blob) {
+	uint64_t blob_size = 0;
+	char* blob_data = NULL;
+	plist_t blob_node = NULL;
+	plist_t tss_entry = NULL;
+
+	*blob = NULL;
+
+	tss_entry = plist_dict_get_item(tss, entry);
+	if (!tss_entry || plist_get_node_type(tss_entry) != PLIST_DICT) {
+		error("ERROR: Unable to find %s entry in TSS response\n", entry);
+		return -1;
+	}
+
+	blob_node = plist_dict_get_item(tss_entry, "Blob");
+	if (!blob_node || plist_get_node_type(blob_node) != PLIST_DATA) {
+		error("ERROR: Unable to find blob in %s entry\n", entry);
+		return -1;
+	}
+	plist_get_data_val(blob_node, &blob_data, &blob_size);
+
+	*blob = blob_data;
+	return 0;
 }

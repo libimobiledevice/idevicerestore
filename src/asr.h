@@ -1,6 +1,6 @@
 /*
- * dfu.h
- * Functions for handling idevices in normal mode
+ * asr.h
+ * Functions for handling asr connections
  *
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
@@ -19,13 +19,18 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef IDEVICERESTORE_DFU_H
-#define IDEVICERESTORE_DFU_H
+#ifndef IDEVICERESTORE_ASR_H
+#define IDEVICERESTORE_ASR_H
 
-#include <stdint.h>
-#include <plist/plist.h>
+#include <libimobiledevice/libimobiledevice.h>
 
-int dfu_check_mode();
-int dfu_enter_recovery(const char* ipsw, plist_t tss);
+int asr_open_with_timeout(idevice_t device, idevice_connection_t* asr);
+int asr_send(idevice_connection_t asr, plist_t* data);
+int asr_receive(idevice_connection_t asr, plist_t* data);
+int asr_send_buffer(idevice_connection_t asr, const char* data, uint32_t size);
+void asr_close(idevice_connection_t asr);
+int asr_perform_validation(idevice_connection_t asr, const char* filesystem);
+int asr_send_payload(idevice_connection_t asr, const char* filesystem);
+int asr_handle_oob_data_request(idevice_connection_t asr, plist_t packet, FILE* file);
 
 #endif
