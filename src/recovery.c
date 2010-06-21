@@ -158,7 +158,7 @@ int recovery_open_with_timeout(irecv_client_t* client) {
 	}
 
 	if (idevicerestore_debug) {
-		irecv_set_debug(recovery, idevicerestore_debug);
+		irecv_set_debug_level(idevicerestore_debug);
 	}
 
 	irecv_event_subscribe(recovery, IRECV_PROGRESS, &recovery_progress_callback, NULL);

@@ -85,19 +85,19 @@ int get_build_count(plist_t buildmanifest) {
 	return plist_array_get_size(build_identities_array);
 }
 
-const char* get_build_name(plist build_identity, int identity) {
+const char* get_build_name(plist_t build_identity, int identity) {
 	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
 	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
 		error("ERROR: Unable to find restore manifest\n");
-		plist_free(tss_request);
 		return NULL;
 	}
 
-	plist_t filesystem_info_node = plist_dict_get_item(filesystem_node, "Info");
+	plist_t filesystem_info_node = plist_dict_get_item(manifest_node, "Info");
 	if (!filesystem_info_node || plist_get_node_type(filesystem_info_node) != PLIST_DICT) {
 		error("ERROR: Unable to find filesystem info node\n");
-		return -1;
+		return NULL;
 	}
+	return NULL;
 }
 
 int main(int argc, char* argv[]) {
@@ -199,6 +199,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// choose whether this is an upgrade or a restore (default to upgrade)
+	plist_t tss = NULL;
 	plist_t build_identity = NULL;
 	if (idevicerestore_erase) {
 		build_identity = get_build_identity(buildmanifest, 0);
@@ -211,16 +212,17 @@ int main(int argc, char* argv[]) {
 	} else {
 		// loop through all build identities in the build manifest
 		// and list the valid ones
+		int i = 0;
 		int valid_builds = 0;
 		int build_count = get_build_count(buildmanifest);
 		for(i = 0; i < build_count; i++) {
 			if (idevicerestore_device->device_id > DEVICE_IPOD2G) {
-				if (get_shsh_blobs(ecid, i, &tss) < 0) {
+				if (get_shsh_blobs(ecid, buildmanifest, &tss) < 0) {
 					// if this fails then no SHSH blobs have been saved
 					// for this build identity, so check the next one
 					continue;
 				}
-				info("[%d] %s\n" i, get_build_name(buildmanifest, i));
+				info("[%d] %s\n", i, get_build_name(buildmanifest, i));
 				valid_builds++;
 			}
 		}
@@ -229,7 +231,6 @@ int main(int argc, char* argv[]) {
 	// devices are listed in order from oldest to newest
 	// devices that come after iPod2g require personalized firmwares
 	plist_t tss_request = NULL;
-	plist_t tss = NULL;
 	if (idevicerestore_device->device_id > DEVICE_IPOD2G) {
 		info("Creating TSS request\n");
 		// fetch the device's ECID for the TSS request
