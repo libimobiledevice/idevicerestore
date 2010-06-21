@@ -28,8 +28,11 @@ extern "C" {
 
 #include <stdint.h>
 #include <plist/plist.h>
-#include <libirecovery.h>
 
+#include "common.h"
+
+struct irecv_client;
+typedef struct irecv_client* irecv_client_t;
 struct recovery_client_t {
 	irecv_client_t client;
 	const char* ipsw;
@@ -37,18 +40,19 @@ struct recovery_client_t {
 };
 
 int recovery_check_mode();
+int recovery_open_with_timeout(struct idevicerestore_client_t* client);
 int recovery_client_new(struct idevicerestore_client_t* client);
 void recovery_client_free(struct idevicerestore_client_t* client);
-int recovery_send_signed_component(struct idevicerestore_client_t* client, const char* ipsw, plist_t tss, char* component) {
-irecv_error_t recovery_open_with_timeout(irecv_client_t* client);
-int recovery_send_ibec(const char* ipsw, plist_t tss);
-int recovery_send_applelogo(const char* ipsw, plist_t tss);
-int recovery_send_devicetree(const char* ipsw, plist_t tss);
-int recovery_send_ramdisk(const char* ipsw, plist_t tss);
-int recovery_send_kernelcache(const char* ipsw, plist_t tss);
-int recovery_get_ecid(uint64_t* ecid);
-int recovery_get_cpid(uint32_t* cpid);
-int recovery_get_bdid(uint32_t* bdid);
+int recovery_send_signed_component(struct idevicerestore_client_t* client, const char* component);
+int recovery_send_ibec(struct idevicerestore_client_t* client);
+int recovery_send_applelogo(struct idevicerestore_client_t* client);
+int recovery_send_devicetree(struct idevicerestore_client_t* client);
+int recovery_send_ramdisk(struct idevicerestore_client_t* client);
+int recovery_send_kernelcache(struct idevicerestore_client_t* client);
+int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
+int recovery_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid);
+int recovery_get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid);
+
 
 #ifdef __cplusplus
 }

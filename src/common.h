@@ -22,11 +22,11 @@
 #ifndef IDEVICERESTORE_COMMON_H
 #define IDEVICERESTORE_COMMON_H
 
-#include <plist/plist.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include <plist/plist.h>
 
 #define info(...) printf(__VA_ARGS__)
 #define error(...) fprintf(stderr, __VA_ARGS__)

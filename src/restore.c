@@ -193,7 +193,7 @@ int restore_reboot(struct idevicerestore_client_t* client) {
 		}
 	}
 
-	restore_error = restored_reboot(client);
+	restore_error = restored_reboot(client->restore->client);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to reboot the device from restore mode\n");
 		return -1;
@@ -590,7 +590,7 @@ int restore_device(struct idevicerestore_client_t* client, const char* uuid, con
 	restore_error = restored_start_restore(restore);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to start the restore process\n");
-		restore_close(device, restore);
+		restore_client_free(client);
 		return -1;
 	}
 
@@ -652,6 +652,6 @@ int restore_device(struct idevicerestore_client_t* client, const char* uuid, con
 		message = NULL;
 	}
 
-	restore_close(device, restore);
+	restore_client_free(client);
 	return 0;
 }

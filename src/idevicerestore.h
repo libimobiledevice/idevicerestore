@@ -29,7 +29,6 @@ extern "C" {
 #include <stdint.h>
 #include <plist/plist.h>
 
-#include <plist/plist.h>
 #include "common.h"
 
 void usage(int argc, char* argv[]);

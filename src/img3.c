@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include "img3.h"
+#include "common.h"
 #include "idevicerestore.h"
 
 img3_file* img3_parse_file(char* data, int size) {

@@ -26,15 +26,15 @@
 #include <getopt.h>
 #include <plist/plist.h>
 
-#include "idevicerestore.h"
-//#include "recovery.h"
-#include "restore.h"
-#include "common.h"
-#include "normal.h"
-#include "img3.h"
-#include "ipsw.h"
 #include "dfu.h"
 #include "tss.h"
+#include "img3.h"
+#include "ipsw.h"
+#include "common.h"
+#include "normal.h"
+#include "restore.h"
+#include "recovery.h"
+#include "idevicerestore.h"
 
 static struct option longopts[] = {
 	{ "uuid",    required_argument, NULL, 'u' },
@@ -100,7 +100,6 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 	memset(client, '\0', sizeof(struct idevicerestore_client_t));
-	idevicerestore = client;
 
 	while ((opt = getopt_long(argc, argv, "dhcexu:", longopts, &optindex)) > 0) {
 		switch (opt) {
@@ -277,7 +276,7 @@ int main(int argc, char* argv[]) {
 	// if the device is in normal mode, place device into recovery mode
 	if (client->mode->index == MODE_NORMAL) {
 		info("Entering recovery mode...\n");
-		if (normal_enter_recovery(uuid) < 0) {
+		if (normal_enter_recovery(client) < 0) {
 			error("ERROR: Unable to place device into recovery mode\n");
 			if (tss)
 				plist_free(tss);
@@ -468,7 +467,7 @@ int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
 
 	case MODE_DFU:
 	case MODE_RECOVERY:
-		if (recovery_get_bdid(&client->device->board_id) < 0) {
+		if (recovery_get_bdid(client, &client->device->board_id) < 0) {
 			client->device->board_id = -1;
 			return -1;
 		}
@@ -493,7 +492,7 @@ int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
 
 	case MODE_DFU:
 	case MODE_RECOVERY:
-		if (recovery_get_cpid(&client->device->chip_id) < 0) {
+		if (recovery_get_cpid(client, &client->device->chip_id) < 0) {
 			client->device->chip_id = -1;
 			return -1;
 		}
@@ -523,7 +522,7 @@ int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 
 	case MODE_DFU:
 	case MODE_RECOVERY:
-		if (recovery_get_ecid(ecid) < 0) {
+		if (recovery_get_ecid(client, ecid) < 0) {
 			*ecid = 0;
 			return -1;
 		}

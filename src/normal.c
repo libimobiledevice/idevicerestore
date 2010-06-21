@@ -20,18 +20,32 @@
  */
 
 #include <stdio.h>
-#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <libirecovery.h>
 #include <libimobiledevice/lockdown.h>
 #include <libimobiledevice/libimobiledevice.h>
 
 #include "common.h"
 #include "normal.h"
-//#include "recovery.h"
+#include "recovery.h"
 
-int normal_client_new(struct normal_client_t** normal) {
-	struct normal_client_t* client = (struct normal_client_t*) malloc(sizeof(struct normal_client_t));
-	if (client == NULL) {
+static int normal_device_connected = 0;
+
+void normal_device_callback(const idevice_event_t* event, void* userdata) {
+	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) userdata;
+	if (event->event == IDEVICE_DEVICE_ADD) {
+		normal_device_connected = 1;
+
+	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
+		normal_device_connected = 0;
+		client->flags &= FLAG_QUIT;
+	}
+}
+
+int normal_client_new(struct idevicerestore_client_t* client) {
+	struct normal_client_t* normal = (struct normal_client_t*) malloc(sizeof(struct normal_client_t));
+	if (normal == NULL) {
 		error("ERROR: Out of memory\n");
 		return -1;
 	}
@@ -41,13 +55,8 @@ int normal_client_new(struct normal_client_t** normal) {
 		return -1;
 	}
 
-	if(normal_check_mode(client) < 0) {
-		normal_client_free(client);
-		return -1;
-	}
-
-	*normal = client;
-	return client;
+	client->normal = normal;
+	return 0;
 }
 
 void normal_client_free(struct idevicerestore_client_t* client) {
@@ -98,6 +107,73 @@ int normal_check_mode(const char* uuid) {
 	idevice_free(device);
 	lockdown = NULL;
 	device = NULL;
+	return 0;
+}
+
+int normal_open_with_timeout(struct idevicerestore_client_t* client) {
+	int i = 0;
+	int attempts = 10;
+	idevice_t device = NULL;
+	lockdownd_client_t lockdownd = NULL;
+	idevice_error_t device_error = IDEVICE_E_SUCCESS;
+	lockdownd_error_t lockdownd_error = LOCKDOWN_E_SUCCESS;
+
+	// no context exists so bail
+	if(client == NULL) {
+		return -1;
+	}
+
+	// create our normal client if it doesn't yet exist
+	if(client->normal == NULL) {
+		client->normal = (struct normal_client_t*) malloc(sizeof(struct normal_client_t));
+		if(client->normal == NULL) {
+			error("ERROR: Out of memory\n");
+			return -1;
+		}
+	}
+
+	device_error = idevice_event_subscribe(&normal_device_callback, NULL);
+	if (device_error != IDEVICE_E_SUCCESS) {
+		error("ERROR: Unable to subscribe to device events\n");
+		return -1;
+	}
+
+	for (i = 1; i <= attempts; i++) {
+		if (normal_device_connected == 1) {
+			break;
+		}
+
+		if (i == attempts) {
+			error("ERROR: Unable to connect to device in normal mode\n");
+			return -1;
+		}
+
+		sleep(2);
+	}
+
+	device_error = idevice_new(&device, client->uuid);
+	if (device_error != IDEVICE_E_SUCCESS) {
+		return -1;
+	}
+
+	lockdownd_error = lockdownd_client_new(device, &lockdownd, "idevicerestore");
+	if (lockdownd_error != LOCKDOWN_E_SUCCESS) {
+		//idevice_event_unsubscribe();
+		idevice_free(device);
+		return -1;
+	}
+
+	char* type = NULL;
+	lockdownd_error = lockdownd_query_type(lockdownd, &type);
+	if (lockdownd_error != LOCKDOWN_E_SUCCESS) {
+		lockdownd_client_free(lockdownd);
+		//idevice_event_unsubscribe();
+		idevice_free(device);
+		return -1;
+	}
+
+	client->normal->device = device;
+	client->normal->client = lockdownd;
 	return 0;
 }
 
