@@ -59,33 +59,6 @@ void usage(int argc, char* argv[]) {
 	printf("\n");
 }
 
-int get_build_count(plist_t buildmanifest) {
-	// fetch build identities array from BuildManifest
-	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
-	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
-		error("ERROR: Unable to find build identities node\n");
-		return -1;
-	}
-
-	// check and make sure this identity exists in buildmanifest
-	return plist_array_get_size(build_identities_array);
-}
-
-const char* get_build_name(plist_t build_identity, int identity) {
-	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
-	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
-		error("ERROR: Unable to find restore manifest\n");
-		return NULL;
-	}
-
-	plist_t filesystem_info_node = plist_dict_get_item(manifest_node, "Info");
-	if (!filesystem_info_node || plist_get_node_type(filesystem_info_node) != PLIST_DICT) {
-		error("ERROR: Unable to find filesystem info node\n");
-		return NULL;
-	}
-	return NULL;
-}
-
 int main(int argc, char* argv[]) {
 	int opt = 0;
 	int optindex = 0;
@@ -219,46 +192,6 @@ int main(int argc, char* argv[]) {
 				}
 				info("[%d] %s\n", i, get_build_name(buildmanifest, i));
 				valid_builds++;
-			}
-		}
-	}
-
-	// devices are listed in order from oldest to newest
-	// devices that come after iPod2g require personalized firmwares
-	plist_t tss_request = NULL;
-	if (client->device->index > DEVICE_IPOD2G) {
-		info("Creating TSS request\n");
-		// fetch the device's ECID for the TSS request
-		if (get_ecid(client, &ecid) < 0 || ecid == 0) {
-			error("ERROR: Unable to find device ECID\n");
-			return -1;
-		}
-		debug("Found ECID %llu\n", ecid);
-
-		// fetch the SHSH blobs for this build identity
-		if (get_shsh_blobs(client, ecid, build_identity, &tss) < 0) {
-			// this might fail if the TSS server doesn't have the saved blobs for the
-			// update identity, so go ahead and try again with the restore identity
-			if (client->flags & FLAG_ERASE > 0) {
-				info("Unable to fetch SHSH blobs for upgrade, retrying with full restore\n");
-				build_identity = get_build_identity(client, buildmanifest, 0);
-				if (build_identity == NULL) {
-					error("ERROR: Unable to find restore identity\n");
-					plist_free(buildmanifest);
-					return -1;
-				}
-
-				if (get_shsh_blobs(client, ecid, build_identity, &tss) < 0) {
-					// if this fails then no SHSH blobs have been saved for this firmware
-					error("ERROR: Unable to fetch SHSH blobs for this firmware\n");
-					plist_free(buildmanifest);
-					return -1;
-				}
-
-			} else {
-				error("ERROR: Unable to fetch SHSH blobs for this firmware\n");
-				plist_free(buildmanifest);
-				return -1;
 			}
 		}
 	}
@@ -629,7 +562,9 @@ const char* get_build_name(plist_t build_identity, int identity) {
 		error("ERROR: Unable to find filesystem info node\n");
 		return NULL;
 	}
+	return NULL;
 }
+
 
 int extract_filesystem(struct idevicerestore_client_t* client, const char* ipsw, plist_t build_identity, char** filesystem) {
 	char* filename = NULL;

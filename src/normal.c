@@ -225,7 +225,7 @@ int normal_check_device(const char* uuid) {
 	return idevicerestore_devices[i].index;
 }
 
-int normal_enter_recovery(const char* uuid) {
+int normal_enter_recovery(struct idevicerestore_client_t* client) {
 	idevice_t device = NULL;
 	irecv_client_t recovery = NULL;
 	lockdownd_client_t lockdown = NULL;
@@ -233,7 +233,7 @@ int normal_enter_recovery(const char* uuid) {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
-	device_error = idevice_new(&device, uuid);
+	device_error = idevice_new(&device, client->uuid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		error("ERROR: Unable to find device\n");
 		return -1;
@@ -259,7 +259,7 @@ int normal_enter_recovery(const char* uuid) {
 	lockdown = NULL;
 	device = NULL;
 
-	if (recovery_open_with_timeout(&recovery) < 0) {
+	if (recovery_open_with_timeout(client) < 0) {
 		error("ERROR: Unable to enter recovery mode\n");
 		return -1;
 	}
