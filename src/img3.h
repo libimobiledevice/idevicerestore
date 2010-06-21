@@ -22,6 +22,10 @@
 #ifndef IDEVICERESTORE_IMG3_H
 #define IDEVICERESTORE_IMG3_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
 	kNorContainer = 0x696D6733,  // img3
 	kImg3Container = 0x496D6733, // Img3
@@ -85,5 +89,10 @@ void img3_free_element(img3_element* element);
 img3_file* img3_parse_file(char* data, int size);
 int img3_get_data(img3_file* image, char** pdata, int* psize);
 int img3_replace_signature(img3_file* image, char* signature);
+
+
+#ifdef __cplusplus
+}s
+#endif
 
 #endif

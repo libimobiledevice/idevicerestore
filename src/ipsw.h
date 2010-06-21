@@ -22,6 +22,10 @@
 #ifndef IDEVICERESTORE_IPSW_H
 #define IDEVICERESTORE_IPSW_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <zip.h>
 #include <stdint.h>
 
@@ -34,5 +38,9 @@ typedef struct {
 
 int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer, uint32_t* psize);
 void ipsw_free_file(ipsw_file* file);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

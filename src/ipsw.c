@@ -114,7 +114,7 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 
 		bytes += size;
 		progress = ((double) bytes/ (double) zstat.size) * 100.0;
-		print_progress_bar("Extracting", progress);
+		print_progress_bar(progress);
 	}
 
 	fclose(fd);

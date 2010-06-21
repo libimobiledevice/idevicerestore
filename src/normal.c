@@ -25,9 +25,49 @@
 #include <libimobiledevice/lockdown.h>
 #include <libimobiledevice/libimobiledevice.h>
 
+#include "common.h"
 #include "normal.h"
-#include "recovery.h"
-#include "idevicerestore.h"
+//#include "recovery.h"
+
+int normal_client_new(struct normal_client_t** normal) {
+	struct normal_client_t* client = (struct normal_client_t*) malloc(sizeof(struct normal_client_t));
+	if (client == NULL) {
+		error("ERROR: Out of memory\n");
+		return -1;
+	}
+
+	if (normal_open_with_timeout(client) < 0) {
+		normal_client_free(client);
+		return -1;
+	}
+
+	if(normal_check_mode(client) < 0) {
+		normal_client_free(client);
+		return -1;
+	}
+
+	*normal = client;
+	return client;
+}
+
+void normal_client_free(struct idevicerestore_client_t* client) {
+	struct normal_client_t* normal = NULL;
+	if (client) {
+		normal = client->normal;
+		if(normal) {
+			if(normal->client) {
+				lockdownd_client_free(normal->client);
+				normal->client = NULL;
+			}
+			if(normal->device) {
+				idevice_free(normal->device);
+				normal->device = NULL;
+			}
+		}
+		free(normal);
+		client->normal = NULL;
+	}
+}
 
 int normal_check_mode(const char* uuid) {
 	char* type = NULL;
@@ -106,7 +146,7 @@ int normal_check_device(const char* uuid) {
 		}
 	}
 
-	return idevicerestore_devices[i].device_id;
+	return idevicerestore_devices[i].index;
 }
 
 int normal_enter_recovery(const char* uuid) {
@@ -162,7 +202,7 @@ int normal_enter_recovery(const char* uuid) {
 		return -1;
 	}
 
-	idevicerestore_mode = MODE_RECOVERY;
+	//client->mode = &idevicerestore_modes[MODE_RECOVERY];
 	irecv_close(recovery);
 	recovery = NULL;
 	return 0;

@@ -283,7 +283,7 @@ int asr_send_payload(idevice_connection_t asr, const char* filesystem) {
 
 		bytes += size;
 		progress = ((double) bytes/ (double) length) * 100.0;
-		print_progress_bar("Extracting", progress);
+		print_progress_bar(progress);
 
 	}
 

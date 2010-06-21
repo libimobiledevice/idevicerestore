@@ -24,29 +24,87 @@
 #include <libirecovery.h>
 
 #include "dfu.h"
-#include "recovery.h"
+//#include "recovery.h"
 #include "idevicerestore.h"
 
-int dfu_check_mode() {
-	irecv_client_t dfu = NULL;
-	irecv_error_t dfu_error = IRECV_E_SUCCESS;
-
-	dfu_error = irecv_open(&dfu);
-	if (dfu_error != IRECV_E_SUCCESS) {
-		return -1;
+int dfu_progress_callback(irecv_client_t client, const irecv_event_t* event) {
+	if (event->type == IRECV_PROGRESS) {
+		print_progress_bar(event->progress);
 	}
-
-	if (dfu->mode != kDfuMode) {
-		irecv_close(dfu);
-		return -1;
-	}
-
-	irecv_close(dfu);
-	dfu = NULL;
 	return 0;
 }
 
-int dfu_enter_recovery(const char* ipsw, plist_t tss) {
+int dfu_client_new(struct idevicerestore_client_t* client, uint32_t timeout) {
+	struct dfu_client_t* dfu = NULL;
+	if(client == NULL) {
+		return -1;
+	}
+
+	if(client->dfu) {
+		dfu_client_free(client);
+	}
+
+	dfu = (struct dfu_client_t*) malloc(sizeof(struct dfu_client_t));
+	if (dfu == NULL) {
+		error("ERROR: Out of memory\n");
+		return -1;
+	}
+
+	if (dfu_open_with_timeout(dfu, timeout) < 0) {
+		dfu_client_free(client);
+		return -1;
+	}
+
+	if(dfu->client->mode != kDfuMode) {
+		dfu_client_free(client);
+		return -1;
+	}
+
+	client->dfu = dfu;
+	return 0;
+}
+
+void dfu_client_free(struct idevicerestore_client_t* client) {
+	struct dfu_client_t* dfu = NULL;
+	if(client != NULL) {
+		dfu = client->dfu;
+		if (dfu != NULL) {
+			if(dfu->client != NULL) {
+				irecv_close(dfu->client);
+				dfu->client = NULL;
+			}
+			free(dfu);
+		}
+		client->dfu = NULL;
+	}
+}
+
+int dfu_open_with_timeout(struct idevicerestore_client_t* client, uint32_t timeout) {
+	int i = 0;
+	irecv_client_t recovery = NULL;
+	irecv_error_t recovery_error = IRECV_E_UNKNOWN_ERROR;
+
+	for (i = 1; i <= timeout; i++) {
+		recovery_error = irecv_open(&recovery);
+		if (recovery_error == IRECV_E_SUCCESS) {
+			break;
+		}
+
+		if (i == timeout) {
+			error("ERROR: Unable to connect to device in DFU mode\n");
+			return -1;
+		}
+
+		sleep(1);
+		debug("Retrying connection...\n");
+	}
+
+	irecv_event_subscribe(recovery, IRECV_PROGRESS, &dfu_progress_callback, NULL);
+	client->dfu = recovery;
+	return 0;
+}
+
+int dfu_enter_recovery(struct idevicerestore_client_t* client) {
 	irecv_client_t dfu = NULL;
 	const char* component = "iBSS";
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
@@ -57,7 +115,7 @@ int dfu_enter_recovery(const char* ipsw, plist_t tss) {
 		return -1;
 	}
 
-	if (recovery_send_signed_component(dfu, ipsw, tss, "iBSS") < 0) {
+	if (recovery_send_signed_component(dfu, client->ipsw, client->tss, "iBSS") < 0) {
 		error("ERROR: Unable to send %s to device\n", component);
 		irecv_close(dfu);
 		return -1;
@@ -80,7 +138,7 @@ int dfu_enter_recovery(const char* ipsw, plist_t tss) {
 		return -1;
 	}
 
-	idevicerestore_mode = MODE_RECOVERY;
+	client->mode = &idevicerestore_modes[MODE_RECOVERY];
 	irecv_close(dfu);
 	dfu = NULL;
 	return 0;

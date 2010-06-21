@@ -19,8 +19,12 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef ACTIVATE_H
-#define ACTIVATE_H
+#ifndef IDEVICERESTORE_ACTIVATE_H
+#define IDEVICERESTORE_ACTIVATE_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <plist/plist.h>
 #include <libimobiledevice/lockdown.h>
@@ -28,5 +32,10 @@
 int activate_device(const char* uuid);
 int activate_check_status(const char* uuid);
 int activate_fetch_record(lockdownd_client_t lockdown, plist_t* record);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

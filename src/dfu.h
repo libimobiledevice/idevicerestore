@@ -22,10 +22,26 @@
 #ifndef IDEVICERESTORE_DFU_H
 #define IDEVICERESTORE_DFU_H
 
-#include <stdint.h>
-#include <plist/plist.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-int dfu_check_mode();
-int dfu_enter_recovery(const char* ipsw, plist_t tss);
+#include <libirecovery.h>
+#include "common.h"
+
+struct dfu_client_t {
+	irecv_client_t client;
+	const char* ipsw;
+	plist_t tss;
+};
+
+int dfu_client_new(struct idevicerestore_client_t* client, uint32_t timeout);
+void dfu_client_free(struct idevicerestore_client_t* client);
+int dfu_enter_recovery(struct idevicerestore_client_t* client);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

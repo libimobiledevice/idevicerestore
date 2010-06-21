@@ -11,7 +11,7 @@ o) Writing restore logs to an external file for debugging would be a great help.
 o) Need to change some info progresses to only display the component name rather then the full path which can be messy. 
 o) Would be nice to add options to keep some connections open during similar operations rather then reopening and closing them each time. 
 o) Extracting and signing all firmware files at one time rather then extracting and signing each one as we need it could speed things up as well.
-o) Clean up restore_send_kernelcache
-o) Clean up restore_send_nor
+o) Clean up refactor restore_send_kernelcache()
+o) Clean up and refactor restore_send_nor()
 o) Finishing cleaning up asr_perform_validation
 o) Double check to make sure asr_send_payload looks clean

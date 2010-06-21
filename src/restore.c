@@ -26,8 +26,8 @@
 
 #include "asr.h"
 #include "tss.h"
+#include "common.h"
 #include "restore.h"
-#include "idevicerestore.h"
 
 #define CREATE_PARTITION_MAP   12
 #define CREATE_FILESYSTEM      13
@@ -45,6 +45,39 @@
 #define LOAD_NOR               36
 
 static int restore_device_connected = 0;
+
+int restore_client_new(struct idevicerestore_client_t* client) {
+	struct restore_client_t* restore = (struct restore_client_t*) malloc(sizeof(struct restore_client_t));
+	if (restore == NULL) {
+		error("ERROR: Out of memory\n");
+		return -1;
+	}
+
+	if (restore_open_with_timeout(client) < 0) {
+		restore_client_free(client);
+		return -1;
+	}
+
+	client->restore = restore;
+	return 0;
+}
+
+void restore_client_free(struct idevicerestore_client_t* client) {
+	if (client) {
+		if(client->restore) {
+			if(client->restore->client) {
+				restored_client_free(client->restore->client);
+				client->restore->client = NULL;
+			}
+			if(client->restore->device) {
+				idevice_free(client->restore->device);
+				client->restore->device = NULL;
+			}
+			free(client->restore);
+			client->restore = NULL;
+		}
+	}
+}
 
 int restore_check_mode(const char* uuid) {
 	char* type = NULL;
@@ -135,51 +168,61 @@ int restore_check_device(const char* uuid) {
 		}
 	}
 
-	return idevicerestore_devices[i].device_id;
+	return idevicerestore_devices[i].index;
 }
 
-void restore_device_callback(const idevice_event_t* event, void* user_data) {
+void restore_device_callback(const idevice_event_t* event, void* userdata) {
+	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) userdata;
 	if (event->event == IDEVICE_DEVICE_ADD) {
 		restore_device_connected = 1;
 
 	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
 		restore_device_connected = 0;
-		idevicerestore_quit = 1;
+		client->flags &= FLAG_QUIT;
 	}
 }
 
-int restore_reboot(const char* uuid) {
+int restore_reboot(struct idevicerestore_client_t* client) {
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
-	if (restore_open_with_timeout(uuid, &device, &restore) < 0) {
-		error("ERROR: Unable to open device in restore mode\n");
-		return -1;
+	if(!client->restore) {
+		if (restore_open_with_timeout(client) < 0) {
+			error("ERROR: Unable to open device in restore mode\n");
+			return -1;
+		}
 	}
 
-	restore_error = restored_reboot(restore);
+	restore_error = restored_reboot(client);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to reboot the device from restore mode\n");
-		restore_close(device, restore);
 		return -1;
 	}
 
-	restore_close(device, restore);
-	restore = NULL;
-	device = NULL;
 	return 0;
 }
 
-int restore_open_with_timeout(const char* uuid, idevice_t* device, restored_client_t* restore) {
+int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 	int i = 0;
 	int attempts = 10;
-	idevice_t context = NULL;
-	restored_client_t client = NULL;
+	idevice_t device = NULL;
+	restored_client_t restored = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
-	*device = NULL;
-	*restore = NULL;
+	// no context exists so bail
+	if(client == NULL) {
+		return -1;
+	}
+
+	// create our restore client if it doesn't yet exist
+	if(client->restore == NULL) {
+		client->restore = (struct restore_client_t*) malloc(sizeof(struct restore_client_t));
+		if(client->restore == NULL) {
+			error("ERROR: Out of memory\n");
+			return -1;
+		}
+	}
 
 	device_error = idevice_event_subscribe(&restore_device_callback, NULL);
 	if (device_error != IDEVICE_E_SUCCESS) {
@@ -194,41 +237,35 @@ int restore_open_with_timeout(const char* uuid, idevice_t* device, restored_clie
 
 		if (i == attempts) {
 			error("ERROR: Unable to connect to device in restore mode\n");
+			return -1;
 		}
 
 		sleep(2);
 	}
 
-	device_error = idevice_new(&context, uuid);
+	device_error = idevice_new(&device, client->uuid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		return -1;
 	}
 
-	restore_error = restored_client_new(context, &client, "idevicerestore");
+	restore_error = restored_client_new(device, &restored, "idevicerestore");
 	if (restore_error != RESTORE_E_SUCCESS) {
-		idevice_event_unsubscribe();
-		idevice_free(context);
-		return -1;
-	}
-
-	restore_error = restored_query_type(client, NULL, NULL);
-	if (restore_error != RESTORE_E_SUCCESS) {
-		restored_client_free(client);
-		idevice_event_unsubscribe();
-		idevice_free(context);
-		return -1;
-	}
-
-	*device = context;
-	*restore = client;
-	return 0;
-}
-
-void restore_close(idevice_t device, restored_client_t restore) {
-	if (restore)
-		restored_client_free(restore);
-	if (device)
+		//idevice_event_unsubscribe();
 		idevice_free(device);
+		return -1;
+	}
+
+	restore_error = restored_query_type(restored, NULL, NULL);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		restored_client_free(restored);
+		//idevice_event_unsubscribe();
+		idevice_free(device);
+		return -1;
+	}
+
+	client->restore->device = device;
+	client->restore->client = restored;
+	return 0;
 }
 
 const char* restore_progress_string(unsigned int operation) {
@@ -300,7 +337,7 @@ int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 	plist_get_uint_val(node, &progress);
 
 	if ((progress > 0) && (progress < 100)) {
-		print_progress_bar(restore_progress_string(operation), (double) progress);
+		print_progress_bar((double) progress);
 
 	} else {
 		info("%s\n", restore_progress_string(operation));
@@ -361,16 +398,32 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 	return 0;
 }
 
-int restore_send_kernelcache(restored_client_t client, char* kernel_data, int len) {
+int restore_send_kernelcache(restored_client_t client, const char* ipsw, plist_t tss) {
+	int size = 0;
+	char* data = NULL;
+	char* path = NULL;
+	plist_t blob = NULL;
+	plist_t dict = NULL;
+	restored_error_t restore_error = RESTORE_E_SUCCESS;
+
 	info("Sending kernelcache\n");
+	if (tss_get_entry_path(tss, "KernelCache", &path) < 0) {
+		error("ERROR: Unable to find kernelcache path\n");
+		return -1;
+	}
 
-	plist_t kernelcache_node = plist_new_data(kernel_data, len);
+	if (get_signed_component(client, ipsw, tss, path, &data, &size) < 0) {
+		error("ERROR: Unable to get kernelcache file\n");
+		return -1;
+	}
 
-	plist_t dict = plist_new_dict();
-	plist_dict_insert_item(dict, "KernelCacheFile", kernelcache_node);
 
-	restored_error_t ret = restored_send(client, dict);
-	if (ret != RESTORE_E_SUCCESS) {
+	dict = plist_new_dict();
+	blob = plist_new_data(data, size);
+	plist_dict_insert_item(dict, "KernelCacheFile", blob);
+
+	restore_error = restored_send(client, dict);
+	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send kernelcache data\n");
 		plist_free(dict);
 		return -1;
@@ -378,52 +431,61 @@ int restore_send_kernelcache(restored_client_t client, char* kernel_data, int le
 
 	info("Done sending kernelcache\n");
 	plist_free(dict);
+	free(data);
 	return 0;
 }
 
 int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss) {
 	char* llb_path = NULL;
+	char* llb_filename = NULL;
+	char firmware_path[256];
+	char manifest_file[256];
+	int manifest_size = 0;
+	char* manifest_data = NULL;
+	char firmware_filename[256];
+	int llb_size = 0;
+	char* llb_data = NULL;
+	plist_t dict = NULL;
+	char* filename = NULL;
+	int nor_size = 0;
+	char* nor_data = NULL;
+	plist_t norimage_array = NULL;
+	restored_error_t ret = RESTORE_E_SUCCESS;
+
 	if (tss_get_entry_path(tss, "LLB", &llb_path) < 0) {
 		error("ERROR: Unable to get LLB info from TSS response\n");
 		return -1;
 	}
 
-	char* llb_filename = strstr(llb_path, "LLB");
+	llb_filename = strstr(llb_path, "LLB");
 	if (llb_filename == NULL) {
 		error("ERROR: Unable to extract firmware path from LLB filename\n");
 		free(llb_path);
 		return -1;
 	}
 
-	char firmware_path[256];
 	memset(firmware_path, '\0', sizeof(firmware_path));
 	memcpy(firmware_path, llb_path, (llb_filename - 1) - llb_path);
 	info("Found firmware path %s\n", firmware_path);
 
-	char manifest_file[256];
 	memset(manifest_file, '\0', sizeof(manifest_file));
 	snprintf(manifest_file, sizeof(manifest_file), "%s/manifest", firmware_path);
 	info("Getting firmware manifest %s\n", manifest_file);
 
-	int manifest_size = 0;
-	char* manifest_data = NULL;
 	if (ipsw_extract_to_memory(ipsw, manifest_file, &manifest_data, &manifest_size) < 0) {
 		error("ERROR: Unable to extract firmware manifest from ipsw\n");
 		free(llb_path);
 		return -1;
 	}
 
-	char firmware_filename[256];
 	memset(firmware_filename, '\0', sizeof(firmware_filename));
 
-	int llb_size = 0;
-	char* llb_data = NULL;
-	plist_t dict = plist_new_dict();
-	char* filename = strtok(manifest_data, "\n");
+	dict = plist_new_dict();
+	filename = strtok(manifest_data, "\n");
 	if (filename != NULL) {
 		memset(firmware_filename, '\0', sizeof(firmware_filename));
 		snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
-		if (get_signed_component(ipsw, tss, firmware_filename, &llb_data, &llb_size) < 0) {
+		if (get_signed_component(client, ipsw, tss, firmware_filename, &llb_data, &llb_size) < 0) {
 			error("ERROR: Unable to get signed LLB\n");
 			return -1;
 		}
@@ -431,14 +493,12 @@ int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss) {
 		plist_dict_insert_item(dict, "LlbImageData", plist_new_data(llb_data, (uint64_t) llb_size));
 	}
 
-	int nor_size = 0;
-	char* nor_data = NULL;
 	filename = strtok(NULL, "\n");
-	plist_t norimage_array = plist_new_array();
+	norimage_array = plist_new_array();
 	while (filename != NULL) {
 		memset(firmware_filename, '\0', sizeof(firmware_filename));
 		snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
-		if (get_signed_component(ipsw, tss, firmware_filename, &nor_data, &nor_size) < 0) {
+		if (get_signed_component(client, ipsw, tss, firmware_filename, &nor_data, &nor_size) < 0) {
 			error("ERROR: Unable to get signed firmware %s\n", firmware_filename);
 			break;
 		}
@@ -453,7 +513,7 @@ int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss) {
 
 	debug_plist(dict);
 
-	restored_error_t ret = restored_send(client, dict);
+	ret = restored_send(client, dict);
 	if (ret != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send kernelcache data\n");
 		plist_free(dict);
@@ -464,7 +524,7 @@ int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int restore_handle_data_request_msg(idevice_t device, restored_client_t restore, plist_t message, plist_t tss, const char* ipsw, const char* filesystem) {
+int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t tss, const char* ipsw, const char* filesystem) {
 	char* type = NULL;
 	plist_t node = NULL;
 
@@ -476,44 +536,39 @@ int restore_handle_data_request_msg(idevice_t device, restored_client_t restore,
 
 		// this request is sent when restored is ready to receive the filesystem
 		if (!strcmp(type, "SystemImageData")) {
-			restore_send_filesystem(device, filesystem);
-
+			if(restore_send_filesystem(device, filesystem) < 0) {
+				error("ERROR: Unable to send filesystem\n");
+				return -1;
+			}
 		}
 
 		else if (!strcmp(type, "KernelCache")) {
-			int kernelcache_size = 0;
-			char* kernelcache_data = NULL;
-			char* kernelcache_path = NULL;
-			if (tss_get_entry_path(tss, "KernelCache", &kernelcache_path) < 0) {
-				error("ERROR: Unable to find kernelcache path\n");
+			if(restore_send_kernelcache(restore, ipsw, tss) < 0) {
+				error("ERROR: Unable to send kernelcache\n");
 				return -1;
 			}
-
-			if (get_signed_component(ipsw, tss, kernelcache_path, &kernelcache_data, &kernelcache_size) < 0) {
-				error("ERROR: Unable to get kernelcache file\n");
-				return -1;
-			}
-			restore_send_kernelcache(restore, kernelcache_data, kernelcache_size);
-			free(kernelcache_data);
-
 		}
 
 		else if (!strcmp(type, "NORData")) {
-			if(!idevicerestore_exclude) {
-				restore_send_nor(restore, ipsw, tss);
+			if(client->flags & FLAG_EXCLUDE > 0) {
+				if(restore_send_nor(restore, ipsw, tss) < 0) {
+					error("ERROR: Unable to send NOR data\n");
+					return -1;
+				}
 			} else {
-				idevicerestore_quit = 1;
+				client->flags &= 1;
 			}
 
 		} else {
 			// Unknown DataType!!
 			debug("Unknown data request received\n");
+			debug_plist(message);
 		}
 	}
 	return 0;
 }
 
-int restore_device(const char* uuid, const char* ipsw, plist_t tss, const char* filesystem) {
+int restore_device(struct idevicerestore_client_t* client, const char* uuid, const char* ipsw, plist_t tss, const char* filesystem) {
 	int error = 0;
 	char* type = NULL;
 	char* kernel = NULL;
@@ -525,7 +580,7 @@ int restore_device(const char* uuid, const char* ipsw, plist_t tss, const char* 
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
 	// open our connection to the device and verify we're in restore mode
-	if (restore_open_with_timeout(uuid, &device, &restore) < 0) {
+	if (restore_open_with_timeout(client) < 0) {
 		error("ERROR: Unable to open device in restore mode\n");
 		return -1;
 	}
@@ -541,7 +596,7 @@ int restore_device(const char* uuid, const char* ipsw, plist_t tss, const char* 
 
 	// this is the restore process loop, it reads each message in from
 	// restored and passes that data on to it's specific handler
-	while (!idevicerestore_quit) {
+	while ((client->flags & FLAG_QUIT) == 0) {
 		restore_error = restored_receive(restore, &message);
 		if (restore_error != RESTORE_E_SUCCESS) {
 			debug("No data to read\n");
@@ -564,7 +619,7 @@ int restore_device(const char* uuid, const char* ipsw, plist_t tss, const char* 
 		// files sent to the server by the client. these data requests include
 		// SystemImageData, KernelCache, and NORData requests
 		if (!strcmp(type, "DataRequestMsg")) {
-			error = restore_handle_data_request_msg(device, restore, message, tss, ipsw, filesystem);
+			error = restore_handle_data_request_msg(client, device, restore, message, tss, ipsw, filesystem);
 		}
 
 		// progress notification messages sent by the restored inform the client
@@ -590,7 +645,7 @@ int restore_device(const char* uuid, const char* ipsw, plist_t tss, const char* 
 		// an unrecoverable error, so we need to bail.
 		if (error < 0) {
 			error("ERROR: Unable to successfully restore device\n");
-			idevicerestore_quit = 1;
+			client->flags &= FLAG_QUIT;
 		}
 
 		plist_free(message);

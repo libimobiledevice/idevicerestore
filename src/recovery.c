@@ -28,14 +28,49 @@
 
 #include "tss.h"
 #include "img3.h"
+#include "common.h"
 #include "recovery.h"
 #include "idevicerestore.h"
 
 int recovery_progress_callback(irecv_client_t client, const irecv_event_t* event) {
 	if (event->type == IRECV_PROGRESS) {
-		print_progress_bar(event->data, event->progress);
+		print_progress_bar(event->progress);
 	}
 	return 0;
+}
+
+int recovery_client_new(struct idevicerestore_client_t* client) {
+	struct recovery_client_t* recovery = (struct recovery_client_t*) malloc(sizeof(struct recovery_client_t));
+	if (recovery == NULL) {
+		error("ERROR: Out of memory\n");
+		return -1;
+	}
+
+	if (recovery_open_with_timeout(recovery) < 0) {
+		recovery_client_free(recovery);
+		return -1;
+	}
+
+	if(recovery_check_mode(recovery) < 0) {
+		recovery_client_free(recovery);
+		return -1;
+	}
+
+	client->recovery = recovery;
+	return 0;
+}
+
+void recovery_client_free(struct idevicerestore_client_t* client) {
+	struct recovery_client_t* recovery = client->recovery;
+	if (recovery) {
+		if(recovery->client) {
+			irecv_close(recovery);
+			recovery = NULL;
+		}
+		free(recovery);
+		client->recovery = NULL;
+
+	}
 }
 
 int recovery_check_mode() {
@@ -101,11 +136,11 @@ int recovery_enter_restore(const char* uuid, const char* ipsw, plist_t tss) {
 	}
 
 	restore_close(device, restore);
-	idevicerestore_mode = MODE_RESTORE;
+	client->mode = &idevicerestore_modes[MODE_RESTORE];
 	return 0;
 }
 
-int recovery_send_signed_component(irecv_client_t client, const char* ipsw, plist_t tss, char* component) {
+int recovery_send_signed_component(struct idevicerestore_client_t client, const char* ipsw, plist_t tss, char* component) {
 	int size = 0;
 	char* data = NULL;
 	char* path = NULL;
@@ -117,7 +152,7 @@ int recovery_send_signed_component(irecv_client_t client, const char* ipsw, plis
 		return -1;
 	}
 
-	if (get_signed_component(ipsw, tss, path, &data, &size) < 0) {
+	if (get_signed_component(client, ipsw, tss, path, &data, &size) < 0) {
 		error("ERROR: Unable to get signed component: %s\n", component);
 		free(path);
 		return -1;
@@ -155,10 +190,6 @@ int recovery_open_with_timeout(irecv_client_t* client) {
 
 		sleep(2);
 		debug("Retrying connection...\n");
-	}
-
-	if (idevicerestore_debug) {
-		irecv_set_debug_level(idevicerestore_debug);
 	}
 
 	irecv_event_subscribe(recovery, IRECV_PROGRESS, &recovery_progress_callback, NULL);
