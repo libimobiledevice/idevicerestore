@@ -205,7 +205,8 @@ int recovery_send_ibec(struct idevicerestore_client_t* client) {
 	const char* component = "iBEC";
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
-	recovery_error = irecv_send_command(client->recovery->client, "setenv auto-boot true");
+	//recovery_error = irecv_send_command(client->recovery->client, "setenv auto-boot true");
+	recovery_error = irecv_setenv(client->recovery->client, "auto-boot", "true");
 	if (recovery_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to set auto-boot environmental variable\n");
 		return -1;
