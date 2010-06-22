@@ -19,16 +19,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef IDEVICERESTORE_NORMAL_H
-#define IDEVICERESTORE_NORMAL_H
+#ifndef NORMAL_H
+#define NORMAL_H
 
 #include <stdint.h>
 
-int normal_check_mode(const char* uuid);
-int normal_check_device(const char* uuid);
-int normal_enter_recovery(const char* uuid);
-int normal_get_cpid(const char* uuid, uint32_t* cpid);
-int normal_get_bdid(const char* uuid, uint32_t* cpid);
-int normal_get_ecid(const char* uuid, uint64_t* ecid);
+int normal_get_ecid(uint64_t* ecid);
 
 #endif

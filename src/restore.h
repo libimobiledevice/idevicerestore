@@ -19,24 +19,18 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef IDEVICERESTORE_RESTORE_H
-#define IDEVICERESTORE_RESTORE_H
+#ifndef RESTORED_H
+#define RESTORED_H
 
-#include <plist/plist.h>
 #include <libimobiledevice/restore.h>
-#include <libimobiledevice/libimobiledevice.h>
 
-int restore_reboot(const char* uuid);
-int restore_check_mode(const char* uuid);
-int restore_check_device(const char* uuid);
-const char* restore_progress_string(unsigned int operation);
-void restore_close(idevice_t device, restored_client_t restore);
-int restore_handle_status_msg(restored_client_t client, plist_t msg);
+#include "restore.h"
+
 int restore_handle_progress_msg(restored_client_t client, plist_t msg);
-int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss);
+int restore_handle_status_msg(restored_client_t client, plist_t msg);
+int asr_send_system_image_data_from_file(idevice_t device, restored_client_t client, const char *filesystem);
 int restore_send_kernelcache(restored_client_t client, char *kernel_data, int len);
-int restore_device(const char* uuid, const char* ipsw, plist_t tss, const char* filesystem);
-int restore_open_with_timeout(const char* uuid, idevice_t* device, restored_client_t* client);
-int restore_send_filesystem(idevice_t device, const char* filesystem);
+int restore_send_nor_data(restored_client_t client, char* ipsw, plist_t tss);
+const char* restore_progress_string(unsigned int operation);
 
 #endif

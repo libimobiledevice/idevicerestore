@@ -20,7 +20,6 @@
  */
 
 #include <zip.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -95,10 +94,8 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 
 	int i = 0;
 	int size = 0;
-	int bytes = 0;
 	int count = 0;
-	double progress = 0;
-	for(i = zstat.size; i > 0; i -= count) {
+	for (i = zstat.size; i > 0; i -= count) {
 		if (i < BUFSIZE)
 			size = i;
 		else
@@ -111,11 +108,9 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 			return -1;
 		}
 		fwrite(buffer, 1, count, fd);
-
-		bytes += size;
-		progress = ((double) bytes/ (double) zstat.size) * 100.0;
-		print_progress_bar("Extracting", progress);
+		debug(".");
 	}
+	debug("\n");
 
 	fclose(fd);
 	zip_fclose(zfile);
@@ -124,7 +119,7 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 	return 0;
 }
 
-int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer, uint32_t* psize) {
+int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer, int* psize) {
 	ipsw_archive* archive = ipsw_open(ipsw);
 	if (archive == NULL || archive->zip == NULL) {
 		error("ERROR: Invalid archive\n");
