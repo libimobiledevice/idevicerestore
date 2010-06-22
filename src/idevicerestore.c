@@ -417,7 +417,7 @@ int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
 int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
 	switch (client->mode->index) {
 	case MODE_NORMAL:
-		if (normal_get_cpid(client->uuid, &client->device->chip_id) < 0) {
+		if (normal_get_cpid(client->uuid, cpid) < 0) {
 			client->device->chip_id = -1;
 			return -1;
 		}
@@ -425,7 +425,7 @@ int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
 
 	case MODE_DFU:
 	case MODE_RECOVERY:
-		if (recovery_get_cpid(client, &client->device->chip_id) < 0) {
+		if (recovery_get_cpid(client, cpid) < 0) {
 			client->device->chip_id = -1;
 			return -1;
 		}

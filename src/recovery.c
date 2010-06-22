@@ -45,6 +45,7 @@ int recovery_client_new(struct idevicerestore_client_t* client) {
 		error("ERROR: Out of memory\n");
 		return -1;
 	}
+	client->recovery = recovery;
 
 	if (recovery_open_with_timeout(client) < 0) {
 		recovery_client_free(client);
@@ -73,6 +74,14 @@ int recovery_open_with_timeout(struct idevicerestore_client_t* client) {
 	int attempts = 10;
 	irecv_client_t recovery = NULL;
 	irecv_error_t recovery_error = IRECV_E_UNKNOWN_ERROR;
+
+	if(client->recovery == NULL) {
+		if(recovery_client_new(client) < 0) {
+			error("ERROR: Unable to open device in recovery mode\n");
+			return -1;
+		}
+		return 0;
+	}
 
 	for (i = 1; i <= attempts; i++) {
 		recovery_error = irecv_open(&recovery);
