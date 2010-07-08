@@ -249,24 +249,6 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	// device has finished restoring, lets see if we need to activate
-	if (client->mode->index == MODE_NORMAL) {
-		info("Checking activation status\n");
-		int activation = activate_check_status(uuid);
-		if (activation < 0) {
-			error("ERROR: Unable to check activation status\n");
-			return -1;
-		}
-
-		if (activation == 0) {
-			info("Activating device... \n");
-			if (activate_device(uuid) < 0) {
-				error("ERROR: Unable to activate device\n");
-				return -1;
-			}
-		}
-	}
-
 	info("Cleaning up...\n");
 	if (filesystem)
 		unlink(filesystem);
