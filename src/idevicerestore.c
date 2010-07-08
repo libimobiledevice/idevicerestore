@@ -126,7 +126,7 @@ int main(int argc, char* argv[]) {
 
 	// check which mode the device is currently in so we know where to start
 	if (check_mode(client) < 0 || client->mode->index == MODE_UNKNOWN) {
-		error("ERROR: Unable to discover current device state\n");
+		error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
 		return -1;
 	}
 	info("Found device in %s mode\n", client->mode->string);
