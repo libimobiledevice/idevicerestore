@@ -47,7 +47,7 @@ static struct option longopts[] = {
 };
 
 void usage(int argc, char* argv[]) {
-	char *name = strrchr(argv[0], '/');
+	char* name = strrchr(argv[0], '/');
 	printf("Usage: %s [OPTIONS] FILE\n", (name ? name + 1 : argv[0]));
 	printf("Restore/upgrade IPSW firmware FILE to an iPhone/iPod Touch.\n");
 	printf("  -u, --uuid UUID\ttarget specific device by its 40-digit device UUID\n");
@@ -78,7 +78,7 @@ int main(int argc, char* argv[]) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
-			break;
+			return 0;
 
 		case 'd':
 			client->flags &= FLAG_DEBUG;
@@ -106,10 +106,10 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	argc -= optind;
-	argv += optind;
+	if ((argc-optind) == 1) {
+		argc -= optind;
+		argv += optind;
 
-	if (argc == 1) {
 		ipsw = argv[0];
 	} else {
 		usage(argc, argv);
