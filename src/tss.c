@@ -126,11 +126,7 @@ plist_t tss_create_request(plist_t build_identity, uint64_t ecid) {
 	}
 
 	if (idevicerestore_debug) {
-		int sz = 0;
-		char* xml = NULL;
-		plist_to_xml(tss_request, &xml, &sz);
-		debug("%s", xml);
-		free(xml);
+		debug_plist(tss_request);
 	}
 
 	return tss_request;
@@ -207,11 +203,7 @@ plist_t tss_send_request(plist_t tss_request) {
 	free(response);
 
 	if (idevicerestore_debug) {
-		int sz = 0;
-		char* xml = NULL;
-		plist_to_xml(tss_response, &xml, &sz);
-		debug("%s", xml);
-		free(xml);
+		debug_plist(tss_response);
 	}
 
 	return tss_response;
