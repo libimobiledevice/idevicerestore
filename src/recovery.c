@@ -352,8 +352,10 @@ int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 int recovery_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
-	if (recovery_open_with_timeout(client) < 0) {
-		return -1;
+	if(client->recovery == NULL) {
+		if (recovery_open_with_timeout(client) < 0) {
+			return -1;
+		}
 	}
 
 	recovery_error = irecv_get_cpid(client->recovery->client, cpid);
@@ -367,8 +369,10 @@ int recovery_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
 int recovery_get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
-	if (recovery_open_with_timeout(client) < 0) {
-		return -1;
+	if(client->recovery == NULL) {
+		if (recovery_open_with_timeout(client) < 0) {
+			return -1;
+		}
 	}
 
 	recovery_error = irecv_get_bdid(client->recovery->client, bdid);
