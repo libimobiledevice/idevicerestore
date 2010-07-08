@@ -370,16 +370,16 @@ int check_device(struct idevicerestore_client_t* client) {
 int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
 	switch (client->mode->index) {
 	case MODE_NORMAL:
-		if (normal_get_bdid(client->uuid, &client->device->board_id) < 0) {
-			client->device->board_id = -1;
+		if (normal_get_bdid(client->uuid, bdid) < 0) {
+			*bdid = 0;
 			return -1;
 		}
 		break;
 
 	case MODE_DFU:
 	case MODE_RECOVERY:
-		if (recovery_get_bdid(client, &client->device->board_id) < 0) {
-			client->device->board_id = -1;
+		if (recovery_get_bdid(client, bdid) < 0) {
+			*bdid = 0;
 			return -1;
 		}
 		break;
