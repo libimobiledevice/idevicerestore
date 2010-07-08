@@ -469,24 +469,23 @@ int extract_buildmanifest(struct idevicerestore_client_t* client, const char* ip
 	int size = 0;
 	char* data = NULL;
 	int device = client->device->index;
-	if (device >= DEVICE_IPHONE2G && device <= DEVICE_IPOD2G) {
-		// Older devices that don't require personalized firmwares use BuildManifesto.plist
-		if (ipsw_extract_to_memory(ipsw, "BuildManifesto.plist", &data, &size) < 0) {
-			return -1;
-		}
 
-	} else if (device >= DEVICE_IPHONE3GS && device <= DEVICE_IPAD1G) {
-		// Whereas newer devices that do require personalized firmwares use BuildManifest.plist
-		if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &data, &size) < 0) {
-			return -1;
-		}
-
-	} else {
-		return -1;
+	/* older devices don't require personalized firmwares and use a BuildManifesto.plist */
+	if (ipsw_extract_to_memory(ipsw, "BuildManifesto.plist", &data, &size) == 0) {
+		plist_from_xml(data, size, buildmanifest);
+		return 0;
 	}
 
-	plist_from_xml(data, size, buildmanifest);
-	return 0;
+	data = NULL;
+	size = 0;
+
+	/* whereas newer devices do not require personalized firmwares and use a BuildManifest.plist */
+	if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &data, &size) == 0) {
+		plist_from_xml(data, size, buildmanifest);
+		return 0;
+	}
+
+	return -1;
 }
 
 plist_t get_build_identity(struct idevicerestore_client_t* client, plist_t buildmanifest, uint32_t identity) {
