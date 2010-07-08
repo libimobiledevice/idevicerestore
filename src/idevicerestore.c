@@ -190,7 +190,6 @@ int main(int argc, char* argv[]) {
 					// for this build identity, so check the next one
 					continue;
 				}
-				info("[%d] %s\n", i, get_build_name(buildmanifest, i));
 				valid_builds++;
 			}
 		}
@@ -526,22 +525,6 @@ int get_build_count(plist_t buildmanifest) {
 	// check and make sure this identity exists in buildmanifest
 	return plist_array_get_size(build_identities_array);
 }
-
-const char* get_build_name(plist_t build_identity, int identity) {
-	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
-	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
-		error("ERROR: Unable to find restore manifest\n");
-		return NULL;
-	}
-
-	plist_t filesystem_info_node = plist_dict_get_item(manifest_node, "Info");
-	if (!filesystem_info_node || plist_get_node_type(filesystem_info_node) != PLIST_DICT) {
-		error("ERROR: Unable to find filesystem info node\n");
-		return NULL;
-	}
-	return NULL;
-}
-
 
 int extract_filesystem(struct idevicerestore_client_t* client, const char* ipsw, plist_t build_identity, char** filesystem) {
 	char* filename = NULL;
