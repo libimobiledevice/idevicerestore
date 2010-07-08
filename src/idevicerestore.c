@@ -279,22 +279,18 @@ int check_mode(struct idevicerestore_client_t* client) {
 	int mode = MODE_UNKNOWN;
 
 	if (recovery_check_mode() == 0) {
-		info("Found device in recovery mode\n");
 		mode = MODE_RECOVERY;
 	}
 
 	else if (dfu_check_mode() == 0) {
-		info("Found device in DFU mode\n");
 		mode = MODE_DFU;
 	}
 
 	else if (normal_check_mode(client->uuid) == 0) {
-		info("Found device in normal mode\n");
 		mode = MODE_NORMAL;
 	}
 
 	else if (restore_check_mode(client->uuid) == 0) {
-		info("Found device in restore mode\n");
 		mode = MODE_RESTORE;
 	}
 
