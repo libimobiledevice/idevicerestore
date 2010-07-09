@@ -225,7 +225,7 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 		}
 	}
 
-	device_error = idevice_event_subscribe(&restore_device_callback, NULL);
+	device_error = idevice_event_subscribe(&restore_device_callback, client);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		error("ERROR: Unable to subscribe to device events\n");
 		return -1;
