@@ -19,19 +19,43 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef RECOVERY_H
-#define RECOVERY_H
+#ifndef IDEVICERESTORE_RECOVERY_H
+#define IDEVICERESTORE_RECOVERY_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdint.h>
 #include <plist/plist.h>
 
-int recovery_send_signed_component(irecv_client_t client, char* ipsw, plist_t tss, char* component);
-irecv_error_t recovery_open_with_timeout(irecv_client_t* client);
-int recovery_send_ibec(char* ipsw, plist_t tss);
-int recovery_send_applelogo(char* ipsw, plist_t tss);
-int recovery_send_devicetree(char* ipsw, plist_t tss);
-int recovery_send_ramdisk(char* ipsw, plist_t tss);
-int recovery_send_kernelcache(char* ipsw, plist_t tss);
-int recovery_get_ecid(uint64_t* ecid);
+#include "common.h"
+
+struct irecv_client;
+typedef struct irecv_client* irecv_client_t;
+struct recovery_client_t {
+	irecv_client_t client;
+	const char* ipsw;
+	plist_t tss;
+};
+
+int recovery_check_mode();
+int recovery_open_with_timeout(struct idevicerestore_client_t* client);
+int recovery_client_new(struct idevicerestore_client_t* client);
+void recovery_client_free(struct idevicerestore_client_t* client);
+int recovery_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component);
+int recovery_send_ibec(struct idevicerestore_client_t* client, plist_t build_identity);
+int recovery_send_applelogo(struct idevicerestore_client_t* client, plist_t build_identity);
+int recovery_send_devicetree(struct idevicerestore_client_t* client, plist_t build_identity);
+int recovery_send_ramdisk(struct idevicerestore_client_t* client, plist_t build_identity);
+int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t build_identity);
+int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
+int recovery_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid);
+int recovery_get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

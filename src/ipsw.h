@@ -19,10 +19,15 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef IPSW_H
-#define IPSW_H
+#ifndef IDEVICERESTORE_IPSW_H
+#define IDEVICERESTORE_IPSW_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <zip.h>
+#include <stdint.h>
 
 typedef struct {
 	int index;
@@ -31,7 +36,11 @@ typedef struct {
 	unsigned char* data;
 } ipsw_file;
 
-int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer, int* psize);
+int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer, uint32_t* psize);
 void ipsw_free_file(ipsw_file* file);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

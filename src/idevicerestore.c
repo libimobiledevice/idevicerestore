@@ -23,61 +23,78 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <plist/plist.h>
-#include <libirecovery.h>
-#include <libimobiledevice/restore.h>
-#include <libimobiledevice/lockdown.h>
-#include <libimobiledevice/libimobiledevice.h>
 
 #include "dfu.h"
 #include "tss.h"
 #include "img3.h"
 #include "ipsw.h"
+#include "common.h"
 #include "normal.h"
 #include "restore.h"
 #include "recovery.h"
 #include "idevicerestore.h"
 
-#define UNKNOWN_MODE   0
-#define DFU_MODE       1
-#define NORMAL_MODE    2
-#define RECOVERY_MODE  3
-#define RESTORE_MODE   4
+static struct option longopts[] = {
+	{ "uuid",    required_argument, NULL, 'u' },
+	{ "debug",   no_argument,       NULL, 'd' },
+	{ "help",    no_argument,       NULL, 'h' },
+	{ "erase",   no_argument,       NULL, 'e' },
+	{ "custom",  no_argument,       NULL, 'c' },
+	{ "exclude", no_argument,       NULL, 'x' },
+	{ NULL, 0, NULL, 0 }
+};
 
-int idevicerestore_debug = 0;
-static int idevicerestore_mode = 0;
-static int idevicerestore_quit = 0;
-static int idevicerestore_custom = 0;
-
-void usage(int argc, char* argv[]);
-int write_file(const char* filename, char* data, int size);
-int get_tss_data_by_name(plist_t tss, const char* entry, char** path, char** blob);
-int get_tss_data_by_path(plist_t tss, const char* path, char** name, char** blob);
-void device_callback(const idevice_event_t* event, void *user_data);
-int get_signed_component_by_name(char* ipsw, plist_t tss, char* component, char** pdata, int* psize);
-int get_signed_component_by_path(char* ipsw, plist_t tss, char* path, char** pdata, int* psize);
+void usage(int argc, char* argv[]) {
+	char* name = strrchr(argv[0], '/');
+	printf("Usage: %s [OPTIONS] FILE\n", (name ? name + 1 : argv[0]));
+	printf("Restore/upgrade IPSW firmware FILE to an iPhone/iPod Touch.\n");
+	printf("  -u, --uuid UUID\ttarget specific device by its 40-digit device UUID\n");
+	printf("  -d, --debug\t\tenable communication debugging\n");
+	printf("  -h, --help\t\tprints usage information\n");
+	printf("  -e, --erase\t\tperform a full restore, erasing all data\n");
+	printf("  -c, --custom\t\trestore with a custom firmware\n");
+	printf("  -x, --exclude\t\texclude nor/baseband upgrade\n");
+	printf("\n");
+}
 
 int main(int argc, char* argv[]) {
 	int opt = 0;
+	int optindex = 0;
 	char* ipsw = NULL;
 	char* uuid = NULL;
 	uint64_t ecid = 0;
-	while ((opt = getopt(argc, argv, "vdhcu:")) > 0) {
+
+	// create an instance of our context
+	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) malloc(sizeof(struct idevicerestore_client_t));
+	if (client == NULL) {
+		error("ERROR: Out of memory\n");
+		return -1;
+	}
+	memset(client, '\0', sizeof(struct idevicerestore_client_t));
+
+	while ((opt = getopt_long(argc, argv, "dhcexu:", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
+			return 0;
+
+		case 'd':
+			client->flags &= FLAG_DEBUG;
+			idevicerestore_debug = 1;
 			break;
 
-		case 'v':
-			idevicerestore_debug += 1;
+		case 'e':
+			client->flags &= FLAG_ERASE;
 			break;
 
 		case 'c':
-			idevicerestore_custom = 1;
+			client->flags &= FLAG_CUSTOM;
 			break;
 
-		case 'd':
-			idevicerestore_debug = 3;
+		case 'x':
+			client->flags &= FLAG_EXCLUDE;
 			break;
 
 		case 'u':
@@ -86,604 +103,556 @@ int main(int argc, char* argv[]) {
 
 		default:
 			usage(argc, argv);
-			break;
+			return -1;
 		}
 	}
 
-	argc -= optind;
-	argv += optind;
+	if ((argc-optind) == 1) {
+		argc -= optind;
+		argv += optind;
 
-	if (argc == 1)
 		ipsw = argv[0];
-
-	if (ipsw == NULL) {
-		error("ERROR: Please supply an IPSW\n");
-		return -1;
-	}
-
-	idevice_t device = NULL;
-	irecv_client_t recovery = NULL;
-	lockdownd_client_t lockdown = NULL;
-	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-	idevice_error_t device_error = IDEVICE_E_SUCCESS;
-	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
-
-	/* determine recovery or normal mode */
-	info("Checking for device in normal mode...\n");
-	device_error = idevice_new(&device, uuid);
-	if (device_error != IDEVICE_E_SUCCESS) {
-		info("Checking for the device in recovery mode...\n");
-		recovery_error = irecv_open(&recovery);
-		if (recovery_error != IRECV_E_SUCCESS) {
-			error("ERROR: Unable to find device, is it plugged in?\n");
-			return -1;
-		}
-		info("Found device in recovery mode\n");
-		idevicerestore_mode = RECOVERY_MODE;
-
 	} else {
-		info("Found device in normal mode\n");
-		idevicerestore_mode = NORMAL_MODE;
+		usage(argc, argv);
+		return -1;
 	}
 
-	/* retrieve ECID */
-	if (idevicerestore_mode == NORMAL_MODE) {
-		lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
-		if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-			error("ERROR: Unable to connect to lockdownd\n");
-			idevice_free(device);
-			return -1;
-		}
-
-		plist_t unique_chip_node = NULL;
-		lockdown_error = lockdownd_get_value(lockdown, NULL, "UniqueChipID", &unique_chip_node);
-		if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-			error("ERROR: Unable to get UniqueChipID from lockdownd\n");
-			lockdownd_client_free(lockdown);
-			idevice_free(device);
-			return -1;
-		}
-
-		if (!unique_chip_node || plist_get_node_type(unique_chip_node) != PLIST_UINT) {
-			error("ERROR: Unable to get ECID\n");
-			lockdownd_client_free(lockdown);
-			idevice_free(device);
-			return -1;
-		}
-
-		plist_get_uint_val(unique_chip_node, &ecid);
-		lockdownd_client_free(lockdown);
-		plist_free(unique_chip_node);
-		idevice_free(device);
-		lockdown = NULL;
-		device = NULL;
-
-	} else if (idevicerestore_mode == RECOVERY_MODE) {
-		recovery_error = irecv_get_ecid(recovery, &ecid);
-		if (recovery_error != IRECV_E_SUCCESS) {
-			error("ERROR: Unable to get device ECID\n");
-			irecv_close(recovery);
-			return -1;
-		}
-		irecv_close(recovery);
-		recovery = NULL;
+	if (client->flags & FLAG_DEBUG) {
+		idevice_set_debug_level(1);
+		irecv_set_debug_level(1);
 	}
 
-	if (ecid != 0) {
-		info("Found ECID %llu\n", ecid);
+	client->uuid = uuid;
+	client->ipsw = ipsw;
+
+	// check which mode the device is currently in so we know where to start
+	if (check_mode(client) < 0 || client->mode->index == MODE_UNKNOWN) {
+		error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
+		return -1;
+	}
+	info("Found device in %s mode\n", client->mode->string);
+
+	// discover the device type
+	if (check_device(client) < 0 || client->device->index == DEVICE_UNKNOWN) {
+		error("ERROR: Unable to discover device type\n");
+		return -1;
+	}
+	info("Identified device as %s\n", client->device->product);
+
+	if (client->mode->index == MODE_RESTORE) {
+		if (restore_reboot(client) < 0) {
+			error("ERROR: Unable to exit restore mode\n");
+			return -1;
+		}
+	}
+
+	// extract buildmanifest
+	plist_t buildmanifest = NULL;
+	info("Extracting BuildManifest from IPSW\n");
+	if (extract_buildmanifest(client, ipsw, &buildmanifest) < 0) {
+		error("ERROR: Unable to extract BuildManifest from %s\n", ipsw);
+		return -1;
+	}
+
+	// devices are listed in order from oldest to newest
+	// so we'll need their ECID
+	if (client->device->index > DEVICE_IPOD2G) {
+		debug("Creating TSS request\n");
+		// fetch the device's ECID for the TSS request
+		if (get_ecid(client, &client->ecid) < 0) {
+			error("ERROR: Unable to find device ECID\n");
+			return -1;
+		}
+		debug("Found ECID %llu\n", client->ecid);
+	}
+
+	// choose whether this is an upgrade or a restore (default to upgrade)
+	client->tss = NULL;
+	plist_t build_identity = NULL;
+	if (client->flags & FLAG_ERASE) {
+		build_identity = get_build_identity(client, buildmanifest, 0);
+		if (build_identity == NULL) {
+			error("ERROR: Unable to find any build identities\n");
+			plist_free(buildmanifest);
+			return -1;
+		}
 	} else {
-		error("Unable to find device ECID\n");
-		return -1;
+		// loop through all build identities in the build manifest
+		// and list the valid ones
+		int i = 0;
+		int valid_builds = 0;
+		int build_count = get_build_count(buildmanifest);
+		for (i = 0; i < build_count; i++) {
+			build_identity = get_build_identity(client, buildmanifest, i);
+			valid_builds++;
+		}
 	}
 
-	/* parse buildmanifest */
-	int buildmanifest_size = 0;
-	char* buildmanifest_data = NULL;
-	info("Extracting BuildManifest.plist from IPSW\n");
-	if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &buildmanifest_data, &buildmanifest_size) < 0) {
-		error("ERROR: Unable to extract BuildManifest.plist IPSW\n");
-		return -1;
+	if (client->flags & FLAG_CUSTOM > 0) {
+		if (client->device->index > DEVICE_IPOD2G) {
+			if (get_shsh_blobs(client, ecid, build_identity, &client->tss) < 0) {
+				error("ERROR: Unable to get SHSH blobs for this device\n");
+				return -1;
+			}
+		}
+
+		/* verify if we have tss records if required */
+		if ((client->device->index > DEVICE_IPOD2G) && (client->tss == NULL)) {
+			error("ERROR: Unable to proceed without a tss record.\n");
+			plist_free(buildmanifest);
+			return -1;
+		}
 	}
 
-	plist_t manifest = NULL;
-	plist_from_xml(buildmanifest_data, buildmanifest_size, &manifest);
-
-	info("Creating TSS request\n");
-	plist_t tss_request = tss_create_request(manifest, ecid);
-	if (tss_request == NULL) {
-		error("ERROR: Unable to create TSS request\n");
-		plist_free(manifest);
-		return -1;
-	}
-	plist_free(manifest);
-
-	info("Sending TSS request\n");
-	plist_t tss_response = tss_send_request(tss_request);
-	if (tss_response == NULL) {
-		error("ERROR: Unable to get response from TSS server\n");
-		plist_free(tss_request);
-		return -1;
-	}
-	info("Got TSS response\n");
-
-	// Get name of filesystem DMG in IPSW
+	// Extract filesystem from IPSW and return its name
 	char* filesystem = NULL;
-	plist_t filesystem_node = plist_dict_get_item(tss_request, "OS");
-	if (!filesystem_node || plist_get_node_type(filesystem_node) != PLIST_DICT) {
-		error("ERROR: Unable to find filesystem node\n");
-		plist_free(tss_request);
+	if (extract_filesystem(client, client->ipsw, build_identity, &filesystem) < 0) {
+		error("ERROR: Unable to extract filesystem from IPSW\n");
+		if (client->tss)
+			plist_free(client->tss);
+		plist_free(buildmanifest);
 		return -1;
 	}
 
-	plist_t filesystem_info_node = plist_dict_get_item(filesystem_node, "Info");
-	if (!filesystem_info_node || plist_get_node_type(filesystem_info_node) != PLIST_DICT) {
-		error("ERROR: Unable to find filesystem info node\n");
-		plist_free(tss_request);
-		return -1;
-	}
-
-	plist_t filesystem_info_path_node = plist_dict_get_item(filesystem_info_node, "Path");
-	if (!filesystem_info_path_node || plist_get_node_type(filesystem_info_path_node) != PLIST_STRING) {
-		error("ERROR: Unable to find filesystem info path node\n");
-		plist_free(tss_request);
-		return -1;
-	}
-	plist_get_string_val(filesystem_info_path_node, &filesystem);
-	plist_free(tss_request);
-
-	info("Extracting filesystem from IPSW\n");
-	if (ipsw_extract_to_file(ipsw, filesystem, filesystem) < 0) {
-		error("ERROR: Unable to extract filesystem\n");
-		return -1;
-	}
-
-	/* place device into recovery mode if required */
-	if (idevicerestore_mode == NORMAL_MODE) {
+	// if the device is in normal mode, place device into recovery mode
+	if (client->mode->index == MODE_NORMAL) {
 		info("Entering recovery mode...\n");
-		device_error = idevice_new(&device, uuid);
-		if (device_error != IDEVICE_E_SUCCESS) {
-			error("ERROR: Unable to find device\n");
-			plist_free(tss_response);
+		if (normal_enter_recovery(client) < 0) {
+			error("ERROR: Unable to place device into recovery mode\n");
+			if (client->tss)
+				plist_free(client->tss);
+			plist_free(buildmanifest);
 			return -1;
 		}
+	}
 
-		lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
-		if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-			error("ERROR: Unable to connect to lockdownd service\n");
-			plist_free(tss_response);
-			idevice_free(device);
+	// if the device is in DFU mode, place device into recovery mode
+	if (client->mode->index == MODE_DFU) {
+		if (dfu_enter_recovery(client, build_identity) < 0) {
+			error("ERROR: Unable to place device into recovery mode\n");
+			plist_free(buildmanifest);
+			if (client->tss)
+				plist_free(client->tss);
 			return -1;
 		}
+	}
 
-		lockdown_error = lockdownd_enter_recovery(lockdown);
-		if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-			error("ERROR: Unable to place device in recovery mode\n");
-			lockdownd_client_free(lockdown);
-			plist_free(tss_response);
-			idevice_free(device);
+	// if the device is in recovery mode, place device into restore mode
+	if (client->mode->index == MODE_RECOVERY) {
+		if (recovery_enter_restore(client, build_identity) < 0) {
+			error("ERROR: Unable to place device into restore mode\n");
+			plist_free(buildmanifest);
+			if (client->tss)
+				plist_free(client->tss);
 			return -1;
 		}
-
-		lockdownd_client_free(lockdown);
-		idevice_free(device);
-		lockdown = NULL;
-		device = NULL;
 	}
 
-	/* upload data to make device boot restore mode */
-	if (recovery_send_ibec(ipsw, tss_response) < 0) {
-		error("ERROR: Unable to send iBEC\n");
-		plist_free(tss_response);
-		return -1;
-	}
-	sleep(1);
-
-	if (recovery_send_applelogo(ipsw, tss_response) < 0) {
-		error("ERROR: Unable to send AppleLogo\n");
-		plist_free(tss_response);
-		return -1;
-	}
-
-	if (recovery_send_devicetree(ipsw, tss_response) < 0) {
-		error("ERROR: Unable to send DeviceTree\n");
-		plist_free(tss_response);
-		return -1;
-	}
-
-	if (recovery_send_ramdisk(ipsw, tss_response) < 0) {
-		error("ERROR: Unable to send Ramdisk\n");
-		plist_free(tss_response);
-		return -1;
-	}
-
-	// for some reason iboot requires a hard reset after ramdisk
-	//   or things start getting wacky
-	printf("Please unplug your device, then plug it back in\n");
-	printf("Hit any key to continue...");
-	getchar();
-
-	if (recovery_send_kernelcache(ipsw, tss_response) < 0) {
-		error("ERROR: Unable to send KernelCache\n");
-		plist_free(tss_response);
-		return -1;
-	}
-
-	idevice_event_subscribe(&device_callback, NULL);
-	info("Waiting for device to enter restore mode\n");
-	// block program until device has entered restore mode
-	while (idevicerestore_mode != RESTORE_MODE) {
-		sleep(1);
-	}
-
-	device_error = idevice_new(&device, uuid);
-	if (device_error != IDEVICE_E_SUCCESS) {
-		error("ERROR: Unable to open device\n");
-		plist_free(tss_response);
-		return -1;
-	}
-
-	restored_client_t restore = NULL;
-	restored_error_t restore_error = restored_client_new(device, &restore, "idevicerestore");
-	if (restore_error != RESTORE_E_SUCCESS) {
-		error("ERROR: Unable to start restored client\n");
-		plist_free(tss_response);
-		idevice_free(device);
-		return -1;
-	}
-
-	char* type = NULL;
-	uint64_t version = 0;
-	if (restored_query_type(restore, &type, &version) != RESTORE_E_SUCCESS) {
-		error("ERROR: Device is not in restore mode. QueryType returned \"%s\"\n", type);
-		plist_free(tss_response);
-		restored_client_free(restore);
-		idevice_free(device);
-		return -1;
-	}
-	info("Device has successfully entered restore mode\n");
-
-	/* start restore process */
-	char* kernelcache = NULL;
-	info("Restore protocol version is %llu.\n", version);
-	restore_error = restored_start_restore(restore);
-	if (restore_error == RESTORE_E_SUCCESS) {
-		while (!idevicerestore_quit) {
-			plist_t message = NULL;
-			restore_error = restored_receive(restore, &message);
-			plist_t msgtype_node = plist_dict_get_item(message, "MsgType");
-			if (msgtype_node && PLIST_STRING == plist_get_node_type(msgtype_node)) {
-				char *msgtype = NULL;
-				plist_get_string_val(msgtype_node, &msgtype);
-				if (!strcmp(msgtype, "ProgressMsg")) {
-					restore_error = restore_handle_progress_msg(restore, message);
-
-				} else if (!strcmp(msgtype, "DataRequestMsg")) {
-					// device is requesting data to be sent
-					plist_t datatype_node = plist_dict_get_item(message, "DataType");
-					if (datatype_node && PLIST_STRING == plist_get_node_type(datatype_node)) {
-						char *datatype = NULL;
-						plist_get_string_val(datatype_node, &datatype);
-						if (!strcmp(datatype, "SystemImageData")) {
-							asr_send_system_image_data_from_file(device, restore, filesystem);
-
-						} else if (!strcmp(datatype, "KernelCache")) {
-							int kernelcache_size = 0;
-							char* kernelcache_data = NULL;
-							if (get_signed_component_by_name(ipsw, tss_response, "KernelCache", &kernelcache_data, &kernelcache_size) < 0) {
-								error("ERROR: Unable to get kernelcache file\n");
-								return -1;
-							}
-							restore_send_kernelcache(restore, kernelcache_data, kernelcache_size);
-							free(kernelcache_data);
-
-						} else if (!strcmp(datatype, "NORData")) {
-							restore_send_nor_data(restore, ipsw, tss_response);
-
-						} else {
-							// Unknown DataType!!
-							error("Unknown DataType\n");
-							return -1;
-						}
-					}
-
-				} else if (!strcmp(msgtype, "StatusMsg")) {
-					restore_error = restore_handle_status_msg(restore, message);
-
-				} else {
-					info("Received unknown message type: %s\n", msgtype);
-				}
-			}
-
-			if (RESTORE_E_SUCCESS != restore_error) {
-				error("Invalid return status %d\n", restore_error);
-				//idevicerestore_quit = 1;
-			}
-
-			plist_free(message);
+	// device is finally in restore mode, let's do this
+	if (client->mode->index == MODE_RESTORE) {
+		info("Restoring device... \n");
+		if (restore_device(client, build_identity, filesystem) < 0) {
+			error("ERROR: Unable to restore device\n");
+			return -1;
 		}
-	} else {
-		error("ERROR: Could not start restore. %d\n", restore_error);
 	}
 
-	restored_client_free(restore);
-	plist_free(tss_response);
-	idevice_free(device);
-	unlink(filesystem);
+	info("Cleaning up...\n");
+	if (filesystem)
+		unlink(filesystem);
+
+	info("DONE\n");
 	return 0;
 }
 
-void device_callback(const idevice_event_t* event, void *user_data) {
-	if (event->event == IDEVICE_DEVICE_ADD) {
-		idevicerestore_mode = RESTORE_MODE;
-	} else if(event->event == IDEVICE_DEVICE_REMOVE) {
-		idevicerestore_quit = 1;
-	}
-}
+int check_mode(struct idevicerestore_client_t* client) {
+	int mode = MODE_UNKNOWN;
 
-void usage(int argc, char* argv[]) {
-	char *name = strrchr(argv[0], '/');
-	printf("Usage: %s [OPTIONS] FILE\n", (name ? name + 1 : argv[0]));
-	printf("Restore/upgrade IPSW firmware FILE to an iPhone/iPod Touch.\n");
-	printf("  -d, \t\tenable communication debugging\n");
-	printf("  -u, \t\ttarget specific device by its 40-digit device UUID\n");
-	printf("  -h, \t\tprints usage information\n");
-	printf("  -c, \t\trestore with a custom firmware\n");
-	printf("  -v, \t\tenable incremental levels of verboseness\n");
-	printf("\n");
-	exit(1);
-}
-
-int write_file(const char* filename, char* data, int size) {
-	debug("Writing data to %s\n", filename);
-	FILE* file = fopen(filename, "wb");
-	if (file == NULL) {
-		error("read_file: Unable to open file %s\n", filename);
-		return -1;
+	if (recovery_check_mode() == 0) {
+		mode = MODE_RECOVERY;
 	}
 
-	int bytes = fwrite(data, 1, size, file);
-	fclose(file);
-
-	if (bytes != size) {
-		error("ERROR: Unable to write entire file: %s: %d %d\n", filename, bytes, size);
-		return -1;
+	else if (dfu_check_mode() == 0) {
+		mode = MODE_DFU;
 	}
 
-	return size;
+	else if (normal_check_mode(client->uuid) == 0) {
+		mode = MODE_NORMAL;
+	}
+
+	else if (restore_check_mode(client->uuid) == 0) {
+		mode = MODE_RESTORE;
+	}
+
+	client->mode = &idevicerestore_modes[mode];
+	return mode;
 }
 
-int get_tss_data_by_path(plist_t tss, const char* path, char** pname, char** pblob) {
-	*pname = NULL;
-	*pblob = NULL;
+int check_device(struct idevicerestore_client_t* client) {
+	int device = DEVICE_UNKNOWN;
+	uint32_t bdid = 0;
+	uint32_t cpid = 0;
 
-	char* key = NULL;
-	plist_t tss_entry = NULL;
-	plist_dict_iter iter = NULL;
-	plist_dict_new_iter(tss, &iter);
-	while (1) {
-		plist_dict_next_item(tss, iter, &key, &tss_entry);
-		if (key == NULL)
+	switch (client->mode->index) {
+	case MODE_RESTORE:
+		device = restore_check_device(client->uuid);
+		if (device < 0) {
+			device = DEVICE_UNKNOWN;
+		}
+		break;
+
+	case MODE_NORMAL:
+		device = normal_check_device(client->uuid);
+		if (device < 0) {
+			device = DEVICE_UNKNOWN;
+		}
+		break;
+
+	case MODE_DFU:
+	case MODE_RECOVERY:
+		if (get_cpid(client, &cpid) < 0) {
+			error("ERROR: Unable to get device CPID\n");
+			break;
+		}
+
+		switch (cpid) {
+		case CPID_IPHONE2G:
+			// iPhone1,1 iPhone1,2 and iPod1,1 all share the same ChipID
+			//   so we need to check the BoardID
+			if (get_bdid(client, &bdid) < 0) {
+				error("ERROR: Unable to get device BDID\n");
+				break;
+			}
+
+			switch (bdid) {
+			case BDID_IPHONE2G:
+				device = DEVICE_IPHONE2G;
+				break;
+
+			case BDID_IPHONE3G:
+				device = DEVICE_IPHONE3G;
+				break;
+
+			case BDID_IPOD1G:
+				device = DEVICE_IPOD1G;
+				break;
+
+			default:
+				device = DEVICE_UNKNOWN;
+				break;
+			}
 			break;
 
-		if (!tss_entry || plist_get_node_type(tss_entry) != PLIST_DICT) {
-			continue;
-		}
+		case CPID_IPHONE3GS:
+			device = DEVICE_IPHONE3GS;
+			break;
 
-		char* entry_path = NULL;
-		plist_t entry_path_node = plist_dict_get_item(tss_entry, "Path");
-		if (!entry_path_node || plist_get_node_type(entry_path_node) != PLIST_STRING) {
-			error("ERROR: Unable to find TSS path node in entry %s\n", key);
+		case CPID_IPOD2G:
+			device = DEVICE_IPOD2G;
+			break;
+
+		case CPID_IPOD3G:
+			device = DEVICE_IPOD3G;
+			break;
+
+		case CPID_IPAD1G:
+			device = DEVICE_IPAD1G;
+			break;
+
+		default:
+			device = DEVICE_UNKNOWN;
+			break;
+		}
+		break;
+
+	default:
+		device = DEVICE_UNKNOWN;
+		break;
+
+	}
+
+	client->device = &idevicerestore_devices[device];
+	return device;
+}
+
+int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
+	switch (client->mode->index) {
+	case MODE_NORMAL:
+		if (normal_get_bdid(client->uuid, bdid) < 0) {
+			*bdid = 0;
 			return -1;
 		}
-		plist_get_string_val(entry_path_node, &entry_path);
-		if (strcmp(path, entry_path) == 0) {
-			char* blob = NULL;
-			uint64_t blob_size = 0;
-			plist_t blob_node = plist_dict_get_item(tss_entry, "Blob");
-			if (!blob_node || plist_get_node_type(blob_node) != PLIST_DATA) {
-				error("ERROR: Unable to find TSS blob node in entry %s\n", key);
-				return -1;
-			}
-			plist_get_data_val(blob_node, &blob, &blob_size);
-			*pname = key;
-			*pblob = blob;
-			return 0;
-		}
+		break;
 
-		free(key);
+	case MODE_DFU:
+	case MODE_RECOVERY:
+		if (recovery_get_bdid(client, bdid) < 0) {
+			*bdid = 0;
+			return -1;
+		}
+		break;
+
+	default:
+		error("ERROR: Device is in an invalid state\n");
+		return -1;
 	}
-	plist_free(tss_entry);
+
+	return 0;
+}
+
+int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
+	switch (client->mode->index) {
+	case MODE_NORMAL:
+		if (normal_get_cpid(client->uuid, cpid) < 0) {
+			client->device->chip_id = -1;
+			return -1;
+		}
+		break;
+
+	case MODE_DFU:
+	case MODE_RECOVERY:
+		if (recovery_get_cpid(client, cpid) < 0) {
+			client->device->chip_id = -1;
+			return -1;
+		}
+		break;
+
+	default:
+		error("ERROR: Device is in an invalid state\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
+	if(client->device->index <= DEVICE_IPOD2G) {
+		*ecid = 0;
+		return 0;
+	}
+
+	switch (client->mode->index) {
+	case MODE_NORMAL:
+		if (normal_get_ecid(client->uuid, ecid) < 0) {
+			*ecid = 0;
+			return -1;
+		}
+		break;
+
+	case MODE_DFU:
+	case MODE_RECOVERY:
+		if (recovery_get_ecid(client, ecid) < 0) {
+			*ecid = 0;
+			return -1;
+		}
+		break;
+
+	default:
+		error("ERROR: Device is in an invalid state\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int extract_buildmanifest(struct idevicerestore_client_t* client, const char* ipsw, plist_t* buildmanifest) {
+	int size = 0;
+	char* data = NULL;
+	int device = client->device->index;
+
+	/* older devices don't require personalized firmwares and use a BuildManifesto.plist */
+	if (ipsw_extract_to_memory(ipsw, "BuildManifesto.plist", &data, &size) == 0) {
+		plist_from_xml(data, size, buildmanifest);
+		return 0;
+	}
+
+	data = NULL;
+	size = 0;
+
+	/* whereas newer devices do not require personalized firmwares and use a BuildManifest.plist */
+	if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &data, &size) == 0) {
+		plist_from_xml(data, size, buildmanifest);
+		return 0;
+	}
 
 	return -1;
 }
 
-int get_tss_data_by_name(plist_t tss, const char* entry, char** ppath, char** pblob) {
-	*ppath = NULL;
-	*pblob = NULL;
+plist_t get_build_identity(struct idevicerestore_client_t* client, plist_t buildmanifest, uint32_t identity) {
+	// fetch build identities array from BuildManifest
+	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
+	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
+		error("ERROR: Unable to find build identities node\n");
+		return NULL;
+	}
 
-	plist_t node = plist_dict_get_item(tss, entry);
-	if (!node || plist_get_node_type(node) != PLIST_DICT) {
-		error("ERROR: Unable to find %s entry in TSS response\n", entry);
+	// check and make sure this identity exists in buildmanifest
+	if (identity >= plist_array_get_size(build_identities_array)) {
+		return NULL;
+	}
+
+	plist_t build_identity = plist_array_get_item(build_identities_array, identity);
+	if (!build_identity || plist_get_node_type(build_identity) != PLIST_DICT) {
+		error("ERROR: Unable to find build identities node\n");
+		return NULL;
+	}
+
+	return plist_copy(build_identity);
+}
+
+int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, plist_t build_identity, plist_t* tss) {
+	plist_t request = NULL;
+	plist_t response = NULL;
+	*tss = NULL;
+
+	request = tss_create_request(build_identity, ecid);
+	if (request == NULL) {
+		error("ERROR: Unable to create TSS request\n");
 		return -1;
 	}
 
-	char* path = NULL;
-	plist_t path_node = plist_dict_get_item(node, "Path");
-	if (!path_node || plist_get_node_type(path_node) != PLIST_STRING) {
-		error("ERROR: Unable to find %s path in entry\n", path);
+	info("Sending TSS request\n");
+	response = tss_send_request(request);
+	if (response == NULL) {
+		plist_free(request);
 		return -1;
 	}
-	plist_get_string_val(path_node, &path);
 
-	char* blob = NULL;
-	uint64_t blob_size = 0;
-	plist_t blob_node = plist_dict_get_item(node, "Blob");
-	if (!blob_node || plist_get_node_type(blob_node) != PLIST_DATA) {
-		error("ERROR: Unable to find %s blob in entry\n", path);
-		free(path);
-		return -1;
-	}
-	plist_get_data_val(blob_node, &blob, &blob_size);
-
-	*ppath = path;
-	*pblob = blob;
+	plist_free(request);
+	*tss = response;
 	return 0;
 }
 
-int get_signed_component_by_name(char* ipsw, plist_t tss, char* component, char** pdata, int* psize) {
-	int size = 0;
-	char* data = NULL;
-	char* path = NULL;
-	char* blob = NULL;
+int get_build_count(plist_t buildmanifest) {
+	// fetch build identities array from BuildManifest
+	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
+	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
+		error("ERROR: Unable to find build identities node\n");
+		return -1;
+	}
+
+	// check and make sure this identity exists in buildmanifest
+	return plist_array_get_size(build_identities_array);
+}
+
+int extract_filesystem(struct idevicerestore_client_t* client, const char* ipsw, plist_t build_identity, char** filesystem) {
+	char* filename = NULL;
+
+	if (build_identity_get_component_path(build_identity, "OS", &filename) < 0) {
+		error("ERROR: Unable get path for filesystem component\n");
+		return -1;
+	}
+
+	info("Extracting filesystem from IPSW\n");
+	if (ipsw_extract_to_file(ipsw, filename, filename) < 0) {
+		error("ERROR: Unable to extract filesystem\n");
+		return -1;
+	}
+
+	*filesystem = filename;
+	return 0;
+}
+
+int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size) {
 	img3_file* img3 = NULL;
-	irecv_error_t error = 0;
+	uint32_t component_size = 0;
+	char* component_data = NULL;
+	char* component_blob = NULL;
+	char* component_name = NULL;
 
-	info("Extracting %s from TSS response\n", component);
-	if (get_tss_data_by_name(tss, component, &path, &blob) < 0) {
-		error("ERROR: Unable to get data for TSS %s entry\n", component);
+	component_name = strrchr(path, '/');
+	if (component_name != NULL)
+		component_name++;
+	else
+		component_name = (char*) path;
+
+	info("Extracting %s\n", component_name);
+	if (ipsw_extract_to_memory(ipsw, path, &component_data, &component_size) < 0) {
+		error("ERROR: Unable to extract %s from %s\n", component_name, ipsw);
 		return -1;
 	}
 
-	info("Extracting %s from %s\n", path, ipsw);
-	if (ipsw_extract_to_memory(ipsw, path, &data, &size) < 0) {
-		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
-		free(path);
-		free(blob);
-		return -1;
-	}
-
-	img3 = img3_parse_file(data, size);
-	if (img3 == NULL) {
-		error("ERROR: Unable to parse IMG3: %s\n", path);
-		free(data);
-		free(path);
-		free(blob);
-		return -1;
-	}
-	if (data) {
-		free(data);
-		data = NULL;
-	}
-
-	if (idevicerestore_custom == 0) {
-		if (img3_replace_signature(img3, blob) < 0) {
-			error("ERROR: Unable to replace IMG3 signature\n");
-			free(path);
-			free(blob);
+	if (tss) {
+		info("Signing img3...\n");
+		img3 = img3_parse_file(component_data, component_size);
+		if (img3 == NULL) {
+			error("ERROR: Unable to parse IMG3: %s\n", component_name);
+			free(component_data);
 			return -1;
 		}
-	}
+		free(component_data);
 
-	if (img3_get_data(img3, &data, &size) < 0) {
-		error("ERROR: Unable to reconstruct IMG3\n");
+		/* sign the blob if required */
+		if (tss_get_blob_by_path(tss, path, &component_blob) < 0) {
+			error("ERROR: Unable to get SHSH blob for TSS %s entry\n", component_name);
+			img3_free(img3);
+			return -1;
+		}
+
+		if (img3_replace_signature(img3, component_blob) < 0) {
+			error("ERROR: Unable to replace IMG3 signature\n");
+			free(component_blob);
+			img3_free(img3);
+			return -1;
+		}
+
+		if (component_blob)
+			free(component_blob);
+
+		if (img3_get_data(img3, &component_data, &component_size) < 0) {
+			error("ERROR: Unable to reconstruct IMG3\n");
+			img3_free(img3);
+			return -1;
+		}
 		img3_free(img3);
-		free(path);
-		return -1;
 	}
 
 	if (idevicerestore_debug) {
-		char* out = strrchr(path, '/');
-		if (out != NULL) {
-			out++;
-		} else {
-			out = path;
-		}
-		write_file(out, data, size);
+		write_file(component_name, component_data, component_size);
 	}
 
-	if (img3) {
-		img3_free(img3);
-		img3 = NULL;
-	}
-	if (blob) {
-		free(blob);
-		blob = NULL;
-	}
-	if (path) {
-		free(path);
-		path = NULL;
-	}
-
-	*pdata = data;
-	*psize = size;
+	*data = component_data;
+	*size = component_size;
 	return 0;
 }
 
-int get_signed_component_by_path(char* ipsw, plist_t tss, char* path, char** pdata, int* psize) {
-	int size = 0;
-	char* data = NULL;
-	char* name = NULL;
-	char* blob = NULL;
-	img3_file* img3 = NULL;
-	irecv_error_t error = 0;
+int build_identity_get_component_path(plist_t build_identity, const char* component, char** path) {
+	char* filename = NULL;
 
-	info("Extracting %s from TSS response\n", path);
-	if (get_tss_data_by_path(tss, path, &name, &blob) < 0) {
-		error("ERROR: Unable to get data for TSS %s entry\n", path);
+	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: Unable to find manifest node\n");
+		if (filename)
+			free(filename);
 		return -1;
 	}
 
-	info("Extracting %s from %s\n", path, ipsw);
-	if (ipsw_extract_to_memory(ipsw, path, &data, &size) < 0) {
-		error("ERROR: Unable to extract %s from %s\n", path, ipsw);
-		free(path);
-		free(blob);
+	plist_t component_node = plist_dict_get_item(manifest_node, component);
+	if (!component_node || plist_get_node_type(component_node) != PLIST_DICT) {
+		error("ERROR: Unable to find component node for %s\n", component);
+		if (filename)
+			free(filename);
 		return -1;
 	}
 
-	img3 = img3_parse_file(data, size);
-	if (img3 == NULL) {
-		error("ERROR: Unable to parse IMG3: %s\n", path);
-		free(data);
-		free(path);
-		free(blob);
-		return -1;
-	}
-	if (data) {
-		free(data);
-		data = NULL;
-	}
-
-	if (idevicerestore_custom == 0) {
-		if (img3_replace_signature(img3, blob) < 0) {
-			error("ERROR: Unable to replace IMG3 signature\n");
-			free(name);
-			free(blob);
-			return -1;
-		}
-	}
-
-	if (img3_get_data(img3, &data, &size) < 0) {
-		error("ERROR: Unable to reconstruct IMG3\n");
-		img3_free(img3);
-		free(name);
+	plist_t component_info_node = plist_dict_get_item(component_node, "Info");
+	if (!component_info_node || plist_get_node_type(component_info_node) != PLIST_DICT) {
+		error("ERROR: Unable to find component info node for %s\n", component);
+		if (filename)
+			free(filename);
 		return -1;
 	}
 
-	if (idevicerestore_debug) {
-		char* out = strrchr(path, '/');
-		if (out != NULL) {
-			out++;
-		} else {
-			out = path;
-		}
-		write_file(out, data, size);
+	plist_t component_info_path_node = plist_dict_get_item(component_info_node, "Path");
+	if (!component_info_path_node || plist_get_node_type(component_info_path_node) != PLIST_STRING) {
+		error("ERROR: Unable to find component info path node for %s\n", component);
+		if (filename)
+			free(filename);
+		return -1;
 	}
+	plist_get_string_val(component_info_path_node, &filename);
 
-	if (img3) {
-		img3_free(img3);
-		img3 = NULL;
-	}
-	if (blob) {
-		free(blob);
-		blob = NULL;
-	}
-	if (path) {
-		free(name);
-		name = NULL;
-	}
-
-	*pdata = data;
-	*psize = size;
+	*path = filename;
 	return 0;
 }
+

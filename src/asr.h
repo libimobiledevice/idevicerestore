@@ -1,6 +1,6 @@
 /*
- * dfu.h
- * Functions for handling idevices in normal mode
+ * asr.h
+ * Functions for handling asr connections
  *
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
@@ -19,25 +19,23 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef IDEVICERESTORE_DFU_H
-#define IDEVICERESTORE_DFU_H
+#ifndef IDEVICERESTORE_ASR_H
+#define IDEVICERESTORE_ASR_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <libirecovery.h>
-#include "common.h"
+#include <libimobiledevice/libimobiledevice.h>
 
-struct dfu_client_t {
-	irecv_client_t client;
-	const char* ipsw;
-	plist_t tss;
-};
-
-int dfu_client_new(struct idevicerestore_client_t* client, uint32_t timeout);
-void dfu_client_free(struct idevicerestore_client_t* client);
-int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_identity);
+int asr_open_with_timeout(idevice_t device, idevice_connection_t* asr);
+int asr_send(idevice_connection_t asr, plist_t* data);
+int asr_receive(idevice_connection_t asr, plist_t* data);
+int asr_send_buffer(idevice_connection_t asr, const char* data, uint32_t size);
+void asr_close(idevice_connection_t asr);
+int asr_perform_validation(idevice_connection_t asr, const char* filesystem);
+int asr_send_payload(idevice_connection_t asr, const char* filesystem);
+int asr_handle_oob_data_request(idevice_connection_t asr, plist_t packet, FILE* file);
 
 
 #ifdef __cplusplus

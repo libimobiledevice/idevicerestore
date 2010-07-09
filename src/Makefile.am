@@ -18,6 +18,6 @@ AM_LDFLAGS =\
 
 bin_PROGRAMS = idevicerestore
 
-idevicerestore_SOURCES = idevicerestore.c dfu.c tss.c img3.c ipsw.c normal.c restore.c recovery.c
+idevicerestore_SOURCES = idevicerestore.c common.c tss.c img3.c ipsw.c normal.c dfu.c recovery.c restore.c asr.c
 idevicerestore_CFLAGS = $(AM_CFLAGS)
 idevicerestore_LDFLAGS = $(AM_LDFLAGS)
