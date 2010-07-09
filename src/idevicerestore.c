@@ -149,7 +149,7 @@ int main(int argc, char* argv[]) {
 	// extract buildmanifest
 	plist_t buildmanifest = NULL;
 	info("Extracting BuildManifest from IPSW\n");
-	if (extract_buildmanifest(client, ipsw, &buildmanifest) < 0) {
+	if (ipsw_extract_build_manifest(ipsw, &buildmanifest) < 0) {
 		error("ERROR: Unable to extract BuildManifest from %s\n", ipsw);
 		return -1;
 	}

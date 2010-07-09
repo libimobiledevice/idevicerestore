@@ -38,7 +38,6 @@ int get_build_count(plist_t buildmanifest);
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
 int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid);
 int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid);
-int extract_buildmanifest(struct idevicerestore_client_t* client, const char* ipsw, plist_t* buildmanifest);
 plist_t get_build_identity(struct idevicerestore_client_t* client, plist_t buildmanifest, uint32_t identity);
 int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, plist_t build_identity, plist_t* tss);
 int extract_filesystem(struct idevicerestore_client_t* client, const char* ipsw, plist_t buildmanifest, char** filesystem);
