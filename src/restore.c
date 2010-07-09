@@ -559,7 +559,8 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	}
 	plist_dict_insert_item(dict, "NorImageData", norimage_array);
 
-	debug_plist(dict);
+	if (idevicerestore_debug)
+		debug_plist(dict);
 
 	ret = restored_send(restore, dict);
 	if (ret != RESTORE_E_SUCCESS) {
@@ -610,7 +611,8 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		} else {
 			// Unknown DataType!!
 			debug("Unknown data request received\n");
-			debug_plist(message);
+			if (idevicerestore_debug)
+				debug_plist(message);
 		}
 	}
 	return 0;
@@ -659,7 +661,8 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		node = plist_dict_get_item(message, "MsgType");
 		if (!node || plist_get_node_type(node) != PLIST_STRING) {
 			debug("Unknown message received\n");
-			debug_plist(message);
+			if (idevicerestore_debug)
+				debug_plist(message);
 			plist_free(message);
 			message = NULL;
 			continue;
@@ -689,7 +692,8 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// at least the "previous error logs" messages usually end up here
 		else {
 			debug("Unknown message type received\n");
-			debug_plist(message);
+			if (idevicerestore_debug)
+				debug_plist(message);
 		}
 
 		// finally, if any of these message handlers returned -1 then we encountered

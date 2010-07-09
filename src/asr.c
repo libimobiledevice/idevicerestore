@@ -87,7 +87,9 @@ int asr_receive(idevice_connection_t asr, plist_t* data) {
 
 	*data = request;
 
-	debug("Received %d bytes:\n%s\n", size, buffer);
+	debug("Received %d bytes:\n", size);
+	if (idevicerestore_debug)
+		debug_plist(request);
 	free(buffer);
 	return 0;
 }
@@ -104,7 +106,8 @@ int asr_send(idevice_connection_t asr, plist_t* data) {
 	}
 
 	debug("Sent %d bytes:\n", size);
-	debug_plist(data);
+	if (idevicerestore_debug)
+		debug_plist(*data);
 	free(buffer);
 	return 0;
 }
@@ -118,6 +121,8 @@ int asr_send_buffer(idevice_connection_t asr, const char* data, uint32_t size) {
 		error("ERROR: Unable to send data to ASR\n");
 		return -1;
 	}
+
+	debug("Sent %d bytes buffer\n", bytes);
 
 	return 0;
 }
