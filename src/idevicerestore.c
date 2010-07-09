@@ -81,20 +81,20 @@ int main(int argc, char* argv[]) {
 			return 0;
 
 		case 'd':
-			client->flags &= FLAG_DEBUG;
+			client->flags |= FLAG_DEBUG;
 			idevicerestore_debug = 1;
 			break;
 
 		case 'e':
-			client->flags &= FLAG_ERASE;
+			client->flags |= FLAG_ERASE;
 			break;
 
 		case 'c':
-			client->flags &= FLAG_CUSTOM;
+			client->flags |= FLAG_CUSTOM;
 			break;
 
 		case 'x':
-			client->flags &= FLAG_EXCLUDE;
+			client->flags |= FLAG_EXCLUDE;
 			break;
 
 		case 'u':
