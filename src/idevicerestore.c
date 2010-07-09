@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
 	// devices are listed in order from oldest to newest
 	// so we'll need their ECID
 	if (client->device->index > DEVICE_IPOD2G) {
-		debug("Creating TSS request\n");
+		debug("Getting device's ECID for TSS request\n");
 		// fetch the device's ECID for the TSS request
 		if (get_ecid(client, &client->ecid) < 0) {
 			error("ERROR: Unable to find device ECID\n");
@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
 	client->tss = NULL;
 	plist_t build_identity = NULL;
 	if (client->flags & FLAG_ERASE) {
-		build_identity = get_build_identity(client, buildmanifest, 0);
+		build_identity = build_manifest_get_build_identity(buildmanifest, 0);
 		if (build_identity == NULL) {
 			error("ERROR: Unable to find any build identities\n");
 			plist_free(buildmanifest);
@@ -184,15 +184,15 @@ int main(int argc, char* argv[]) {
 		// and list the valid ones
 		int i = 0;
 		int valid_builds = 0;
-		int build_count = get_build_count(buildmanifest);
+		int build_count = build_manifest_get_identity_count(buildmanifest);
 		for (i = 0; i < build_count; i++) {
-			build_identity = get_build_identity(client, buildmanifest, i);
+			build_identity = build_manifest_get_build_identity(buildmanifest, i);
 			valid_builds++;
 		}
 	}
 
 	/* print information about current build identity */
-	build_identity_print_information(buildidentity);
+	build_identity_print_information(build_identity);
 
 	if (client->flags & FLAG_CUSTOM > 0) {
 		if (client->device->index > DEVICE_IPOD2G) {
@@ -212,7 +212,7 @@ int main(int argc, char* argv[]) {
 
 	// Extract filesystem from IPSW and return its name
 	char* filesystem = NULL;
-	if (ipsw_extract_filesystem(client->ipsw, buildidentity, &filesystem) < 0) {
+	if (ipsw_extract_filesystem(client->ipsw, build_identity, &filesystem) < 0) {
 		error("ERROR: Unable to extract filesystem from IPSW\n");
 		if (client->tss)
 			plist_free(client->tss);
@@ -461,9 +461,9 @@ int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	return 0;
 }
 
-plist_t get_build_identity(struct idevicerestore_client_t* client, plist_t buildmanifest, uint32_t identity) {
+plist_t build_manifest_get_build_identity(plist_t build_manifest, uint32_t identity) {
 	// fetch build identities array from BuildManifest
-	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
+	plist_t build_identities_array = plist_dict_get_item(build_manifest, "BuildIdentities");
 	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
 		error("ERROR: Unable to find build identities node\n");
 		return NULL;
@@ -506,9 +506,9 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, plist_
 	return 0;
 }
 
-int get_build_count(plist_t buildmanifest) {
+int build_manifest_get_identity_count(plist_t build_manifest) {
 	// fetch build identities array from BuildManifest
-	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
+	plist_t build_identities_array = plist_dict_get_item(build_manifest, "BuildIdentities");
 	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
 		error("ERROR: Unable to find build identities node\n");
 		return -1;
