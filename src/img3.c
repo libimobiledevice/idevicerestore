@@ -155,6 +155,16 @@ img3_file* img3_parse_file(char* data, int size) {
 			debug("Parsed CERT element\n");
 			break;
 
+		case kUnknElement:
+			image->unkn_element = img3_parse_element(&data[data_offset]);
+			if (image->unkn_element == NULL) {
+				error("ERROR: Unable to parse UNKN element\n");
+				img3_free(image);
+				return NULL;
+			}
+			debug("Parsed UNKN element\n");
+			break;
+
 		default:
 			error("ERROR: Unknown IMG3 element type\n");
 			img3_free(image);
@@ -242,6 +252,11 @@ void img3_free(img3_file* image) {
 		if (image->cert_element != NULL) {
 			img3_free_element(image->cert_element);
 			image->cert_element = NULL;
+		}
+
+		if (image->unkn_element != NULL) {
+			img3_free_element(image->unkn_element);
+			image->unkn_element = NULL;
 		}
 
 		free(image);
@@ -336,6 +351,9 @@ int img3_get_data(img3_file* image, char** pdata, int* psize) {
 	if (image->cert_element != NULL) {
 		size += image->cert_element->header->full_size;
 	}
+	if (image->unkn_element != NULL) {
+		size += image->unkn_element->header->full_size;
+	}
 
 	char* data = (char*) malloc(size);
 	if (data == NULL) {
@@ -392,6 +410,10 @@ int img3_get_data(img3_file* image, char** pdata, int* psize) {
 	if (image->cert_element != NULL) {
 		memcpy(&data[offset], image->cert_element->data, image->cert_element->header->full_size);
 		offset += image->cert_element->header->full_size;
+	}
+	if (image->unkn_element != NULL) {
+		memcpy(&data[offset], image->unkn_element->data, image->unkn_element->header->full_size);
+		offset += image->unkn_element->header->full_size;
 	}
 
 	if (offset != size) {

@@ -45,7 +45,8 @@ typedef enum {
 	kVersElement = 0x56455253, // VERS
 	kBordElement = 0x424F5244, // BORD
 	kSepoElement = 0x5345504F, // SEPO
-	kEcidElement = 0x45434944  // ECID
+	kEcidElement = 0x45434944, // ECID
+	kUnknElement = 0x53414c54  // FIXME
 } img3_element_type;
 
 typedef struct {
@@ -81,6 +82,7 @@ typedef struct {
 	img3_element* ecid_element;
 	img3_element* shsh_element;
 	img3_element* cert_element;
+	img3_element* unkn_element;
 } img3_file;
 
 void img3_free(img3_file* image);
