@@ -564,7 +564,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 
 	ret = restored_send(restore, dict);
 	if (ret != RESTORE_E_SUCCESS) {
-		error("ERROR: Unable to send kernelcache data\n");
+		error("ERROR: Unable to send NOR image data data\n");
 		plist_free(dict);
 		return -1;
 	}
