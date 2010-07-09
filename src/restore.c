@@ -29,6 +29,7 @@
 #include "common.h"
 #include "restore.h"
 
+#define WAIT_FOR_STORAGE       11
 #define CREATE_PARTITION_MAP   12
 #define CREATE_FILESYSTEM      13
 #define RESTORE_IMAGE          14
@@ -39,6 +40,8 @@
 #define UPDATE_BASEBAND        20
 #define FINIALIZE_NAND         21
 #define MODIFY_BOOTARGS        26
+#define LOAD_KERNEL_CACHE      27
+#define PARTITION_NAND_DEVICE  28
 #define WAIT_FOR_NAND          29
 #define UNMOUNT_FILESYSTEM     30
 #define WAIT_FOR_DEVICE        33
@@ -271,6 +274,9 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 
 const char* restore_progress_string(unsigned int operation) {
 	switch (operation) {
+	case WAIT_FOR_STORAGE:
+		return "Waiting for Storage Device...";
+
 	case CREATE_PARTITION_MAP:
 		return "Creating partition map";
 
@@ -304,11 +310,17 @@ const char* restore_progress_string(unsigned int operation) {
 	case UNMOUNT_FILESYSTEM:
 		return "Unmounting filesystems";
 
+	case PARTITION_NAND_DEVICE:
+		return "Partition NAND device";
+
 	case WAIT_FOR_NAND:
 		return "Waiting for NAND...";
 
 	case WAIT_FOR_DEVICE:
 		return "Waiting for Device...";
+
+	case LOAD_KERNEL_CACHE:
+		return "Loading kernelcache...";
 
 	case LOAD_NOR:
 		return "Loading NOR data to flash";
@@ -339,7 +351,6 @@ int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 
 	if ((progress > 0) && (progress < 100)) {
 		print_progress_bar((double) progress);
-
 	} else {
 		info("%s\n", restore_progress_string(operation));
 	}
