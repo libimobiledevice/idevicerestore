@@ -137,6 +137,7 @@ int asr_perform_validation(idevice_connection_t asr, const char* filesystem) {
 	plist_t packet = NULL;
 	plist_t packet_info = NULL;
 	plist_t payload_info = NULL;
+	int attempts = 0;
 
 	file = fopen(filesystem, "rb");
 	if (file == NULL) {
@@ -172,6 +173,17 @@ int asr_perform_validation(idevice_connection_t asr, const char* filesystem) {
 			return -1;
 		}
 
+		if (packet == NULL) {
+			if (attempts < 5) {
+				info("Retrying to receive validation packet... %d\n", attempts);
+				attempts++;
+				sleep(1);
+				continue;
+			}
+		}
+
+		attempts = 0;
+
 		node = plist_dict_get_item(packet, "Command");
 		if (!node || plist_get_node_type(node) != PLIST_STRING) {
 			error("ERROR: Unable to find command node in validation request\n");
@@ -181,10 +193,7 @@ int asr_perform_validation(idevice_connection_t asr, const char* filesystem) {
 
 		if (!strcmp(command, "OOBData")) {
 			asr_handle_oob_data_request(asr, packet, file);
-
-
 			plist_free(packet);
-
 		} else if(!strcmp(command, "Payload")) {
 			plist_free(packet);
 			break;
