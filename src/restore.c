@@ -606,6 +606,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	info("Device has successfully entered restore mode\n");
 
 	restore = client->restore->client;
+	device = client->restore->device;
 
 	// start the restore process
 	restore_error = restored_start_restore(restore);
