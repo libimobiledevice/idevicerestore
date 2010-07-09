@@ -82,6 +82,7 @@ int main(int argc, char* argv[]) {
 
 		case 'd':
 			client->flags &= FLAG_DEBUG;
+			idevicerestore_debug = 1;
 			break;
 
 		case 'e':
@@ -614,7 +615,7 @@ int get_signed_component(struct idevicerestore_client_t* client, const char* ips
 	}
 	img3_free(img3);
 
-	if (client->flags & FLAG_DEBUG) {
+	if (idevicerestore_debug) {
 		write_file(component_name, component_data, component_size);
 	}
 
