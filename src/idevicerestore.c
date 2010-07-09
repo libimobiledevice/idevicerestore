@@ -461,29 +461,6 @@ int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	return 0;
 }
 
-int extract_buildmanifest(struct idevicerestore_client_t* client, const char* ipsw, plist_t* buildmanifest) {
-	int size = 0;
-	char* data = NULL;
-	int device = client->device->index;
-
-	/* older devices don't require personalized firmwares and use a BuildManifesto.plist */
-	if (ipsw_extract_to_memory(ipsw, "BuildManifesto.plist", &data, &size) == 0) {
-		plist_from_xml(data, size, buildmanifest);
-		return 0;
-	}
-
-	data = NULL;
-	size = 0;
-
-	/* whereas newer devices do not require personalized firmwares and use a BuildManifest.plist */
-	if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &data, &size) == 0) {
-		plist_from_xml(data, size, buildmanifest);
-		return 0;
-	}
-
-	return -1;
-}
-
 plist_t get_build_identity(struct idevicerestore_client_t* client, plist_t buildmanifest, uint32_t identity) {
 	// fetch build identities array from BuildManifest
 	plist_t build_identities_array = plist_dict_get_item(buildmanifest, "BuildIdentities");
