@@ -348,8 +348,27 @@ int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 }
 
 int restore_handle_status_msg(restored_client_t client, plist_t msg) {
+	uint64_t value = 0;
 	info("Got status message\n");
 	debug_plist(msg);
+
+	plist_t node = plist_dict_get_item(msg, "Status");
+	plist_get_uint_val(node, &value);
+
+	switch(value) {
+		case 0:
+			info("Status: Restore Finished\n");
+			break;
+		case 6:
+			info("Status: Disk Failure\n");
+			break;
+		case 14:
+			info("Status: Fail\n");
+			break;
+		default:
+			info("Unknown status message.\n");
+	}
+
 	return 0;
 }
 
@@ -366,8 +385,7 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 	}
 	info("Connected to ASR\n");
 
-	// we don't really need to do anything with this,
-	// we're just clearing the output buffer
+	/* receive Initiate command message */
 	if (asr_receive(asr, &data) < 0) {
 		error("ERROR: Unable to receive data from ASR\n");
 		asr_close(asr);
