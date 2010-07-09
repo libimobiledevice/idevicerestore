@@ -178,7 +178,7 @@ void restore_device_callback(const idevice_event_t* event, void* userdata) {
 
 	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
 		restore_device_connected = 0;
-		client->flags &= FLAG_QUIT;
+		client->flags |= FLAG_QUIT;
 	}
 }
 
@@ -575,7 +575,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 					return -1;
 				}
 			} else {
-				client->flags &= 1;
+				client->flags |= FLAG_QUIT;
 			}
 
 		} else {
@@ -667,7 +667,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// an unrecoverable error, so we need to bail.
 		if (error < 0) {
 			error("ERROR: Unable to successfully restore device\n");
-			client->flags &= FLAG_QUIT;
+			client->flags |= FLAG_QUIT;
 		}
 
 		plist_free(message);
