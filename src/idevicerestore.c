@@ -154,6 +154,9 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
+	/* print iOS information from the manifest */
+	build_manifest_print_information(buildmanifest);
+
 	// devices are listed in order from oldest to newest
 	// so we'll need their ECID
 	if (client->device->index > DEVICE_IPOD2G) {
@@ -187,6 +190,9 @@ int main(int argc, char* argv[]) {
 			valid_builds++;
 		}
 	}
+
+	/* print information about current build identity */
+	build_identity_print_information(buildidentity);
 
 	if (client->flags & FLAG_CUSTOM > 0) {
 		if (client->device->index > DEVICE_IPOD2G) {
@@ -614,6 +620,73 @@ int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, 
 	*data = component_data;
 	*size = component_size;
 	return 0;
+}
+
+void build_manifest_print_information(plist_t build_manifest) {
+	char* value = NULL;
+	plist_t node = NULL;
+
+	node = plist_dict_get_item(build_manifest, "ProductVersion");
+	if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		error("ERROR: Unable to find ProductVersion node\n");
+		return;
+	}
+	plist_get_string_val(node, &value);
+
+	info("Product Version: %s\n", value);
+	free(value);
+
+	node = plist_dict_get_item(build_manifest, "ProductBuildVersion");
+	if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		error("ERROR: Unable to find ProductBuildVersion node\n");
+		return;
+	}
+	plist_get_string_val(node, &value);
+
+	info("Product Build: %s\n", value);
+	free(value);
+
+	node = NULL;
+}
+
+void build_identity_print_information(plist_t build_identity) {
+	char* value = NULL;
+	plist_t info_node = NULL;
+	plist_t node = NULL;
+
+	info_node = plist_dict_get_item(build_identity, "Info");
+	if (!info_node || plist_get_node_type(info_node) != PLIST_DICT) {
+		error("ERROR: Unable to find Info node\n");
+		return;
+	}
+
+	node = plist_dict_get_item(info_node, "Variant");
+	if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		error("ERROR: Unable to find Variant node\n");
+		return;
+	}
+	plist_get_string_val(node, &value);
+
+	info("Variant: %s\n", value);
+	free(value);
+
+	node = plist_dict_get_item(info_node, "RestoreBehavior");
+	if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		error("ERROR: Unable to find RestoreBehavior node\n");
+		return;
+	}
+	plist_get_string_val(node, &value);
+
+	if (!strcmp(value, "Erase"))
+		info("This restore will erase your device data.\n");
+
+	if (!strcmp(value, "Update"))
+		info("This restore will update your device without loosing data.\n");
+
+	free(value);
+
+	info_node = NULL;
+	node = NULL;
 }
 
 int build_identity_get_component_path(plist_t build_identity, const char* component, char** path) {
