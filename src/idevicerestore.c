@@ -212,7 +212,7 @@ int main(int argc, char* argv[]) {
 
 	// Extract filesystem from IPSW and return its name
 	char* filesystem = NULL;
-	if (extract_filesystem(client, client->ipsw, build_identity, &filesystem) < 0) {
+	if (ipsw_extract_filesystem(client->ipsw, buildidentity, &filesystem) < 0) {
 		error("ERROR: Unable to extract filesystem from IPSW\n");
 		if (client->tss)
 			plist_free(client->tss);
@@ -541,7 +541,7 @@ int get_build_count(plist_t buildmanifest) {
 	return plist_array_get_size(build_identities_array);
 }
 
-int extract_filesystem(struct idevicerestore_client_t* client, const char* ipsw, plist_t build_identity, char** filesystem) {
+int ipsw_extract_filesystem(const char* ipsw, plist_t build_identity, char** filesystem) {
 	char* filename = NULL;
 
 	if (build_identity_get_component_path(build_identity, "OS", &filename) < 0) {

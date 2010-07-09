@@ -40,11 +40,11 @@ int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid);
 int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid);
 plist_t get_build_identity(struct idevicerestore_client_t* client, plist_t buildmanifest, uint32_t identity);
 int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, plist_t build_identity, plist_t* tss);
-int extract_filesystem(struct idevicerestore_client_t* client, const char* ipsw, plist_t buildmanifest, char** filesystem);
 int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size);
 void build_manifest_print_information(plist_t build_manifest);
 void build_identity_print_information(plist_t build_identity);
 int build_identity_get_component_path(plist_t build_identity, const char* component, char** path);
+int ipsw_extract_filesystem(const char* ipsw, plist_t build_identity, char** filesystem);
 
 #ifdef __cplusplus
 }
