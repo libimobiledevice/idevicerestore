@@ -599,12 +599,14 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 
 		else if (!strcmp(type, "NORData")) {
-			if(client->flags & FLAG_EXCLUDE > 0) {
+			if((client->flags & FLAG_EXCLUDE) == 0) {
+				info("Sending NORData\n");
 				if(restore_send_nor(restore, client, build_identity) < 0) {
 					error("ERROR: Unable to send NOR data\n");
 					return -1;
 				}
 			} else {
+				info("Not sending NORData... Quitting...\n");
 				client->flags |= FLAG_QUIT;
 			}
 
