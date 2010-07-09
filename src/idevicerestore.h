@@ -42,7 +42,7 @@ int extract_buildmanifest(struct idevicerestore_client_t* client, const char* ip
 plist_t get_build_identity(struct idevicerestore_client_t* client, plist_t buildmanifest, uint32_t identity);
 int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, plist_t build_identity, plist_t* tss);
 int extract_filesystem(struct idevicerestore_client_t* client, const char* ipsw, plist_t buildmanifest, char** filesystem);
-int get_signed_component(struct idevicerestore_client_t* client, const char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size);
+int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size);
 int build_identity_get_component_path(plist_t build_identity, const char* component, char** path);
 
 #ifdef __cplusplus

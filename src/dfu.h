@@ -37,7 +37,7 @@ struct dfu_client_t {
 
 int dfu_client_new(struct idevicerestore_client_t* client, uint32_t timeout);
 void dfu_client_free(struct idevicerestore_client_t* client);
-int dfu_enter_recovery(struct idevicerestore_client_t* client);
+int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_identity);
 
 
 #ifdef __cplusplus

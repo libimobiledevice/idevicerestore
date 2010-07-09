@@ -186,7 +186,8 @@ int restore_reboot(struct idevicerestore_client_t* client) {
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
-	if(!client->restore) {
+
+	if(client->restore == NULL) {
 		if (restore_open_with_timeout(client) < 0) {
 			error("ERROR: Unable to open device in restore mode\n");
 			return -1;
@@ -398,7 +399,7 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 	return 0;
 }
 
-int restore_send_kernelcache(restored_client_t client, const char* ipsw, plist_t tss) {
+int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity) {
 	int size = 0;
 	char* data = NULL;
 	char* path = NULL;
@@ -407,22 +408,31 @@ int restore_send_kernelcache(restored_client_t client, const char* ipsw, plist_t
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
 	info("Sending kernelcache\n");
-	if (tss_get_entry_path(tss, "KernelCache", &path) < 0) {
-		error("ERROR: Unable to find kernelcache path\n");
-		return -1;
+
+	if (client->tss) {
+		if (tss_get_entry_path(client->tss, "KernelCache", &path) < 0) {
+			error("ERROR: Unable to get KernelCache path\n");
+			return -1;
+		}
+	} else {
+		if (build_identity_get_component_path(build_identity, "KernelCache", &path) < 0) {
+			error("ERROR: Unable to find kernelcache path\n");
+			if (path)
+				free(path);
+			return -1;
+		}
 	}
 
-	if (get_signed_component(client, ipsw, tss, path, &data, &size) < 0) {
+	if (ipsw_get_component_by_path(client->ipsw, client->tss, path, &data, &size) < 0) {
 		error("ERROR: Unable to get kernelcache file\n");
 		return -1;
 	}
-
 
 	dict = plist_new_dict();
 	blob = plist_new_data(data, size);
 	plist_dict_insert_item(dict, "KernelCacheFile", blob);
 
-	restore_error = restored_send(client, dict);
+	restore_error = restored_send(restore, dict);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send kernelcache data\n");
 		plist_free(dict);
@@ -435,7 +445,7 @@ int restore_send_kernelcache(restored_client_t client, const char* ipsw, plist_t
 	return 0;
 }
 
-int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss) {
+int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity) {
 	char* llb_path = NULL;
 	char* llb_filename = NULL;
 	char firmware_path[256];
@@ -452,9 +462,18 @@ int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss) {
 	plist_t norimage_array = NULL;
 	restored_error_t ret = RESTORE_E_SUCCESS;
 
-	if (tss_get_entry_path(tss, "LLB", &llb_path) < 0) {
-		error("ERROR: Unable to get LLB info from TSS response\n");
-		return -1;
+	if (client->tss) {
+		if (tss_get_entry_path(client->tss, "LLB", &llb_path) < 0) {
+			error("ERROR: Unable to get LLB path\n");
+			return -1;
+		}
+	} else {
+		if (build_identity_get_component_path(build_identity, "LLB", &llb_path) < 0) {
+			error("ERROR: Unable to get component: LLB\n");
+			if (llb_path)
+				free(llb_path);
+			return -1;
+		}
 	}
 
 	llb_filename = strstr(llb_path, "LLB");
@@ -472,7 +491,7 @@ int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss) {
 	snprintf(manifest_file, sizeof(manifest_file), "%s/manifest", firmware_path);
 	info("Getting firmware manifest %s\n", manifest_file);
 
-	if (ipsw_extract_to_memory(ipsw, manifest_file, &manifest_data, &manifest_size) < 0) {
+	if (ipsw_extract_to_memory(client->ipsw, manifest_file, &manifest_data, &manifest_size) < 0) {
 		error("ERROR: Unable to extract firmware manifest from ipsw\n");
 		free(llb_path);
 		return -1;
@@ -485,7 +504,7 @@ int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss) {
 	if (filename != NULL) {
 		memset(firmware_filename, '\0', sizeof(firmware_filename));
 		snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
-		if (get_signed_component(client, ipsw, tss, firmware_filename, &llb_data, &llb_size) < 0) {
+		if (ipsw_get_component_by_path(client->ipsw, client->tss, firmware_filename, &llb_data, &llb_size) < 0) {
 			error("ERROR: Unable to get signed LLB\n");
 			return -1;
 		}
@@ -498,7 +517,7 @@ int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss) {
 	while (filename != NULL) {
 		memset(firmware_filename, '\0', sizeof(firmware_filename));
 		snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
-		if (get_signed_component(client, ipsw, tss, firmware_filename, &nor_data, &nor_size) < 0) {
+		if (ipsw_get_component_by_path(client->ipsw, client->tss, firmware_filename, &nor_data, &nor_size) < 0) {
 			error("ERROR: Unable to get signed firmware %s\n", firmware_filename);
 			break;
 		}
@@ -513,7 +532,7 @@ int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss) {
 
 	debug_plist(dict);
 
-	ret = restored_send(client, dict);
+	ret = restored_send(restore, dict);
 	if (ret != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send kernelcache data\n");
 		plist_free(dict);
@@ -524,7 +543,7 @@ int restore_send_nor(restored_client_t client, const char* ipsw, plist_t tss) {
 	return 0;
 }
 
-int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t tss, const char* ipsw, const char* filesystem) {
+int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t build_identity, const char* filesystem) {
 	char* type = NULL;
 	plist_t node = NULL;
 
@@ -543,7 +562,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 
 		else if (!strcmp(type, "KernelCache")) {
-			if(restore_send_kernelcache(restore, ipsw, tss) < 0) {
+			if(restore_send_kernelcache(restore, client, build_identity) < 0) {
 				error("ERROR: Unable to send kernelcache\n");
 				return -1;
 			}
@@ -551,7 +570,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		else if (!strcmp(type, "NORData")) {
 			if(client->flags & FLAG_EXCLUDE > 0) {
-				if(restore_send_nor(restore, ipsw, tss) < 0) {
+				if(restore_send_nor(restore, client, build_identity) < 0) {
 					error("ERROR: Unable to send NOR data\n");
 					return -1;
 				}
@@ -568,7 +587,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 	return 0;
 }
 
-int restore_device(struct idevicerestore_client_t* client, const char* uuid, const char* ipsw, plist_t tss, const char* filesystem) {
+int restore_device(struct idevicerestore_client_t* client, plist_t build_identity, const char* filesystem) {
 	int error = 0;
 	char* type = NULL;
 	char* kernel = NULL;
@@ -585,6 +604,8 @@ int restore_device(struct idevicerestore_client_t* client, const char* uuid, con
 		return -1;
 	}
 	info("Device has successfully entered restore mode\n");
+
+	restore = client->restore->client;
 
 	// start the restore process
 	restore_error = restored_start_restore(restore);
@@ -619,7 +640,7 @@ int restore_device(struct idevicerestore_client_t* client, const char* uuid, con
 		// files sent to the server by the client. these data requests include
 		// SystemImageData, KernelCache, and NORData requests
 		if (!strcmp(type, "DataRequestMsg")) {
-			error = restore_handle_data_request_msg(client, device, restore, message, tss, ipsw, filesystem);
+			error = restore_handle_data_request_msg(client, device, restore, message, build_identity, filesystem);
 		}
 
 		// progress notification messages sent by the restored inform the client

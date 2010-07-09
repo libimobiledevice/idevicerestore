@@ -167,16 +167,15 @@ int main(int argc, char* argv[]) {
 	}
 
 	// choose whether this is an upgrade or a restore (default to upgrade)
-	plist_t tss = NULL;
+	client->tss = NULL;
 	plist_t build_identity = NULL;
 	if (client->flags & FLAG_ERASE) {
 		build_identity = get_build_identity(client, buildmanifest, 0);
 		if (build_identity == NULL) {
-			error("ERROR: Unable to find build any identities\n");
+			error("ERROR: Unable to find any build identities\n");
 			plist_free(buildmanifest);
 			return -1;
 		}
-
 	} else {
 		// loop through all build identities in the build manifest
 		// and list the valid ones
@@ -184,24 +183,33 @@ int main(int argc, char* argv[]) {
 		int valid_builds = 0;
 		int build_count = get_build_count(buildmanifest);
 		for (i = 0; i < build_count; i++) {
-			if (client->device->index > DEVICE_IPOD2G) {
-				build_identity = get_build_identity(client, buildmanifest, i);
-				if (get_shsh_blobs(client, ecid, build_identity, &tss) < 0) {
-					// if this fails then no SHSH blobs have been saved
-					// for this build identity, so check the next one
-					continue;
-				}
-				valid_builds++;
+			build_identity = get_build_identity(client, buildmanifest, i);
+			valid_builds++;
+		}
+	}
+
+	if (client->flags & FLAG_CUSTOM > 0) {
+		if (client->device->index > DEVICE_IPOD2G) {
+			if (get_shsh_blobs(client, ecid, build_identity, &client->tss) < 0) {
+				error("ERROR: Unable to get SHSH blobs for this device\n");
+				return -1;
 			}
+		}
+
+		/* verify if we have tss records if required */
+		if ((client->device->index > DEVICE_IPOD2G) && (client->tss == NULL)) {
+			error("ERROR: Unable to proceed without a tss record.\n");
+			plist_free(buildmanifest);
+			return -1;
 		}
 	}
 
 	// Extract filesystem from IPSW and return its name
 	char* filesystem = NULL;
-	if (extract_filesystem(client, ipsw, build_identity, &filesystem) < 0) {
+	if (extract_filesystem(client, client->ipsw, build_identity, &filesystem) < 0) {
 		error("ERROR: Unable to extract filesystem from IPSW\n");
-		if (tss)
-			plist_free(tss);
+		if (client->tss)
+			plist_free(client->tss);
 		plist_free(buildmanifest);
 		return -1;
 	}
@@ -211,8 +219,8 @@ int main(int argc, char* argv[]) {
 		info("Entering recovery mode...\n");
 		if (normal_enter_recovery(client) < 0) {
 			error("ERROR: Unable to place device into recovery mode\n");
-			if (tss)
-				plist_free(tss);
+			if (client->tss)
+				plist_free(client->tss);
 			plist_free(buildmanifest);
 			return -1;
 		}
@@ -220,22 +228,22 @@ int main(int argc, char* argv[]) {
 
 	// if the device is in DFU mode, place device into recovery mode
 	if (client->mode->index == MODE_DFU) {
-		if (dfu_enter_recovery(client) < 0) {
+		if (dfu_enter_recovery(client, build_identity) < 0) {
 			error("ERROR: Unable to place device into recovery mode\n");
 			plist_free(buildmanifest);
-			if (tss)
-				plist_free(tss);
+			if (client->tss)
+				plist_free(client->tss);
 			return -1;
 		}
 	}
 
 	// if the device is in recovery mode, place device into restore mode
 	if (client->mode->index == MODE_RECOVERY) {
-		if (recovery_enter_restore(uuid, ipsw, tss) < 0) {
+		if (recovery_enter_restore(client, build_identity) < 0) {
 			error("ERROR: Unable to place device into restore mode\n");
 			plist_free(buildmanifest);
-			if (tss)
-				plist_free(tss);
+			if (client->tss)
+				plist_free(client->tss);
 			return -1;
 		}
 	}
@@ -243,7 +251,7 @@ int main(int argc, char* argv[]) {
 	// device is finally in restore mode, let's do this
 	if (client->mode->index == MODE_RESTORE) {
 		info("Restoring device... \n");
-		if (restore_device(client, uuid, ipsw, tss, filesystem) < 0) {
+		if (restore_device(client, build_identity, filesystem) < 0) {
 			error("ERROR: Unable to restore device\n");
 			return -1;
 		}
@@ -545,7 +553,7 @@ int extract_filesystem(struct idevicerestore_client_t* client, const char* ipsw,
 	return 0;
 }
 
-int get_signed_component(struct idevicerestore_client_t* client, const char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size) {
+int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size) {
 	img3_file* img3 = NULL;
 	uint32_t component_size = 0;
 	char* component_data = NULL;
@@ -564,36 +572,40 @@ int get_signed_component(struct idevicerestore_client_t* client, const char* ips
 		return -1;
 	}
 
-	img3 = img3_parse_file(component_data, component_size);
-	if (img3 == NULL) {
-		error("ERROR: Unable to parse IMG3: %s\n", component_name);
+	if (tss) {
+		info("Signing img3...\n");
+		img3 = img3_parse_file(component_data, component_size);
+		if (img3 == NULL) {
+			error("ERROR: Unable to parse IMG3: %s\n", component_name);
+			free(component_data);
+			return -1;
+		}
 		free(component_data);
-		return -1;
-	}
-	free(component_data);
 
-	if (tss_get_blob_by_path(tss, path, &component_blob) < 0) {
-		error("ERROR: Unable to get SHSH blob for TSS %s entry\n", component_name);
-		img3_free(img3);
-		return -1;
-	}
+		/* sign the blob if required */
+		if (tss_get_blob_by_path(tss, path, &component_blob) < 0) {
+			error("ERROR: Unable to get SHSH blob for TSS %s entry\n", component_name);
+			img3_free(img3);
+			return -1;
+		}
 
-	if (client->device->index > DEVICE_IPOD2G && (client->flags & FLAG_CUSTOM) == 0) {
 		if (img3_replace_signature(img3, component_blob) < 0) {
 			error("ERROR: Unable to replace IMG3 signature\n");
 			free(component_blob);
 			img3_free(img3);
 			return -1;
 		}
-	}
-	free(component_blob);
 
-	if (img3_get_data(img3, &component_data, &component_size) < 0) {
-		error("ERROR: Unable to reconstruct IMG3\n");
+		if (component_blob)
+			free(component_blob);
+
+		if (img3_get_data(img3, &component_data, &component_size) < 0) {
+			error("ERROR: Unable to reconstruct IMG3\n");
+			img3_free(img3);
+			return -1;
+		}
 		img3_free(img3);
-		return -1;
 	}
-	img3_free(img3);
 
 	if (idevicerestore_debug) {
 		write_file(component_name, component_data, component_size);

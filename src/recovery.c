@@ -45,6 +45,7 @@ int recovery_client_new(struct idevicerestore_client_t* client) {
 		error("ERROR: Out of memory\n");
 		return -1;
 	}
+
 	client->recovery = recovery;
 
 	if (recovery_open_with_timeout(client) < 0) {
@@ -122,28 +123,28 @@ int recovery_check_mode() {
 	return 0;
 }
 
-int recovery_enter_restore(struct idevicerestore_client_t* client) {
+int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build_identity) {
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 
 	// upload data to make device boot restore mode
-	if (recovery_send_ibec(client) < 0) {
+	if (recovery_send_ibec(client, build_identity) < 0) {
 		error("ERROR: Unable to send iBEC\n");
 		return -1;
 	}
-	sleep(1);
+	sleep(2);
 
-	if (recovery_send_applelogo(client) < 0) {
+	if (recovery_send_applelogo(client, build_identity) < 0) {
 		error("ERROR: Unable to send AppleLogo\n");
 		return -1;
 	}
 
-	if (recovery_send_devicetree(client) < 0) {
+	if (recovery_send_devicetree(client, build_identity) < 0) {
 		error("ERROR: Unable to send DeviceTree\n");
 		return -1;
 	}
 
-	if (recovery_send_ramdisk(client) < 0) {
+	if (recovery_send_ramdisk(client, build_identity) < 0) {
 		error("ERROR: Unable to send Ramdisk\n");
 		return -1;
 	}
@@ -154,7 +155,10 @@ int recovery_enter_restore(struct idevicerestore_client_t* client) {
 	printf("Hit any key to continue...");
 	getchar();
 
-	if (recovery_send_kernelcache(client) < 0) {
+	info("Resetting recovery mode connection...\n");
+	irecv_reset(client->recovery->client);
+
+	if (recovery_send_kernelcache(client, build_identity) < 0) {
 		error("ERROR: Unable to send KernelCache\n");
 		return -1;
 	}
@@ -170,29 +174,42 @@ int recovery_enter_restore(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-int recovery_send_signed_component(struct idevicerestore_client_t* client, const char* component) {
-	int size = 0;
+int recovery_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component) {
+	uint32_t size = 0;
 	char* data = NULL;
 	char* path = NULL;
 	char* blob = NULL;
 	irecv_error_t error = 0;
 
-	if (tss_get_entry_path(client->tss, component, &path) < 0) {
-		error("ERROR: Unable to get component path\n");
-		return -1;
+	if (client->tss) {
+		if (tss_get_entry_path(client->tss, component, &path) < 0) {
+			error("ERROR: Unable to get component path\n");
+			return -1;
+		}
+	} else {
+		if (build_identity_get_component_path(build_identity, component, &path) < 0) {
+			error("ERROR: Unable to get component: %s\n", component);
+			if (path)
+				free(path);
+			return -1;
+		}
 	}
 
-	if (get_signed_component(client, client->ipsw, client->tss, path, &data, &size) < 0) {
-		error("ERROR: Unable to get signed component: %s\n", component);
+	info("Resetting recovery mode connection...\n");
+	irecv_reset(client->recovery->client);
+
+	if (ipsw_get_component_by_path(client->ipsw, client->tss, path, &data, &size) < 0) {
+		error("ERROR: Unable to get component: %s\n", component);
 		free(path);
 		return -1;
 	}
-	free(path);
 
-	info("Sending %s...\n", component);
+	info("Sending %s (%d bytes)...\n", component, size);
+
 	error = irecv_send_buffer(client->recovery->client, data, size);
+	free(path);
 	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to send component: %s\n", component);
+		error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(error));
 		free(data);
 		return -1;
 	}
@@ -201,10 +218,8 @@ int recovery_send_signed_component(struct idevicerestore_client_t* client, const
 	return 0;
 }
 
-int recovery_send_ibec(struct idevicerestore_client_t* client) {
-	const char* component = "iBEC";
+static int recovery_enable_autoboot(struct idevicerestore_client_t* client) {
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-
 	//recovery_error = irecv_send_command(client->recovery->client, "setenv auto-boot true");
 	recovery_error = irecv_setenv(client->recovery->client, "auto-boot", "true");
 	if (recovery_error != IRECV_E_SUCCESS) {
@@ -218,7 +233,18 @@ int recovery_send_ibec(struct idevicerestore_client_t* client) {
 		return -1;
 	}
 
-	if (recovery_send_signed_component(client, "iBEC") < 0) {
+	return 0;
+}
+
+int recovery_send_ibec(struct idevicerestore_client_t* client, plist_t build_identity) {
+	const char* component = "iBEC";
+	irecv_error_t recovery_error = IRECV_E_SUCCESS;
+
+	if (recovery_enable_autoboot(client) < 0) {
+		return -1;
+	}
+
+	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
 		return -1;
 	}
@@ -232,9 +258,8 @@ int recovery_send_ibec(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-int recovery_send_applelogo(struct idevicerestore_client_t* client) {
-	irecv_client_t recovery = NULL;
-	const char* component = "applelogo";
+int recovery_send_applelogo(struct idevicerestore_client_t* client, plist_t build_identity) {
+	const char* component = "AppleLogo";
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	info("Sending %s...\n", component);
@@ -242,40 +267,37 @@ int recovery_send_applelogo(struct idevicerestore_client_t* client) {
 		return -1;
 	}
 
-	if (recovery_send_signed_component(client, "AppleLogo") < 0) {
+	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
-		irecv_close(recovery);
 		return -1;
 	}
 
-	recovery_error = irecv_send_command(recovery, "setpicture 1");
+	recovery_error = irecv_send_command(client->recovery->client, "setpicture 1");
 	if (recovery_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to set %s\n", component);
-		irecv_close(recovery);
 		return -1;
 	}
 
-	recovery_error = irecv_send_command(recovery, "bgcolor 0 0 0");
+	recovery_error = irecv_send_command(client->recovery->client, "bgcolor 0 0 0");
 	if (recovery_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to display %s\n", component);
-		irecv_close(recovery);
 		return -1;
 	}
 
-	irecv_close(recovery);
-	recovery = NULL;
 	return 0;
 }
 
-int recovery_send_devicetree(struct idevicerestore_client_t* client) {
-	const char* component = "devicetree";
+int recovery_send_devicetree(struct idevicerestore_client_t* client, plist_t build_identity) {
+	const char* component = "RestoreDeviceTree";
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
-	if (recovery_open_with_timeout(client) < 0) {
-		return -1;
+	if(client->recovery == NULL) {
+		if (recovery_open_with_timeout(client) < 0) {
+			return -1;
+		}
 	}
 
-	if (recovery_send_signed_component(client, "RestoreDeviceTree") < 0) {
+	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
 		return -1;
 	}
@@ -289,16 +311,17 @@ int recovery_send_devicetree(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-int recovery_send_ramdisk(struct idevicerestore_client_t* client) {
+int recovery_send_ramdisk(struct idevicerestore_client_t* client, plist_t build_identity) {
+	const char *component = "RestoreRamDisk";
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-	const char *component = "ramdisk";
 
-	recovery_error = recovery_open_with_timeout(client);
-	if (recovery_error != IRECV_E_SUCCESS) {
-		return -1;
+	if(client->recovery == NULL) {
+		if (recovery_open_with_timeout(client) < 0) {
+			return -1;
+		}
 	}
 
-	if (recovery_send_signed_component(client, "RestoreRamDisk") < 0) {
+	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
 		return -1;
 	}
@@ -312,15 +335,15 @@ int recovery_send_ramdisk(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-int recovery_send_kernelcache(struct idevicerestore_client_t* client) {
-	const char* component = "kernelcache";
+int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t build_identity) {
+	const char* component = "RestoreKernelCache";
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	if (recovery_open_with_timeout(client) < 0) {
 		return -1;
 	}
 
-	if (recovery_send_signed_component(client, "RestoreKernelCache") < 0) {
+	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
 		return -1;
 	}
@@ -337,8 +360,10 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client) {
 int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
-	if (recovery_open_with_timeout(client) < 0) {
-		return -1;
+	if(client->recovery == NULL) {
+		if (recovery_open_with_timeout(client) < 0) {
+			return -1;
+		}
 	}
 
 	recovery_error = irecv_get_ecid(client->recovery->client, ecid);

@@ -108,10 +108,11 @@ int dfu_check_mode() {
 	return -1;
 }
 
-int dfu_enter_recovery(struct idevicerestore_client_t* client) {
+int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_identity) {
 	irecv_client_t dfu = NULL;
 	const char* component = "iBSS";
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
+
 	if (recovery_open_with_timeout(client) < 0 || dfu->mode != kDfuMode) {
 		error("ERROR: Unable to connect to DFU device\n");
 		if (dfu)
@@ -119,7 +120,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client) {
 		return -1;
 	}
 
-	if (recovery_send_signed_component(client, "iBSS") < 0) {
+	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device\n", component);
 		irecv_close(dfu);
 		return -1;
