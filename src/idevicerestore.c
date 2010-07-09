@@ -530,30 +530,10 @@ int get_build_count(plist_t buildmanifest) {
 int extract_filesystem(struct idevicerestore_client_t* client, const char* ipsw, plist_t build_identity, char** filesystem) {
 	char* filename = NULL;
 
-	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
-	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
-		error("ERROR: Unable to find manifest node\n");
+	if (build_identity_get_component_path(build_identity, "OS", &filename) < 0) {
+		error("ERROR: Unable get path for filesystem component\n");
 		return -1;
 	}
-
-	plist_t filesystem_node = plist_dict_get_item(manifest_node, "OS");
-	if (!filesystem_node || plist_get_node_type(filesystem_node) != PLIST_DICT) {
-		error("ERROR: Unable to find filesystem node\n");
-		return -1;
-	}
-
-	plist_t filesystem_info_node = plist_dict_get_item(filesystem_node, "Info");
-	if (!filesystem_info_node || plist_get_node_type(filesystem_info_node) != PLIST_DICT) {
-		error("ERROR: Unable to find filesystem info node\n");
-		return -1;
-	}
-
-	plist_t filesystem_info_path_node = plist_dict_get_item(filesystem_info_node, "Path");
-	if (!filesystem_info_path_node || plist_get_node_type(filesystem_info_path_node) != PLIST_STRING) {
-		error("ERROR: Unable to find filesystem info path node\n");
-		return -1;
-	}
-	plist_get_string_val(filesystem_info_path_node, &filename);
 
 	info("Extracting filesystem from IPSW\n");
 	if (ipsw_extract_to_file(ipsw, filename, filename) < 0) {
@@ -623,3 +603,44 @@ int get_signed_component(struct idevicerestore_client_t* client, const char* ips
 	*size = component_size;
 	return 0;
 }
+
+int build_identity_get_component_path(plist_t build_identity, const char* component, char** path) {
+	char* filename = NULL;
+
+	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: Unable to find manifest node\n");
+		if (filename)
+			free(filename);
+		return -1;
+	}
+
+	plist_t component_node = plist_dict_get_item(manifest_node, component);
+	if (!component_node || plist_get_node_type(component_node) != PLIST_DICT) {
+		error("ERROR: Unable to find component node for %s\n", component);
+		if (filename)
+			free(filename);
+		return -1;
+	}
+
+	plist_t component_info_node = plist_dict_get_item(component_node, "Info");
+	if (!component_info_node || plist_get_node_type(component_info_node) != PLIST_DICT) {
+		error("ERROR: Unable to find component info node for %s\n", component);
+		if (filename)
+			free(filename);
+		return -1;
+	}
+
+	plist_t component_info_path_node = plist_dict_get_item(component_info_node, "Path");
+	if (!component_info_path_node || plist_get_node_type(component_info_path_node) != PLIST_STRING) {
+		error("ERROR: Unable to find component info path node for %s\n", component);
+		if (filename)
+			free(filename);
+		return -1;
+	}
+	plist_get_string_val(component_info_path_node, &filename);
+
+	*path = filename;
+	return 0;
+}
+
