@@ -34,16 +34,17 @@ extern "C" {
 void usage(int argc, char* argv[]);
 int check_mode(struct idevicerestore_client_t* client);
 int check_device(struct idevicerestore_client_t* client);
-int get_build_count(plist_t buildmanifest);
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
 int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid);
 int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid);
-int extract_buildmanifest(struct idevicerestore_client_t* client, const char* ipsw, plist_t* buildmanifest);
-plist_t get_build_identity(struct idevicerestore_client_t* client, plist_t buildmanifest, uint32_t identity);
 int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, plist_t build_identity, plist_t* tss);
-int extract_filesystem(struct idevicerestore_client_t* client, const char* ipsw, plist_t buildmanifest, char** filesystem);
-int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size);
+void build_manifest_print_information(plist_t build_manifest);
+plist_t build_manifest_get_build_identity(plist_t build_manifest, uint32_t identity);
+int build_manifest_get_build_count(plist_t build_manifest);
+void build_identity_print_information(plist_t build_identity);
 int build_identity_get_component_path(plist_t build_identity, const char* component, char** path);
+int ipsw_extract_filesystem(const char* ipsw, plist_t build_identity, char** filesystem);
+int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size);
 
 #ifdef __cplusplus
 }

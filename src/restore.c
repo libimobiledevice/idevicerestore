@@ -29,6 +29,7 @@
 #include "common.h"
 #include "restore.h"
 
+#define WAIT_FOR_STORAGE       11
 #define CREATE_PARTITION_MAP   12
 #define CREATE_FILESYSTEM      13
 #define RESTORE_IMAGE          14
@@ -39,6 +40,8 @@
 #define UPDATE_BASEBAND        20
 #define FINIALIZE_NAND         21
 #define MODIFY_BOOTARGS        26
+#define LOAD_KERNEL_CACHE      27
+#define PARTITION_NAND_DEVICE  28
 #define WAIT_FOR_NAND          29
 #define UNMOUNT_FILESYSTEM     30
 #define WAIT_FOR_DEVICE        33
@@ -178,7 +181,7 @@ void restore_device_callback(const idevice_event_t* event, void* userdata) {
 
 	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
 		restore_device_connected = 0;
-		client->flags &= FLAG_QUIT;
+		client->flags |= FLAG_QUIT;
 	}
 }
 
@@ -225,7 +228,7 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 		}
 	}
 
-	device_error = idevice_event_subscribe(&restore_device_callback, NULL);
+	device_error = idevice_event_subscribe(&restore_device_callback, client);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		error("ERROR: Unable to subscribe to device events\n");
 		return -1;
@@ -271,6 +274,9 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 
 const char* restore_progress_string(unsigned int operation) {
 	switch (operation) {
+	case WAIT_FOR_STORAGE:
+		return "Waiting for Storage Device...";
+
 	case CREATE_PARTITION_MAP:
 		return "Creating partition map";
 
@@ -304,11 +310,17 @@ const char* restore_progress_string(unsigned int operation) {
 	case UNMOUNT_FILESYSTEM:
 		return "Unmounting filesystems";
 
+	case PARTITION_NAND_DEVICE:
+		return "Partition NAND device";
+
 	case WAIT_FOR_NAND:
 		return "Waiting for NAND...";
 
 	case WAIT_FOR_DEVICE:
 		return "Waiting for Device...";
+
+	case LOAD_KERNEL_CACHE:
+		return "Loading kernelcache...";
 
 	case LOAD_NOR:
 		return "Loading NOR data to flash";
@@ -339,7 +351,6 @@ int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 
 	if ((progress > 0) && (progress < 100)) {
 		print_progress_bar((double) progress);
-
 	} else {
 		info("%s\n", restore_progress_string(operation));
 	}
@@ -348,8 +359,27 @@ int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 }
 
 int restore_handle_status_msg(restored_client_t client, plist_t msg) {
+	uint64_t value = 0;
 	info("Got status message\n");
 	debug_plist(msg);
+
+	plist_t node = plist_dict_get_item(msg, "Status");
+	plist_get_uint_val(node, &value);
+
+	switch(value) {
+		case 0:
+			info("Status: Restore Finished\n");
+			break;
+		case 6:
+			info("Status: Disk Failure\n");
+			break;
+		case 14:
+			info("Status: Fail\n");
+			break;
+		default:
+			info("Unknown status message.\n");
+	}
+
 	return 0;
 }
 
@@ -366,8 +396,7 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 	}
 	info("Connected to ASR\n");
 
-	// we don't really need to do anything with this,
-	// we're just clearing the output buffer
+	/* receive Initiate command message */
 	if (asr_receive(asr, &data) < 0) {
 		error("ERROR: Unable to receive data from ASR\n");
 		asr_close(asr);
@@ -530,11 +559,12 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	}
 	plist_dict_insert_item(dict, "NorImageData", norimage_array);
 
-	debug_plist(dict);
+	if (idevicerestore_debug)
+		debug_plist(dict);
 
 	ret = restored_send(restore, dict);
 	if (ret != RESTORE_E_SUCCESS) {
-		error("ERROR: Unable to send kernelcache data\n");
+		error("ERROR: Unable to send NOR image data data\n");
 		plist_free(dict);
 		return -1;
 	}
@@ -569,19 +599,22 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 
 		else if (!strcmp(type, "NORData")) {
-			if(client->flags & FLAG_EXCLUDE > 0) {
+			if((client->flags & FLAG_EXCLUDE) == 0) {
+				info("Sending NORData\n");
 				if(restore_send_nor(restore, client, build_identity) < 0) {
 					error("ERROR: Unable to send NOR data\n");
 					return -1;
 				}
 			} else {
-				client->flags &= 1;
+				info("Not sending NORData... Quitting...\n");
+				client->flags |= FLAG_QUIT;
 			}
 
 		} else {
 			// Unknown DataType!!
 			debug("Unknown data request received\n");
-			debug_plist(message);
+			if (idevicerestore_debug)
+				debug_plist(message);
 		}
 	}
 	return 0;
@@ -606,6 +639,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	info("Device has successfully entered restore mode\n");
 
 	restore = client->restore->client;
+	device = client->restore->device;
 
 	// start the restore process
 	restore_error = restored_start_restore(restore);
@@ -629,7 +663,8 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		node = plist_dict_get_item(message, "MsgType");
 		if (!node || plist_get_node_type(node) != PLIST_STRING) {
 			debug("Unknown message received\n");
-			debug_plist(message);
+			if (idevicerestore_debug)
+				debug_plist(message);
 			plist_free(message);
 			message = NULL;
 			continue;
@@ -659,14 +694,15 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// at least the "previous error logs" messages usually end up here
 		else {
 			debug("Unknown message type received\n");
-			debug_plist(message);
+			if (idevicerestore_debug)
+				debug_plist(message);
 		}
 
 		// finally, if any of these message handlers returned -1 then we encountered
 		// an unrecoverable error, so we need to bail.
 		if (error < 0) {
 			error("ERROR: Unable to successfully restore device\n");
-			client->flags &= FLAG_QUIT;
+			client->flags |= FLAG_QUIT;
 		}
 
 		plist_free(message);

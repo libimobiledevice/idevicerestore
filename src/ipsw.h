@@ -28,6 +28,7 @@ extern "C" {
 
 #include <zip.h>
 #include <stdint.h>
+#include <plist/plist.h>
 
 typedef struct {
 	int index;
@@ -37,6 +38,7 @@ typedef struct {
 } ipsw_file;
 
 int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer, uint32_t* psize);
+int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest);
 void ipsw_free_file(ipsw_file* file);
 
 #ifdef __cplusplus

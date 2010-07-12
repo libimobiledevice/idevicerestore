@@ -87,7 +87,9 @@ int asr_receive(idevice_connection_t asr, plist_t* data) {
 
 	*data = request;
 
-	debug("Received %d bytes:\n%s\n", size, buffer);
+	debug("Received %d bytes:\n", size);
+	if (idevicerestore_debug)
+		debug_plist(request);
 	free(buffer);
 	return 0;
 }
@@ -104,7 +106,8 @@ int asr_send(idevice_connection_t asr, plist_t* data) {
 	}
 
 	debug("Sent %d bytes:\n", size);
-	debug_plist(data);
+	if (idevicerestore_debug)
+		debug_plist(*data);
 	free(buffer);
 	return 0;
 }
@@ -118,6 +121,8 @@ int asr_send_buffer(idevice_connection_t asr, const char* data, uint32_t size) {
 		error("ERROR: Unable to send data to ASR\n");
 		return -1;
 	}
+
+	debug("Sent %d bytes buffer\n", bytes);
 
 	return 0;
 }
@@ -137,6 +142,7 @@ int asr_perform_validation(idevice_connection_t asr, const char* filesystem) {
 	plist_t packet = NULL;
 	plist_t packet_info = NULL;
 	plist_t payload_info = NULL;
+	int attempts = 0;
 
 	file = fopen(filesystem, "rb");
 	if (file == NULL) {
@@ -172,6 +178,17 @@ int asr_perform_validation(idevice_connection_t asr, const char* filesystem) {
 			return -1;
 		}
 
+		if (packet == NULL) {
+			if (attempts < 5) {
+				info("Retrying to receive validation packet... %d\n", attempts);
+				attempts++;
+				sleep(1);
+				continue;
+			}
+		}
+
+		attempts = 0;
+
 		node = plist_dict_get_item(packet, "Command");
 		if (!node || plist_get_node_type(node) != PLIST_STRING) {
 			error("ERROR: Unable to find command node in validation request\n");
@@ -181,10 +198,7 @@ int asr_perform_validation(idevice_connection_t asr, const char* filesystem) {
 
 		if (!strcmp(command, "OOBData")) {
 			asr_handle_oob_data_request(asr, packet, file);
-
-
 			plist_free(packet);
-
 		} else if(!strcmp(command, "Payload")) {
 			plist_free(packet);
 			break;
