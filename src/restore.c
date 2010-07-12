@@ -406,7 +406,7 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 
 	// this step sends requested chunks of data from various offsets to asr so
 	// it can validate the filesystem before installing it
-	debug("Preparing to validate the filesystem\n");
+	info("Validating the filesystem\n");
 	if (asr_perform_validation(asr, filesystem) < 0) {
 		error("ERROR: ASR was unable to validate the filesystem\n");
 		asr_close(asr);
@@ -416,13 +416,13 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 
 	// once the target filesystem has been validated, ASR then requests the
 	// entire filesystem to be sent.
-	debug("Preparing to send filesystem\n");
+	info("Sending filesystem now...\n");
 	if (asr_send_payload(asr, filesystem) < 0) {
 		error("ERROR: Unable to send payload to ASR\n");
 		asr_close(asr);
 		return -1;
 	}
-	info("Filesystem finished\n");
+	info("Filesystem sent\n");
 
 	asr_close(asr);
 	return 0;
