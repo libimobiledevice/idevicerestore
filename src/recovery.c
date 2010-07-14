@@ -185,9 +185,6 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 	printf("Hit any key to continue...");
 	getchar();
 
-	info("Resetting recovery mode connection...\n");
-	irecv_reset(client->recovery->client);
-
 	if (recovery_send_kernelcache(client, build_identity) < 0) {
 		error("ERROR: Unable to send KernelCache\n");
 		return -1;
