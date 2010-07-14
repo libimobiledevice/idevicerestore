@@ -95,7 +95,7 @@ int recovery_open_with_timeout(struct idevicerestore_client_t* client) {
 			return -1;
 		}
 
-		sleep(2);
+		sleep(4);
 		debug("Retrying connection...\n");
 	}
 
@@ -132,7 +132,10 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 		error("ERROR: Unable to send iBEC\n");
 		return -1;
 	}
-	sleep(2);
+
+	/* this must be long enough to allow the device to run the iBEC */
+	/* FIXME: Probably better to detect if the device is back then */
+	sleep(4);
 
 	if (recovery_send_applelogo(client, build_identity) < 0) {
 		error("ERROR: Unable to send AppleLogo\n");
