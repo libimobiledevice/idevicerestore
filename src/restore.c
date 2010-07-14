@@ -275,7 +275,7 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 const char* restore_progress_string(unsigned int operation) {
 	switch (operation) {
 	case WAIT_FOR_STORAGE:
-		return "Waiting for Storage Device...";
+		return "Waiting for storage device";
 
 	case CREATE_PARTITION_MAP:
 		return "Creating partition map";
@@ -314,13 +314,13 @@ const char* restore_progress_string(unsigned int operation) {
 		return "Partition NAND device";
 
 	case WAIT_FOR_NAND:
-		return "Waiting for NAND...";
+		return "Waiting for NAND";
 
 	case WAIT_FOR_DEVICE:
-		return "Waiting for Device...";
+		return "Waiting for device";
 
 	case LOAD_KERNEL_CACHE:
-		return "Loading kernelcache...";
+		return "Loading kernelcache";
 
 	case LOAD_NOR:
 		return "Loading NOR data to flash";
