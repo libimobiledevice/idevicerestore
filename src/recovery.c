@@ -151,6 +151,7 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 		return -1;
 	}
 
+	/* send iBEC and run it */
 	if (recovery_send_ibec(client, build_identity) < 0) {
 		error("ERROR: Unable to send iBEC\n");
 		return -1;
@@ -160,16 +161,19 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 	/* FIXME: Probably better to detect if the device is back then */
 	sleep(4);
 
+	/* send logo and show it */
 	if (recovery_send_applelogo(client, build_identity) < 0) {
 		error("ERROR: Unable to send AppleLogo\n");
 		return -1;
 	}
 
+	/* send devicetree and load it */
 	if (recovery_send_devicetree(client, build_identity) < 0) {
 		error("ERROR: Unable to send DeviceTree\n");
 		return -1;
 	}
 
+	/* send ramdisk and run it */
 	if (recovery_send_ramdisk(client, build_identity) < 0) {
 		error("ERROR: Unable to send Ramdisk\n");
 		return -1;

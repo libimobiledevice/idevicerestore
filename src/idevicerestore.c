@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
 			error("ERROR: Unable to find device ECID\n");
 			return -1;
 		}
-		debug("Found ECID %llu\n", client->ecid);
+		info("Found ECID %llu\n", client->ecid);
 	}
 
 	// choose whether this is an upgrade or a restore (default to upgrade)
