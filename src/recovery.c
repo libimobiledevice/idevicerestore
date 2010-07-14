@@ -95,7 +95,7 @@ int recovery_open_with_timeout(struct idevicerestore_client_t* client) {
 			return -1;
 		}
 
-		sleep(2);
+		sleep(4);
 		debug("Retrying connection...\n");
 	}
 
@@ -123,27 +123,57 @@ int recovery_check_mode() {
 	return 0;
 }
 
+static int recovery_enable_autoboot(struct idevicerestore_client_t* client) {
+	irecv_error_t recovery_error = IRECV_E_SUCCESS;
+
+	recovery_error = irecv_setenv(client->recovery->client, "auto-boot", "true");
+	if (recovery_error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to set auto-boot environmental variable\n");
+		return -1;
+	}
+
+	recovery_error = irecv_send_command(client->recovery->client, "saveenv");
+	if (recovery_error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to save environmental variable\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build_identity) {
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 
-	// upload data to make device boot restore mode
+	/* upload data to make device boot restore mode */
+
+	if (recovery_enable_autoboot(client) < 0) {
+		return -1;
+	}
+
+	/* send iBEC and run it */
 	if (recovery_send_ibec(client, build_identity) < 0) {
 		error("ERROR: Unable to send iBEC\n");
 		return -1;
 	}
-	sleep(2);
 
+	/* this must be long enough to allow the device to run the iBEC */
+	/* FIXME: Probably better to detect if the device is back then */
+	sleep(4);
+
+	/* send logo and show it */
 	if (recovery_send_applelogo(client, build_identity) < 0) {
 		error("ERROR: Unable to send AppleLogo\n");
 		return -1;
 	}
 
+	/* send devicetree and load it */
 	if (recovery_send_devicetree(client, build_identity) < 0) {
 		error("ERROR: Unable to send DeviceTree\n");
 		return -1;
 	}
 
+	/* send ramdisk and run it */
 	if (recovery_send_ramdisk(client, build_identity) < 0) {
 		error("ERROR: Unable to send Ramdisk\n");
 		return -1;
@@ -154,9 +184,6 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 	printf("Please unplug your device, then plug it back in\n");
 	printf("Hit any key to continue...");
 	getchar();
-
-	info("Resetting recovery mode connection...\n");
-	irecv_reset(client->recovery->client);
 
 	if (recovery_send_kernelcache(client, build_identity) < 0) {
 		error("ERROR: Unable to send KernelCache\n");
@@ -198,6 +225,9 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 	info("Resetting recovery mode connection...\n");
 	irecv_reset(client->recovery->client);
 
+	if (client->tss)
+		info("%s will be signed\n", component);
+
 	if (ipsw_get_component_by_path(client->ipsw, client->tss, path, &data, &size) < 0) {
 		error("ERROR: Unable to get component: %s\n", component);
 		free(path);
@@ -218,31 +248,9 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 	return 0;
 }
 
-static int recovery_enable_autoboot(struct idevicerestore_client_t* client) {
-	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-	//recovery_error = irecv_send_command(client->recovery->client, "setenv auto-boot true");
-	recovery_error = irecv_setenv(client->recovery->client, "auto-boot", "true");
-	if (recovery_error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to set auto-boot environmental variable\n");
-		return -1;
-	}
-
-	recovery_error = irecv_send_command(client->recovery->client, "saveenv");
-	if (recovery_error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to save environmental variable\n");
-		return -1;
-	}
-
-	return 0;
-}
-
 int recovery_send_ibec(struct idevicerestore_client_t* client, plist_t build_identity) {
 	const char* component = "iBEC";
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-
-	if (recovery_enable_autoboot(client) < 0) {
-		return -1;
-	}
 
 	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);

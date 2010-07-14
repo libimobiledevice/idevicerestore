@@ -173,9 +173,11 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer,
 	return 0;
 }
 
-int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest) {
+int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest, int *tss_enabled) {
 	int size = 0;
 	char* data = NULL;
+
+	*tss_enabled = 0;
 
 	/* older devices don't require personalized firmwares and use a BuildManifesto.plist */
 	if (ipsw_extract_to_memory(ipsw, "BuildManifesto.plist", &data, &size) == 0) {
@@ -188,6 +190,7 @@ int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest) {
 
 	/* whereas newer devices do not require personalized firmwares and use a BuildManifest.plist */
 	if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &data, &size) == 0) {
+		*tss_enabled = 1;
 		plist_from_xml(data, size, buildmanifest);
 		return 0;
 	}

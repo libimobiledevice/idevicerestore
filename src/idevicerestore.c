@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
 	int optindex = 0;
 	char* ipsw = NULL;
 	char* uuid = NULL;
-	uint64_t ecid = 0;
+	int tss_enabled = 0;
 
 	// create an instance of our context
 	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) malloc(sizeof(struct idevicerestore_client_t));
@@ -149,7 +149,7 @@ int main(int argc, char* argv[]) {
 	// extract buildmanifest
 	plist_t buildmanifest = NULL;
 	info("Extracting BuildManifest from IPSW\n");
-	if (ipsw_extract_build_manifest(ipsw, &buildmanifest) < 0) {
+	if (ipsw_extract_build_manifest(ipsw, &buildmanifest, &tss_enabled) < 0) {
 		error("ERROR: Unable to extract BuildManifest from %s\n", ipsw);
 		return -1;
 	}
@@ -157,16 +157,10 @@ int main(int argc, char* argv[]) {
 	/* print iOS information from the manifest */
 	build_manifest_print_information(buildmanifest);
 
-	// devices are listed in order from oldest to newest
-	// so we'll need their ECID
-	if (client->device->index > DEVICE_IPOD2G) {
-		debug("Getting device's ECID for TSS request\n");
-		// fetch the device's ECID for the TSS request
-		if (get_ecid(client, &client->ecid) < 0) {
-			error("ERROR: Unable to find device ECID\n");
-			return -1;
-		}
-		debug("Found ECID %llu\n", client->ecid);
+	if (client->flags & FLAG_CUSTOM) {
+		/* prevent signing custom firmware */
+		tss_enabled = 0;
+		info("Custom firmware requested. Disabled TSS request.\n");
 	}
 
 	// choose whether this is an upgrade or a restore (default to upgrade)
@@ -194,20 +188,27 @@ int main(int argc, char* argv[]) {
 	/* print information about current build identity */
 	build_identity_print_information(build_identity);
 
-	if (client->flags & FLAG_CUSTOM > 0) {
-		if (client->device->index > DEVICE_IPOD2G) {
-			if (get_shsh_blobs(client, ecid, build_identity, &client->tss) < 0) {
-				error("ERROR: Unable to get SHSH blobs for this device\n");
-				return -1;
-			}
-		}
-
-		/* verify if we have tss records if required */
-		if ((client->device->index > DEVICE_IPOD2G) && (client->tss == NULL)) {
-			error("ERROR: Unable to proceed without a tss record.\n");
-			plist_free(buildmanifest);
+	/* retrieve shsh blobs if required */
+	if (tss_enabled) {
+		debug("Getting device's ECID for TSS request\n");
+		/* fetch the device's ECID for the TSS request */
+		if (get_ecid(client, &client->ecid) < 0) {
+			error("ERROR: Unable to find device ECID\n");
 			return -1;
 		}
+		info("Found ECID %llu\n", client->ecid);
+
+		if (get_shsh_blobs(client, client->ecid, build_identity, &client->tss) < 0) {
+			error("ERROR: Unable to get SHSH blobs for this device\n");
+			return -1;
+		}
+	}
+
+	/* verify if we have tss records if required */
+	if ((tss_enabled) && (client->tss == NULL)) {
+		error("ERROR: Unable to proceed without a TSS record.\n");
+		plist_free(buildmanifest);
+		return -1;
 	}
 
 	// Extract filesystem from IPSW and return its name
@@ -432,11 +433,6 @@ int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
 }
 
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
-	if(client->device->index <= DEVICE_IPOD2G) {
-		*ecid = 0;
-		return 0;
-	}
-
 	switch (client->mode->index) {
 	case MODE_NORMAL:
 		if (normal_get_ecid(client->uuid, ecid) < 0) {
@@ -494,12 +490,15 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, plist_
 		return -1;
 	}
 
-	info("Sending TSS request\n");
+	info("Sending TSS request... ");
 	response = tss_send_request(request);
 	if (response == NULL) {
+		info("ERROR: Unable to send TSS request\n");
 		plist_free(request);
 		return -1;
 	}
+
+	info("received SHSH blobs\n");
 
 	plist_free(request);
 	*tss = response;
@@ -556,7 +555,6 @@ int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, 
 	}
 
 	if (tss) {
-		info("Signing img3...\n");
 		img3 = img3_parse_file(component_data, component_size);
 		if (img3 == NULL) {
 			error("ERROR: Unable to parse IMG3: %s\n", component_name);
@@ -572,6 +570,7 @@ int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, 
 			return -1;
 		}
 
+		info("Signing %s\n", component_name);
 		if (img3_replace_signature(img3, component_blob) < 0) {
 			error("ERROR: Unable to replace IMG3 signature\n");
 			free(component_blob);
