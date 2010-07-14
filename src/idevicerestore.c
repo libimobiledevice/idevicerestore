@@ -163,18 +163,6 @@ int main(int argc, char* argv[]) {
 		info("Custom firmware requested. Disabled TSS request.\n");
 	}
 
-	// devices are listed in order from oldest to newest
-	// so we'll need their ECID
-	if (tss_enabled) {
-		debug("Getting device's ECID for TSS request\n");
-		// fetch the device's ECID for the TSS request
-		if (get_ecid(client, &client->ecid) < 0) {
-			error("ERROR: Unable to find device ECID\n");
-			return -1;
-		}
-		info("Found ECID %llu\n", client->ecid);
-	}
-
 	// choose whether this is an upgrade or a restore (default to upgrade)
 	client->tss = NULL;
 	plist_t build_identity = NULL;
@@ -200,7 +188,16 @@ int main(int argc, char* argv[]) {
 	/* print information about current build identity */
 	build_identity_print_information(build_identity);
 
+	/* retrieve shsh blobs if required */
 	if (tss_enabled) {
+		debug("Getting device's ECID for TSS request\n");
+		/* fetch the device's ECID for the TSS request */
+		if (get_ecid(client, &client->ecid) < 0) {
+			error("ERROR: Unable to find device ECID\n");
+			return -1;
+		}
+		info("Found ECID %llu\n", client->ecid);
+
 		if (get_shsh_blobs(client, client->ecid, build_identity, &client->tss) < 0) {
 			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
