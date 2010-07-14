@@ -432,11 +432,6 @@ int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
 }
 
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
-	if(client->device->index <= DEVICE_IPOD2G) {
-		*ecid = 0;
-		return 0;
-	}
-
 	switch (client->mode->index) {
 	case MODE_NORMAL:
 		if (normal_get_ecid(client->uuid, ecid) < 0) {
