@@ -123,11 +123,34 @@ int recovery_check_mode() {
 	return 0;
 }
 
+static int recovery_enable_autoboot(struct idevicerestore_client_t* client) {
+	irecv_error_t recovery_error = IRECV_E_SUCCESS;
+
+	recovery_error = irecv_setenv(client->recovery->client, "auto-boot", "true");
+	if (recovery_error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to set auto-boot environmental variable\n");
+		return -1;
+	}
+
+	recovery_error = irecv_send_command(client->recovery->client, "saveenv");
+	if (recovery_error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to save environmental variable\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build_identity) {
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 
-	// upload data to make device boot restore mode
+	/* upload data to make device boot restore mode */
+
+	if (recovery_enable_autoboot(client) < 0) {
+		return -1;
+	}
+
 	if (recovery_send_ibec(client, build_identity) < 0) {
 		error("ERROR: Unable to send iBEC\n");
 		return -1;
@@ -221,31 +244,9 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 	return 0;
 }
 
-static int recovery_enable_autoboot(struct idevicerestore_client_t* client) {
-	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-	//recovery_error = irecv_send_command(client->recovery->client, "setenv auto-boot true");
-	recovery_error = irecv_setenv(client->recovery->client, "auto-boot", "true");
-	if (recovery_error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to set auto-boot environmental variable\n");
-		return -1;
-	}
-
-	recovery_error = irecv_send_command(client->recovery->client, "saveenv");
-	if (recovery_error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to save environmental variable\n");
-		return -1;
-	}
-
-	return 0;
-}
-
 int recovery_send_ibec(struct idevicerestore_client_t* client, plist_t build_identity) {
 	const char* component = "iBEC";
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-
-	if (recovery_enable_autoboot(client) < 0) {
-		return -1;
-	}
 
 	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
