@@ -228,6 +228,9 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 	info("Resetting recovery mode connection...\n");
 	irecv_reset(client->recovery->client);
 
+	if (client->tss)
+		info("%s will be signed\n", component);
+
 	if (ipsw_get_component_by_path(client->ipsw, client->tss, path, &data, &size) < 0) {
 		error("ERROR: Unable to get component: %s\n", component);
 		free(path);

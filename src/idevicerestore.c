@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
 	int optindex = 0;
 	char* ipsw = NULL;
 	char* uuid = NULL;
-	uint64_t ecid = 0;
+	int tss_enabled = 0;
 
 	// create an instance of our context
 	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) malloc(sizeof(struct idevicerestore_client_t));
@@ -149,7 +149,7 @@ int main(int argc, char* argv[]) {
 	// extract buildmanifest
 	plist_t buildmanifest = NULL;
 	info("Extracting BuildManifest from IPSW\n");
-	if (ipsw_extract_build_manifest(ipsw, &buildmanifest) < 0) {
+	if (ipsw_extract_build_manifest(ipsw, &buildmanifest, &tss_enabled) < 0) {
 		error("ERROR: Unable to extract BuildManifest from %s\n", ipsw);
 		return -1;
 	}
@@ -157,9 +157,15 @@ int main(int argc, char* argv[]) {
 	/* print iOS information from the manifest */
 	build_manifest_print_information(buildmanifest);
 
+	if (client->flags & FLAG_CUSTOM) {
+		/* prevent signing custom firmware */
+		tss_enabled = 0;
+		info("Custom firmware requested. Disabled TSS request.\n");
+	}
+
 	// devices are listed in order from oldest to newest
 	// so we'll need their ECID
-	if (client->device->index > DEVICE_IPOD2G) {
+	if (tss_enabled) {
 		debug("Getting device's ECID for TSS request\n");
 		// fetch the device's ECID for the TSS request
 		if (get_ecid(client, &client->ecid) < 0) {
@@ -194,20 +200,18 @@ int main(int argc, char* argv[]) {
 	/* print information about current build identity */
 	build_identity_print_information(build_identity);
 
-	if (client->flags & FLAG_CUSTOM > 0) {
-		if (client->device->index > DEVICE_IPOD2G) {
-			if (get_shsh_blobs(client, ecid, build_identity, &client->tss) < 0) {
-				error("ERROR: Unable to get SHSH blobs for this device\n");
-				return -1;
-			}
-		}
-
-		/* verify if we have tss records if required */
-		if ((client->device->index > DEVICE_IPOD2G) && (client->tss == NULL)) {
-			error("ERROR: Unable to proceed without a tss record.\n");
-			plist_free(buildmanifest);
+	if (tss_enabled) {
+		if (get_shsh_blobs(client, client->ecid, build_identity, &client->tss) < 0) {
+			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
 		}
+	}
+
+	/* verify if we have tss records if required */
+	if ((tss_enabled) && (client->tss == NULL)) {
+		error("ERROR: Unable to proceed without a tss record.\n");
+		plist_free(buildmanifest);
+		return -1;
 	}
 
 	// Extract filesystem from IPSW and return its name
