@@ -206,7 +206,7 @@ int main(int argc, char* argv[]) {
 
 	/* verify if we have tss records if required */
 	if ((tss_enabled) && (client->tss == NULL)) {
-		error("ERROR: Unable to proceed without a tss record.\n");
+		error("ERROR: Unable to proceed without a TSS record.\n");
 		plist_free(buildmanifest);
 		return -1;
 	}
@@ -490,12 +490,15 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, plist_
 		return -1;
 	}
 
-	info("Sending TSS request\n");
+	info("Sending TSS request... ");
 	response = tss_send_request(request);
 	if (response == NULL) {
+		info("ERROR: Unable to send TSS request\n");
 		plist_free(request);
 		return -1;
 	}
+
+	info("received SHSH blobs\n");
 
 	plist_free(request);
 	*tss = response;
@@ -552,7 +555,6 @@ int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, 
 	}
 
 	if (tss) {
-		info("Signing img3...\n");
 		img3 = img3_parse_file(component_data, component_size);
 		if (img3 == NULL) {
 			error("ERROR: Unable to parse IMG3: %s\n", component_name);
@@ -568,6 +570,7 @@ int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, 
 			return -1;
 		}
 
+		info("Signing %s\n", component_name);
 		if (img3_replace_signature(img3, component_blob) < 0) {
 			error("ERROR: Unable to replace IMG3 signature\n");
 			free(component_blob);
