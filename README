@@ -19,12 +19,6 @@ make && sudo make install
 
 cd ~
 
-git clone http://github.com/chronicdev/libirecovery.git
-cd libirecovery
-make linux && sudo make install
-
-cd ~
-
 git clone http://git.sukimashita.com/libimobiledevice.git
 cd libimobiledevice
 ./autogen.sh
@@ -56,6 +50,9 @@ idevicerestore [-d] [-u] [-c] [-v] [-h] <input.ipsw>
   -u, 		target specific device by its 40-digit device UUID
   -h, 		prints usage information
   -c, 		restore with a custom firmware
+  -e,		erase the device first
+  -s,		use saurik's server instead of Apple's
+  -x,		exclude NOR/Baseband update
   -v, 		enable incremental levels of verboseness
 
 
