@@ -36,12 +36,15 @@
 #include "recovery.h"
 #include "idevicerestore.h"
 
+int use_apple_server;
+
 static struct option longopts[] = {
 	{ "uuid",    required_argument, NULL, 'u' },
 	{ "debug",   no_argument,       NULL, 'd' },
 	{ "help",    no_argument,       NULL, 'h' },
 	{ "erase",   no_argument,       NULL, 'e' },
 	{ "custom",  no_argument,       NULL, 'c' },
+	{ "cydia",   no_argument,       NULL, 's' },
 	{ "exclude", no_argument,       NULL, 'x' },
 	{ NULL, 0, NULL, 0 }
 };
@@ -55,6 +58,7 @@ void usage(int argc, char* argv[]) {
 	printf("  -h, --help\t\tprints usage information\n");
 	printf("  -e, --erase\t\tperform a full restore, erasing all data\n");
 	printf("  -c, --custom\t\trestore with a custom firmware\n");
+	printf("  -s, --cydia\t\tuse Cydia's signature service instead of Apple's\n");
 	printf("  -x, --exclude\t\texclude nor/baseband upgrade\n");
 	printf("\n");
 }
@@ -65,6 +69,7 @@ int main(int argc, char* argv[]) {
 	char* ipsw = NULL;
 	char* uuid = NULL;
 	int tss_enabled = 0;
+	use_apple_server=1;
 
 	// create an instance of our context
 	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) malloc(sizeof(struct idevicerestore_client_t));
@@ -74,7 +79,7 @@ int main(int argc, char* argv[]) {
 	}
 	memset(client, '\0', sizeof(struct idevicerestore_client_t));
 
-	while ((opt = getopt_long(argc, argv, "dhcexu:", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhcesxu:", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -92,6 +97,9 @@ int main(int argc, char* argv[]) {
 		case 'c':
 			client->flags |= FLAG_CUSTOM;
 			break;
+
+		case 's':
+			use_apple_server=0;
 
 		case 'x':
 			client->flags |= FLAG_EXCLUDE;
@@ -363,7 +371,63 @@ int check_device(struct idevicerestore_client_t* client) {
 			break;
 
 		case CPID_IPAD1G:
-			device = DEVICE_IPAD1G;
+			// All the A4 devices are the same...BoardID'll solve that problem!
+			if (get_bdid(client, &bdid) < 0) {
+				error("ERROR: Unable to get device BDID\n");
+				break;
+			}
+
+			switch (bdid) {
+			case BDID_IPAD1G:
+				device = DEVICE_IPAD1G;
+				break;
+
+			case BDID_IPHONE4:
+				device = DEVICE_IPHONE4;
+				break;
+
+			case BDID_IPOD4G:
+				device = DEVICE_IPOD4G;
+				break;
+
+			case BDID_APPLETV2:
+				device = DEVICE_APPLETV2;
+				break;
+
+			case BDID_IPHONE42:
+				device = DEVICE_IPHONE42;
+				break;
+
+			default:
+				device = DEVICE_UNKNOWN;
+				break;
+			}
+			break;
+
+		case CPID_IPAD21:
+			// All the A5 devices are the same too...
+			if (get_bdid(client, &bdid) < 0) {
+				error("ERROR: Unable to get device BDID\n");
+				break;
+			}
+
+			switch (bdid) {
+			case BDID_IPAD21:
+				device = DEVICE_IPAD21;
+				break;
+
+			case BDID_IPAD22:
+				device = DEVICE_IPAD22;
+				break;
+
+			case BDID_IPAD23:
+				device = DEVICE_IPAD23;
+				break;
+
+			default:
+				device = DEVICE_UNKNOWN;
+				break;
+			}
 			break;
 
 		default:
@@ -657,7 +721,7 @@ void build_identity_print_information(plist_t build_identity) {
 		info("This restore will erase your device data.\n");
 
 	if (!strcmp(value, "Update"))
-		info("This restore will update your device without loosing data.\n");
+		info("This restore will update your device without losing data.\n");
 
 	free(value);
 

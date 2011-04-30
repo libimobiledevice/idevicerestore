@@ -106,9 +106,11 @@ int asr_send(idevice_connection_t asr, plist_t* data) {
 	}
 
 	debug("Sent %d bytes:\n", size);
-	if (idevicerestore_debug)
+
+	// TODO: Actually figure out the problem with the commented out code below, instead of just ditching it...
+	/*if (idevicerestore_debug)
 		debug_plist(*data);
-	free(buffer);
+	free(buffer);*/
 	return 0;
 }
 

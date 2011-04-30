@@ -108,7 +108,9 @@ int recovery_check_mode() {
 	irecv_client_t recovery = NULL;
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
-	recovery_error = irecv_open(&recovery);
+	irecv_init();
+	recovery_error=irecv_open(&recovery);
+
 	if (recovery_error != IRECV_E_SUCCESS) {
 		return -1;
 	}
@@ -120,13 +122,15 @@ int recovery_check_mode() {
 
 	irecv_close(recovery);
 	recovery = NULL;
+
 	return 0;
 }
 
 static int recovery_enable_autoboot(struct idevicerestore_client_t* client) {
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
-	recovery_error = irecv_setenv(client->recovery->client, "auto-boot", "true");
+	//recovery_error = irecv_setenv(client->recovery->client, "auto-boot", "true");
+	recovery_error = irecv_send_command(client->recovery->client, "setenv auto-boot true");
 	if (recovery_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to set auto-boot environmental variable\n");
 		return -1;
@@ -236,7 +240,8 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 
 	info("Sending %s (%d bytes)...\n", component, size);
 
-	error = irecv_send_buffer(client->recovery->client, data, size);
+	// FIXME: Did I do this right????
+	error = irecv_send_buffer(client->recovery->client, data, size, 0);
 	free(path);
 	if (error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(error));

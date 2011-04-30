@@ -31,8 +31,10 @@ extern "C" {
 
 #include "common.h"
 
-struct irecv_client;
-typedef struct irecv_client* irecv_client_t;
+#include "libirecovery.h"
+
+//struct irecv_client;
+//typedef struct irecv_client* irecv_client_t;
 struct recovery_client_t {
 	irecv_client_t client;
 	const char* ipsw;

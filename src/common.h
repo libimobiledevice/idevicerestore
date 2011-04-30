@@ -41,6 +41,12 @@ extern "C" {
 #define CPID_IPOD3G       8922
 #define CPID_IPAD1G       8930
 #define CPID_IPHONE4      8930
+#define CPID_IPOD4G       8930
+#define CPID_APPLETV2     8930
+#define CPID_IPHONE42     8930
+#define CPID_IPAD21       8940
+#define CPID_IPAD22       8940
+#define CPID_IPAD23       8940
 
 #define BDID_UNKNOWN        -1
 #define BDID_IPHONE2G        0
@@ -51,6 +57,12 @@ extern "C" {
 #define BDID_IPOD3G          2
 #define BDID_IPAD1G          2
 #define BDID_IPHONE4         0
+#define BDID_IPOD4G          8
+#define BDID_APPLETV2       10
+#define BDID_IPHONE42        6
+#define BDID_IPAD21          4
+#define BDID_IPAD22          6
+#define BDID_IPAD23          2
 
 #define DEVICE_UNKNOWN      -1
 #define DEVICE_IPHONE2G      0
@@ -61,6 +73,12 @@ extern "C" {
 #define DEVICE_IPOD3G        5
 #define DEVICE_IPAD1G        6
 #define DEVICE_IPHONE4       7
+#define DEVICE_IPOD4G        8
+#define DEVICE_APPLETV2      9
+#define DEVICE_IPHONE42     10
+#define DEVICE_IPAD21       11
+#define DEVICE_IPAD22       12
+#define DEVICE_IPAD23       13
 
 #define MODE_UNKNOWN        -1
 #define MODE_DFU             0
@@ -73,6 +91,8 @@ extern "C" {
 #define FLAG_ERASE           4
 #define FLAG_CUSTOM          8
 #define FLAG_EXCLUDE        16
+
+extern int use_apple_server;
 
 struct dfu_client_t;
 struct normal_client_t;
@@ -135,6 +155,12 @@ static struct idevicerestore_device_t idevicerestore_devices[] = {
 	{  5, "iPod3,1",   "N18AP",  2,  8922 },
 	{  6, "iPad1,1",   "K48AP",  2,  8930 },
 	{  7, "iPhone3,1", "N90AP",  0,  8930 },
+	{  8, "iPod4,1", "N81AP",  8,  8930 },
+	{  9, "AppleTV2,1", "K66AP",  10,  8930 },
+	{  10, "iPhone3,1", "N92AP",  6,  8930 },
+	{  11, "iPad2,1", "K93AP",  4,  8940 },
+	{  12, "iPad2,2", "K94AP",  6,  8940 },
+	{  13, "iPad2,3", "K95AP",  2,  8940 },
 	{ -1,  NULL,        NULL,   -1,    -1 }
 };
 
