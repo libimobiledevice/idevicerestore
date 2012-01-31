@@ -684,7 +684,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	int recovery_mode = (client->mode != kDfuMode);
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 
-	int packet_size = 0x800;
+	int packet_size = recovery_mode ? 0x8000 : 0x800;
 	int last = length % packet_size;
 	int packets = length / packet_size;
 	if (last != 0) {
@@ -697,7 +697,12 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	if (recovery_mode) {
 		error = irecv_control_transfer(client, 0x41, 0, 0, 0, NULL, 0, USB_TIMEOUT);
 	} else {
-		error = irecv_control_transfer(client, 0x21, 4, 0, 0, NULL, 0, USB_TIMEOUT);
+		char dump[4];
+		if (irecv_control_transfer(client, 0xa1, 5, 0, 0, dump, 1, USB_TIMEOUT) == 1) {
+			error = IRECV_E_SUCCESS;
+		} else {
+			error = IRECV_E_USB_UPLOAD;
+		}
 	}
 	if (error != IRECV_E_SUCCESS) {
 		return error;
@@ -715,7 +720,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 		if (recovery_mode) {
 			error = irecv_bulk_transfer(client, 0x04, &buffer[i * packet_size], size, &bytes, USB_TIMEOUT);
 		} else {
-			bytes = irecv_control_transfer(client, 0x21, 1, 0, 0, &buffer[i * packet_size], size, USB_TIMEOUT);
+			bytes = irecv_control_transfer(client, 0x21, 1, i, 0, &buffer[i * packet_size], size, USB_TIMEOUT);
 		}
 
 		if (bytes != size) {
@@ -748,9 +753,9 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	}
 
 	if (dfuNotifyFinished && !recovery_mode) {
-		irecv_control_transfer(client, 0x21, 1, 0, 0, (unsigned char*) buffer, 0, USB_TIMEOUT);
+		irecv_control_transfer(client, 0x21, 1, packets, 0, (unsigned char*) buffer, 0, USB_TIMEOUT);
 
-		for (i = 0; i < 3; i++) {
+		for (i = 0; i < 2; i++) {
 			error = irecv_get_status(client, &status);
 			if (error != IRECV_E_SUCCESS) {
 				return error;
@@ -779,7 +784,6 @@ irecv_error_t irecv_receive(irecv_client_t client) {
 					return IRECV_E_SUCCESS;
 				}
 			}
-			if (bytes < BUFFER_SIZE) break;
 		} else break;
 	}
 
