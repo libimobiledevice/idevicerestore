@@ -917,6 +917,59 @@ irecv_error_t irecv_get_imei(irecv_client_t client, unsigned char* imei) {
 	return IRECV_E_SUCCESS;
 }
 
+irecv_error_t irecv_get_nonce(irecv_client_t client, unsigned char** nonce, int* nonce_size) {
+	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+
+	unsigned char buf[255];
+	int len;
+
+	*nonce = NULL;
+	*nonce_size = 0;
+
+	len = irecv_get_string_descriptor_ascii(client, 1, (unsigned char*) buf, 255);
+	debug("%s: got length: %d\n", __func__, len);
+	if (len < 0) {
+		return len;
+	}
+
+	buf[len] = 0;
+	debug("%s: buf='%s'\n", __func__, buf);
+
+	char* nonce_string = strstr(buf, "NONC:");
+	if (nonce_string == NULL) {
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+	nonce_string+=5;
+
+	int nlen = (len - ((unsigned char*)nonce_string - &buf[0])) / 2;
+	unsigned char *nn = malloc(nlen);
+	if (!nn) {
+		return IRECV_E_OUT_OF_MEMORY;
+	}
+
+	int i = 0;
+	for (i = 0; i < nlen; i++) {
+		int val = 0;
+		if (sscanf(nonce_string+(i*2), "%02X", &val) == 1) {
+			nn[i] = (unsigned char)val;
+		} else {
+			error("%s: ERROR: unexpected data in nonce result (%2s)\n", __func__, nonce_string+(i*2));
+			break;
+		}
+	}
+
+	if (i != nlen) {
+		error("%s: ERROR: unable to parse nonce\n");
+		free(nn);
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+
+	*nonce = nn;
+	*nonce_size = nlen;
+
+	return IRECV_E_SUCCESS;
+}
+
 irecv_error_t irecv_send_exploit(irecv_client_t client) {
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 	irecv_control_transfer(client, 0x21, 2, 0, 0, NULL, 0, USB_TIMEOUT);

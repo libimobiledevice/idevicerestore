@@ -215,6 +215,7 @@ irecv_error_t irecv_set_interface(irecv_client_t client, int interface, int alt_
 irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid);
 irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid);
 irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid);
+irecv_error_t irecv_get_nonce(irecv_client_t client, unsigned char** nonce, int* nonce_size);
 void irecv_hexdump(unsigned char* buf, unsigned int len, unsigned int addr);
 
 void irecv_init();
