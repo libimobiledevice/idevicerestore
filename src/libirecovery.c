@@ -460,6 +460,10 @@ irecv_error_t irecv_open_attempts(irecv_client_t* pclient, int attempts) {
 	int i;
 
 	for (i = 0; i < attempts; i++) {
+		if(*pclient) {
+			irecv_close(*pclient);
+			*pclient = NULL;
+		}
 		if (irecv_open(pclient) != IRECV_E_SUCCESS) {
 			debug("Connection failed. Waiting 1 sec before retry.\n");
 			sleep(1);
