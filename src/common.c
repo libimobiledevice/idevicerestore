@@ -108,3 +108,24 @@ void print_progress_bar(double progress) {
 	if(progress == 100) info("\n");
 	fflush(stdout);
 }
+
+#define GET_RAND(min, max) ((rand() % (max - min)) + min)
+
+char *generate_guid()
+{
+	char *guid = (char *) malloc(sizeof(char) * 37);
+	const char *chars = "ABCDEF0123456789";
+	srand(time(NULL));
+	int i = 0;
+
+	for (i = 0; i < 36; i++) {
+		if (i == 8 || i == 13 || i == 18 || i == 23) {
+			guid[i] = '-';
+			continue;
+		} else {
+			guid[i] = chars[GET_RAND(0, 16)];
+		}
+	}
+	guid[36] = '\0';
+	return guid;
+}

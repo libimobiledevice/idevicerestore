@@ -171,6 +171,8 @@ void print_progress_bar(double progress);
 int read_file(const char* filename, void** data, size_t* size);
 int write_file(const char* filename, const void* data, size_t size);
 
+char *generate_guid();
+
 extern struct idevicerestore_client_t* idevicerestore;
 
 #ifdef __cplusplus
