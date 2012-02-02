@@ -459,6 +459,43 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 	return 0;
 }
 
+int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_client_t* client)
+{
+	restored_error_t restore_error;
+	plist_t dict;
+	unsigned char* data = NULL;
+	uint32_t len = 0;
+
+	if (!client->tss && !(client->flags & FLAG_CUSTOM)) {
+		error("ERROR: Cannot send RootTicket without TSS\n");
+		return -1;
+	}
+
+	if (!(client->flags & FLAG_CUSTOM) && (tss_get_ticket(client->tss, &data, &len) < 0)) {
+		error("ERROR: Unable to get ticket from TSS\n");
+		return -1;
+	}
+
+	dict = plist_new_dict();
+	if (data && (len > 0)) {
+		plist_dict_insert_item(dict, "RootTicketData", plist_new_data(data, (uint64_t)len));
+	} else {
+		info("NOTE: not sending RootTicketData (no data present)\n");
+	}
+
+	restore_error = restored_send(restore, dict);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: Unable to send RootTicket (%d)\n", restore_error);
+		plist_free(dict);
+		return -1;
+	}
+
+	info("Done sending RootTicket\n");
+	plist_free(dict);
+	free(data);
+	return 0;
+}
+
 int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity) {
 	int size = 0;
 	char* data = NULL;
@@ -622,6 +659,14 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 			}
 		}
 
+		// send RootTicket (== APTicket from the TSS request)
+		else if (!strcmp(type, "RootTicket")) {
+			if (restore_send_root_ticket(restore, client) < 0) {
+				error("ERROR: Unable to send RootTicket\n");
+				return -1;
+			}
+		}
+		// send KernelCache
 		else if (!strcmp(type, "KernelCache")) {
 			if(restore_send_kernelcache(restore, client, build_identity) < 0) {
 				error("ERROR: Unable to send kernelcache\n");
