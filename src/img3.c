@@ -29,6 +29,7 @@
 
 img3_file* img3_parse_file(char* data, int size) {
 	int data_offset = 0;
+	img3_element* element;
 	img3_header* header = (img3_header*) data;
 	if (header->signature != kImg3Container) {
 		error("ERROR: Invalid IMG3 file\n");
@@ -41,6 +42,9 @@ img3_file* img3_parse_file(char* data, int size) {
 		return NULL;
 	}
 	memset(image, '\0', sizeof(img3_file));
+	image->idx_ecid_element = -1;
+	image->idx_shsh_element = -1;
+	image->idx_cert_element = -1;
 
 	image->header = (img3_header*) malloc(sizeof(img3_header));
 	if (image->header == NULL) {
@@ -56,117 +60,131 @@ img3_file* img3_parse_file(char* data, int size) {
 		current = (img3_element_header*) &data[data_offset];
 		switch (current->signature) {
 		case kTypeElement:
-			image->type_element = img3_parse_element(&data[data_offset]);
-			if (image->type_element == NULL) {
+			element = img3_parse_element(&data[data_offset]);
+			if (element == NULL) {
 				error("ERROR: Unable to parse TYPE element\n");
 				img3_free(image);
 				return NULL;
 			}
+			image->elements[image->num_elements++] = element;
 			debug("Parsed TYPE element\n");
 			break;
 
 		case kDataElement:
-			image->data_element = img3_parse_element(&data[data_offset]);
-			if (image->data_element == NULL) {
+			element = img3_parse_element(&data[data_offset]);
+			if (element == NULL) {
 				error("ERROR: Unable to parse DATA element\n");
 				img3_free(image);
 				return NULL;
 			}
+			image->elements[image->num_elements++] = element;
 			debug("Parsed DATA element\n");
 			break;
 
 		case kVersElement:
-			image->vers_element = img3_parse_element(&data[data_offset]);
-			if (image->vers_element == NULL) {
+			element = img3_parse_element(&data[data_offset]);
+			if (element == NULL) {
 				error("ERROR: Unable to parse VERS element\n");
 				img3_free(image);
 				return NULL;
 			}
+			image->elements[image->num_elements++] = element;
 			debug("Parsed VERS element\n");
 			break;
 
 		case kSepoElement:
-			image->sepo_element = img3_parse_element(&data[data_offset]);
-			if (image->sepo_element == NULL) {
+			element = img3_parse_element(&data[data_offset]);
+			if (element == NULL) {
 				error("ERROR: Unable to parse SEPO element\n");
 				img3_free(image);
 				return NULL;
 			}
+			image->elements[image->num_elements++] = element;
 			debug("Parsed SEPO element\n");
 			break;
 
 		case kBordElement:
-			image->bord_element = img3_parse_element(&data[data_offset]);
-			if (image->bord_element == NULL) {
+			element = img3_parse_element(&data[data_offset]);
+			if (element == NULL) {
 				error("ERROR: Unable to parse BORD element\n");
 				img3_free(image);
 				return NULL;
 			}
+			image->elements[image->num_elements++] = element;
 			debug("Parsed BORD element\n");
 			break;
 
-		case kKbagElement:
-			if (image->kbag1_element == NULL) {
-				image->kbag1_element = img3_parse_element(&data[data_offset]);
-				if (image->kbag1_element == NULL) {
-					error("ERROR: Unable to parse first KBAG element\n");
-					img3_free(image);
-					return NULL;
-				}
-
-			} else {
-				image->kbag2_element = img3_parse_element(&data[data_offset]);
-				if (image->kbag2_element == NULL) {
-					error("ERROR: Unable to parse second KBAG element\n");
-					img3_free(image);
-					return NULL;
-				}
+		case kChipElement:
+			element = img3_parse_element(&data[data_offset]);
+			if (element == NULL) {
+				error("ERROR: Unable to parse CHIP element\n");
+				img3_free(image);
+				return NULL;
 			}
+			image->elements[image->num_elements++] = element;
+			debug("Parsed CHIP element\n");
+			break;
+
+		case kKbagElement:
+			element = img3_parse_element(&data[data_offset]);
+			if (element == NULL) {
+				error("ERROR: Unable to parse first KBAG element\n");
+				img3_free(image);
+				return NULL;
+			}
+			image->elements[image->num_elements++] = element;
 			debug("Parsed KBAG element\n");
 			break;
 
 		case kEcidElement:
-			image->ecid_element = img3_parse_element(&data[data_offset]);
-			if (image->ecid_element == NULL) {
+			element = img3_parse_element(&data[data_offset]);
+			if (element == NULL) {
 				error("ERROR: Unable to parse ECID element\n");
 				img3_free(image);
 				return NULL;
 			}
+			image->idx_ecid_element = image->num_elements;
+			image->elements[image->num_elements++] = element;
 			debug("Parsed ECID element\n");
 			break;
 
 		case kShshElement:
-			image->shsh_element = img3_parse_element(&data[data_offset]);
-			if (image->shsh_element == NULL) {
+			element = img3_parse_element(&data[data_offset]);
+			if (element == NULL) {
 				error("ERROR: Unable to parse SHSH element\n");
 				img3_free(image);
 				return NULL;
 			}
+			image->idx_shsh_element = image->num_elements;
+			image->elements[image->num_elements++] = element;
 			debug("Parsed SHSH element\n");
 			break;
 
 		case kCertElement:
-			image->cert_element = img3_parse_element(&data[data_offset]);
-			if (image->cert_element == NULL) {
+			element = img3_parse_element(&data[data_offset]);
+			if (element == NULL) {
 				error("ERROR: Unable to parse CERT element\n");
 				img3_free(image);
 				return NULL;
 			}
+			image->idx_cert_element = image->num_elements;
+			image->elements[image->num_elements++] = element;
 			debug("Parsed CERT element\n");
 			break;
 
 		case kUnknElement:
-			image->unkn_element = img3_parse_element(&data[data_offset]);
-			if (image->unkn_element == NULL) {
+			element = img3_parse_element(&data[data_offset]);
+			if (element == NULL) {
 				error("ERROR: Unable to parse UNKN element\n");
 				img3_free(image);
 				return NULL;
 			}
+			image->elements[image->num_elements++] = element;
 			debug("Parsed UNKN element\n");
 			break;
 
 		default:
-			error("ERROR: Unknown IMG3 element type\n");
+			error("ERROR: Unknown IMG3 element type %08x\n", current->signature);
 			img3_free(image);
 			return NULL;
 		}
@@ -204,61 +222,11 @@ void img3_free(img3_file* image) {
 			free(image->header);
 		}
 
-		if (image->type_element != NULL) {
-			img3_free_element(image->type_element);
-			image->type_element = NULL;
+		int i;
+		for (i = 0; i < image->num_elements; i++) {
+			img3_free_element(image->elements[i]);
+			image->elements[i] = NULL;
 		}
-
-		if (image->data_element != NULL) {
-			img3_free_element(image->data_element);
-			image->data_element = NULL;
-		}
-
-		if (image->vers_element != NULL) {
-			img3_free_element(image->vers_element);
-			image->vers_element = NULL;
-		}
-
-		if (image->sepo_element != NULL) {
-			img3_free_element(image->sepo_element);
-			image->sepo_element = NULL;
-		}
-
-		if (image->bord_element != NULL) {
-			img3_free_element(image->bord_element);
-			image->bord_element = NULL;
-		}
-
-		if (image->kbag1_element != NULL) {
-			img3_free_element(image->kbag1_element);
-			image->kbag1_element = NULL;
-		}
-
-		if (image->kbag2_element != NULL) {
-			img3_free_element(image->kbag2_element);
-			image->kbag2_element = NULL;
-		}
-
-		if (image->ecid_element != NULL) {
-			img3_free_element(image->ecid_element);
-			image->ecid_element = NULL;
-		}
-
-		if (image->shsh_element != NULL) {
-			img3_free_element(image->shsh_element);
-			image->shsh_element = NULL;
-		}
-
-		if (image->cert_element != NULL) {
-			img3_free_element(image->cert_element);
-			image->cert_element = NULL;
-		}
-
-		if (image->unkn_element != NULL) {
-			img3_free_element(image->unkn_element);
-			image->unkn_element = NULL;
-		}
-
 		free(image);
 		image = NULL;
 	}
@@ -276,6 +244,7 @@ void img3_free_element(img3_element* element) {
 }
 
 int img3_replace_signature(img3_file* image, char* signature) {
+	int i, oldidx;
 	int offset = 0;
 	img3_element* ecid = img3_parse_element(&signature[offset]);
 	if (ecid == NULL || ecid->type != kEcidElement) {
@@ -298,62 +267,102 @@ int img3_replace_signature(img3_file* image, char* signature) {
 	}
 	offset += cert->header->full_size;
 
-	if (image->ecid_element != NULL) {
-		img3_free_element(image->ecid_element);
+	if (image->idx_ecid_element >= 0) {
+		img3_free_element(image->elements[image->idx_ecid_element]);
+		image->elements[image->idx_ecid_element] = ecid;
+	} else {
+		if (image->idx_shsh_element >= 0) {
+			// move elements by 1
+			oldidx = image->idx_shsh_element;
+			for (i = image->num_elements-1; i >= oldidx; i--) {
+				image->elements[i+1] = image->elements[i];
+				switch (image->elements[i+1]->type) {
+				case kShshElement:
+					image->idx_shsh_element = i+1;
+					break;
+				case kCertElement:
+					image->idx_cert_element = i+1;
+					break;
+				case kEcidElement:
+					image->idx_ecid_element = i+1;
+					break;
+				default:
+					break;
+				}
+			}
+			image->elements[oldidx] = ecid;
+			image->idx_ecid_element = oldidx;
+			image->num_elements++;
+		} else {
+			// append if not found
+			image->elements[image->num_elements] = ecid;
+			image->idx_ecid_element = image->num_elements;
+			image->num_elements++;
+		}
 	}
-	image->ecid_element = ecid;
 
-	if (image->shsh_element != NULL) {
-		img3_free_element(image->shsh_element);
-	}
-	image->shsh_element = shsh;
+	if (image->idx_shsh_element >= 0) {
+		img3_free_element(image->elements[image->idx_shsh_element]);
+		image->elements[image->idx_shsh_element] = shsh;
+	} else {
+		if (image->idx_cert_element >= 0) {
+			// move elements by 1
+			oldidx = image->idx_cert_element;
+			for (i = image->num_elements-1; i >= oldidx; i--) {
+				image->elements[i+1] = image->elements[i];
+				switch (image->elements[i+1]->type) {
+				case kShshElement:
+					image->idx_shsh_element = i+1;
+					break;
+				case kCertElement:
+					image->idx_cert_element = i+1;
+					break;
+				case kEcidElement:
+					image->idx_ecid_element = i+1;
+					break;
+				default:
+					break;
+				}
+			}
+			image->elements[oldidx] = shsh;
+			image->idx_shsh_element = oldidx;
+			image->num_elements++;
+		} else {
+			// append if not found
+			image->elements[image->num_elements] = shsh;
+			image->idx_shsh_element = image->num_elements;
+			image->num_elements++;
+		}
 
-	if (image->cert_element != NULL) {
-		img3_free_element(image->cert_element);
+		error("%s: ERROR: no SHSH element found to be replaced\n", __func__);
+		img3_free_element(shsh);
+		return -1;
 	}
-	image->cert_element = cert;
+
+	if (image->idx_cert_element >= 0) {
+		img3_free_element(image->elements[image->idx_cert_element]);
+		image->elements[image->idx_cert_element] = cert;
+	} else {
+		// append if not found
+		image->elements[image->num_elements] = cert;
+		image->idx_cert_element = image->num_elements;
+		image->num_elements++;
+	}
 
 	return 0;
 }
 
 int img3_get_data(img3_file* image, char** pdata, int* psize) {
+	int i;
 	int offset = 0;
 	int size = sizeof(img3_header);
 
 	// Add up the size of the image first so we can allocate our memory
-	if (image->type_element != NULL) {
-		size += image->type_element->header->full_size;
+	for (i = 0; i < image->num_elements; i++) {
+		size += image->elements[i]->header->full_size;
 	}
-	if (image->data_element != NULL) {
-		size += image->data_element->header->full_size;
-	}
-	if (image->vers_element != NULL) {
-		size += image->vers_element->header->full_size;
-	}
-	if (image->sepo_element != NULL) {
-		size += image->sepo_element->header->full_size;
-	}
-	if (image->bord_element != NULL) {
-		size += image->bord_element->header->full_size;
-	}
-	if (image->kbag1_element != NULL) {
-		size += image->kbag1_element->header->full_size;
-	}
-	if (image->kbag2_element != NULL) {
-		size += image->kbag2_element->header->full_size;
-	}
-	if (image->ecid_element != NULL) {
-		size += image->ecid_element->header->full_size;
-	}
-	if (image->shsh_element != NULL) {
-		size += image->shsh_element->header->full_size;
-	}
-	if (image->cert_element != NULL) {
-		size += image->cert_element->header->full_size;
-	}
-	if (image->unkn_element != NULL) {
-		size += image->unkn_element->header->full_size;
-	}
+
+	info("reconstructed size: %d\n", size);
 
 	char* data = (char*) malloc(size);
 	if (data == NULL) {
@@ -370,50 +379,12 @@ int img3_get_data(img3_file* image, char** pdata, int* psize) {
 	offset += sizeof(img3_header);
 
 	// Copy each section over to the new buffer
-	if (image->type_element != NULL) {
-		memcpy(&data[offset], image->type_element->data, image->type_element->header->full_size);
-		offset += image->type_element->header->full_size;
-	}
-	if (image->data_element != NULL) {
-		memcpy(&data[offset], image->data_element->data, image->data_element->header->full_size);
-		offset += image->data_element->header->full_size;
-	}
-	if (image->vers_element != NULL) {
-		memcpy(&data[offset], image->vers_element->data, image->vers_element->header->full_size);
-		offset += image->vers_element->header->full_size;
-	}
-	if (image->sepo_element != NULL) {
-		memcpy(&data[offset], image->sepo_element->data, image->sepo_element->header->full_size);
-		offset += image->sepo_element->header->full_size;
-	}
-	if (image->bord_element != NULL) {
-		memcpy(&data[offset], image->bord_element->data, image->bord_element->header->full_size);
-		offset += image->bord_element->header->full_size;
-	}
-	if (image->kbag1_element != NULL) {
-		memcpy(&data[offset], image->kbag1_element->data, image->kbag1_element->header->full_size);
-		offset += image->kbag1_element->header->full_size;
-	}
-	if (image->kbag2_element != NULL) {
-		memcpy(&data[offset], image->kbag2_element->data, image->kbag2_element->header->full_size);
-		offset += image->kbag2_element->header->full_size;
-	}
-	if (image->ecid_element != NULL) {
-		memcpy(&data[offset], image->ecid_element->data, image->ecid_element->header->full_size);
-		offset += image->ecid_element->header->full_size;
-	}
-	if (image->shsh_element != NULL) {
-		memcpy(&data[offset], image->shsh_element->data, image->shsh_element->header->full_size);
-		header->shsh_offset = offset - sizeof(img3_header);
-		offset += image->shsh_element->header->full_size;
-	}
-	if (image->cert_element != NULL) {
-		memcpy(&data[offset], image->cert_element->data, image->cert_element->header->full_size);
-		offset += image->cert_element->header->full_size;
-	}
-	if (image->unkn_element != NULL) {
-		memcpy(&data[offset], image->unkn_element->data, image->unkn_element->header->full_size);
-		offset += image->unkn_element->header->full_size;
+	for (i = 0; i < image->num_elements; i++) {
+		memcpy(&data[offset], image->elements[i]->data, image->elements[i]->header->full_size);
+		if (image->elements[i]->type == kShshElement) {
+			header->shsh_offset = offset - sizeof(img3_header);
+		}
+		offset += image->elements[i]->header->full_size;
 	}
 
 	if (offset != size) {
