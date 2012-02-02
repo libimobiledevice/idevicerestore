@@ -50,6 +50,7 @@ static struct option longopts[] = {
 	{ "cydia",   no_argument,       NULL, 's' },
 	{ "exclude", no_argument,       NULL, 'x' },
 	{ "shsh",    no_argument,       NULL, 't' },
+	{ "pwn",     no_argument,       NULL, 'p' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -65,6 +66,7 @@ void usage(int argc, char* argv[]) {
 	printf("  -s, --cydia\t\tuse Cydia's signature service instead of Apple's\n");
 	printf("  -x, --exclude\t\texclude nor/baseband upgrade\n");
 	printf("  -t, --shsh\t\tfetch TSS record and save to .shsh file, then exit\n");
+	printf("  -p, --pwn\t\tPut device in pwned DFU state and exit (limera1n devices only)\n");
 	printf("\n");
 }
 
@@ -86,7 +88,7 @@ int main(int argc, char* argv[]) {
 	}
 	memset(client, '\0', sizeof(struct idevicerestore_client_t));
 
-	while ((opt = getopt_long(argc, argv, "dhcesxtu:", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhcesxtpu:", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -120,13 +122,17 @@ int main(int argc, char* argv[]) {
 			shsh_only = 1;
 			break;
 
+		case 'p':
+			client->flags |= FLAG_PWN;
+			break;
+
 		default:
 			usage(argc, argv);
 			return -1;
 		}
 	}
 
-	if ((argc-optind) == 1) {
+	if (((argc-optind) == 1) || (client->flags & FLAG_PWN)) {
 		argc -= optind;
 		argv += optind;
 
@@ -157,6 +163,31 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 	info("Identified device as %s\n", client->device->product);
+
+	if ((client->flags & FLAG_PWN) && (client->mode->index != MODE_DFU)) {
+		error("ERROR: you need to put your device into DFU mode to pwn it.\n");
+		return -1;
+	}
+
+	if (client->flags & FLAG_PWN) {
+		recovery_client_free(client);
+
+		info("connecting to DFU\n");
+		if (dfu_client_new(client) < 0) {
+			return -1;
+		}
+		info("exploiting with limera1n...\n");
+		// TODO: check for non-limera1n device and fail
+		if (limera1n_exploit(client->device, client->dfu->client) != 0) {
+			error("ERROR: limera1n exploit failed\n");
+			dfu_client_free(client);
+			return -1;
+		}
+		dfu_client_free(client);
+		info("Device should be in pwned DFU state now.\n");
+
+		return 0;
+	}
 
 	if (client->mode->index == MODE_RESTORE) {
 		if (restore_reboot(client) < 0) {
