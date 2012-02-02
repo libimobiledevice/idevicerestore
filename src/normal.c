@@ -210,7 +210,8 @@ int normal_check_device(const char* uuid) {
 	device = NULL;
 
 	if (!product_type_node || plist_get_node_type(product_type_node) != PLIST_STRING) {
-		if (product_type_node) plist_free(product_type_node);
+		if (product_type_node)
+			plist_free(product_type_node);
 		return -1;
 	}
 	plist_get_string_val(product_type_node, &product_type);
@@ -264,22 +265,7 @@ int normal_enter_recovery(struct idevicerestore_client_t* client) {
 		return -1;
 	}
 
-	recovery_error = irecv_send_command(recovery, "setenv auto-boot true");
-	if (recovery_error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to reset auto-boot variable\n");
-		irecv_close(recovery);
-		return -1;
-	}
-
-	recovery_error = irecv_send_command(recovery, "saveenv");
-	if (recovery_error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to save auto-boot variable\n");
-		irecv_close(recovery);
-		return -1;
-	}
-
-	//client->mode = &idevicerestore_modes[MODE_RECOVERY];
-	irecv_close(recovery);
+	client->mode = &idevicerestore_modes[MODE_RECOVERY];
 	recovery = NULL;
 	return 0;
 }
