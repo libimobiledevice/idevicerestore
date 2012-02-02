@@ -36,6 +36,8 @@
 #include "recovery.h"
 #include "idevicerestore.h"
 
+#include "limera1n.h"
+
 int use_apple_server;
 
 static struct option longopts[] = {
@@ -406,6 +408,21 @@ int main(int argc, char* argv[]) {
 	// if the device is in DFU mode, place device into recovery mode
 	if (client->mode->index == MODE_DFU) {
 		recovery_client_free(client);
+		if (client->flags & FLAG_CUSTOM) {
+			info("connecting to DFU\n");
+			if (dfu_client_new(client) < 0) {
+				return -1;
+			}
+			info("exploiting with limera1n\n");
+			// TODO: check for non-limera1n device and fail
+			if (limera1n_exploit(client->device, client->dfu->client) != 0) {
+				error("ERROR: limera1n exploit failed\n");
+				dfu_client_free(client);
+				return -1;
+			}
+			dfu_client_free(client);
+			info("exploited\n");
+		}
 		if (dfu_enter_recovery(client, build_identity) < 0) {
 			error("ERROR: Unable to place device into recovery mode\n");
 			plist_free(buildmanifest);
