@@ -213,7 +213,7 @@ int main(int argc, char* argv[]) {
 			error("ERROR: Unable to find device ECID\n");
 			return -1;
 		}
-		info("Found ECID %llu\n", client->ecid);
+		info("Found ECID %llu\n", (long long unsigned int)client->ecid);
 
 		if (get_shsh_blobs(client, client->ecid, build_identity, &client->tss) < 0) {
 			error("ERROR: Unable to get SHSH blobs for this device\n");
