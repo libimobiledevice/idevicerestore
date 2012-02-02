@@ -228,6 +228,11 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
+	if ((tss_enabled) && client->tss) {
+		/* fix empty dicts */
+		fixup_tss(client->tss);
+	}
+
 	// Extract filesystem from IPSW and return its name
 	char* filesystem = NULL;
 	if (ipsw_extract_filesystem(client->ipsw, build_identity, &filesystem) < 0) {
