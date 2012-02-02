@@ -27,6 +27,7 @@
 
 #include "tss.h"
 #include "img3.h"
+#include "common.h"
 #include "idevicerestore.h"
 
 #define ECID_STRSIZE 0x20
@@ -36,7 +37,7 @@ typedef struct {
 	char* content;
 } tss_response;
 
-plist_t tss_create_request(plist_t build_identity, uint64_t ecid) {
+plist_t tss_create_request(plist_t build_identity, uint64_t ecid, unsigned char* nonce, int nonce_size) {
 	uint64_t unique_build_size = 0;
 	char* unique_build_data = NULL;
 	plist_t unique_build_node = plist_dict_get_item(build_identity, "UniqueBuildID");
@@ -82,18 +83,28 @@ plist_t tss_create_request(plist_t build_identity, uint64_t ecid) {
 		error("ERROR: Unable to get ECID\n");
 		return NULL;
 	}
-	snprintf(ecid_string, ECID_STRSIZE, "%qu", ecid);
+	snprintf(ecid_string, ECID_STRSIZE, "%qu", (long long unsigned int)ecid);
 
 	// Add build information to TSS request
 	plist_t tss_request = plist_new_dict();
+	plist_dict_insert_item(tss_request, "@APTicket", plist_new_bool(1));
+	plist_dict_insert_item(tss_request, "@BBTicket", plist_new_bool(1));
 	plist_dict_insert_item(tss_request, "@HostIpAddress", plist_new_string("192.168.0.1"));
-	plist_dict_insert_item(tss_request, "@HostPlatformInfo", plist_new_string("darwin"));
-	plist_dict_insert_item(tss_request, "@VersionInfo", plist_new_string("3.8"));
+	plist_dict_insert_item(tss_request, "@HostPlatformInfo", plist_new_string("mac"));
 	plist_dict_insert_item(tss_request, "@Locality", plist_new_string("en_US"));
-	plist_dict_insert_item(tss_request, "ApProductionMode", plist_new_bool(1));
-	plist_dict_insert_item(tss_request, "ApECID", plist_new_string(ecid_string));
-	plist_dict_insert_item(tss_request, "ApChipID", plist_new_uint(chip_id));
+	char* guid = generate_guid();
+	if (guid) {
+		plist_dict_insert_item(tss_request, "@UUID", plist_new_string(guid));
+		free(guid);
+	}
+	plist_dict_insert_item(tss_request, "@VersionInfo", plist_new_string("libauthinstall-107.3"));
 	plist_dict_insert_item(tss_request, "ApBoardID", plist_new_uint(board_id));
+	plist_dict_insert_item(tss_request, "ApChipID", plist_new_uint(chip_id));
+	plist_dict_insert_item(tss_request, "ApECID", plist_new_string(ecid_string));
+	if (nonce && (nonce_size > 0)) {
+		plist_dict_insert_item(tss_request, "ApNonce", plist_new_data(nonce, nonce_size));
+	}
+	plist_dict_insert_item(tss_request, "ApProductionMode", plist_new_bool(1));
 	plist_dict_insert_item(tss_request, "ApSecurityDomain", plist_new_uint(security_domain));
 	plist_dict_insert_item(tss_request, "UniqueBuildID", plist_new_data(unique_build_data, unique_build_size));
 	free(unique_build_data);
@@ -118,6 +129,11 @@ plist_t tss_create_request(plist_t build_identity, uint64_t ecid) {
 			error("ERROR: Unable to fetch BuildManifest entry\n");
 			free(tss_request);
 			return NULL;
+		}
+
+		if (strcmp(key, "BasebandFirmware") == 0) {
+			free(key);
+			continue;
 		}
 
 		plist_t tss_entry = plist_copy(manifest_entry);
@@ -154,7 +170,9 @@ plist_t tss_send_request(plist_t tss_request) {
 	CURL* handle = curl_easy_init();
 	if (handle != NULL) {
 		struct curl_slist* header = NULL;
-		header = curl_slist_append(header, "Content-type: text/xml");
+		header = curl_slist_append(header, "Cache-Control: no-cache");
+		header = curl_slist_append(header, "Content-type: text/xml; charset=\"utf-8\"");
+		header = curl_slist_append(header, "Expect:");
 
 		response = malloc(sizeof(tss_response));
 		if (response == NULL) {
@@ -165,7 +183,7 @@ plist_t tss_send_request(plist_t tss_request) {
 		response->length = 0;
 		response->content = malloc(1);
 
-		curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, &tss_write_callback);
+		curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, (curl_write_callback)&tss_write_callback);
 		curl_easy_setopt(handle, CURLOPT_WRITEDATA, response);
 		curl_easy_setopt(handle, CURLOPT_HTTPHEADER, header);
 		curl_easy_setopt(handle, CURLOPT_POSTFIELDS, request);
@@ -185,6 +203,10 @@ plist_t tss_send_request(plist_t tss_request) {
 	curl_global_cleanup();
 
 	if (strstr(response->content, "MESSAGE=SUCCESS") == NULL) {
+		error("ERROR: TSS request failed\n");
+		if (response->length > 0) {
+			error("TSS server returned: %s\n", response->content);
+		}	
 		free(response->content);
 		free(response);
 		return NULL;
