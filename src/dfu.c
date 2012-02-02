@@ -113,7 +113,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 	const char* component = "iBSS";
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 
-	if (recovery_open_with_timeout(client) < 0 || dfu->mode != kDfuMode) {
+	if (recovery_client_new(client) < 0 || dfu->mode != kDfuMode) {
 		error("ERROR: Unable to connect to DFU device\n");
 		if (dfu)
 			irecv_close(dfu);
@@ -136,7 +136,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 	client->dfu->client = NULL;
 
 	// Reconnect to device, but this time make sure we're not still in DFU mode
-	if (recovery_open_with_timeout(client) < 0 || client->mode->index != kDfuMode) {
+	if (recovery_client_new(client) < 0 || client->mode->index != kDfuMode) {
 		error("ERROR: Unable to connect to recovery device\n");
 		if (client->dfu->client)
 			irecv_close(client->dfu->client);

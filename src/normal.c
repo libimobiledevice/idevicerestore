@@ -260,7 +260,7 @@ int normal_enter_recovery(struct idevicerestore_client_t* client) {
 	lockdown = NULL;
 	device = NULL;
 
-	if (recovery_open_with_timeout(client) < 0) {
+	if (recovery_client_new(client) < 0) {
 		error("ERROR: Unable to enter recovery mode\n");
 		return -1;
 	}

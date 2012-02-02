@@ -39,24 +39,6 @@ int recovery_progress_callback(irecv_client_t client, const irecv_event_t* event
 	return 0;
 }
 
-int recovery_client_new(struct idevicerestore_client_t* client) {
-	struct recovery_client_t* recovery = (struct recovery_client_t*) malloc(sizeof(struct recovery_client_t));
-	if (recovery == NULL) {
-		error("ERROR: Out of memory\n");
-		return -1;
-	}
-
-	client->recovery = recovery;
-
-	if (recovery_open_with_timeout(client) < 0) {
-		recovery_client_free(client);
-		return -1;
-	}
-
-	client->recovery = recovery;
-	return 0;
-}
-
 void recovery_client_free(struct idevicerestore_client_t* client) {
 	if(client) {
 		if (client->recovery) {
@@ -70,18 +52,19 @@ void recovery_client_free(struct idevicerestore_client_t* client) {
 	}
 }
 
-int recovery_open_with_timeout(struct idevicerestore_client_t* client) {
+int recovery_client_new(struct idevicerestore_client_t* client) {
 	int i = 0;
 	int attempts = 10;
 	irecv_client_t recovery = NULL;
 	irecv_error_t recovery_error = IRECV_E_UNKNOWN_ERROR;
 
 	if(client->recovery == NULL) {
-		if(recovery_client_new(client) < 0) {
-			error("ERROR: Unable to open device in recovery mode\n");
+		client->recovery = (struct recovery_client_t*)malloc(sizeof(struct recovery_client_t));
+		if (client->recovery == NULL) {
+			error("ERROR: Out of memory\n");
 			return -1;
 		}
-		return 0;
+		memset(client->recovery, 0, sizeof(struct recovery_client_t));
 	}
 
 	for (i = 1; i <= attempts; i++) {
@@ -195,7 +178,7 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 	}
 
 	info("Waiting for device to enter restore mode\n");
-	if (restore_open_with_timeout(client) < 0) {
+	if (restore_client_new(client) < 0) {
 		error("ERROR: Unable to connect to device in restore mode\n");
 		return -1;
 	}
@@ -276,7 +259,7 @@ int recovery_send_applelogo(struct idevicerestore_client_t* client, plist_t buil
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	info("Sending %s...\n", component);
-	if (recovery_open_with_timeout(client) < 0) {
+	if (recovery_client_new(client) < 0) {
 		return -1;
 	}
 
@@ -305,7 +288,7 @@ int recovery_send_devicetree(struct idevicerestore_client_t* client, plist_t bui
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	if(client->recovery == NULL) {
-		if (recovery_open_with_timeout(client) < 0) {
+		if (recovery_client_new(client) < 0) {
 			return -1;
 		}
 	}
@@ -329,7 +312,7 @@ int recovery_send_ramdisk(struct idevicerestore_client_t* client, plist_t build_
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	if(client->recovery == NULL) {
-		if (recovery_open_with_timeout(client) < 0) {
+		if (recovery_client_new(client) < 0) {
 			return -1;
 		}
 	}
@@ -352,7 +335,7 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t bu
 	const char* component = "RestoreKernelCache";
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
-	if (recovery_open_with_timeout(client) < 0) {
+	if (recovery_client_new(client) < 0) {
 		return -1;
 	}
 
@@ -374,7 +357,7 @@ int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	if(client->recovery == NULL) {
-		if (recovery_open_with_timeout(client) < 0) {
+		if (recovery_client_new(client) < 0) {
 			return -1;
 		}
 	}
@@ -391,7 +374,7 @@ int recovery_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	if(client->recovery == NULL) {
-		if (recovery_open_with_timeout(client) < 0) {
+		if (recovery_client_new(client) < 0) {
 			return -1;
 		}
 	}
@@ -408,7 +391,7 @@ int recovery_get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	if(client->recovery == NULL) {
-		if (recovery_open_with_timeout(client) < 0) {
+		if (recovery_client_new(client) < 0) {
 			return -1;
 		}
 	}

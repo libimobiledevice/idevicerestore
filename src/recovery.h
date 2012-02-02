@@ -42,7 +42,6 @@ struct recovery_client_t {
 };
 
 int recovery_check_mode();
-int recovery_open_with_timeout(struct idevicerestore_client_t* client);
 int recovery_client_new(struct idevicerestore_client_t* client);
 void recovery_client_free(struct idevicerestore_client_t* client);
 int recovery_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component);
