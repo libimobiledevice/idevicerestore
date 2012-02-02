@@ -383,6 +383,23 @@ int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	return 0;
 }
 
+int recovery_get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+	irecv_error_t recovery_error = IRECV_E_SUCCESS;
+
+	if(client->recovery == NULL) {
+		if (recovery_client_new(client) < 0) {
+			return -1;
+		}
+	}
+
+	recovery_error = irecv_get_nonce(client->recovery->client, nonce, nonce_size);
+	if (recovery_error != IRECV_E_SUCCESS) {
+		return -1;
+	}
+
+	return 0;
+}
+
 int recovery_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
