@@ -47,6 +47,10 @@
 #define WAIT_FOR_DEVICE        33
 #define LOAD_NOR               36
 
+#define CREATE_SYSTEM_KEY_BAG  49
+
+static int restore_finished = 0;
+
 static int restore_device_connected = 0;
 
 int restore_client_new(struct idevicerestore_client_t* client) {
@@ -178,7 +182,7 @@ void restore_device_callback(const idevice_event_t* event, void* userdata) {
 	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) userdata;
 	if (event->event == IDEVICE_DEVICE_ADD) {
 		restore_device_connected = 1;
-
+		client->uuid = strdup(event->uuid);
 	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
 		restore_device_connected = 0;
 		client->flags |= FLAG_QUIT;
@@ -197,18 +201,16 @@ int restore_reboot(struct idevicerestore_client_t* client) {
 		}
 	}
 
-	restore_error = restored_reboot(client->restore->client);
-	if (restore_error != RESTORE_E_SUCCESS) {
-		error("ERROR: Unable to reboot the device from restore mode\n");
-		return -1;
-	}
+	restored_reboot(client->restore->client);
+
+	// FIXME: wait for device disconnect here
 
 	return 0;
 }
 
 int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 	int i = 0;
-	int attempts = 10;
+	int attempts = 20;
 	char *type = NULL;
 	uint64_t version = 0;
 	idevice_t device = NULL;
@@ -231,13 +233,28 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 		memset(client->restore, '\0', sizeof(struct restore_client_t));
 	}
 
-	device_error = idevice_event_subscribe(&restore_device_callback, client);
-	if (device_error != IDEVICE_E_SUCCESS) {
-		error("ERROR: Unable to subscribe to device events\n");
-		return -1;
-	}
+	info("waiting for device...\n");
+	sleep(15);
+	info("trying to connect...\n");
+	for (i = 0; i < attempts; i++) {
+		device_error = idevice_new(&device, client->uuid);
+		if (device_error == IDEVICE_E_SUCCESS) {
+			restore_error = restored_client_new(device, &restored, "idevicerestore");
+			if (restore_error == RESTORE_E_SUCCESS) {
+				restore_error = restored_query_type(restored, &type, &version);
+				if ((restore_error == RESTORE_E_SUCCESS) && type && (strcmp(type, "com.apple.mobile.restored") == 0)) {
+					debug("Connected to %s, version %d\n", type, (int)version);
+					restore_device_connected = 1;
+				} else {
+					error("ERROR: Unable to connect to restored, error=%d\n", restore_error);
+				}
+			}
+			restored_client_free(restored);
+			idevice_free(device);
+		} else {
+			printf("%d\n", device_error);
+		}
 
-	for (i = 1; i <= attempts; i++) {
 		if (restore_device_connected == 1) {
 			break;
 		}
@@ -250,6 +267,12 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 		sleep(2);
 	}
 
+	if (!restore_device_connected) {
+		error("hm... could not connect\n");
+		return -1;
+	}
+
+	info("Connecting now\n");
 	device_error = idevice_new(&device, client->uuid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		return -1;
@@ -376,6 +399,7 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 	switch(value) {
 		case 0:
 			info("Status: Restore Finished\n");
+			restore_finished = 1;
 			break;
 		case 6:
 			info("Status: Disk Failure\n");
@@ -447,10 +471,10 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 
 	if (client->tss) {
 		if (tss_get_entry_path(client->tss, "KernelCache", &path) < 0) {
-			error("ERROR: Unable to get KernelCache path\n");
-			return -1;
+			debug("NOTE: No path for component KernelCache in TSS, will fetch from build_identity\n");
 		}
-	} else {
+	}
+	if (!path) {
 		if (build_identity_get_component_path(build_identity, "KernelCache", &path) < 0) {
 			error("ERROR: Unable to find kernelcache path\n");
 			if (path)
@@ -459,7 +483,7 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 		}
 	}
 
-	if (ipsw_get_component_by_path(client->ipsw, client->tss, path, &data, &size) < 0) {
+	if (ipsw_get_component_by_path(client->ipsw, client->tss, "KernelCache", path, &data, &size) < 0) {
 		error("ERROR: Unable to get kernelcache file\n");
 		return -1;
 	}
@@ -500,12 +524,12 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 
 	if (client->tss) {
 		if (tss_get_entry_path(client->tss, "LLB", &llb_path) < 0) {
-			error("ERROR: Unable to get LLB path\n");
-			return -1;
+			debug("NOTE: could not get LLB path from TSS data, will fetch from build identity\n");
 		}
-	} else {
+	}
+	if (llb_path == NULL) {
 		if (build_identity_get_component_path(build_identity, "LLB", &llb_path) < 0) {
-			error("ERROR: Unable to get component: LLB\n");
+			error("ERROR: Unable to get component path for LLB\n");
 			if (llb_path)
 				free(llb_path);
 			return -1;
@@ -533,36 +557,36 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		return -1;
 	}
 
-	memset(firmware_filename, '\0', sizeof(firmware_filename));
-
 	dict = plist_new_dict();
-	filename = strtok(manifest_data, "\n");
-	if (filename != NULL) {
-		memset(firmware_filename, '\0', sizeof(firmware_filename));
-		snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
-		if (ipsw_get_component_by_path(client->ipsw, client->tss, firmware_filename, &llb_data, &llb_size) < 0) {
-			error("ERROR: Unable to get signed LLB\n");
-			return -1;
-		}
 
-		plist_dict_insert_item(dict, "LlbImageData", plist_new_data(llb_data, (uint64_t) llb_size));
+	if (ipsw_get_component_by_path(client->ipsw, client->tss, "LLB", llb_path, &llb_data, &llb_size) < 0) {
+		error("ERROR: Unable to get signed LLB\n");
+		return -1;
 	}
 
-	filename = strtok(NULL, "\n");
+	plist_dict_insert_item(dict, "LlbImageData", plist_new_data(llb_data, (uint64_t) llb_size));
+
 	norimage_array = plist_new_array();
+
+	filename = strtok(manifest_data, "\r\n");
 	while (filename != NULL) {
+		if (!strncmp("LLB", filename, 3)) {
+			// skip LLB, it's already passed in LlbImageData
+			filename = strtok(NULL, "\r\n");
+			continue;
+		}
 		memset(firmware_filename, '\0', sizeof(firmware_filename));
 		snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
-		if (ipsw_get_component_by_path(client->ipsw, client->tss, firmware_filename, &nor_data, &nor_size) < 0) {
-			error("ERROR: Unable to get signed firmware %s\n", firmware_filename);
+		if (ipsw_get_component_by_path(client->ipsw, client->tss, get_component_name(filename), firmware_filename, &nor_data, &nor_size) < 0) {
+			error("ERROR: Unable to get signed firmware file %s\n", firmware_filename);
 			break;
 		}
 
-		plist_array_append_item(norimage_array, plist_new_data(nor_data, (uint64_t) nor_size));
+		plist_array_append_item(norimage_array, plist_new_data(nor_data, (uint64_t)nor_size));
 		free(nor_data);
 		nor_data = NULL;
 		nor_size = 0;
-		filename = strtok(NULL, "\n");
+		filename = strtok(NULL, "\r\n");
 	}
 	plist_dict_insert_item(dict, "NorImageData", norimage_array);
 
@@ -571,7 +595,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 
 	ret = restored_send(restore, dict);
 	if (ret != RESTORE_E_SUCCESS) {
-		error("ERROR: Unable to send NOR image data data\n");
+		error("ERROR: Unable to send NORImageData data\n");
 		plist_free(dict);
 		return -1;
 	}
@@ -619,7 +643,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		} else {
 			// Unknown DataType!!
-			debug("Unknown data request received\n");
+			error("Unknown data request '%s' received\n", type);
 			if (idevicerestore_debug)
 				debug_plist(message);
 		}
@@ -637,6 +661,8 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	restored_client_t restore = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
+
+	restore_finished = 0;
 
 	// open our connection to the device and verify we're in restore mode
 	if (restore_open_with_timeout(client) < 0) {
@@ -674,6 +700,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	plist_dict_insert_item(opts, "NORImageType", plist_new_string("production"));
 	// FIXME: not required for iOS 5?
 	//plist_dict_insert_item(opts, "PersonalizedRestoreBundlePath", plist_new_string("/tmp/Per2.tmp"));
+	if (client->restore_boot_args) {
+		plist_dict_insert_item(opts, "RestoreBootArgs", plist_new_string(client->restore_boot_args));
+	}
 	plist_dict_insert_item(opts, "RestoreBundlePath", plist_new_string("/tmp/Per2.tmp"));
 	plist_dict_insert_item(opts, "RootToInstall", plist_new_bool(0));
 	// FIXME: not required for iOS 5?
@@ -724,7 +753,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		node = plist_dict_get_item(message, "MsgType");
 		if (!node || plist_get_node_type(node) != PLIST_STRING) {
 			debug("Unknown message received:\n");
-			if (idevicerestore_debug)
+			//if (idevicerestore_debug)
 				debug_plist(message);
 			plist_free(message);
 			message = NULL;
@@ -749,13 +778,16 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// process or often to signal an error has been encountered
 		else if (!strcmp(type, "StatusMsg")) {
 			error = restore_handle_status_msg(restore, message);
+			if (restore_finished) {
+				client->flags |= FLAG_QUIT;
+			}
 		}
 
 		// there might be some other message types i'm not aware of, but I think
 		// at least the "previous error logs" messages usually end up here
 		else {
 			debug("Unknown message type received\n");
-			if (idevicerestore_debug)
+			//if (idevicerestore_debug)
 				debug_plist(message);
 		}
 
