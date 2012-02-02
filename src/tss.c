@@ -206,7 +206,7 @@ plist_t tss_send_request(plist_t tss_request) {
 		error("ERROR: TSS request failed\n");
 		if (response->length > 0) {
 			error("TSS server returned: %s\n", response->content);
-		}	
+		}
 		free(response->content);
 		free(response);
 		return NULL;
@@ -234,6 +234,25 @@ plist_t tss_send_request(plist_t tss_request) {
 	return tss_response;
 }
 
+int tss_get_ticket(plist_t tss, unsigned char** ticket, uint32_t* tlen) {
+	plist_t entry_node = plist_dict_get_item(tss, "APTicket");
+	if (!entry_node || plist_get_node_type(entry_node) != PLIST_DATA) {
+		error("ERROR: Unable to find APTicket entry in TSS response\n");
+		return -1;
+	}
+	char *data = NULL;
+	uint64_t len = 0;
+	plist_get_data_val(entry_node, &data, &len);
+	if (data) {
+		*tlen = (uint32_t)len;
+		*ticket = data;
+		return 0;
+	} else {
+		error("ERROR: Unable to get APTicket data from TSS response\n");
+		return -1;
+	}
+}
+
 int tss_get_entry_path(plist_t tss, const char* entry, char** path) {
 	char* path_string = NULL;
 	plist_t path_node = NULL;
@@ -249,7 +268,7 @@ int tss_get_entry_path(plist_t tss, const char* entry, char** path) {
 
 	path_node = plist_dict_get_item(entry_node, "Path");
 	if (!path_node || plist_get_node_type(path_node) != PLIST_STRING) {
-		error("ERROR: Unable to find %s path in entry\n", path_string);
+		debug("NOTE: Unable to find %s path in TSS entry\n", entry);
 		return -1;
 	}
 	plist_get_string_val(path_node, &path_string);
