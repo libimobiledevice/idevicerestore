@@ -162,6 +162,12 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
+	/* check if device type is supported by the given build manifest */
+	if (build_manifest_check_compatibility(buildmanifest, client->device->product) < 0) {
+		error("ERROR: could not make sure this firmware is suitable for the current device. refusing to continue.\n");
+		return -1;
+	}
+
 	/* print iOS information from the manifest */
 	build_manifest_get_version_information(buildmanifest, &client->version, &client->build);
 
@@ -663,6 +669,29 @@ int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, 
 	*data = component_data;
 	*size = component_size;
 	return 0;
+}
+
+int build_manifest_check_compatibility(plist_t build_manifest, const char* product) {
+	int res = -1;
+	plist_t node = plist_dict_get_item(build_manifest, "SupportedProductTypes");
+	if (!node || (plist_get_node_type(node) != PLIST_ARRAY)) {
+		debug("%s: ERROR: SupportedProductTypes key missing\n", __func__);
+		return -1;
+	}
+	uint32_t pc = plist_array_get_size(node);
+	uint32_t i;
+	for (i = 0; i < pc; i++) {
+		plist_t prod = plist_array_get_item(node, i);
+		if (plist_get_node_type(prod) == PLIST_STRING) {
+			char *val = NULL;
+			plist_get_string_val(prod, &val);
+			if (val && (strcmp(val, product) == 0)) {
+				res = 0;
+				break;
+			}
+		}
+	}
+	return res;
 }
 
 void build_manifest_get_version_information(plist_t build_manifest, char** product_version, char** product_build) {
