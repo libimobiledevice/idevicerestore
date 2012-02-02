@@ -257,6 +257,7 @@ int main(int argc, char* argv[]) {
 
 	// if the device is in DFU mode, place device into recovery mode
 	if (client->mode->index == MODE_DFU) {
+		recovery_client_free(client);
 		if (dfu_enter_recovery(client, build_identity) < 0) {
 			error("ERROR: Unable to place device into recovery mode\n");
 			plist_free(buildmanifest);
@@ -266,7 +267,66 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	// if the device is in recovery mode, place device into restore mode
+	if (client->mode->index == MODE_DFU) {
+		client->mode = &idevicerestore_modes[MODE_RECOVERY];
+	} else {
+		/* now we load the iBEC */
+		if (recovery_send_ibec(client, build_identity) < 0) {
+			error("ERROR: Unable to send iBEC\n");
+			return -1;
+		}
+		recovery_client_free(client);
+	
+		/* this must be long enough to allow the device to run the iBEC */
+		/* FIXME: Probably better to detect if the device is back then */
+		sleep(7);
+	}
+
+	if (client->build[0] > '8') {
+		// we need another tss request with nonce.
+		unsigned char* nonce = NULL;
+		int nonce_size = 0;
+		int nonce_changed = 0;
+		if (get_nonce(client, &nonce, &nonce_size) < 0) {
+			error("ERROR: Unable to get nonce from device!\n");
+			recovery_send_reset(client);
+			return -1;
+		}
+
+		if (!client->nonce || (nonce_size != client->nonce_size) || (memcmp(nonce, client->nonce, nonce_size) != 0)) {
+			nonce_changed = 1;
+			if (client->nonce) {
+				free(client->nonce);
+			}
+			client->nonce = nonce;
+			client->nonce_size = nonce_size;
+		} else {
+			free(nonce);
+		}
+
+		info("Nonce: ");
+		int i;
+		for (i = 0; i < client->nonce_size; i++) {
+			info("%02x ", client->nonce[i]);
+		}
+		info("\n");
+
+		if (nonce_changed && !(client->flags & FLAG_CUSTOM)) {
+			// Welcome iOS5. We have to re-request the TSS with our nonce.
+			plist_free(client->tss);
+			if (get_shsh_blobs(client, client->ecid, client->nonce, client->nonce_size, build_identity, &client->tss) < 0) {
+				error("ERROR: Unable to get SHSH blobs for this device\n");
+				return -1;
+			}
+			if (!client->tss) {
+				error("ERROR: can't continue without TSS\n");
+				return -1;
+			}
+			fixup_tss(client->tss);
+		}
+	}
+
+	// now finally do the magic to put the device into restore mode
 	if (client->mode->index == MODE_RECOVERY) {
 		if (recovery_enter_restore(client, build_identity) < 0) {
 			error("ERROR: Unable to place device into restore mode\n");
@@ -279,7 +339,7 @@ int main(int argc, char* argv[]) {
 
 	// device is finally in restore mode, let's do this
 	if (client->mode->index == MODE_RESTORE) {
-		info("Restoring device... \n");
+		info("About to restore device... \n");
 		if (restore_device(client, build_identity, filesystem) < 0) {
 			error("ERROR: Unable to restore device\n");
 			return -1;
@@ -534,6 +594,34 @@ int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 
 	return 0;
 }
+
+int get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+	*nonce = NULL;
+	*nonce_size = 0;
+
+	switch (client->mode->index) {
+	case MODE_NORMAL:
+		error("ERROR: Can't get nonce in Normal mode\n");
+		return -1;
+	case MODE_DFU:
+		if (dfu_get_nonce(client, nonce, nonce_size) < 0) {
+			return -1;
+		}
+		break;
+	case MODE_RECOVERY:
+		if (recovery_get_nonce(client, nonce, nonce_size) < 0) {
+			return -1;
+		}
+		break;
+
+	default:
+		error("ERROR: Device is in an invalid state\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 
 plist_t build_manifest_get_build_identity(plist_t build_manifest, uint32_t identity) {
 	// fetch build identities array from BuildManifest
