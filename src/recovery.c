@@ -338,13 +338,22 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t bu
 	const char* component = "RestoreKernelCache";
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
-	if (recovery_client_new(client) < 0) {
-		return -1;
+	if (client->recovery == NULL) {
+		if (recovery_client_new(client) < 0) {
+			return -1;
+		}
 	}
 
 	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
 		return -1;
+	}
+
+	if (client->restore_boot_args) {
+		char setba[256];
+		strcpy(setba, "setenv boot-args ");
+		strcat(setba, client->restore_boot_args);
+		recovery_error = irecv_send_command(client->recovery->client, setba);
 	}
 
 	recovery_error = irecv_send_command(client->recovery->client, "bootx");
