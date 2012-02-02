@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <libirecovery.h>
 #include <libimobiledevice/restore.h>
 #include <libimobiledevice/libimobiledevice.h>
@@ -374,7 +375,7 @@ int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 		}
 	}
 
-	recovery_error = irecv_get_ecid(client->recovery->client, ecid);
+	recovery_error = irecv_get_ecid(client->recovery->client, (long long unsigned int*)ecid);
 	if (recovery_error != IRECV_E_SUCCESS) {
 		return -1;
 	}
