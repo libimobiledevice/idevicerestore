@@ -360,6 +360,8 @@ const char* restore_progress_string(unsigned int operation) {
 	}
 }
 
+static int lastop = 0;
+
 int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 	plist_t node = NULL;
 	uint64_t progress = 0;
@@ -380,10 +382,14 @@ int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 	plist_get_uint_val(node, &progress);
 
 	if ((progress > 0) && (progress < 100)) {
+		if (operation != lastop) {
+			info("%s (%d)\n", restore_progress_string(operation), (int)operation);
+		}
 		print_progress_bar((double) progress);
 	} else {
-		info("%s\n", restore_progress_string(operation));
+		info("%s (%d)\n", restore_progress_string(operation), (int)operation);
 	}
+	lastop = operation;
 
 	return 0;
 }
