@@ -578,6 +578,36 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 	return 0;
 }
 
+void fixup_tss(plist_t tss)
+{
+	plist_t node;
+	plist_t node2;
+	node = plist_dict_get_item(tss, "RestoreLogo");
+	if (node && (plist_get_node_type(node) == PLIST_DICT) && (plist_dict_get_size(node) == 0)) {
+		node2 = plist_dict_get_item(tss, "AppleLogo");
+		if (node2 && (plist_get_node_type(node2) == PLIST_DICT)) {
+			plist_dict_remove_item(tss, "RestoreLogo");
+			plist_dict_insert_item(tss, "RestoreLogo", plist_copy(node2));
+		}
+	}
+	node = plist_dict_get_item(tss, "RestoreDeviceTree");
+	if (node && (plist_get_node_type(node) == PLIST_DICT) && (plist_dict_get_size(node) == 0)) {
+		node2 = plist_dict_get_item(tss, "DeviceTree");
+		if (node2 && (plist_get_node_type(node2) == PLIST_DICT)) {
+			plist_dict_remove_item(tss, "RestoreDeviceTree");
+			plist_dict_insert_item(tss, "RestoreDeviceTree", plist_copy(node2));
+		}
+	}
+	node = plist_dict_get_item(tss, "RestoreKernelCache");
+	if (node && (plist_get_node_type(node) == PLIST_DICT) && (plist_dict_get_size(node) == 0)) {
+		node2 = plist_dict_get_item(tss, "KernelCache");
+		if (node2 && (plist_get_node_type(node2) == PLIST_DICT)) {
+			plist_dict_remove_item(tss, "RestoreKernelCache");
+			plist_dict_insert_item(tss, "RestoreKernelCache", plist_copy(node2));
+		}
+	}
+}
+
 int build_manifest_get_identity_count(plist_t build_manifest) {
 	// fetch build identities array from BuildManifest
 	plist_t build_identities_array = plist_dict_get_item(build_manifest, "BuildIdentities");
