@@ -144,6 +144,14 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 		}
 	}
 
+	if ((client->build[0] > '8') && !(client->flags & FLAG_CUSTOM)) {
+		/* send ApTicket */
+		if (recovery_send_ticket(client) < 0) {
+			error("ERROR: Unable to send APTicket\n");
+			return -1;
+		}
+	}
+
 	irecv_send_command(client->recovery->client, "getenv build-version");
 	irecv_send_command(client->recovery->client, "getenv build-style");
 	irecv_send_command(client->recovery->client, "getenv radio-error");
@@ -176,6 +184,37 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 	}
 
 	client->mode = &idevicerestore_modes[MODE_RESTORE];
+	return 0;
+}
+
+int recovery_send_ticket(struct idevicerestore_client_t* client)
+{
+	if (!client->tss) {
+		error("ERROR: ApTicket requested but no TSS present\n");
+		return -1;		
+	}
+
+	unsigned char* data = NULL;
+	uint32_t size = 0;
+	if (tss_get_ticket(client->tss, &data, &size) < 0) {
+		error("ERROR: Unable to get ApTicket from TSS request\n");			return -1;
+	}
+
+	info("Sending APTicket (%d bytes)\n", size);
+	irecv_error_t error = irecv_send_buffer(client->recovery->client, data, size, 0);
+	if (error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to send APTicket: %s\n", irecv_strerror(error));
+		free(data);
+		return -1;
+	}
+	free(data);
+
+	error = irecv_send_command(client->recovery->client, "ticket");
+	if (error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to send ticket command\n");
+		return -1;
+	}
+
 	return 0;
 }
 
