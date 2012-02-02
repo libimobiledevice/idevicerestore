@@ -49,6 +49,7 @@ static struct option longopts[] = {
 	{ "custom",  no_argument,       NULL, 'c' },
 	{ "cydia",   no_argument,       NULL, 's' },
 	{ "exclude", no_argument,       NULL, 'x' },
+	{ "shsh",    no_argument,       NULL, 't' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -63,6 +64,7 @@ void usage(int argc, char* argv[]) {
 	printf("  -c, --custom\t\trestore with a custom firmware\n");
 	printf("  -s, --cydia\t\tuse Cydia's signature service instead of Apple's\n");
 	printf("  -x, --exclude\t\texclude nor/baseband upgrade\n");
+	printf("  -t, --shsh\t\tfetch TSS record and save to .shsh file, then exit\n");
 	printf("\n");
 }
 
@@ -72,6 +74,8 @@ int main(int argc, char* argv[]) {
 	char* ipsw = NULL;
 	char* uuid = NULL;
 	int tss_enabled = 0;
+	int shsh_only = 0;
+	char* shsh_dir = NULL;
 	use_apple_server=1;
 
 	// create an instance of our context
@@ -82,7 +86,7 @@ int main(int argc, char* argv[]) {
 	}
 	memset(client, '\0', sizeof(struct idevicerestore_client_t));
 
-	while ((opt = getopt_long(argc, argv, "dhcesxu:", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhcesxtu:", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -110,6 +114,10 @@ int main(int argc, char* argv[]) {
 
 		case 'u':
 			uuid = optarg;
+			break;
+
+		case 't':
+			shsh_only = 1;
 			break;
 
 		default:
@@ -369,6 +377,42 @@ int main(int argc, char* argv[]) {
 		if (get_shsh_blobs(client, client->ecid, NULL, 0, build_identity, &client->tss) < 0) {
 			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
+		}
+	}
+
+	if (shsh_only) {
+		if (!tss_enabled) {
+			info("This device does not require a TSS record");
+			return 0;
+		}
+		if (!client->tss) {
+			error("ERROR: could not fetch TSS record");
+			plist_free(buildmanifest);
+			return -1;
+		} else {
+			char *bin = NULL;
+			uint32_t blen = 0;
+			plist_to_bin(client->tss, &bin, &blen);
+			if (bin) {
+				char zfn[512];
+				sprintf(zfn, "shsh/%lld-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
+				mkdir("shsh", 0755);
+				struct stat fst;
+				if (stat(zfn, &fst) != 0) {
+					gzFile zf = gzopen(zfn, "wb");
+					gzwrite(zf, bin, blen);
+					gzclose(zf);
+					info("SHSH saved to '%s'\n", zfn);
+				} else {
+					info("SHSH '%s' already present.\n", zfn);
+				}
+				free(bin);
+			} else {
+				error("ERROR: could not get TSS record data\n");
+			}
+			plist_free(client->tss);
+			plist_free(buildmanifest);
+			return 0;
 		}
 	}
 
