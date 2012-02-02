@@ -197,20 +197,17 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 
 	if (client->tss) {
 		if (tss_get_entry_path(client->tss, component, &path) < 0) {
-			error("ERROR: Unable to get component path\n");
-			return -1;
+			debug("NOTE: No path for component %s in TSS, will fetch from build_identity\n", component);
 		}
-	} else {
+	}
+	if (!path) {
 		if (build_identity_get_component_path(build_identity, component, &path) < 0) {
-			error("ERROR: Unable to get component: %s\n", component);
+			error("ERROR: Unable to get path for component '%s'\n", component);
 			if (path)
 				free(path);
 			return -1;
 		}
 	}
-
-	info("Resetting recovery mode connection...\n");
-	irecv_reset(client->recovery->client);
 
 	if (client->tss)
 		info("%s will be signed\n", component);
