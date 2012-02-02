@@ -151,7 +151,7 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer,
 	}
 
 	int size = zstat.size;
-	char* buffer = (unsigned char*) malloc(size);
+	char* buffer = (unsigned char*) malloc(size+1);
 	if (buffer == NULL) {
 		error("ERROR: Out of memory\n");
 		zip_fclose(zfile);
@@ -164,6 +164,8 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer,
 		free(buffer);
 		return -1;
 	}
+
+	buffer[size] = '\0';
 
 	zip_fclose(zfile);
 	ipsw_close(archive);
