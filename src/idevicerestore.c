@@ -163,7 +163,10 @@ int main(int argc, char* argv[]) {
 	}
 
 	/* print iOS information from the manifest */
-	build_manifest_print_information(buildmanifest);
+	build_manifest_get_version_information(buildmanifest, &client->version, &client->build);
+
+	info("Product Version: %s\n", client->version);
+	info("Product Build: %s\n", client->build);
 
 	if (client->flags & FLAG_CUSTOM) {
 		/* prevent signing custom firmware */
@@ -662,31 +665,24 @@ int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, 
 	return 0;
 }
 
-void build_manifest_print_information(plist_t build_manifest) {
-	char* value = NULL;
+void build_manifest_get_version_information(plist_t build_manifest, char** product_version, char** product_build) {
 	plist_t node = NULL;
+	*product_version = NULL;
+	*product_build = NULL;
 
 	node = plist_dict_get_item(build_manifest, "ProductVersion");
 	if (!node || plist_get_node_type(node) != PLIST_STRING) {
 		error("ERROR: Unable to find ProductVersion node\n");
 		return;
 	}
-	plist_get_string_val(node, &value);
-
-	info("Product Version: %s\n", value);
-	free(value);
+	plist_get_string_val(node, product_version);
 
 	node = plist_dict_get_item(build_manifest, "ProductBuildVersion");
 	if (!node || plist_get_node_type(node) != PLIST_STRING) {
 		error("ERROR: Unable to find ProductBuildVersion node\n");
 		return;
 	}
-	plist_get_string_val(node, &value);
-
-	info("Product Build: %s\n", value);
-	free(value);
-
-	node = NULL;
+	plist_get_string_val(node, product_build);
 }
 
 void build_identity_print_information(plist_t build_identity) {

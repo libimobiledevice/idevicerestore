@@ -136,6 +136,8 @@ struct idevicerestore_client_t {
 	struct idevicerestore_device_t* device;
 	struct idevicerestore_entry_t** entries;
 	struct idevicerestore_mode_t* mode;
+	char* version;
+	char* build;
 };
 
 static struct idevicerestore_mode_t idevicerestore_modes[] = {
