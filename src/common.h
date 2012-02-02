@@ -140,6 +140,7 @@ struct idevicerestore_client_t {
 	struct idevicerestore_mode_t* mode;
 	char* version;
 	char* build;
+	char* restore_boot_args;
 };
 
 static struct idevicerestore_mode_t idevicerestore_modes[] = {
