@@ -925,3 +925,36 @@ int build_identity_get_component_path(plist_t build_identity, const char* compon
 	return 0;
 }
 
+const char* get_component_name(const char* filename)
+{
+	if (!strncmp(filename, "LLB", 3)) {
+		return "LLB";
+	} else if (!strncmp(filename, "iBoot", 5)) {
+		return "iBoot";
+	} else if (!strncmp(filename, "DeviceTree", 10)) {
+		return "RestoreDeviceTree";
+	} else if (!strncmp(filename, "applelogo", 9)) {
+		return "AppleLogo";
+	} else if (!strncmp(filename, "recoverymode", 12)) {
+		return "RecoveryMode";
+	} else if (!strncmp(filename, "batterylow0", 11)) {
+		return "BatteryLow0";
+	} else if (!strncmp(filename, "batterylow1", 11)) {
+		return "BatteryLow1";
+	} else if (!strncmp(filename, "glyphcharging", 13)) {
+		return "BatteryCharging";
+	} else if (!strncmp(filename, "glyphplugin", 11)) {
+		return "BatteryPlugin";
+	} else if (!strncmp(filename, "batterycharging0", 16)) {
+		return "BatteryCharging0";
+	} else if (!strncmp(filename, "batterycharging1", 16)) {
+		return "BatteryCharging1";
+	} else if (!strncmp(filename, "batteryfull", 11)) {
+		return "BatteryFull";
+	} else if (!strncmp(filename, "SCAB", 4)) {
+		return "SCAB";
+	} else {
+		error("WARNING: Unhandled component '%s'", filename);
+		return NULL;
+	}
+}
