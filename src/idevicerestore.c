@@ -215,7 +215,7 @@ int main(int argc, char* argv[]) {
 		}
 		info("Found ECID %llu\n", (long long unsigned int)client->ecid);
 
-		if (get_shsh_blobs(client, client->ecid, build_identity, &client->tss) < 0) {
+		if (get_shsh_blobs(client, client->ecid, NULL, 0, build_identity, &client->tss) < 0) {
 			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
 		}
@@ -552,12 +552,12 @@ plist_t build_manifest_get_build_identity(plist_t build_manifest, uint32_t ident
 	return plist_copy(build_identity);
 }
 
-int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, plist_t build_identity, plist_t* tss) {
+int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsigned char* nonce, int nonce_size, plist_t build_identity, plist_t* tss) {
 	plist_t request = NULL;
 	plist_t response = NULL;
 	*tss = NULL;
 
-	request = tss_create_request(build_identity, ecid, NULL, 0);
+	request = tss_create_request(build_identity, ecid, nonce, nonce_size);
 	if (request == NULL) {
 		error("ERROR: Unable to create TSS request\n");
 		return -1;
