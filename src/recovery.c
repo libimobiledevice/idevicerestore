@@ -321,11 +321,15 @@ int recovery_send_ramdisk(struct idevicerestore_client_t* client, plist_t build_
 		return -1;
 	}
 
+	irecv_send_command(client->recovery->client, "getenv ramdisk-delay");
+
 	recovery_error = irecv_send_command(client->recovery->client, "ramdisk");
 	if (recovery_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to execute %s\n", component);
 		return -1;
 	}
+
+	sleep(2);
 
 	return 0;
 }
