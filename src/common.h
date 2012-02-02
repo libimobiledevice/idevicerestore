@@ -126,6 +126,8 @@ struct idevicerestore_client_t {
 	int flags;
 	plist_t tss;
 	uint64_t ecid;
+	unsigned char* nonce;
+	int nonce_size;
 	const char* uuid;
 	const char* ipsw;
 	const char* filesystem;

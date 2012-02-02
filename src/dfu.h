@@ -35,7 +35,7 @@ struct dfu_client_t {
 	plist_t tss;
 };
 
-int dfu_client_new(struct idevicerestore_client_t* client, uint32_t timeout);
+int dfu_client_new(struct idevicerestore_client_t* client);
 void dfu_client_free(struct idevicerestore_client_t* client);
 int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_identity);
 
