@@ -462,3 +462,10 @@ int recovery_get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
 
 	return 0;
 }
+
+int recovery_send_reset(struct idevicerestore_client_t* client)
+{
+	irecv_error_t recovery_error = irecv_send_command(client->recovery->client, "reset");
+	return 0;
+}
+
