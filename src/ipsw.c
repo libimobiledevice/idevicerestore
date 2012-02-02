@@ -200,6 +200,18 @@ int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest, int *t
 	return -1;
 }
 
+int ipsw_extract_restore_plist(const char* ipsw, plist_t* restore_plist) {
+	int size = 0;
+	char* data = NULL;
+
+	if (ipsw_extract_to_memory(ipsw, "Restore.plist", &data, &size) == 0) {
+		plist_from_xml(data, size, restore_plist);
+		return 0;
+	}
+
+	return -1;
+}
+
 void ipsw_close(ipsw_archive* archive) {
 	if (archive != NULL) {
 		zip_unchange_all(archive->zip);
