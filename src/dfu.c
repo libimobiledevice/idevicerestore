@@ -128,7 +128,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	if (client->tss)
 		info("%s will be signed\n", component);
 
-	if (ipsw_get_component_by_path(client->ipsw, client->tss, path, &data, &size) < 0) {
+	if (ipsw_get_component_by_path(client->ipsw, client->tss, component, path, &data, &size) < 0) {
 		error("ERROR: Unable to get component: %s\n", component);
 		free(path);
 		return -1;

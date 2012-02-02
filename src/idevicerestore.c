@@ -638,7 +638,7 @@ int ipsw_extract_filesystem(const char* ipsw, plist_t build_identity, char** fil
 	return 0;
 }
 
-int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, char** data, uint32_t* size) {
+int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* component, const char* path, char** data, uint32_t* size) {
 	img3_file* img3 = NULL;
 	uint32_t component_size = 0;
 	char* component_data = NULL;
@@ -667,10 +667,18 @@ int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* path, 
 		free(component_data);
 
 		/* sign the blob if required */
-		if (tss_get_blob_by_path(tss, path, &component_blob) < 0) {
-			error("ERROR: Unable to get SHSH blob for TSS %s entry\n", component_name);
-			img3_free(img3);
-			return -1;
+		if (component) {
+			if (tss_get_blob_by_name(tss, component, &component_blob) < 0) {
+				error("ERROR: Unable to get SHSH blob for TSS %s entry\n", component_name);
+				img3_free(img3);
+				return -1;
+			}
+		} else {
+			if (tss_get_blob_by_path(tss, path, &component_blob) < 0) {
+				error("ERROR: Unable to get SHSH blob for TSS %s entry\n", component_name);
+				img3_free(img3);
+				return -1;
+			}
 		}
 
 		info("Signing %s\n", component_name);
