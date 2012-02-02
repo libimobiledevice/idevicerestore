@@ -110,11 +110,10 @@ int recovery_check_mode() {
 	return 0;
 }
 
-static int recovery_enable_autoboot(struct idevicerestore_client_t* client) {
+static int recovery_set_autoboot(struct idevicerestore_client_t* client, int enable) {
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
-	//recovery_error = irecv_setenv(client->recovery->client, "auto-boot", "true");
-	recovery_error = irecv_send_command(client->recovery->client, "setenv auto-boot true");
+	recovery_error = irecv_send_command(client->recovery->client, (enable) ? "setenv auto-boot true" : "setenv auto-boot false");
 	if (recovery_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to set auto-boot environmental variable\n");
 		return -1;
@@ -133,31 +132,29 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 
+	if (client->build[0] >= '8') {
+		client->restore_boot_args = strdup("rd=md0 nand-enable-reformat=1 -progress");
+	}
+
 	/* upload data to make device boot restore mode */
 
-	if (recovery_enable_autoboot(client) < 0) {
-		return -1;
+	if(client->recovery == NULL) {
+		if (recovery_client_new(client) < 0) {
+			return -1;
+		}
 	}
 
-	/* send iBEC and run it */
-	if (recovery_send_ibec(client, build_identity) < 0) {
-		error("ERROR: Unable to send iBEC\n");
+	irecv_send_command(client->recovery->client, "getenv build-version");
+	irecv_send_command(client->recovery->client, "getenv build-style");
+	irecv_send_command(client->recovery->client, "getenv radio-error");
+
+	if (recovery_set_autoboot(client, 0) < 0) {
 		return -1;
 	}
-
-	/* this must be long enough to allow the device to run the iBEC */
-	/* FIXME: Probably better to detect if the device is back then */
-	sleep(4);
 
 	/* send logo and show it */
 	if (recovery_send_applelogo(client, build_identity) < 0) {
 		error("ERROR: Unable to send AppleLogo\n");
-		return -1;
-	}
-
-	/* send devicetree and load it */
-	if (recovery_send_devicetree(client, build_identity) < 0) {
-		error("ERROR: Unable to send DeviceTree\n");
 		return -1;
 	}
 
@@ -167,24 +164,17 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 		return -1;
 	}
 
-	// for some reason iboot requires a hard reset after ramdisk
-	//  or things start getting wacky
-	printf("Please unplug your device, then plug it back in\n");
-	printf("Hit any key to continue...");
-	getchar();
+	/* send devicetree and load it */
+	if (recovery_send_devicetree(client, build_identity) < 0) {
+		error("ERROR: Unable to send DeviceTree\n");
+		return -1;
+	}
 
 	if (recovery_send_kernelcache(client, build_identity) < 0) {
 		error("ERROR: Unable to send KernelCache\n");
 		return -1;
 	}
 
-	info("Waiting for device to enter restore mode\n");
-	if (restore_client_new(client) < 0) {
-		error("ERROR: Unable to connect to device in restore mode\n");
-		return -1;
-	}
-
-	restore_client_free(client);
 	client->mode = &idevicerestore_modes[MODE_RESTORE];
 	return 0;
 }
