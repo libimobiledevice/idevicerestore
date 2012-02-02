@@ -36,6 +36,7 @@ struct restore_client_t {
 	const char* uuid;
 	unsigned int operation;
 	const char* filesystem;
+	uint64_t protocol_version;
 	restored_client_t client;
 };
 

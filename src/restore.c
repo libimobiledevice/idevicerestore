@@ -209,6 +209,8 @@ int restore_reboot(struct idevicerestore_client_t* client) {
 int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 	int i = 0;
 	int attempts = 10;
+	char *type = NULL;
+	uint64_t version = 0;
 	idevice_t device = NULL;
 	restored_client_t restored = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
@@ -226,6 +228,7 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 			error("ERROR: Out of memory\n");
 			return -1;
 		}
+		memset(client->restore, '\0', sizeof(struct restore_client_t));
 	}
 
 	device_error = idevice_event_subscribe(&restore_device_callback, client);
@@ -259,8 +262,12 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 		return -1;
 	}
 
-	restore_error = restored_query_type(restored, NULL, NULL);
-	if (restore_error != RESTORE_E_SUCCESS) {
+	restore_error = restored_query_type(restored, &type, &version);
+	if ((restore_error == RESTORE_E_SUCCESS) && type && (strcmp(type, "com.apple.mobile.restored") == 0)) {
+		client->restore->protocol_version = version;
+		info("Connected to %s, version %d\n", type, (int)version);
+	} else {
+		error("ERROR: Unable to connect to restored, error=%d\n", restore_error);
 		restored_client_free(restored);
 		//idevice_event_unsubscribe();
 		idevice_free(device);
@@ -641,13 +648,67 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	restore = client->restore->client;
 	device = client->restore->device;
 
+	plist_t opts = plist_new_dict();
+	// FIXME: required?
+	//plist_dict_insert_item(opts, "AuthInstallRestoreBehavior", plist_new_string("Erase"));
+	plist_dict_insert_item(opts, "AutoBootDelay", plist_new_uint(0));
+	// FIXME: new on iOS 5 ?
+	plist_dict_insert_item(opts, "BootImageType", plist_new_string("UserOrInternal"));
+	// FIXME: required?
+	//plist_dict_insert_item(opts, "BootImageFile", plist_new_string("018-7923-347.dmg"));
+	plist_dict_insert_item(opts, "CreateFilesystemPartitions", plist_new_bool(1));
+	plist_dict_insert_item(opts, "DFUFileType", plist_new_string("RELEASE"));
+	plist_dict_insert_item(opts, "DataImage", plist_new_bool(0));
+	// FIXME: not required for iOS 5?
+	//plist_dict_insert_item(opts, "DeviceTreeFile", plist_new_string("DeviceTree.k48ap.img3"));
+	plist_dict_insert_item(opts, "FirmwareDirectory", plist_new_string("."));
+	// FIXME: usable if false? (-x parameter)
+	plist_dict_insert_item(opts, "FlashNOR", plist_new_bool(1));
+	// FIXME: not required for iOS 5?
+	//plist_dict_insert_item(opts, "KernelCacheFile", plist_new_string("kernelcache.release.k48"));
+	// FIXME: new on iOS 5 ?
+	plist_dict_insert_item(opts, "KernelCacheType", plist_new_string("Release"));
+	// FIXME: not required for iOS 5?
+	//plist_dict_insert_item(opts, "NORImagePath", plist_new_string("."));
+	// FIXME: new on iOS 5 ?
+	plist_dict_insert_item(opts, "NORImageType", plist_new_string("production"));
+	// FIXME: not required for iOS 5?
+	//plist_dict_insert_item(opts, "PersonalizedRestoreBundlePath", plist_new_string("/tmp/Per2.tmp"));
+	plist_dict_insert_item(opts, "RestoreBundlePath", plist_new_string("/tmp/Per2.tmp"));
+	plist_dict_insert_item(opts, "RootToInstall", plist_new_bool(0));
+	// FIXME: not required for iOS 5?
+	//plist_dict_insert_item(opts, "SourceRestoreBundlePath", plist_new_string("/tmp"));
+	plist_dict_insert_item(opts, "SystemImage", plist_new_bool(1));
+	plist_t spp = plist_new_dict();
+	{
+		plist_dict_insert_item(spp, "16", plist_new_uint(160));
+		plist_dict_insert_item(spp, "32", plist_new_uint(320));
+		plist_dict_insert_item(spp, "64", plist_new_uint(640));
+		plist_dict_insert_item(spp, "8", plist_new_uint(80));
+	}
+	// FIXME: new on iOS 5 ?
+	plist_dict_insert_item(opts, "SystemImageType", plist_new_string("User"));
+
+	plist_dict_insert_item(opts, "SystemPartitionPadding", spp);
+	char* guid = generate_guid();
+	if (guid) {
+		plist_dict_insert_item(opts, "UUID", plist_new_string(guid));
+		free(guid);
+	}
+	// FIXME: does this have any effect actually?
+	plist_dict_insert_item(opts, "UpdateBaseband", plist_new_bool(0));
+	// FIXME: not required for iOS 5?
+	//plist_dict_insert_item(opts, "UserLocale", plist_new_string("en_US"));
+
 	// start the restore process
-	restore_error = restored_start_restore(restore);
+	restore_error = restored_start_restore(restore, opts, client->restore->protocol_version);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to start the restore process\n");
+		plist_free(opts);
 		restore_client_free(client);
 		return -1;
 	}
+	plist_free(opts);
 
 	// this is the restore process loop, it reads each message in from
 	// restored and passes that data on to it's specific handler
@@ -662,7 +723,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// discover what kind of message has been received
 		node = plist_dict_get_item(message, "MsgType");
 		if (!node || plist_get_node_type(node) != PLIST_STRING) {
-			debug("Unknown message received\n");
+			debug("Unknown message received:\n");
 			if (idevicerestore_debug)
 				debug_plist(message);
 			plist_free(message);
