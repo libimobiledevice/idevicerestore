@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <plist/plist.h>
+#include <zlib.h>
 
 #include "dfu.h"
 #include "tss.h"
@@ -814,6 +815,43 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 	plist_t request = NULL;
 	plist_t response = NULL;
 	*tss = NULL;
+
+	if ((client->build[0] <= 8) || (client->flags & FLAG_CUSTOM)) {
+		error("checking for local shsh\n");
+
+		/* first check for local copy */
+		char zfn[512];
+		if (client->version) {
+			sprintf(zfn, "shsh/%lld-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
+			struct stat fst;
+			if (stat(zfn, &fst) == 0) {
+				gzFile zf = gzopen(zfn, "rb");
+				if (zf) {
+					unsigned char bin[65536];
+					int blen = gzread(zf, bin, sizeof(bin));
+					if (blen > 0) {
+						if (memcmp(bin, "bplist00", 8) == 0) {
+							plist_from_bin(bin, blen, tss);
+						} else {
+							plist_from_xml(bin, blen, tss);
+						}
+					}
+					gzclose(zf);
+				}
+			} else {
+				error("no local file %s\n", zfn);
+			}
+		} else {
+			error("No version found?!\n");
+		}
+	}
+
+	if (*tss) {
+		info("Using cached SHSH\n");
+		return 0;
+	} else {
+		info("Trying to fetch new SHSH blob\n");
+	}
 
 	request = tss_create_request(build_identity, ecid, nonce, nonce_size);
 	if (request == NULL) {
