@@ -20,6 +20,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "common.h"
 
@@ -40,7 +41,7 @@ int write_file(const char* filename, const void* data, size_t size) {
 	fclose(file);
 
 	if (bytes != size) {
-		error("ERROR: Unable to write entire file: %s: %d of %d\n", filename, bytes, size);
+		error("ERROR: Unable to write entire file: %s: %d of %d\n", filename, (int)bytes, (int)size);
 		return -1;
 	}
 
