@@ -395,6 +395,7 @@ int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 }
 
 int restore_handle_status_msg(restored_client_t client, plist_t msg) {
+	int result = 0;
 	uint64_t value = 0;
 	info("Got status message\n");
 	debug_plist(msg);
@@ -409,15 +410,17 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 			break;
 		case 6:
 			info("Status: Disk Failure\n");
+			result = -1;
 			break;
 		case 14:
 			info("Status: Fail\n");
+			result = -1;
 			break;
 		default:
-			info("Unknown status message.\n");
+			info("Unhandled status message (%ld)\n", value);
 	}
 
-	return 0;
+	return result;
 }
 
 int restore_send_filesystem(idevice_t device, const char* filesystem) {
