@@ -163,12 +163,21 @@ size_t tss_write_callback(char* data, size_t size, size_t nmemb, tss_response* r
 plist_t tss_send_request(plist_t tss_request) {
 	curl_global_init(CURL_GLOBAL_ALL);
 
+	int status_code = -1;
 	char* request = NULL;
+	int retry = 0;
+	int max_retries = 15;
 	unsigned int size = 0;
 	plist_to_xml(tss_request, &request, &size);
+
 	tss_response* response = NULL;
-	CURL* handle = curl_easy_init();
-	if (handle != NULL) {
+
+	while (retry++ < max_retries) {
+		response = NULL;
+		CURL* handle = curl_easy_init();
+		if (handle == NULL) {
+			break;
+		}
 		struct curl_slist* header = NULL;
 		header = curl_slist_append(header, "Cache-Control: no-cache");
 		header = curl_slist_append(header, "Content-type: text/xml; charset=\"utf-8\"");
@@ -182,6 +191,7 @@ plist_t tss_send_request(plist_t tss_request) {
 
 		response->length = 0;
 		response->content = malloc(1);
+		response->content[0] = '\0';
 
 		curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, (curl_write_callback)&tss_write_callback);
 		curl_easy_setopt(handle, CURLOPT_WRITEDATA, response);
@@ -198,17 +208,39 @@ plist_t tss_send_request(plist_t tss_request) {
 		curl_easy_perform(handle);
 		curl_slist_free_all(header);
 		curl_easy_cleanup(handle);
-		free(request);
-	}
-	curl_global_cleanup();
+	
+		if (strstr(response->content, "MESSAGE=SUCCESS")) {
+			status_code = 0;
+			break;
+		}
 
-	if (strstr(response->content, "MESSAGE=SUCCESS") == NULL) {
-		error("ERROR: TSS request failed\n");
 		if (response->length > 0) {
 			error("TSS server returned: %s\n", response->content);
 		}
+
+		char* status = strstr(response->content, "STATUS=");
+		if (status) {
+			sscanf(status+7, "%d&%*s", &status_code);
+		}
+		if (status_code == -1) {
+			// no status code in response. retry
+			free(response->content);
+			free(response);
+			sleep(2);
+			continue;
+		} else if (status_code == 94) {
+			// This device isn't eligible for the requested build.
+			break;
+		} else {
+			error("ERROR: tss_send_request: Unhandled status code %d\n", status_code);
+		}
+	}
+
+	if (status_code != 0) {
+		error("ERROR: TSS request failed (status=%d)\n", status_code);
 		free(response->content);
 		free(response);
+		free(request);
 		return NULL;
 	}
 
@@ -217,6 +249,7 @@ plist_t tss_send_request(plist_t tss_request) {
 		error("ERROR: Incorrectly formatted TSS response\n");
 		free(response->content);
 		free(response);
+		free(request);
 		return NULL;
 	}
 
@@ -230,6 +263,9 @@ plist_t tss_send_request(plist_t tss_request) {
 	if (idevicerestore_debug) {
 		debug_plist(tss_response);
 	}
+
+	free(request);
+	curl_global_cleanup();
 
 	return tss_response;
 }
