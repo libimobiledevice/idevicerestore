@@ -47,6 +47,7 @@ extern "C" {
 #define CPID_IPAD21       8940
 #define CPID_IPAD22       8940
 #define CPID_IPAD23       8940
+#define CPID_IPHONE4S     8940
 
 #define BDID_UNKNOWN        -1
 #define BDID_IPHONE2G        0
@@ -63,6 +64,7 @@ extern "C" {
 #define BDID_IPAD21          4
 #define BDID_IPAD22          6
 #define BDID_IPAD23          2
+#define BDID_IPHONE4S        8
 
 #define DEVICE_UNKNOWN      -1
 #define DEVICE_IPHONE2G      0
@@ -79,6 +81,7 @@ extern "C" {
 #define DEVICE_IPAD21       11
 #define DEVICE_IPAD22       12
 #define DEVICE_IPAD23       13
+#define DEVICE_IPHONE4S     14
 
 #define MODE_UNKNOWN        -1
 #define MODE_DFU             0
@@ -167,6 +170,7 @@ static struct idevicerestore_device_t idevicerestore_devices[] = {
 	{  11, "iPad2,1", "K93AP",  4,  8940 },
 	{  12, "iPad2,2", "K94AP",  6,  8940 },
 	{  13, "iPad2,3", "K95AP",  2,  8940 },
+	{  14, "iPhone4,1", "N94AP",  8,  8940 },
 	{ -1,  NULL,        NULL,   -1,    -1 }
 };
 

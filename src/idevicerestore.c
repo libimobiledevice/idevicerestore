@@ -740,6 +740,10 @@ int check_device(struct idevicerestore_client_t* client) {
 				device = DEVICE_IPAD23;
 				break;
 
+			case BDID_IPHONE4S:
+				device = DEVICE_IPHONE4S;
+				break;
+
 			default:
 				device = DEVICE_UNKNOWN;
 				break;
