@@ -1289,6 +1289,35 @@ irecv_error_t irecv_get_device(irecv_client_t client, irecv_device_t* device) {
 		}
 		break;
 
+	case CPID_IPAD21:
+		// All the A5 devices are the same too...
+		if (irecv_get_bdid(client, &bdid) < 0) {
+			break;
+		}
+
+		switch (bdid) {
+		case BDID_IPAD21:
+			device_id = DEVICE_IPAD21;
+			break;
+
+		case BDID_IPAD22:
+			device_id = DEVICE_IPAD22;
+			break;
+
+		case BDID_IPAD23:
+			device_id = DEVICE_IPAD23;
+			break;
+
+		case BDID_IPHONE4S:
+			device_id = DEVICE_IPHONE4S;
+			break;
+
+		default:
+			device_id = DEVICE_UNKNOWN;
+			break;
+		}
+		break;
+
 	default:
 		device_id = DEVICE_UNKNOWN;
 		break;

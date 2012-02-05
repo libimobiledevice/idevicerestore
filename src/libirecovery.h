@@ -49,6 +49,7 @@ extern "C" {
 #define CPID_IPAD21       8940
 #define CPID_IPAD22       8940
 #define CPID_IPAD23       8940
+#define CPID_IPHONE4S     8940
 
 #define BDID_UNKNOWN        -1
 #define BDID_IPHONE2G        0
@@ -65,6 +66,7 @@ extern "C" {
 #define BDID_IPAD21          4
 #define BDID_IPAD22          6
 #define BDID_IPAD23          2
+#define BDID_IPHONE4S        8
 
 #define DEVICE_UNKNOWN      -1
 #define DEVICE_IPHONE2G      0
@@ -81,6 +83,7 @@ extern "C" {
 #define DEVICE_IPAD21       11
 #define DEVICE_IPAD22       12
 #define DEVICE_IPAD23       13
+#define DEVICE_IPHONE4S     14
 
 enum {
 	kRecoveryMode1 = 0x1280,
@@ -159,34 +162,25 @@ struct irecv_device {
 	const char* model;
 	unsigned int board_id;
 	unsigned int chip_id;
-	const char* url;
 };
 
 static struct irecv_device irecv_devices[] = {
-	{  0, "iPhone1,1",  "m68ap",  0,  8900,
-	"http://appldnld.apple.com.edgesuite.net/content.info.apple.com/iPhone/061-7481.20100202.4orot/iPhone1,1_3.1.3_7E18_Restore.ipsw" },
-	{  1, "iPod1,1",    "n45ap",  2,  8900,
-	NULL },
-	{  2, "iPhone1,2",  "n82ap",  4,  8900,
-	"http://appldnld.apple.com/iPhone4/061-7932.20100908.3fgt5/iPhone1,2_4.1_8B117_Restore.ipsw" },
-	{  3, "iPod2,1",    "n72ap",  0,  8720,
-	"http://appldnld.apple.com/iPhone4/061-7937.20100908.ghj4f/iPod2,1_4.1_8B117_Restore.ipsw" },
-	{  4, "iPhone2,1",  "n88ap",  0,  8920,
-	"http://appldnld.apple.com/iPhone4/061-7938.20100908.F3rCk/iPhone2,1_4.1_8B117_Restore.ipsw" },
-	{  5, "iPod3,1",    "n18ap",  2,  8922,
-	"http://appldnld.apple.com/iPhone4/061-7941.20100908.sV9KE/iPod3,1_4.1_8B117_Restore.ipsw" },
-	{  6, "iPad1,1",    "k48ap",  2,  8930,
-	"http://appldnld.apple.com/iPad/061-8801.20100811.CvfR5/iPad1,1_3.2.2_7B500_Restore.ipsw" },
-	{  7, "iPhone3,1",  "n90ap",  0,  8930,
-	"http://appldnld.apple.com/iPhone4/061-7939.20100908.Lcyg3/iPhone3,1_4.1_8B117_Restore.ipsw" },
-	{  8, "iPod4,1",    "n81ap",  8,  8930,
-	"http://appldnld.apple.com/iPhone4/061-8490.20100901.hyjtR/iPod4,1_4.1_8B117_Restore.ipsw" },
-	{  9, "AppleTV2,1", "k66ap", 10,  8930,
-	"http://appldnld.apple.com/AppleTV/061-8940.20100926.Tvtnz/AppleTV2,1_4.1_8M89_Restore.ipsw" },
-	{ 10, "iPhone3,3",  "n92ap",  6,  8930,
-	"http://appldnld.apple.com/iPhone4/041-0177.20110131.Pyvrz/iPhone3,3_4.2.6_8E200_Restore.ipsw" },
-	{ -1,  NULL,        NULL,   -1,    -1,
-	NULL }
+	{  0, "iPhone1,1",  "m68ap",  0,  8900 },
+	{  1, "iPod1,1",    "n45ap",  2,  8900 },
+	{  2, "iPhone1,2",  "n82ap",  4,  8900 },
+	{  3, "iPod2,1",    "n72ap",  0,  8720 },
+	{  4, "iPhone2,1",  "n88ap",  0,  8920 },
+	{  5, "iPod3,1",    "n18ap",  2,  8922 },
+	{  6, "iPad1,1",    "k48ap",  2,  8930 },
+	{  7, "iPhone3,1",  "n90ap",  0,  8930 },
+	{  8, "iPod4,1",    "n81ap",  8,  8930 },
+	{  9, "AppleTV2,1", "k66ap", 10,  8930 },
+	{ 10, "iPhone3,3",  "n92ap",  6,  8930 },
+	{ 11, "iPad2,1",    "k93ap",  4,  8940 },
+	{ 12, "iPad2,2",    "k94ap",  6,  8940 },
+	{ 13, "iPad2,3",    "k95ap",  2,  8940 },
+	{ 14, "iPhone4,1",  "n94ap",  8,  8940 },
+	{ -1,  NULL,           NULL, -1,    -1 }
 };
 
 void irecv_set_debug_level(int level);
