@@ -34,10 +34,13 @@
 #include "common.h"
 #include "normal.h"
 #include "restore.h"
+#include "download.h"
 #include "recovery.h"
 #include "idevicerestore.h"
 
 #include "limera1n.h"
+
+#define VERSION_XML "cache/version.xml"
 
 int use_apple_server;
 
@@ -68,6 +71,59 @@ void usage(int argc, char* argv[]) {
 	printf("  -t, --shsh\t\tfetch TSS record and save to .shsh file, then exit\n");
 	printf("  -p, --pwn\t\tPut device in pwned DFU state and exit (limera1n devices only)\n");
 	printf("\n");
+}
+
+static int load_version_data(struct idevicerestore_client_t* client)
+{
+	if (!client) {
+		return -1;
+	}
+
+	struct stat fst;
+	int cached = 0;
+
+	if ((stat(VERSION_XML, &fst) < 0) || ((time(NULL)-86400) > fst.st_mtime)) {
+		char tmpf[256];
+		tmpf[0] = '\0';
+		if (!tmpnam(tmpf) || (tmpf[0] == '\0')) {
+			error("ERROR: Could not get temporary filename\n");
+			return -1;
+		}
+
+		if (download_to_file("http://itunes.com/version", tmpf) == 0) {
+			__mkdir("cache", 0755);
+			remove(VERSION_XML);
+			if (rename(tmpf, VERSION_XML) < 0) {
+				error("ERROR: Could not update '" VERSION_XML "'\n");
+			} else {
+				info("NOTE: Updated version data.\n");
+			}
+		}
+	} else {
+		cached = 1;
+	}
+
+	char *verbuf = NULL;
+	size_t verlen = 0;
+	read_file(VERSION_XML, (void**)&verbuf, &verlen);
+	if (!verbuf) {
+		error("ERROR: Could not load '" VERSION_XML "'.\n");
+		return -1;
+	}
+
+	client->version_data = NULL;
+	plist_from_xml(verbuf, verlen, &client->version_data);
+
+	if (!client->version_data) {
+		error("ERROR: Cannot parse plist data from '" VERSION_XML "'.\n");
+		return -1;
+	}
+
+	if (cached) {
+		info("NOTE: using cached version data\n");
+	}
+
+	return 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -150,6 +206,9 @@ int main(int argc, char* argv[]) {
 
 	client->uuid = uuid;
 	client->ipsw = ipsw;
+
+	// update version data (from cache, or apple if too old)
+	load_version_data(client);
 
 	// check which mode the device is currently in so we know where to start
 	if (check_mode(client) < 0 || client->mode->index == MODE_UNKNOWN) {
@@ -428,7 +487,7 @@ int main(int argc, char* argv[]) {
 			if (bin) {
 				char zfn[512];
 				sprintf(zfn, "shsh/%lld-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
-				mkdir("shsh", 0755);
+				__mkdir("shsh", 0755);
 				struct stat fst;
 				if (stat(zfn, &fst) != 0) {
 					gzFile zf = gzopen(zfn, "wb");

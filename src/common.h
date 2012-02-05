@@ -129,6 +129,7 @@ struct idevicerestore_device_t {
 struct idevicerestore_client_t {
 	int flags;
 	plist_t tss;
+	plist_t version_data;
 	uint64_t ecid;
 	unsigned char* nonce;
 	int nonce_size;
@@ -182,6 +183,12 @@ int read_file(const char* filename, void** data, size_t* size);
 int write_file(const char* filename, const void* data, size_t size);
 
 char *generate_guid();
+
+#ifdef WIN32
+#define __mkdir(path, mode) mkdir(path)
+#else
+#define __mkdir(path, mode) mkdir(path, mode)
+#endif
 
 extern struct idevicerestore_client_t* idevicerestore;
 
