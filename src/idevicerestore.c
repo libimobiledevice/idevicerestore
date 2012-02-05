@@ -109,6 +109,7 @@ int main(int argc, char* argv[]) {
 
 		case 's':
 			use_apple_server=0;
+			break;
 
 		case 'x':
 			client->flags |= FLAG_EXCLUDE;
