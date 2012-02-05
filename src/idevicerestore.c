@@ -892,7 +892,7 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 	plist_t response = NULL;
 	*tss = NULL;
 
-	if ((client->build[0] <= 8) || (client->flags & FLAG_CUSTOM)) {
+	if ((client->build[0] <= '8') || (client->flags & FLAG_CUSTOM)) {
 		error("checking for local shsh\n");
 
 		/* first check for local copy */
