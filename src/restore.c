@@ -362,6 +362,23 @@ const char* restore_progress_string(unsigned int operation) {
 
 static int lastop = 0;
 
+int restore_handle_previous_restore_log_msg(restored_client_t client, plist_t msg) {
+	plist_t node = NULL;
+	char* restorelog = NULL;
+
+	node = plist_dict_get_item(msg, "PreviousRestoreLog");
+	if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		debug("Failed to parse restore log from PreviousRestoreLog plist\n");
+		return -1;
+	}
+	plist_get_string_val(node, &restorelog);
+
+	info("Previous Restore Log Received:\n%s\n", restorelog);
+	free(restorelog);
+
+	return 0;
+}
+
 int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 	plist_t node = NULL;
 	uint64_t progress = 0;
@@ -820,6 +837,11 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// SystemImageData, KernelCache, and NORData requests
 		if (!strcmp(type, "DataRequestMsg")) {
 			error = restore_handle_data_request_msg(client, device, restore, message, build_identity, filesystem);
+		}
+
+		// previous restore logs are available if a previous restore failed
+		else if (!strcmp(type, "PreviousRestoreLogMsg")) {
+			error = restore_handle_previous_restore_log_msg(restore, message);
 		}
 
 		// progress notification messages sent by the restored inform the client
