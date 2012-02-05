@@ -18,7 +18,20 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA               
  */
+#ifndef IDEVICERESTORE_DOWNLOAD_H
+#define IDEVICERESTORE_DOWNLOAD_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 int download_to_buffer(const char* url, char** buf, uint32_t* length);
 int download_to_file(const char* url, const char* filename);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
