@@ -166,7 +166,7 @@ static struct idevicerestore_device_t idevicerestore_devices[] = {
 	{  7, "iPhone3,1", "N90AP",  0,  8930 },
 	{  8, "iPod4,1", "N81AP",  8,  8930 },
 	{  9, "AppleTV2,1", "K66AP",  10,  8930 },
-	{  10, "iPhone3,1", "N92AP",  6,  8930 },
+	{  10, "iPhone3,3", "N92AP",  6,  8930 },
 	{  11, "iPad2,1", "K93AP",  4,  8940 },
 	{  12, "iPad2,2", "K94AP",  6,  8940 },
 	{  13, "iPad2,3", "K95AP",  2,  8940 },
