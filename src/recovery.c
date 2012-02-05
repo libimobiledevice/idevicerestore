@@ -152,13 +152,13 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 		}
 	}
 
-	irecv_send_command(client->recovery->client, "getenv build-version");
-	irecv_send_command(client->recovery->client, "getenv build-style");
-	irecv_send_command(client->recovery->client, "getenv radio-error");
-
 	if (recovery_set_autoboot(client, 0) < 0) {
 		return -1;
 	}
+
+	irecv_send_command(client->recovery->client, "getenv build-version");
+	irecv_send_command(client->recovery->client, "getenv build-style");
+	irecv_send_command(client->recovery->client, "getenv radio-error");
 
 	/* send logo and show it */
 	if (recovery_send_applelogo(client, build_identity) < 0) {
