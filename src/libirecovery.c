@@ -338,6 +338,7 @@ irecv_error_t irecv_open(irecv_client_t* pclient) {
 				usb_descriptor.idProduct == kRecoveryMode2 ||
 				usb_descriptor.idProduct == kRecoveryMode3 ||
 				usb_descriptor.idProduct == kRecoveryMode4 ||
+				usb_descriptor.idProduct == kWTFMode ||
 				usb_descriptor.idProduct == kDfuMode) {
 
 				debug("opening device %04x:%04x...\n", usb_descriptor.idVendor, usb_descriptor.idProduct);
@@ -369,7 +370,7 @@ irecv_error_t irecv_open(irecv_client_t* pclient) {
 					return error;
 				}
 
-				if (client->mode != kDfuMode) {
+				if ((client->mode != kDfuMode) && (client->mode != kWTFMode)) {
 					error = irecv_set_interface(client, 0, 0);
 					if (client->mode > kRecoveryMode2) {
 						error = irecv_set_interface(client, 1, 1);
@@ -549,7 +550,7 @@ irecv_error_t irecv_close(irecv_client_t client) {
 		}
 #ifndef WIN32
 		if (client->handle != NULL) {
-			if (client->mode != kDfuMode) {
+			if ((client->mode != kDfuMode) && (client->mode != kWTFMode)) {
 				libusb_release_interface(client->handle, client->interface);
 			}
 			libusb_close(client->handle);
@@ -683,7 +684,7 @@ irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* status) {
 
 irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfuNotifyFinished) {
 	irecv_error_t error = 0;
-	int recovery_mode = (client->mode != kDfuMode);
+	int recovery_mode = ((client->mode != kDfuMode) && (client->mode != kWTFMode));
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 
 	int packet_size = recovery_mode ? 0x8000 : 0x800;
@@ -738,7 +739,17 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 		}
 
 		if (!recovery_mode && status != 5) {
-			return IRECV_E_USB_UPLOAD;
+			int retry = 0;
+			while (retry < 20) {
+				irecv_get_status(client, &status);
+				if (status == 5) {
+					break;
+				}
+				sleep(1);
+			}
+			if (status != 5) {
+				return IRECV_E_USB_UPLOAD;
+			}
 		}
 
 		count += size;
@@ -843,6 +854,16 @@ irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
 
 irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+
+	if (client->mode == kWTFMode) {
+		char s_cpid[8] = {0,};
+		strncpy(s_cpid, client->serial, 4);
+		if (sscanf(s_cpid, "%d", cpid) != 1) {
+			*cpid = 0;
+			return IRECV_E_UNKNOWN_ERROR;
+		}
+		return IRECV_E_SUCCESS;
+	}
 
 	char* cpid_string = strstr(client->serial, "CPID:");
 	if (cpid_string == NULL) {
@@ -1142,7 +1163,7 @@ int irecv_read_file(const char* filename, char** data, uint32_t* size) {
 
 irecv_error_t irecv_reset_counters(irecv_client_t client) {
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
-	if (client->mode == kDfuMode) {
+	if ((client->mode == kDfuMode) || (client->mode == kWTFMode)) {
 		irecv_control_transfer(client, 0x21, 4, 0, 0, 0, 0, USB_TIMEOUT);
 	}
 	return IRECV_E_SUCCESS;
@@ -1150,7 +1171,7 @@ irecv_error_t irecv_reset_counters(irecv_client_t client) {
 
 irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length) {
 	irecv_error_t error = 0;
-	int recovery_mode = (client->mode != kDfuMode);
+	int recovery_mode = ((client->mode != kDfuMode) && (client->mode != kWTFMode));
 
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 

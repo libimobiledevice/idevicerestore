@@ -90,6 +90,7 @@ enum {
 	kRecoveryMode2 = 0x1281,
 	kRecoveryMode3 = 0x1282,
 	kRecoveryMode4 = 0x1283,
+	kWTFMode = 0x1222,
 	kDfuMode = 0x1227
 };
 

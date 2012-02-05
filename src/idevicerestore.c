@@ -217,6 +217,75 @@ int main(int argc, char* argv[]) {
 	}
 	info("Found device in %s mode\n", client->mode->string);
 
+	if (client->mode->index == MODE_WTF) {
+		int cpid = 0;
+
+		if (dfu_client_new(client) != 0) {
+			error("ERROR: Could not open device in WTF mode\n");
+			return -1;
+		}
+		if ((dfu_get_cpid(client, &cpid) < 0) || (cpid == 0)) { 
+			error("ERROR: Could not get CPID for WTF mode device\n");
+			dfu_client_free(client);
+			return -1;
+		}
+
+		char* s_wtfurl = NULL;
+		plist_t wtfurl = plist_access_path(client->version_data, 7, "MobileDeviceSoftwareVersionsByVersion", "5", "RecoverySoftwareVersions", "WTF", "304218112", "5", "FirmwareURL");
+		if (wtfurl && (plist_get_node_type(wtfurl) == PLIST_STRING)) {
+			plist_get_string_val(wtfurl, &s_wtfurl);
+		}
+		if (!s_wtfurl) {
+			info("Using hardcoded x12220000_5_Recovery.ipsw URL\n");
+			s_wtfurl = strdup("http://appldnld.apple.com.edgesuite.net/content.info.apple.com/iPhone/061-6618.20090617.Xse7Y/x12220000_5_Recovery.ipsw");
+		}
+
+		// make a local file name
+		char* fnpart = strrchr(s_wtfurl, '/');
+		if (!fnpart) {
+			fnpart = "x12220000_5_Recovery.ipsw";
+		} else {
+			fnpart++;
+		}
+		struct stat fst;
+		char wtfipsw[256];
+		sprintf(wtfipsw, "cache/%s", fnpart);
+		if (stat(wtfipsw, &fst) != 0) {
+			__mkdir("cache", 0755);
+			download_to_file(s_wtfurl, wtfipsw);
+		}
+
+		char wtfname[256];
+		sprintf(wtfname, "Firmware/dfu/WTF.s5l%04dxall.RELEASE.dfu", cpid);
+		char* wtftmp = NULL;
+		uint32_t wtfsize = 0;
+		ipsw_extract_to_memory(wtfipsw, wtfname, &wtftmp, &wtfsize);
+		if (!wtftmp) {
+			error("ERROR: Could not extract WTF\n");
+		}
+
+		char xbuf[16] = {0xff, 0xff, 0xff, 0xff, 0xac, 0x05, 0x00, 0x01, 0x55, 0x46, 0x44, 0x10, 0xcb, 0x55, 0xa4, 0x05};
+		char *wtfbuf = (char*)malloc(wtfsize + 16);
+		if (!wtfbuf) {
+			error("ERROR: Out of Memory\n");
+			return -1;
+		}
+		memcpy(wtfbuf, wtftmp, wtfsize);
+		free(wtftmp);
+		memcpy(wtfbuf+wtfsize, xbuf, 16);
+		wtfsize += 16;
+
+		if (dfu_send_buffer(client, wtfbuf, wtfsize) != 0) {
+			error("ERROR: Could not send WTF...\n");
+		}
+		dfu_client_free(client);
+
+		sleep(1);
+
+		free(wtfbuf);
+		client->mode = &idevicerestore_modes[MODE_DFU];
+	}
+
 	// discover the device type
 	if (check_device(client) < 0 || client->device->index == DEVICE_UNKNOWN) {
 		error("ERROR: Unable to discover device type\n");
@@ -657,13 +726,14 @@ int main(int argc, char* argv[]) {
 
 int check_mode(struct idevicerestore_client_t* client) {
 	int mode = MODE_UNKNOWN;
+	int dfumode = MODE_UNKNOWN;
 
 	if (recovery_check_mode() == 0) {
 		mode = MODE_RECOVERY;
 	}
 
-	else if (dfu_check_mode() == 0) {
-		mode = MODE_DFU;
+	else if (dfu_check_mode(&dfumode) == 0) {
+		mode = dfumode;
 	}
 
 	else if (normal_check_mode(client->uuid) == 0) {

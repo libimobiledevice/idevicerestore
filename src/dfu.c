@@ -83,7 +83,7 @@ void dfu_client_free(struct idevicerestore_client_t* client) {
 	}
 }
 
-int dfu_check_mode() {
+int dfu_check_mode(int* mode) {
 	irecv_client_t dfu = NULL;
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 
@@ -94,12 +94,36 @@ int dfu_check_mode() {
 		return -1;
 	}
 
-	if (dfu->mode != kDfuMode) {
+	if ((dfu->mode != kDfuMode) && (dfu->mode != kWTFMode)) {
 		irecv_close(dfu);
 		return -1;
 	}
 
+	*mode = (dfu->mode == kWTFMode) ? MODE_WTF : MODE_DFU;
+
 	irecv_close(dfu);
+
+	return 0;
+}
+
+int dfu_send_buffer(struct idevicerestore_client_t* client, char* buffer, uint32_t size)
+{
+	irecv_error_t error = 0;
+
+	info("Sending data (%d bytes)...\n", size);
+
+	error = irecv_send_buffer(client->dfu->client, buffer, size, 1);
+	if (error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to send data: %s\n", irecv_strerror(error));
+		return -1;
+	}
+
+	error = irecv_reset(client->dfu->client);
+	if (error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to reset device\n");
+		irecv_close(client->dfu->client);
+		return -1;
+	}
 
 	return 0;
 }
@@ -167,6 +191,23 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	}
 
 	free(data);
+	return 0;
+}
+
+int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid) {
+	irecv_error_t dfu_error = IRECV_E_SUCCESS;
+
+	if(client->dfu == NULL) {
+		if (dfu_client_new(client) < 0) {
+			return -1;
+		}
+	}
+
+	dfu_error = irecv_get_cpid(client->dfu->client, cpid);
+	if (dfu_error != IRECV_E_SUCCESS) {
+		return -1;
+	}
+
 	return 0;
 }
 

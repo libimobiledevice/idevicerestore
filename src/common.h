@@ -84,10 +84,11 @@ extern "C" {
 #define DEVICE_IPHONE4S     14
 
 #define MODE_UNKNOWN        -1
-#define MODE_DFU             0
-#define MODE_RECOVERY        1
-#define MODE_RESTORE         2
-#define MODE_NORMAL          3
+#define MODE_WTF             0
+#define MODE_DFU             1
+#define MODE_RECOVERY        2
+#define MODE_RESTORE         3
+#define MODE_NORMAL          4
 
 #define FLAG_QUIT            1
 #define FLAG_DEBUG           2
@@ -149,10 +150,11 @@ struct idevicerestore_client_t {
 };
 
 static struct idevicerestore_mode_t idevicerestore_modes[] = {
-	{  0, "DFU"      },
-	{  1, "Recovery" },
-	{  2, "Restore"  },
-	{  3, "Normal"   },
+	{  0, "WTF"      },
+	{  1, "DFU"      },
+	{  2, "Recovery" },
+	{  3, "Restore"  },
+	{  4, "Normal"   },
 	{ -1,  NULL      }
 };
 

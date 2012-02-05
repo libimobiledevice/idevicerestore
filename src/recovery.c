@@ -99,7 +99,7 @@ int recovery_check_mode() {
 		return -1;
 	}
 
-	if (recovery->mode == kDfuMode) {
+	if ((recovery->mode == kDfuMode) || (recovery->mode == kWTFMode)) {
 		irecv_close(recovery);
 		return -1;
 	}
