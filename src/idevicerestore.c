@@ -262,27 +262,16 @@ int main(int argc, char* argv[]) {
 		ipsw_extract_to_memory(wtfipsw, wtfname, &wtftmp, &wtfsize);
 		if (!wtftmp) {
 			error("ERROR: Could not extract WTF\n");
-		}
-
-		char xbuf[16] = {0xff, 0xff, 0xff, 0xff, 0xac, 0x05, 0x00, 0x01, 0x55, 0x46, 0x44, 0x10, 0xcb, 0x55, 0xa4, 0x05};
-		char *wtfbuf = (char*)malloc(wtfsize + 16);
-		if (!wtfbuf) {
-			error("ERROR: Out of Memory\n");
-			return -1;
-		}
-		memcpy(wtfbuf, wtftmp, wtfsize);
-		free(wtftmp);
-		memcpy(wtfbuf+wtfsize, xbuf, 16);
-		wtfsize += 16;
-
-		if (dfu_send_buffer(client, wtfbuf, wtfsize) != 0) {
-			error("ERROR: Could not send WTF...\n");
+		} else {
+			if (dfu_send_buffer(client, wtftmp, wtfsize) != 0) {
+				error("ERROR: Could not send WTF...\n");
+			}
 		}
 		dfu_client_free(client);
 
 		sleep(1);
 
-		free(wtfbuf);
+		free(wtftmp);
 		client->mode = &idevicerestore_modes[MODE_DFU];
 	}
 
