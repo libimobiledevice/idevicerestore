@@ -83,6 +83,16 @@ int recovery_client_new(struct idevicerestore_client_t* client) {
 		debug("Retrying connection...\n");
 	}
 
+	if (client->srnm == NULL) {
+		char snbuf[256];
+		snbuf[0] = '\0';
+		irecv_get_srnm(recovery, snbuf);
+		if (snbuf[0] != '\0') {
+			client->srnm = strdup(snbuf);
+			info("INFO: device serial number is %s\n", client->srnm);
+		}
+	}
+
 	irecv_event_subscribe(recovery, IRECV_PROGRESS, &recovery_progress_callback, NULL);
 	client->recovery->client = recovery;
 	return 0;

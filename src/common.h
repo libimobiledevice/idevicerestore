@@ -134,7 +134,8 @@ struct idevicerestore_client_t {
 	uint64_t ecid;
 	unsigned char* nonce;
 	int nonce_size;
-	const char* uuid;
+	char* uuid;
+	char* srnm;
 	const char* ipsw;
 	const char* filesystem;
 	struct dfu_client_t* dfu;
