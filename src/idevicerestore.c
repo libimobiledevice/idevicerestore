@@ -687,6 +687,10 @@ int main(int argc, char* argv[]) {
 
 	// now finally do the magic to put the device into restore mode
 	if (client->mode->index == MODE_RECOVERY) {
+		if (client->srnm == NULL) {
+			error("ERROR: could not retrieve device serial number. Can't continue.\n");
+			return -1;
+		}
 		if (recovery_enter_restore(client, build_identity) < 0) {
 			error("ERROR: Unable to place device into restore mode\n");
 			plist_free(buildmanifest);

@@ -208,8 +208,73 @@ int restore_reboot(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
+static int restore_is_current_device(struct idevicerestore_client_t* client, const char* uuid)
+{
+	if (!client) {
+		return 0;
+	}
+	if (!client->srnm) {
+		error("ERROR: %s: no SerialNumber given in client data\n", __func__);
+		return 0;
+	}
+
+	idevice_t device = NULL;
+	idevice_error_t device_error;
+	restored_client_t restored = NULL;
+	restored_error_t restore_error;
+	char *type = NULL;
+	uint64_t version = 0;
+
+	device_error = idevice_new(&device, uuid);
+	if (device_error != IDEVICE_E_SUCCESS) {
+		error("ERROR: %s: can't open device with UUID %s", __func__, uuid);
+		return 0;
+	}
+
+	restore_error = restored_client_new(device, &restored, "idevicerestore");
+	if (restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: %s: can't connect to restored\n", __func__);
+		idevice_free(device);
+		return 0;
+	}
+	restore_error = restored_query_type(restored, &type, &version);
+	if ((restore_error == RESTORE_E_SUCCESS) && type && (strcmp(type, "com.apple.mobile.restored") == 0)) {
+		debug("%s: Connected to %s, version %d\n", __func__, type, (int)version);
+	} else {
+		info("%s: device %s is not in restore mode\n", __func__, uuid);
+		restored_client_free(restored);
+		idevice_free(device);
+		return 0;
+	}
+
+	plist_t node = NULL;
+	restore_error = restored_get_value(restored, "SerialNumber", &node);
+	if ((restore_error != RESTORE_E_SUCCESS) || !node || (plist_get_node_type(node) != PLIST_STRING)) {
+		error("ERROR: %s: Unable to get SerialNumber from restored\n", __func__);
+		restored_client_free(restored);
+		idevice_free(device);
+		if (node) {
+			plist_free(node);
+		}
+		return 0;
+	}
+	restored_client_free(restored);
+	idevice_free(device);
+
+	char* this_srnm = NULL;
+	plist_get_string_val(node, &this_srnm);
+	plist_free(node);
+
+	if (!this_srnm) {
+		return 0;
+	}
+
+	return (strcasecmp(this_srnm, client->srnm) == 0);
+}
+
 int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 	int i = 0;
+	int j = 0;
 	int attempts = 20;
 	char *type = NULL;
 	uint64_t version = 0;
@@ -223,6 +288,11 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 		return -1;
 	}
 
+	if(client->srnm == NULL) {
+		error("ERROR: no SerialNumber in client data!\n");
+		return -1;
+	}
+
 	// create our restore client if it doesn't yet exist
 	if(client->restore == NULL) {
 		client->restore = (struct restore_client_t*) malloc(sizeof(struct restore_client_t));
@@ -233,27 +303,27 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 		memset(client->restore, '\0', sizeof(struct restore_client_t));
 	}
 
+	restore_device_connected = 0;
+
 	info("waiting for device...\n");
 	sleep(15);
 	info("trying to connect...\n");
 	for (i = 0; i < attempts; i++) {
-		device_error = idevice_new(&device, client->uuid);
-		if (device_error == IDEVICE_E_SUCCESS) {
-			restore_error = restored_client_new(device, &restored, "idevicerestore");
-			if (restore_error == RESTORE_E_SUCCESS) {
-				restore_error = restored_query_type(restored, &type, &version);
-				if ((restore_error == RESTORE_E_SUCCESS) && type && (strcmp(type, "com.apple.mobile.restored") == 0)) {
-					debug("Connected to %s, version %d\n", type, (int)version);
-					restore_device_connected = 1;
-				} else {
-					error("ERROR: Unable to connect to restored, error=%d\n", restore_error);
-				}
-			}
-			restored_client_free(restored);
-			idevice_free(device);
-		} else {
-			printf("%d\n", device_error);
+		int num_devices = 0;
+		char **devices = NULL;
+		idevice_get_device_list(&devices, &num_devices);
+		if (num_devices == 0) {
+			sleep(2);
+			continue;
 		}
+		for (j = 0; j < num_devices; j++) {
+			if (restore_is_current_device(client, devices[j])) {
+				restore_device_connected = 1;
+				client->uuid = strdup(devices[j]);
+				break;
+			}
+		}
+		idevice_device_list_free(devices);
 
 		if (restore_device_connected == 1) {
 			break;
