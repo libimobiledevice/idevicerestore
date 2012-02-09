@@ -103,12 +103,12 @@ int download_to_file(const char* url, const char* filename)
 	curl_easy_cleanup(handle);
 
 	off_t sz = ftello(f);
+	fclose(f);
+
 	if ((sz == 0) || (sz == (off_t)-1)) {
 		res = -1;
 		remove(filename);
 	}
-
-	fclose(f);
 
 	curl_global_cleanup();
 
