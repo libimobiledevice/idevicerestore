@@ -94,7 +94,7 @@ static int load_version_data(struct idevicerestore_client_t* client)
 			return -1;
 		}
 
-		if (download_to_file("http://itunes.com/version", tmpf) == 0) {
+		if (download_to_file("http://ax.itunes.apple.com/check/version", tmpf) == 0) {
 			__mkdir("cache", 0755);
 			remove(VERSION_XML);
 			if (rename(tmpf, VERSION_XML) < 0) {
