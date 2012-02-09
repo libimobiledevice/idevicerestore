@@ -384,7 +384,7 @@ int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index,
 #endif
 }
 
-irecv_error_t irecv_open(irecv_client_t* pclient) {
+irecv_error_t irecv_open(irecv_client_t* pclient, unsigned long long ecid) {
 #ifndef WIN32
 	int i = 0;
 	struct libusb_device* usb_device = NULL;
@@ -411,19 +411,28 @@ irecv_error_t irecv_open(irecv_client_t* pclient) {
 				usb_descriptor.idProduct == kWTFMode ||
 				usb_descriptor.idProduct == kDfuMode) {
 
+				if ((ecid != 0) && (usb_descriptor.idProduct == kWTFMode)) {
+					// we can't get ecid in WTF mode
+					continue;
+				}
+
 				debug("opening device %04x:%04x...\n", usb_descriptor.idVendor, usb_descriptor.idProduct);
 
 				libusb_open(usb_device, &usb_handle);
 				if (usb_handle == NULL) {
-					libusb_free_device_list(usb_device_list, 1);
+					debug("%s: can't connect to device...\n", __func__);
 					libusb_close(usb_handle);
+					if (ecid != 0) {
+						continue;
+					}
+					libusb_free_device_list(usb_device_list, 1);
 					libusb_exit(libirecovery_context);
 					return IRECV_E_UNABLE_TO_CONNECT;
 				}
-				libusb_free_device_list(usb_device_list, 1);
 
 				irecv_client_t client = (irecv_client_t) malloc(sizeof(struct irecv_client));
 				if (client == NULL) {
+					libusb_free_device_list(usb_device_list, 1);
 					libusb_close(usb_handle);
 					libusb_exit(libirecovery_context);
 					return IRECV_E_OUT_OF_MEMORY;
@@ -434,6 +443,25 @@ irecv_error_t irecv_open(irecv_client_t* pclient) {
 				client->handle = usb_handle;
 				client->mode = usb_descriptor.idProduct;
 
+				/* cache usb serial */
+				irecv_get_string_descriptor_ascii(client, usb_descriptor.iSerialNumber, (unsigned char*) client->serial, 255);
+
+				if (ecid != 0) {
+					char* ecid_string = strstr(client->serial, "ECID:");
+					if (ecid_string == NULL) {
+						debug("%s: could not get ECID for device\n", __func__);
+						irecv_close(client);
+						continue;
+					}
+
+					unsigned long long this_ecid = 0;
+					sscanf(ecid_string, "ECID:%qX", (unsigned long long*)&this_ecid);
+					if (this_ecid != ecid) {
+						irecv_close(client);
+						continue;
+					}
+					debug("found device with ECID %016llx\n", (unsigned long long)ecid);
+				}
 
 				error = irecv_set_configuration(client, 1);
 				if (error != IRECV_E_SUCCESS) {
@@ -453,9 +481,6 @@ irecv_error_t irecv_open(irecv_client_t* pclient) {
 					return error;
 				}
 
-				/* cache usb serial */
-				irecv_get_string_descriptor_ascii(client, usb_descriptor.iSerialNumber, (unsigned char*) client->serial, 255);
-				
 				*pclient = client;
 				return IRECV_E_SUCCESS;
 			}
@@ -529,7 +554,7 @@ irecv_error_t irecv_reset(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_open_attempts(irecv_client_t* pclient, int attempts) {
+irecv_error_t irecv_open_attempts(irecv_client_t* pclient, unsigned long long ecid, int attempts) {
 	int i;
 
 	for (i = 0; i < attempts; i++) {
@@ -537,7 +562,7 @@ irecv_error_t irecv_open_attempts(irecv_client_t* pclient, int attempts) {
 			irecv_close(*pclient);
 			*pclient = NULL;
 		}
-		if (irecv_open(pclient) != IRECV_E_SUCCESS) {
+		if (irecv_open(pclient, ecid) != IRECV_E_SUCCESS) {
 			debug("Connection failed. Waiting 1 sec before retry.\n");
 			sleep(1);
 		} else {
@@ -1451,6 +1476,9 @@ irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause) {
 	irecv_client_t new_client = NULL;
 	irecv_event_cb_t progress_callback = client->progress_callback;
 
+	unsigned long long ecid = 0;
+	irecv_get_ecid(client, &ecid);
+
 	if (check_context(client) == IRECV_E_SUCCESS) {
 		irecv_close(client);
 	}
@@ -1460,7 +1488,7 @@ irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause) {
 		sleep(initial_pause);
 	}
 	
-	error = irecv_open_attempts(&new_client, 10);
+	error = irecv_open_attempts(&new_client, ecid, 10);
 	if(error != IRECV_E_SUCCESS) {
 		return NULL;
 	}

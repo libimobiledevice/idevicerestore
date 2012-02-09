@@ -38,15 +38,15 @@ struct normal_client_t {
 };
 
 
-int normal_check_mode(const char* uuid);
-int normal_check_device(const char* uuid);
+int normal_check_mode(struct idevicerestore_client_t* client);
+int normal_check_device(struct idevicerestore_client_t* client);
 int normal_client_new(struct idevicerestore_client_t* client);
 void normal_client_free(struct idevicerestore_client_t* client);
 int normal_open_with_timeout(struct idevicerestore_client_t* client);
 int normal_enter_recovery(struct idevicerestore_client_t* client);
-int normal_get_cpid(const char* uuid, uint32_t* cpid);
-int normal_get_bdid(const char* uuid, uint32_t* cpid);
-int normal_get_ecid(const char* uuid, uint64_t* ecid);
+int normal_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid);
+int normal_get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid);
+int normal_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
 
 #ifdef __cplusplus
 }

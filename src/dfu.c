@@ -51,7 +51,7 @@ int dfu_client_new(struct idevicerestore_client_t* client) {
 	}
 
 	for (i = 1; i <= attempts; i++) {
-		dfu_error = irecv_open(&dfu);
+		dfu_error = irecv_open(&dfu, client->ecid);
 		if (dfu_error == IRECV_E_SUCCESS) {
 			break;
 		}
@@ -83,12 +83,12 @@ void dfu_client_free(struct idevicerestore_client_t* client) {
 	}
 }
 
-int dfu_check_mode(int* mode) {
+int dfu_check_mode(struct idevicerestore_client_t* client, int* mode) {
 	irecv_client_t dfu = NULL;
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 
 	irecv_init();
-	dfu_error=irecv_open(&dfu);
+	dfu_error=irecv_open(&dfu, client->ecid);
 
 	if (dfu_error != IRECV_E_SUCCESS) {
 		return -1;

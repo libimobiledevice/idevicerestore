@@ -69,7 +69,7 @@ int recovery_client_new(struct idevicerestore_client_t* client) {
 	}
 
 	for (i = 1; i <= attempts; i++) {
-		recovery_error = irecv_open(&recovery);
+		recovery_error = irecv_open(&recovery, client->ecid);
 		if (recovery_error == IRECV_E_SUCCESS) {
 			break;
 		}
@@ -98,12 +98,12 @@ int recovery_client_new(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-int recovery_check_mode() {
+int recovery_check_mode(struct idevicerestore_client_t* client) {
 	irecv_client_t recovery = NULL;
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	irecv_init();
-	recovery_error=irecv_open(&recovery);
+	recovery_error=irecv_open(&recovery, client->ecid);
 
 	if (recovery_error != IRECV_E_SUCCESS) {
 		return -1;

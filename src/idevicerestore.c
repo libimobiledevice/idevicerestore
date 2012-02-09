@@ -45,6 +45,7 @@
 int use_apple_server;
 
 static struct option longopts[] = {
+	{ "ecid",    required_argument, NULL, 'i' },
 	{ "uuid",    required_argument, NULL, 'u' },
 	{ "debug",   no_argument,       NULL, 'd' },
 	{ "help",    no_argument,       NULL, 'h' },
@@ -61,15 +62,18 @@ void usage(int argc, char* argv[]) {
 	char* name = strrchr(argv[0], '/');
 	printf("Usage: %s [OPTIONS] FILE\n", (name ? name + 1 : argv[0]));
 	printf("Restore/upgrade IPSW firmware FILE to an iPhone/iPod Touch.\n");
-	printf("  -u, --uuid UUID\ttarget specific device by its 40-digit device UUID\n");
-	printf("  -d, --debug\t\tenable communication debugging\n");
-	printf("  -h, --help\t\tprints usage information\n");
-	printf("  -e, --erase\t\tperform a full restore, erasing all data\n");
-	printf("  -c, --custom\t\trestore with a custom firmware\n");
-	printf("  -s, --cydia\t\tuse Cydia's signature service instead of Apple's\n");
-	printf("  -x, --exclude\t\texclude nor/baseband upgrade\n");
-	printf("  -t, --shsh\t\tfetch TSS record and save to .shsh file, then exit\n");
-	printf("  -p, --pwn\t\tPut device in pwned DFU state and exit (limera1n devices only)\n");
+	printf("  -i|--ecid ECID  target specific device by its hexadecimal ECID\n");
+	printf("                  e.g. 0xaabb123456 or 00000012AABBCCDD\n");
+	printf("  -u|--uuid UUID  target specific device by its 40-digit device UUID\n");
+	printf("                  NOTE: only works with devices in normal mode.\n");
+	printf("  -d|--debug      enable communication debugging\n");
+	printf("  -h|--help       prints usage information\n");
+	printf("  -e|--erase      perform a full restore, erasing all data\n");
+	printf("  -c|--custom     restore with a custom firmware\n");
+	printf("  -s|--cydia      use Cydia's signature service instead of Apple's\n");
+	printf("  -x|--exclude    exclude nor/baseband upgrade\n");
+	printf("  -t|--shsh       fetch TSS record and save to .shsh file, then exit\n");
+	printf("  -p|--pwn        Put device in pwned DFU mode and exit (limera1n devices only)\n");
 	printf("\n");
 }
 
@@ -144,7 +148,7 @@ int main(int argc, char* argv[]) {
 	}
 	memset(client, '\0', sizeof(struct idevicerestore_client_t));
 
-	while ((opt = getopt_long(argc, argv, "dhcesxtpu:", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhcesxtpi:u:", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -169,6 +173,20 @@ int main(int argc, char* argv[]) {
 
 		case 'x':
 			client->flags |= FLAG_EXCLUDE;
+			break;
+
+		case 'i':
+			if (optarg) {
+				char* tail = NULL;
+				client->ecid = strtoull(optarg, &tail, 16);
+				if (tail && (tail[0] != '\0')) {
+					client->ecid = 0;
+				}
+				if (client->ecid == 0) {
+					error("ERROR: Could not parse ECID from '%s'\n", optarg);
+					return -1;
+				}
+			}
 			break;
 
 		case 'u':
@@ -721,19 +739,19 @@ int check_mode(struct idevicerestore_client_t* client) {
 	int mode = MODE_UNKNOWN;
 	int dfumode = MODE_UNKNOWN;
 
-	if (recovery_check_mode() == 0) {
+	if (recovery_check_mode(client) == 0) {
 		mode = MODE_RECOVERY;
 	}
 
-	else if (dfu_check_mode(&dfumode) == 0) {
+	else if (dfu_check_mode(client, &dfumode) == 0) {
 		mode = dfumode;
 	}
 
-	else if (normal_check_mode(client->uuid) == 0) {
+	else if (normal_check_mode(client) == 0) {
 		mode = MODE_NORMAL;
 	}
 
-	else if (restore_check_mode(client->uuid) == 0) {
+	else if (!client->ecid && client->uuid && (restore_check_mode(client->uuid) == 0)) {
 		mode = MODE_RESTORE;
 	}
 
@@ -748,14 +766,16 @@ int check_device(struct idevicerestore_client_t* client) {
 
 	switch (client->mode->index) {
 	case MODE_RESTORE:
-		device = restore_check_device(client->uuid);
-		if (device < 0) {
-			device = DEVICE_UNKNOWN;
+		if (!client->ecid && client->uuid) {
+			device = restore_check_device(client->uuid);
+			if (device < 0) {
+				device = DEVICE_UNKNOWN;
+			}
 		}
 		break;
 
 	case MODE_NORMAL:
-		device = normal_check_device(client->uuid);
+		device = normal_check_device(client);
 		if (device < 0) {
 			device = DEVICE_UNKNOWN;
 		}
@@ -891,7 +911,7 @@ int check_device(struct idevicerestore_client_t* client) {
 int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
 	switch (client->mode->index) {
 	case MODE_NORMAL:
-		if (normal_get_bdid(client->uuid, bdid) < 0) {
+		if (normal_get_bdid(client, bdid) < 0) {
 			*bdid = 0;
 			return -1;
 		}
@@ -916,7 +936,7 @@ int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
 int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
 	switch (client->mode->index) {
 	case MODE_NORMAL:
-		if (normal_get_cpid(client->uuid, cpid) < 0) {
+		if (normal_get_cpid(client, cpid) < 0) {
 			client->device->chip_id = -1;
 			return -1;
 		}
@@ -941,7 +961,7 @@ int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	switch (client->mode->index) {
 	case MODE_NORMAL:
-		if (normal_get_ecid(client->uuid, ecid) < 0) {
+		if (normal_get_ecid(client, ecid) < 0) {
 			*ecid = 0;
 			return -1;
 		}
