@@ -231,6 +231,9 @@ plist_t tss_send_request(plist_t tss_request) {
 		} else if (status_code == 94) {
 			// This device isn't eligible for the requested build.
 			break;
+		} else if (status_code == 100) {
+			// server error, most likely the request was malformed
+			break;
 		} else {
 			error("ERROR: tss_send_request: Unhandled status code %d\n", status_code);
 		}
