@@ -188,9 +188,13 @@ int write_file(const char* filename, const void* data, size_t size);
 char *generate_guid();
 
 #ifdef WIN32
+#include <windows.h>
 #define __mkdir(path, mode) mkdir(path)
+#define FMT_qu "%I64u"
+#define sleep(x) Sleep(x*1000)
 #else
 #define __mkdir(path, mode) mkdir(path, mode)
+#define FMT_qu "%qu"
 #endif
 
 extern struct idevicerestore_client_t* idevicerestore;

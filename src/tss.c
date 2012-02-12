@@ -83,7 +83,7 @@ plist_t tss_create_request(plist_t build_identity, uint64_t ecid, unsigned char*
 		error("ERROR: Unable to get ECID\n");
 		return NULL;
 	}
-	snprintf(ecid_string, ECID_STRSIZE, "%qu", (long long unsigned int)ecid);
+	snprintf(ecid_string, ECID_STRSIZE, FMT_qu, (long long unsigned int)ecid);
 
 	// Add build information to TSS request
 	plist_t tss_request = plist_new_dict();

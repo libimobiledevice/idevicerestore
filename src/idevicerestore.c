@@ -539,7 +539,7 @@ int main(int argc, char* argv[]) {
 			error("ERROR: Unable to find device ECID\n");
 			return -1;
 		}
-		info("Found ECID %llu\n", (long long unsigned int)client->ecid);
+		info("Found ECID " FMT_qu "\n", (long long unsigned int)client->ecid);
 
 		if (get_shsh_blobs(client, client->ecid, NULL, 0, build_identity, &client->tss) < 0) {
 			error("ERROR: Unable to get SHSH blobs for this device\n");
@@ -562,7 +562,7 @@ int main(int argc, char* argv[]) {
 			plist_to_bin(client->tss, &bin, &blen);
 			if (bin) {
 				char zfn[512];
-				sprintf(zfn, "shsh/%lld-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
+				sprintf(zfn, "shsh/" FMT_qu "-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
 				__mkdir("shsh", 0755);
 				struct stat fst;
 				if (stat(zfn, &fst) != 0) {
@@ -1044,7 +1044,7 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 		/* first check for local copy */
 		char zfn[512];
 		if (client->version) {
-			sprintf(zfn, "shsh/%lld-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
+			sprintf(zfn, "shsh/" FMT_qu "-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
 			struct stat fst;
 			if (stat(zfn, &fst) == 0) {
 				gzFile zf = gzopen(zfn, "rb");
