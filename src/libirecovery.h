@@ -29,6 +29,7 @@ extern "C" {
 #else
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#undef interface
 #define sleep(n) Sleep(1000 * n)
 #endif
 

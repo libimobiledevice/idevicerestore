@@ -25,10 +25,14 @@
 
 #ifndef WIN32
 #include <libusb-1.0/libusb.h>
+#define _FMT_qX "%qX"
+#define _FMT_016llx "%016llx"
 #else
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <setupapi.h>
+#define _FMT_qX "%I64X"
+#define _FMT_016llx "%016I64x"
 #endif
 
 #include "libirecovery.h"
@@ -130,86 +134,157 @@ typedef struct usb_control_request {
 	char data[];
 } usb_control_request;
 
+int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size);
+
 irecv_error_t mobiledevice_openpipes(irecv_client_t client);
 void mobiledevice_closepipes(irecv_client_t client);
 
-irecv_error_t mobiledevice_connect(irecv_client_t* client) {
+irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ecid) {
 	irecv_error_t ret;
-
+	int found = 0;
 	SP_DEVICE_INTERFACE_DATA currentInterface;
 	HDEVINFO usbDevices;
 	DWORD i;
-	LPSTR path;
 	irecv_client_t _client = (irecv_client_t) malloc(sizeof(struct irecv_client));
 	memset(_client, 0, sizeof(struct irecv_client));
 
 	// Get DFU paths
 	usbDevices = SetupDiGetClassDevs(&GUID_DEVINTERFACE_DFU, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
-	if(!usbDevices) {
-		return IRECV_E_UNABLE_TO_CONNECT;
-	}
+	memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
 	currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-	for(i = 0; SetupDiEnumDeviceInterfaces(usbDevices, NULL, &GUID_DEVINTERFACE_DFU, i, &currentInterface); i++) {
-		DWORD requiredSize = 0;
-		PSP_DEVICE_INTERFACE_DETAIL_DATA details;
-		SetupDiGetDeviceInterfaceDetail(usbDevices, &currentInterface, NULL, 0, &requiredSize, NULL);
-		details = (PSP_DEVICE_INTERFACE_DETAIL_DATA) malloc(requiredSize);
-		details->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-		if(!SetupDiGetDeviceInterfaceDetail(usbDevices, &currentInterface, details, requiredSize, NULL, NULL)) {
-			irecv_close(_client);
-			free(details);
-			SetupDiDestroyDeviceInfoList(usbDevices);
-			return IRECV_E_UNABLE_TO_CONNECT;
-		} else {
-			LPSTR result = (LPSTR) malloc(requiredSize - sizeof(DWORD));
-			memcpy((void*) result, details->DevicePath, requiredSize - sizeof(DWORD));
-			free(details);
-			path = (LPSTR) malloc(requiredSize - sizeof(DWORD));
-			memcpy((void*) path, (void*) result, requiredSize - sizeof(DWORD));
-			TCHAR* pathEnd = strstr(path, "#{");
-			*pathEnd = '\0';
-			_client->DfuPath = result;
-			break;
+	for(i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, &GUID_DEVINTERFACE_DFU, i, &currentInterface); i++) {
+		if (_client->DfuPath) {
+			free(_client->DfuPath);
+			_client->DfuPath = NULL;
 		}
-	}
-	SetupDiDestroyDeviceInfoList(usbDevices);
-	// Get iBoot path
-	usbDevices = SetupDiGetClassDevs(&GUID_DEVINTERFACE_IBOOT, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
-	if(!usbDevices) {
-		irecv_close(_client);
-		return IRECV_E_UNABLE_TO_CONNECT;
-	}
-	currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-	for(i = 0; SetupDiEnumDeviceInterfaces(usbDevices, NULL, &GUID_DEVINTERFACE_IBOOT, i, &currentInterface); i++) {
+		_client->handle = NULL;
 		DWORD requiredSize = 0;
 		PSP_DEVICE_INTERFACE_DETAIL_DATA details;
 		SetupDiGetDeviceInterfaceDetail(usbDevices, &currentInterface, NULL, 0, &requiredSize, NULL);
 		details = (PSP_DEVICE_INTERFACE_DETAIL_DATA) malloc(requiredSize);
 		details->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
 		if(!SetupDiGetDeviceInterfaceDetail(usbDevices, &currentInterface, details, requiredSize, NULL, NULL)) {
-			irecv_close(_client);
 			free(details);
-			SetupDiDestroyDeviceInfoList(usbDevices);
-			return IRECV_E_UNABLE_TO_CONNECT;
+			continue;
 		} else {
 			LPSTR result = (LPSTR) malloc(requiredSize - sizeof(DWORD));
 			memcpy((void*) result, details->DevicePath, requiredSize - sizeof(DWORD));
 			free(details);
 
-			if(strstr(result, path) == NULL) {
-				free(result);
+			_client->DfuPath = result;
+			if (mobiledevice_openpipes(_client) != IRECV_E_SUCCESS) {
+				mobiledevice_closepipes(_client);
 				continue;
 			}
-			
-			_client->iBootPath = result;
+
+			if ((ecid != 0) && (_client->mode == kWTFMode)) {
+				// we can't get ecid in WTF mode
+				mobiledevice_closepipes(_client);
+				continue;
+			}
+
+			_client->serial[0] = '\0';
+			irecv_get_string_descriptor_ascii(_client, 3, (unsigned char*)_client->serial, 255);
+			if (_client->serial[0] == '\0') {
+				mobiledevice_closepipes(_client);
+				continue;
+			}
+
+			if (ecid != 0) {
+				char* ecid_string = strstr(_client->serial, "ECID:");
+				if (ecid_string == NULL) {
+					debug("%s: could not get ECID for device\n", __func__);
+					mobiledevice_closepipes(_client);
+					continue;
+				}
+
+				unsigned long long this_ecid = 0;
+				sscanf(ecid_string, "ECID:" _FMT_qX, (unsigned long long*)&this_ecid);
+				if (this_ecid != ecid) {
+					mobiledevice_closepipes(_client);
+					continue;
+				}
+				debug("found device with ECID " _FMT_016llx "\n", (unsigned long long)ecid);
+			}
+			found = 1;
 			break;
 		}
 	}
 	SetupDiDestroyDeviceInfoList(usbDevices);
-	free(path);
-	
-	ret = mobiledevice_openpipes(_client);
-	if (ret != IRECV_E_SUCCESS) return ret;
+
+	if (found) {
+		*client = _client;
+		return IRECV_E_SUCCESS;
+	}
+
+	// Get iBoot path
+	usbDevices = SetupDiGetClassDevs(&GUID_DEVINTERFACE_IBOOT, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+	memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
+	currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+	for(i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, &GUID_DEVINTERFACE_IBOOT, i, &currentInterface); i++) {
+		if (_client->iBootPath) {
+			free(_client->iBootPath);
+			_client->iBootPath = NULL;
+		}
+		_client->handle = NULL;
+		DWORD requiredSize = 0;
+		PSP_DEVICE_INTERFACE_DETAIL_DATA details;
+		SetupDiGetDeviceInterfaceDetail(usbDevices, &currentInterface, NULL, 0, &requiredSize, NULL);
+		details = (PSP_DEVICE_INTERFACE_DETAIL_DATA) malloc(requiredSize);
+		details->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
+		if(!SetupDiGetDeviceInterfaceDetail(usbDevices, &currentInterface, details, requiredSize, NULL, NULL)) {
+			free(details);
+			continue;
+		} else {
+			LPSTR result = (LPSTR) malloc(requiredSize - sizeof(DWORD));
+			memcpy((void*) result, details->DevicePath, requiredSize - sizeof(DWORD));
+			free(details);
+
+			_client->iBootPath = result;
+			if (mobiledevice_openpipes(_client) != IRECV_E_SUCCESS) {
+				mobiledevice_closepipes(_client);
+				continue;
+			}
+
+			if ((ecid != 0) && (_client->mode == kWTFMode)) {
+				// we can't get ecid in WTF mode
+				mobiledevice_closepipes(_client);
+				continue;
+			}
+
+			_client->serial[0] = '\0';
+			irecv_get_string_descriptor_ascii(_client, 3, (unsigned char*)_client->serial, 255);
+			if (_client->serial[0] == '\0') {
+				mobiledevice_closepipes(_client);
+				continue;
+			}
+
+			if (ecid != 0) {
+				char* ecid_string = strstr(_client->serial, "ECID:");
+				if (ecid_string == NULL) {
+					debug("%s: could not get ECID for device\n", __func__);
+					mobiledevice_closepipes(_client);
+					continue;
+				}
+
+				unsigned long long this_ecid = 0;
+				sscanf(ecid_string, "ECID:" _FMT_qX, (unsigned long long*)&this_ecid);
+				if (this_ecid != ecid) {
+					mobiledevice_closepipes(_client);
+					continue;
+				}
+				debug("found device with ECID " _FMT_016llx" \n", (unsigned long long)ecid);
+			}
+			found = 1;
+			break;
+		}
+	}
+	SetupDiDestroyDeviceInfoList(usbDevices);
+
+	if (!found) {
+		irecv_close(_client);
+		return IRECV_E_UNABLE_TO_CONNECT;
+	}
 	
 	*client = _client;
 	return IRECV_E_SUCCESS;
@@ -225,12 +300,22 @@ irecv_error_t mobiledevice_openpipes(irecv_client_t client) {
 		return IRECV_E_UNABLE_TO_CONNECT;
 	}
 
+	client->mode = 0;
 	if (client->iBootPath == NULL) {
-		client->mode = kDfuMode;
+		if (strncmp(client->DfuPath, "\\\\?\\usb#vid_05ac&pid_", 21) == 0) {
+			sscanf(client->DfuPath+21, "%x#", &client->mode);
+		}
 		client->handle = client->hDFU;
 	} else {
-		client->mode = kRecoveryMode2;
+		if (strncmp(client->iBootPath, "\\\\?\\usb#vid_05ac&pid_", 21) == 0) {
+			sscanf(client->iBootPath+21, "%x#", &client->mode);
+		}
 		client->handle = client->hIB;
+	}
+	
+	if (client->mode == 0) {
+		irecv_close(client);
+		return IRECV_E_UNABLE_TO_CONNECT;
 	}
 	
 	return IRECV_E_SUCCESS;
@@ -346,7 +431,7 @@ int irecv_bulk_transfer(irecv_client_t client,
 	} else {
 		ret = 0;
 	}
-	ret==0?-1:0;
+	ret = (ret==0) ? -1 : 0;
 #endif
 
 	return ret;
@@ -455,12 +540,12 @@ irecv_error_t irecv_open(irecv_client_t* pclient, unsigned long long ecid) {
 					}
 
 					unsigned long long this_ecid = 0;
-					sscanf(ecid_string, "ECID:%qX", (unsigned long long*)&this_ecid);
+					sscanf(ecid_string, "ECID:" _FMT_qX, (unsigned long long*)&this_ecid);
 					if (this_ecid != ecid) {
 						irecv_close(client);
 						continue;
 					}
-					debug("found device with ECID %016llx\n", (unsigned long long)ecid);
+					debug("found device with ECID " _FMT_016llx "\n", (unsigned long long)ecid);
 				}
 
 				error = irecv_set_configuration(client, 1);
@@ -489,10 +574,7 @@ irecv_error_t irecv_open(irecv_client_t* pclient, unsigned long long ecid) {
 
 	return IRECV_E_UNABLE_TO_CONNECT;
 #else
-	int ret = mobiledevice_connect(pclient);
-	if (ret == IRECV_E_SUCCESS) {
-		irecv_get_string_descriptor_ascii(*pclient, 3, (unsigned char*) (*pclient)->serial, 255);
-	}
+	int ret = mobiledevice_connect(pclient, ecid);
 	return ret;
 #endif
 }
@@ -1019,7 +1101,7 @@ irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid) {
 		*ecid = 0;
 		return IRECV_E_UNKNOWN_ERROR;
 	}
-	sscanf(ecid_string, "ECID:%qX", ecid);
+	sscanf(ecid_string, "ECID:" _FMT_qX, ecid);
 
 	return IRECV_E_SUCCESS;
 }
@@ -1099,13 +1181,13 @@ irecv_error_t irecv_get_nonce(irecv_client_t client, unsigned char** nonce, int*
 		if (sscanf(nonce_string+(i*2), "%02X", &val) == 1) {
 			nn[i] = (unsigned char)val;
 		} else {
-			error("%s: ERROR: unexpected data in nonce result (%2s)\n", __func__, nonce_string+(i*2));
+			debug("%s: ERROR: unexpected data in nonce result (%2s)\n", __func__, nonce_string+(i*2));
 			break;
 		}
 	}
 
 	if (i != nlen) {
-		error("%s: ERROR: unable to parse nonce\n");
+		debug("%s: ERROR: unable to parse nonce\n");
 		free(nn);
 		return IRECV_E_UNKNOWN_ERROR;
 	}
