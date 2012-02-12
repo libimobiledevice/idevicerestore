@@ -30,7 +30,9 @@ extern "C" {
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #undef interface
+#ifndef sleep
 #define sleep(n) Sleep(1000 * n)
+#endif
 #endif
 
 #define APPLE_VENDOR_ID 0x05AC

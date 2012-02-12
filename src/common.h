@@ -191,7 +191,9 @@ char *generate_guid();
 #include <windows.h>
 #define __mkdir(path, mode) mkdir(path)
 #define FMT_qu "%I64u"
+#ifndef sleep
 #define sleep(x) Sleep(x*1000)
+#endif
 #else
 #define __mkdir(path, mode) mkdir(path, mode)
 #define FMT_qu "%qu"
