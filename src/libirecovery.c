@@ -1187,7 +1187,7 @@ irecv_error_t irecv_get_nonce(irecv_client_t client, unsigned char** nonce, int*
 	}
 
 	if (i != nlen) {
-		debug("%s: ERROR: unable to parse nonce\n");
+		debug("%s: ERROR: unable to parse nonce\n", __func__);
 		free(nn);
 		return IRECV_E_UNKNOWN_ERROR;
 	}
