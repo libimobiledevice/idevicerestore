@@ -105,7 +105,7 @@ void print_progress_bar(double progress) {
 		if(i < progress / 2) info("=");
 		else info(" ");
 	}
-	info("] %3.1f%%", progress);
+	info("] %5.1f%%", progress);
 	if(progress == 100) info("\n");
 	fflush(stdout);
 }
