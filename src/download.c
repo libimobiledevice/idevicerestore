@@ -82,6 +82,17 @@ int download_to_buffer(const char* url, char** buf, uint32_t* length)
 	return res;
 }
 
+int download_progress(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow)
+{
+	double p = (dlnow / dltotal) * 100;
+
+	if (p < 100.0f) {
+		print_progress_bar(p);
+	}
+
+	return 0;
+}
+
 int download_to_file(const char* url, const char* filename)
 {
 	int res = 0;
@@ -100,6 +111,8 @@ int download_to_file(const char* url, const char* filename)
 
 	curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, (curl_write_callback)&fwrite);
 	curl_easy_setopt(handle, CURLOPT_WRITEDATA, f);
+	curl_easy_setopt(handle, CURLOPT_PROGRESSFUNCTION, (curl_progress_callback)&download_progress);
+	curl_easy_setopt(handle, CURLOPT_NOPROGRESS, 0);
 	curl_easy_setopt(handle, CURLOPT_USERAGENT, "InetURL/1.0");
 	curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1);
 	curl_easy_setopt(handle, CURLOPT_URL, url);
