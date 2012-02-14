@@ -504,7 +504,7 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 			result = -1;
 			break;
 		default:
-			info("Unhandled status message (%ld)\n", value);
+			info("Unhandled status message (" FMT_qu ")\n", (long long unsigned int)value);
 	}
 
 	return result;
