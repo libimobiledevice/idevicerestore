@@ -177,6 +177,15 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 				continue;
 			}
 
+			if (ecid == kWTFMode) {
+				if (_client->mode != kWTFMode) {
+					// special ecid case, ignore !kWTFMode
+					continue;
+				} else {
+					ecid = 0;
+				}
+			}
+
 			if ((ecid != 0) && (_client->mode == kWTFMode)) {
 				// we can't get ecid in WTF mode
 				mobiledevice_closepipes(_client);
@@ -495,6 +504,15 @@ irecv_error_t irecv_open(irecv_client_t* pclient, unsigned long long ecid) {
 				usb_descriptor.idProduct == kRecoveryMode4 ||
 				usb_descriptor.idProduct == kWTFMode ||
 				usb_descriptor.idProduct == kDfuMode) {
+
+				if (ecid == kWTFMode) {
+					if (usb_descriptor.idProduct != kWTFMode) {
+						// special ecid case, ignore !kWTFMode
+						continue;
+					} else {
+						ecid = 0;
+					}
+				}
 
 				if ((ecid != 0) && (usb_descriptor.idProduct == kWTFMode)) {
 					// we can't get ecid in WTF mode
