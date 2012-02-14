@@ -28,7 +28,7 @@
 #include "limera1n_payload.h"
 #include "libirecovery.h"
 
-int limera1n_exploit(struct idevicerestore_device_t *device, irecv_client_t client)
+int limera1n_exploit(struct irecv_device *device, irecv_client_t client)
 {
 	irecv_error_t error = IRECV_E_SUCCESS;
 	unsigned int i = 0;

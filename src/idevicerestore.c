@@ -904,7 +904,7 @@ int check_device(struct idevicerestore_client_t* client) {
 
 	}
 
-	client->device = &idevicerestore_devices[device];
+	client->device = &irecv_devices[device];
 	return device;
 }
 

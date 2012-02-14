@@ -248,13 +248,13 @@ int normal_check_device(struct idevicerestore_client_t* client) {
 	plist_get_string_val(product_type_node, &product_type);
 	plist_free(product_type_node);
 
-	for (i = 0; idevicerestore_devices[i].product != NULL; i++) {
-		if (!strcmp(product_type, idevicerestore_devices[i].product)) {
+	for (i = 0; irecv_devices[i].product != NULL; i++) {
+		if (!strcmp(product_type, irecv_devices[i].product)) {
 			break;
 		}
 	}
 
-	return idevicerestore_devices[i].index;
+	return irecv_devices[i].index;
 }
 
 int normal_enter_recovery(struct idevicerestore_client_t* client) {

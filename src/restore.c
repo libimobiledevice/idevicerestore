@@ -169,13 +169,13 @@ int restore_check_device(const char* uuid) {
 	}
 	plist_get_string_val(node, &model);
 
-	for (i = 0; idevicerestore_devices[i].model != NULL; i++) {
-		if (!strcasecmp(model, idevicerestore_devices[i].model)) {
+	for (i = 0; irecv_devices[i].model != NULL; i++) {
+		if (!strcasecmp(model, irecv_devices[i].model)) {
 			break;
 		}
 	}
 
-	return idevicerestore_devices[i].index;
+	return irecv_devices[i].index;
 }
 
 void restore_device_callback(const idevice_event_t* event, void* userdata) {
