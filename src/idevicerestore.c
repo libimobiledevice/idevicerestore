@@ -274,7 +274,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		char wtfname[256];
-		sprintf(wtfname, "Firmware/dfu/WTF.s5l%04dxall.RELEASE.dfu", cpid);
+		sprintf(wtfname, "Firmware/dfu/WTF.s5l%04xxall.RELEASE.dfu", cpid);
 		char* wtftmp = NULL;
 		uint32_t wtfsize = 0;
 		ipsw_extract_to_memory(wtfipsw, wtfname, &wtftmp, &wtfsize);
