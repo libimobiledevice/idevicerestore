@@ -1081,7 +1081,7 @@ irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
 	if (client->mode == kWTFMode) {
 		char s_cpid[8] = {0,};
 		strncpy(s_cpid, client->serial, 4);
-		if (sscanf(s_cpid, "%d", cpid) != 1) {
+		if (sscanf(s_cpid, "%x", cpid) != 1) {
 			*cpid = 0;
 			return IRECV_E_UNKNOWN_ERROR;
 		}
@@ -1093,7 +1093,7 @@ irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
 		*cpid = 0;
 		return IRECV_E_UNKNOWN_ERROR;
 	}
-	sscanf(cpid_string, "CPID:%d", cpid);
+	sscanf(cpid_string, "CPID:%x", cpid);
 
 	return IRECV_E_SUCCESS;
 }
@@ -1106,7 +1106,7 @@ irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid) {
 		*bdid = 0;
 		return IRECV_E_UNKNOWN_ERROR;
 	}
-	sscanf(bdid_string, "BDID:%d", bdid);
+	sscanf(bdid_string, "BDID:%x", bdid);
 
 	return IRECV_E_SUCCESS;
 }
