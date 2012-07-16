@@ -1183,13 +1183,23 @@ int ipsw_extract_filesystem(const char* ipsw, plist_t build_identity, char** fil
 		return -1;
 	}
 
+	char* outfile = tempnam(NULL, "ipsw_");
+	if (!outfile) {
+		error("WARNING: Could not get temporary filename!\n");
+	}
+
 	info("Extracting filesystem from IPSW\n");
-	if (ipsw_extract_to_file(ipsw, filename, filename) < 0) {
+	if (ipsw_extract_to_file(ipsw, filename, (outfile) ? outfile : filename) < 0) {
 		error("ERROR: Unable to extract filesystem\n");
+		free(filename);
+		if (outfile) {
+			free(outfile);
+		}
 		return -1;
 	}
 
-	*filesystem = filename;
+	*filesystem = outfile;
+	free(filename);
 	return 0;
 }
 
