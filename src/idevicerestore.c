@@ -282,6 +282,22 @@ int get_latest_fw(struct idevicerestore_client_t* client, char** fwurl, unsigned
 	return 0;
 }
 
+static int sha1_verify_fp(FILE* f, unsigned char* expected_sha1)
+{
+	unsigned char tsha1[20];
+	char buf[8192];
+	if (!f) return 0;
+	SHA_CTX sha1ctx;
+	SHA1_Init(&sha1ctx);
+	rewind(f);
+	while (!feof(f)) {
+		size_t sz = fread(buf, 1, 8192, f);
+		SHA1_Update(&sha1ctx, (const void*)buf, sz);
+	}
+	SHA1_Final(tsha1, &sha1ctx);
+	return (memcmp(expected_sha1, tsha1, 20) == 0) ? 1 : 0;
+}
+
 int main(int argc, char* argv[]) {
 	int opt = 0;
 	int optindex = 0;
@@ -507,25 +523,18 @@ int main(int argc, char* argv[]) {
 		}
 		fwfn++;
 
+		info("Latest firmware is %s\n", fwfn);
+
 		char fwlfn[256];
 		sprintf(fwlfn, "cache/%s", fwfn);
 
 		int need_dl = 0;
+		unsigned char zsha1[20] = {0, };
 		FILE* f = fopen(fwlfn, "rb");
 		if (f) {
-			unsigned char zsha1[20] = {0, };
 			if (memcmp(zsha1, isha1, 20) != 0) {
-				unsigned char tsha1[20];
-				char buf[8192];
-				SHA_CTX sha1ctx;
 				info("Verifying '%s'...\n", fwlfn);
-				SHA1_Init(&sha1ctx);
-				while (!feof(f)) {
-					size_t sz = fread(buf, 1, 8192, f);
-					SHA1_Update(&sha1ctx, (const void*)buf, sz);
-				}
-				SHA1_Final(tsha1, &sha1ctx);
-				if (memcmp(isha1, tsha1, 20) == 0) {
+				if (sha1_verify_fp(f, isha1)) {
 					info("Checksum matches.\n");
 				} else {
 					info("Checksum does not match.\n");
@@ -543,12 +552,24 @@ int main(int argc, char* argv[]) {
 				error("ERROR: Can't download '%s' because it needs a purchase.\n", fwfn);
 				res = -1;
 			} else {
-				if (remove(fwlfn) == 0) {
-					info("Downloading latest firmware (%s)\n", fwurl);
-					download_to_file(fwurl, fwlfn);
-				} else {
-					error("ERROR: Can't remove '%s'\n", fwlfn);
-					res = -1;
+				remove(fwlfn);
+				info("Downloading latest firmware (%s)\n", fwurl);
+				download_to_file(fwurl, fwlfn);
+				if (memcmp(isha1, zsha1, 20) != 0) {
+					info("\nVerifying '%s'...\n", fwlfn);
+					FILE* f = fopen(fwlfn, "rb");
+					if (f) {
+						if (sha1_verify_fp(f, isha1)) {
+							info("Checksum matches.\n");
+						} else {
+							error("ERROR: File download failed (checksum mismatch).\n");
+							res = -1;
+						}
+						fclose(f);
+					} else {
+						error("ERROR: Can't open '%s' for checksum verification\n", fwlfn);
+						res = -1;
+					}
 				}
 			}
 		}
