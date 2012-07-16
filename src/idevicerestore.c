@@ -46,7 +46,7 @@ int use_apple_server;
 
 static struct option longopts[] = {
 	{ "ecid",    required_argument, NULL, 'i' },
-	{ "uuid",    required_argument, NULL, 'u' },
+	{ "udid",    required_argument, NULL, 'u' },
 	{ "debug",   no_argument,       NULL, 'd' },
 	{ "help",    no_argument,       NULL, 'h' },
 	{ "erase",   no_argument,       NULL, 'e' },
@@ -64,7 +64,7 @@ void usage(int argc, char* argv[]) {
 	printf("Restore/upgrade IPSW firmware FILE to an iPhone/iPod Touch.\n");
 	printf("  -i|--ecid ECID  target specific device by its hexadecimal ECID\n");
 	printf("                  e.g. 0xaabb123456 or 00000012AABBCCDD\n");
-	printf("  -u|--uuid UUID  target specific device by its 40-digit device UUID\n");
+	printf("  -u|--udid UDID  target specific device by its 40-digit device UDID\n");
 	printf("                  NOTE: only works with devices in normal mode.\n");
 	printf("  -d|--debug      enable communication debugging\n");
 	printf("  -h|--help       prints usage information\n");
@@ -134,7 +134,7 @@ int main(int argc, char* argv[]) {
 	int opt = 0;
 	int optindex = 0;
 	char* ipsw = NULL;
-	char* uuid = NULL;
+	char* udid = NULL;
 	int tss_enabled = 0;
 	int shsh_only = 0;
 	char* shsh_dir = NULL;
@@ -190,7 +190,7 @@ int main(int argc, char* argv[]) {
 			break;
 
 		case 'u':
-			uuid = optarg;
+			udid = optarg;
 			break;
 
 		case 't':
@@ -222,7 +222,7 @@ int main(int argc, char* argv[]) {
 		irecv_set_debug_level(1);
 	}
 
-	client->uuid = uuid;
+	client->udid = udid;
 	client->ipsw = ipsw;
 
 	// update version data (from cache, or apple if too old)
@@ -751,7 +751,7 @@ int check_mode(struct idevicerestore_client_t* client) {
 		mode = MODE_NORMAL;
 	}
 
-	else if (!client->ecid && client->uuid && (restore_check_mode(client->uuid) == 0)) {
+	else if (!client->ecid && client->udid && (restore_check_mode(client->udid) == 0)) {
 		mode = MODE_RESTORE;
 	}
 
@@ -766,8 +766,8 @@ int check_device(struct idevicerestore_client_t* client) {
 
 	switch (client->mode->index) {
 	case MODE_RESTORE:
-		if (!client->ecid && client->uuid) {
-			device = restore_check_device(client->uuid);
+		if (!client->ecid && client->udid) {
+			device = restore_check_device(client->udid);
 			if (device < 0) {
 				device = DEVICE_UNKNOWN;
 			}

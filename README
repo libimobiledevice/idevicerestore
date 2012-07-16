@@ -47,7 +47,7 @@ make
 idevicerestore [-d] [-u] [-c] [-v] [-h] <input.ipsw>
 
   -d, 		enable communication debugging
-  -u, 		target specific device by its 40-digit device UUID
+  -u, 		target specific device by its 40-digit device UDID
   -h, 		prints usage information
   -c, 		restore with a custom firmware
   -e,		erase the device first
@@ -63,5 +63,5 @@ idevicerestore [-d] [-u] [-c] [-v] [-h] <input.ipsw>
   -x		deactivate the target device
   -d		enable communication debugging
   -h		prints usage information
-  -u UUID	target specific device by its 40-digit device UUID
+  -u UDID	target specific device by its 40-digit device UDID
   -f FILE	activates device with local activation record

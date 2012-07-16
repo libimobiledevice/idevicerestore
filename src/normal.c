@@ -102,12 +102,12 @@ static int normal_idevice_new(struct idevicerestore_client_t* client, idevice_t*
 		}
 		device_error = idevice_new(&dev, devices[j]);
 		if (device_error != IDEVICE_E_SUCCESS) {
-			error("ERROR: %s: can't open device with UUID %s", __func__, devices[j]);
+			error("ERROR: %s: can't open device with UDID %s", __func__, devices[j]);
 			continue;
 		}
 
 		if (lockdownd_client_new(dev, &lockdown, "idevicerestore") != LOCKDOWN_E_SUCCESS) {
-			error("ERROR: %s: can't connect to lockdownd on device with UUID %s", __func__, devices[j]);
+			error("ERROR: %s: can't connect to lockdownd on device with UDID %s", __func__, devices[j]);
 			continue;
 
 		}
@@ -144,7 +144,7 @@ static int normal_idevice_new(struct idevicerestore_client_t* client, idevice_t*
 			lockdownd_client_free(lockdown);
 			lockdown = NULL;
 		}
-		client->uuid = strdup(devices[j]);
+		client->udid = strdup(devices[j]);
 		*device = dev;
 		break;
 	}
@@ -265,7 +265,7 @@ int normal_enter_recovery(struct idevicerestore_client_t* client) {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
-	device_error = idevice_new(&device, client->uuid);
+	device_error = idevice_new(&device, client->udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		error("ERROR: Unable to find device\n");
 		return -1;
@@ -316,7 +316,7 @@ int normal_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	lockdownd_error_t lockdown_error = IDEVICE_E_SUCCESS;
 
-	device_error = idevice_new(&device, client->uuid);
+	device_error = idevice_new(&device, client->udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		return -1;
 	}

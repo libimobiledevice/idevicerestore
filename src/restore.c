@@ -86,7 +86,7 @@ void restore_client_free(struct idevicerestore_client_t* client) {
 	}
 }
 
-int restore_check_mode(const char* uuid) {
+int restore_check_mode(const char* udid) {
 	char* type = NULL;
 	uint64_t version = 0;
 	idevice_t device = NULL;
@@ -94,7 +94,7 @@ int restore_check_mode(const char* uuid) {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
-	device_error = idevice_new(&device, uuid);
+	device_error = idevice_new(&device, udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		return -1;
 	}
@@ -119,7 +119,7 @@ int restore_check_mode(const char* uuid) {
 	return 0;
 }
 
-int restore_check_device(const char* uuid) {
+int restore_check_device(const char* udid) {
 	int i = 0;
 	char* type = NULL;
 	char* model = NULL;
@@ -130,7 +130,7 @@ int restore_check_device(const char* uuid) {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
-	device_error = idevice_new(&device, uuid);
+	device_error = idevice_new(&device, udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		return -1;
 	}
@@ -182,7 +182,7 @@ void restore_device_callback(const idevice_event_t* event, void* userdata) {
 	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) userdata;
 	if (event->event == IDEVICE_DEVICE_ADD) {
 		restore_device_connected = 1;
-		client->uuid = strdup(event->uuid);
+		client->udid = strdup(event->udid);
 	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
 		restore_device_connected = 0;
 		client->flags |= FLAG_QUIT;
@@ -208,7 +208,7 @@ int restore_reboot(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-static int restore_is_current_device(struct idevicerestore_client_t* client, const char* uuid)
+static int restore_is_current_device(struct idevicerestore_client_t* client, const char* udid)
 {
 	if (!client) {
 		return 0;
@@ -225,9 +225,9 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 	char *type = NULL;
 	uint64_t version = 0;
 
-	device_error = idevice_new(&device, uuid);
+	device_error = idevice_new(&device, udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
-		error("ERROR: %s: can't open device with UUID %s", __func__, uuid);
+		error("ERROR: %s: can't open device with UDID %s", __func__, udid);
 		return 0;
 	}
 
@@ -241,7 +241,7 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 	if ((restore_error == RESTORE_E_SUCCESS) && type && (strcmp(type, "com.apple.mobile.restored") == 0)) {
 		debug("%s: Connected to %s, version %d\n", __func__, type, (int)version);
 	} else {
-		info("%s: device %s is not in restore mode\n", __func__, uuid);
+		info("%s: device %s is not in restore mode\n", __func__, udid);
 		restored_client_free(restored);
 		idevice_free(device);
 		return 0;
@@ -319,7 +319,7 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 		for (j = 0; j < num_devices; j++) {
 			if (restore_is_current_device(client, devices[j])) {
 				restore_device_connected = 1;
-				client->uuid = strdup(devices[j]);
+				client->udid = strdup(devices[j]);
 				break;
 			}
 		}
@@ -343,7 +343,7 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 	}
 
 	info("Connecting now\n");
-	device_error = idevice_new(&device, client->uuid);
+	device_error = idevice_new(&device, client->udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		return -1;
 	}

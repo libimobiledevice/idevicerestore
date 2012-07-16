@@ -33,15 +33,15 @@ extern "C" {
 struct restore_client_t {
 	plist_t tss;
 	idevice_t device;
-	char* uuid;
+	char* udid;
 	unsigned int operation;
 	const char* filesystem;
 	uint64_t protocol_version;
 	restored_client_t client;
 };
 
-int restore_check_mode(const char* uuid);
-int restore_check_device(const char* uuid);
+int restore_check_mode(const char* udid);
+int restore_check_device(const char* udid);
 int restore_client_new(struct idevicerestore_client_t* client);
 void restore_client_free(struct idevicerestore_client_t* client);
 int restore_reboot(struct idevicerestore_client_t* client);
