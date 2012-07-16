@@ -225,7 +225,9 @@ void ipsw_close(ipsw_archive* archive) {
 int ipsw_get_latest_fw(plist_t version_data, const char* product, char** fwurl, unsigned char* sha1buf)
 {
 	*fwurl = NULL;
-	memset(sha1buf, '\0', 20);
+	if (sha1buf != NULL) {
+		memset(sha1buf, '\0', 20);
+	}
 
 	plist_t n1 = plist_access_path(version_data, 2, "MobileDeviceMajorVersionsByProductType", product);
 	if (!n1 || (plist_dict_get_size(n1) == 0)) {
@@ -350,21 +352,23 @@ int ipsw_get_latest_fw(plist_t version_data, const char* product, char** fwurl, 
 
 	plist_get_string_val(n2, fwurl);
 
-	n2 = plist_access_path(n1, 2, "Restore", "FirmwareSHA1");
-	if (n2 && plist_get_node_type(n2) == PLIST_STRING) {
-		strval = NULL;
-		plist_get_string_val(n2, &strval);
-		if (strval) {
-			if (strlen(strval) == 40) {
-				int i;
-				int v;
-				for (i = 0; i < 40; i+=2) {
-					v = 0;
-					sscanf(strval+i, "%02x", &v);
-					sha1buf[i/2] = (unsigned char)v;
+	if (sha1buf != NULL) {
+		n2 = plist_access_path(n1, 2, "Restore", "FirmwareSHA1");
+		if (n2 && plist_get_node_type(n2) == PLIST_STRING) {
+			strval = NULL;
+			plist_get_string_val(n2, &strval);
+			if (strval) {
+				if (strlen(strval) == 40) {
+					int i;
+					int v;
+					for (i = 0; i < 40; i+=2) {
+						v = 0;
+						sscanf(strval+i, "%02x", &v);
+						sha1buf[i/2] = (unsigned char)v;
+					}
 				}
+				free(strval);
 			}
-			free(strval);
 		}
 	}
 
