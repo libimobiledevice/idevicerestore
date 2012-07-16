@@ -27,8 +27,7 @@ extern "C" {
 #endif
 
 #include <plist/plist.h>
-
-#include "libirecovery.h"
+#include <libirecovery.h>
 
 #define info(...) printf(__VA_ARGS__)
 #define error(...) fprintf(stderr, __VA_ARGS__)

@@ -28,10 +28,10 @@ extern "C" {
 
 #include <stdint.h>
 #include <plist/plist.h>
+#include <libirecovery.h>
 
 #include "common.h"
 
-#include "libirecovery.h"
 
 //struct irecv_client;
 //typedef struct irecv_client* irecv_client_t;

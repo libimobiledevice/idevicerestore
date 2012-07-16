@@ -22,11 +22,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <libirecovery.h>
 
 #include "common.h"
 #include "limera1n.h"
 #include "limera1n_payload.h"
-#include "libirecovery.h"
 
 int limera1n_exploit(struct irecv_device *device, irecv_client_t client)
 {
