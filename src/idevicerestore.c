@@ -26,6 +26,7 @@
 #include <getopt.h>
 #include <plist/plist.h>
 #include <zlib.h>
+#include <openssl/sha.h>
 
 #include "dfu.h"
 #include "tss.h"
@@ -51,6 +52,7 @@ static struct option longopts[] = {
 	{ "help",    no_argument,       NULL, 'h' },
 	{ "erase",   no_argument,       NULL, 'e' },
 	{ "custom",  no_argument,       NULL, 'c' },
+	{ "latest",  no_argument,       NULL, 'l' },
 	{ "cydia",   no_argument,       NULL, 's' },
 	{ "exclude", no_argument,       NULL, 'x' },
 	{ "shsh",    no_argument,       NULL, 't' },
@@ -70,6 +72,10 @@ void usage(int argc, char* argv[]) {
 	printf("  -h|--help       prints usage information\n");
 	printf("  -e|--erase      perform a full restore, erasing all data\n");
 	printf("  -c|--custom     restore with a custom firmware\n");
+	printf("  -l|--latest     use latest available firmware (with download on demand)\n");
+	printf("                  DO NOT USE if you need to preserve the baseband (unlock)!\n");
+	printf("                  USE WITH CARE if you want to keep a jailbreakable firmware!\n");
+	printf("                  The FILE argument is ignored when using this option.\n");
 	printf("  -s|--cydia      use Cydia's signature service instead of Apple's\n");
 	printf("  -x|--exclude    exclude nor/baseband upgrade\n");
 	printf("  -t|--shsh       fetch TSS record and save to .shsh file, then exit\n");
@@ -130,6 +136,149 @@ static int load_version_data(struct idevicerestore_client_t* client)
 	return 0;
 }
 
+int get_latest_fw(struct idevicerestore_client_t* client, char** fwurl, unsigned char* sha1buf)
+{
+	*fwurl = NULL;
+	memset(sha1buf, '\0', 20);
+
+	plist_t n1 = plist_access_path(client->version_data, 2, "MobileDeviceMajorVersionsByProductType", client->device->product);
+	if (!n1 || (plist_dict_get_size(n1) == 0)) {
+		error("%s: ERROR: Can't find MobileDeviceMajorVersionsByProductType/%s dict in version data\n", __func__, client->device->product);
+		return -1;
+	}
+
+	char* strval = NULL;
+	plist_t n2 = plist_dict_get_item(n1, "SameAs");
+	if (n2) {
+		plist_get_string_val(n2, &strval);
+	}
+	if (strval) {
+		n1 = plist_access_path(client->version_data, 2, "MobileDeviceMajorVersionsByProductType", strval);
+		free(strval);
+		strval = NULL;
+		if (!n1 || (plist_dict_get_size(n1) == 0)) {
+			error("%s: ERROR: Can't find MobileDeviceMajorVersionsByProductType/%s dict in version data\n", __func__, client->device->product);
+			return -1;
+		}
+	}
+
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(n1, &iter);
+	if (!iter) {
+		error("%s: ERROR: Can't get dict iter\n", __func__);
+		return -1;
+	}
+	n2 = NULL;
+	char* key = NULL;
+	plist_t val = NULL;
+	do {
+		plist_dict_next_item(n1, iter, &key, &val);
+		if (key) {
+			n2 = val;
+			free(key);
+		}
+	} while (val);
+	free(iter);
+
+	if (!n2) {
+		error("%s: ERROR: Can't get last node?!\n", __func__);
+		return -1;
+	}
+
+	uint64_t major = 0;
+	if (plist_get_node_type(n2) == PLIST_ARRAY) {
+		uint32_t sz = plist_array_get_size(n2);
+		plist_t n3 = plist_array_get_item(n2, sz-1);
+		plist_get_uint_val(n3, &major);
+	} else {
+		plist_get_uint_val(n2, &major);
+	}
+
+	if (major == 0) {
+		error("%s: ERROR: Can't find major version?!\n", __func__);
+		return -1;
+	}
+
+	char majstr[32]; // should be enough for a uint64_t value
+	sprintf(majstr, FMT_qu, (long long unsigned int)major);
+	n1 = plist_access_path(client->version_data, 7, "MobileDeviceSoftwareVersionsByVersion", majstr, "MobileDeviceSoftwareVersions", client->device->product, "Unknown", "Universal", "Restore");
+	if (!n1) {
+		error("%s: ERROR: Can't get Unknown/Universal/Restore node?!\n", __func__);
+		return -1;
+	}
+
+	n2 = plist_dict_get_item(n1, "BuildVersion");
+	if (!n2 || (plist_get_node_type(n2) != PLIST_STRING)) {
+		error("%s: ERROR: Can't get build version node?!\n", __func__);
+		return -1;
+	}
+
+	strval = NULL;
+	plist_get_string_val(n2, &strval);
+
+	n1 = plist_access_path(client->version_data, 5, "MobileDeviceSoftwareVersionsByVersion", majstr, "MobileDeviceSoftwareVersions", client->device->product, strval);
+	if (!n1) {
+		error("%s: ERROR: Can't get MobileDeviceSoftwareVersions/%s node?!\n", __func__, strval);
+		free(strval);
+		return -1;
+	}
+	free(strval);
+
+	strval = NULL;
+	n2 = plist_dict_get_item(n1, "SameAs");
+	if (n2) {
+		plist_get_string_val(n2, &strval);
+	}
+	if (strval) {
+		n1 = plist_access_path(client->version_data, 5, "MobileDeviceSoftwareVersionsByVersion", majstr, "MobileDeviceSoftwareVersions", client->device->product, strval);
+		free(strval);
+		strval = NULL;
+		if (!n1 || (plist_dict_get_size(n1) == 0)) {
+			error("%s: ERROR: Can't get MobileDeviceSoftwareVersions/%s dict\n", __func__, client->device->product);
+			return -1;
+		}
+	}
+
+	n2 = plist_access_path(n1, 2, "Update", "BuildVersion");
+	if (n2) {
+		strval = NULL;
+		plist_get_string_val(n2, &strval);
+		if (strval) {
+			n1 = plist_access_path(client->version_data, 5, "MobileDeviceSoftwareVersionsByVersion", majstr, "MobileDeviceSoftwareVersions", client->device->product, strval);
+			free(strval);
+			strval = NULL;
+		}
+	}
+
+	n2 = plist_access_path(n1, 2, "Restore", "FirmwareURL");
+	if (!n2 || (plist_get_node_type(n2) != PLIST_STRING)) {
+		error("%s: ERROR: Can't get FirmwareURL node\n", __func__);
+		return -1;
+	}
+
+	plist_get_string_val(n2, fwurl);
+
+	n2 = plist_access_path(n1, 2, "Restore", "FirmwareSHA1");
+	if (n2 && plist_get_node_type(n2) == PLIST_STRING) {
+		strval = NULL;
+		plist_get_string_val(n2, &strval);
+		if (strval) {
+			if (strlen(strval) == 40) {
+				int i;
+				int v;
+				for (i = 0; i < 40; i+=2) {
+					v = 0;
+					sscanf(strval+i, "%02x", &v);
+					sha1buf[i/2] = (unsigned char)v;
+				}
+			}
+			free(strval);
+		}
+	}
+
+	return 0;
+}
+
 int main(int argc, char* argv[]) {
 	int opt = 0;
 	int optindex = 0;
@@ -137,6 +286,7 @@ int main(int argc, char* argv[]) {
 	char* udid = NULL;
 	int tss_enabled = 0;
 	int shsh_only = 0;
+	int latest = 0;
 	char* shsh_dir = NULL;
 	use_apple_server=1;
 
@@ -148,7 +298,7 @@ int main(int argc, char* argv[]) {
 	}
 	memset(client, '\0', sizeof(struct idevicerestore_client_t));
 
-	while ((opt = getopt_long(argc, argv, "dhcesxtpi:u:", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -173,6 +323,10 @@ int main(int argc, char* argv[]) {
 
 		case 'x':
 			client->flags |= FLAG_EXCLUDE;
+			break;
+
+		case 'l':
+			latest = 1;
 			break;
 
 		case 'i':
@@ -207,7 +361,7 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	if (((argc-optind) == 1) || (client->flags & FLAG_PWN)) {
+	if (((argc-optind) == 1) || (client->flags & FLAG_PWN) || (latest)) {
 		argc -= optind;
 		argv += optind;
 
@@ -215,6 +369,13 @@ int main(int argc, char* argv[]) {
 	} else {
 		usage(argc, argv);
 		return -1;
+	}
+
+	if (latest) {
+		if (client->flags & FLAG_CUSTOM) {
+			error("ERROR: You can't use --custom and --latest options at the same time.\n");
+			return -1;
+		}
 	}
 
 	if (client->flags & FLAG_DEBUG) {
@@ -323,6 +484,76 @@ int main(int argc, char* argv[]) {
 		info("Device should be in pwned DFU state now.\n");
 
 		return 0;
+	}
+
+	if (latest) {
+		char* fwurl = NULL;
+		unsigned char isha1[20];
+		if ((get_latest_fw(client, &fwurl, isha1) < 0) || !fwurl) {
+			error("ERROR: can't get URL for latest firmware\n");
+			return -1;
+		}
+		char* fwfn = strrchr(fwurl, '/');
+		if (!fwfn) {
+			error("ERROR: can't get local filename for firmware ipsw\n");
+			return -1;
+		}
+		fwfn++;
+
+		char fwlfn[256];
+		sprintf(fwlfn, "cache/%s", fwfn);
+
+		int need_dl = 0;
+		FILE* f = fopen(fwlfn, "rb");
+		if (f) {
+			unsigned char zsha1[20] = {0, };
+			if (memcmp(zsha1, isha1, 20) != 0) {
+				unsigned char tsha1[20];
+				char buf[8192];
+				SHA_CTX sha1ctx;
+				info("Verifying '%s'...\n", fwlfn);
+				SHA1_Init(&sha1ctx);
+				while (!feof(f)) {
+					size_t sz = fread(buf, 1, 8192, f);
+					SHA1_Update(&sha1ctx, (const void*)buf, sz);
+				}
+				SHA1_Final(tsha1, &sha1ctx);
+				if (memcmp(isha1, tsha1, 20) == 0) {
+					info("Checksum matches.\n");
+				} else {
+					info("Checksum does not match.\n");
+					need_dl = 1;
+				}
+			}
+			fclose(f);
+		} else {
+			need_dl = 1;
+		}
+
+		int res = 0;
+		if (need_dl) {
+			if (strncmp(fwurl, "protected:", 10) == 0) {
+				error("ERROR: Can't download '%s' because it needs a purchase.\n", fwfn);
+				res = -1;
+			} else {
+				if (remove(fwlfn) == 0) {
+					info("Downloading latest firmware (%s)\n", fwurl);
+					download_to_file(fwurl, fwlfn);
+				} else {
+					error("ERROR: Can't remove '%s'\n", fwlfn);
+					res = -1;
+				}
+			}
+		}
+
+		if (res != 0) {
+			free(fwurl);
+			return res;
+		} else {
+			ipsw = strdup(fwlfn);
+			client->ipsw = ipsw;
+			free(fwurl);
+		}
 	}
 
 	if (client->mode->index == MODE_RESTORE) {

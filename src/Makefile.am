@@ -3,6 +3,7 @@ AM_CFLAGS =	                   \
 	$(libimobiledevice_CFLAGS) \
 	$(libplist_CFLAGS)         \
 	$(libzip_CFLAGS)           \
+	$(openssl_CFLAGS)          \
 	$(libcurl_CFLAGS)
 
 AM_LDFLAGS =\
@@ -10,6 +11,7 @@ AM_LDFLAGS =\
 	$(libimobiledevice_LIBS)   \
 	$(libplist_LIBS)           \
 	$(libzip_LIBS)             \
+	$(openssl_LIBS)            \
 	$(libcurl_LIBS)
 
 AM_LDADD = $(AC_LDADD)
