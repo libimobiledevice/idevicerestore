@@ -26,6 +26,7 @@
 #include <openssl/sha.h>
 
 #include "ipsw.h"
+#include "locking.h"
 #include "idevicerestore.h"
 
 #define BUFSIZE 0x100000
@@ -403,6 +404,15 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 	char fwlfn[256];
 	sprintf(fwlfn, "%s/%s", todir, fwfn);
 
+	char fwlock[256];
+	sprintf(fwlock, "%s.lock", fwlfn);
+
+	lock_info_t lockinfo;
+
+	if (lock_file(fwlock, &lockinfo) != 0) {
+		error("WARNING: Could not lock file '%s'\n", fwlock);
+	}
+
 	int need_dl = 0;
 	unsigned char zsha1[20] = {0, };
 	FILE* f = fopen(fwlfn, "rb");
@@ -452,5 +462,10 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 	if (res == 0) {
 		*ipswfile = strdup(fwlfn);
 	}
+
+	if (unlock_file(&lockinfo) != 0) {
+		error("WARNING: Could not unlock file '%s'\n", fwlock);
+	}
+
 	return res;
 }
