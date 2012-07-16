@@ -289,8 +289,14 @@ static int get_latest_fw(plist_t version_data, const char* product, char** fwurl
 	sprintf(majstr, FMT_qu, (long long unsigned int)major);
 	n1 = plist_access_path(version_data, 7, "MobileDeviceSoftwareVersionsByVersion", majstr, "MobileDeviceSoftwareVersions", product, "Unknown", "Universal", "Restore");
 	if (!n1) {
-		error("%s: ERROR: Can't get Unknown/Universal/Restore node?!\n", __func__);
-		return -1;
+		// if not found, increase major version number by one and try again
+		major++;
+		sprintf(majstr, FMT_qu, (long long unsigned int)major);
+		n1 = plist_access_path(version_data, 7, "MobileDeviceSoftwareVersionsByVersion", majstr, "MobileDeviceSoftwareVersions", product, "Unknown", "Universal", "Restore");
+		if (!n1) {
+			error("%s: ERROR: Can't get Unknown/Universal/Restore node?!\n", __func__);
+			return -1;
+		}
 	}
 
 	n2 = plist_dict_get_item(n1, "BuildVersion");
