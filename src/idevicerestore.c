@@ -40,6 +40,8 @@
 
 #include "limera1n.h"
 
+#include "locking.h"
+
 #define VERSION_XML "cache/version.xml"
 
 int use_apple_server;
@@ -94,6 +96,11 @@ static int load_version_data(struct idevicerestore_client_t* client)
 	struct stat fst;
 	int cached = 0;
 
+	lock_info_t lockinfo;
+	if (lock_file(VERSION_XML ".lock", &lockinfo) != 0) {
+		error("WARNING: could not lock file\n");
+	}
+
 	if ((stat(VERSION_XML, &fst) < 0) || ((time(NULL)-86400) > fst.st_mtime)) {
 		__mkdir("cache", 0755);
 
@@ -112,6 +119,11 @@ static int load_version_data(struct idevicerestore_client_t* client)
 	char *verbuf = NULL;
 	size_t verlen = 0;
 	read_file(VERSION_XML, (void**)&verbuf, &verlen);
+
+	if (unlock_file(&lockinfo) != 0) {
+		error("WARNING: could not unlock file\n");
+	}
+
 	if (!verbuf) {
 		error("ERROR: Could not load '" VERSION_XML "'.\n");
 		return -1;
