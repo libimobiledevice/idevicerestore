@@ -148,6 +148,114 @@ plist_t tss_create_request(plist_t build_identity, uint64_t ecid, unsigned char*
 	return tss_request;
 }
 
+plist_t tss_create_baseband_request(plist_t build_identity, uint64_t ecid, uint64_t bb_cert_id, unsigned char* bb_snum, uint64_t bb_snum_size, unsigned char* bb_nonce, int bb_nonce_size) {
+	uint64_t unique_build_size = 0;
+	char* unique_build_data = NULL;
+	plist_t unique_build_node = plist_dict_get_item(build_identity, "UniqueBuildID");
+	if (!unique_build_node || plist_get_node_type(unique_build_node) != PLIST_DATA) {
+		error("ERROR: Unable to find UniqueBuildID node\n");
+		return NULL;
+	}
+	plist_get_data_val(unique_build_node, &unique_build_data, &unique_build_size);
+
+	int chip_id = 0;
+	char* chip_id_string = NULL;
+	plist_t chip_id_node = plist_dict_get_item(build_identity, "ApChipID");
+	if (!chip_id_node || plist_get_node_type(chip_id_node) != PLIST_STRING) {
+		error("ERROR: Unable to find ApChipID node\n");
+		return NULL;
+	}
+	plist_get_string_val(chip_id_node, &chip_id_string);
+	sscanf(chip_id_string, "%x", &chip_id);
+
+	int board_id = 0;
+	char* board_id_string = NULL;
+	plist_t board_id_node = plist_dict_get_item(build_identity, "ApBoardID");
+	if (!board_id_node || plist_get_node_type(board_id_node) != PLIST_STRING) {
+		error("ERROR: Unable to find ApBoardID node\n");
+		return NULL;
+	}
+	plist_get_string_val(board_id_node, &board_id_string);
+	sscanf(board_id_string, "%x", &board_id);
+
+	int security_domain = 0;
+	char* security_domain_string = NULL;
+	plist_t security_domain_node = plist_dict_get_item(build_identity, "ApSecurityDomain");
+	if (!security_domain_node || plist_get_node_type(security_domain_node) != PLIST_STRING) {
+		error("ERROR: Unable to find ApSecurityDomain node\n");
+		return NULL;
+	}
+	plist_get_string_val(security_domain_node, &security_domain_string);
+	sscanf(security_domain_string, "%x", &security_domain);
+
+	char ecid_string[ECID_STRSIZE];
+	memset(ecid_string, '\0', ECID_STRSIZE);
+	if (ecid == 0) {
+		error("ERROR: Unable to get ECID\n");
+		return NULL;
+	}
+	snprintf(ecid_string, ECID_STRSIZE, FMT_qu, (long long unsigned int)ecid);
+
+	int bb_chip_id = 0;
+	char* bb_chip_id_string = NULL;
+	plist_t bb_chip_id_node = plist_dict_get_item(build_identity, "BbChipID");
+	if (!bb_chip_id_node || plist_get_node_type(bb_chip_id_node) != PLIST_STRING) {
+		error("ERROR: Unable to find BbChipID node\n");
+		return NULL;
+	}
+	plist_get_string_val(bb_chip_id_node, &bb_chip_id_string);
+	sscanf(bb_chip_id_string, "%x", &bb_chip_id);
+
+	plist_t bb_skey_id_node = plist_dict_get_item(build_identity, "BbSkeyId");
+	if (!bb_skey_id_node || plist_get_node_type(bb_skey_id_node) != PLIST_DATA) {
+		error("ERROR: Unable to find BbSkeyId node\n");
+		return NULL;
+	}
+
+	plist_t bbfw_node = plist_access_path(build_identity, 2, "Manifest", "BasebandFirmware");
+	if (!bbfw_node || plist_get_node_type(bbfw_node) != PLIST_DICT) {
+		error("ERROR: Unable to get BasebandFirmware node\n");
+		return NULL;
+	}
+	
+	// Add build information to TSS request
+	plist_t tss_request = plist_new_dict();
+	plist_dict_insert_item(tss_request, "@BBTicket", plist_new_bool(1));
+	plist_dict_insert_item(tss_request, "@HostIpAddress", plist_new_string("192.168.0.1"));
+	plist_dict_insert_item(tss_request, "@HostPlatformInfo", plist_new_string("mac"));
+	plist_dict_insert_item(tss_request, "@Locality", plist_new_string("en_US"));
+
+	char* guid = generate_guid();
+	if (guid) {
+		plist_dict_insert_item(tss_request, "@UUID", plist_new_string(guid));
+		free(guid);
+	}
+	plist_dict_insert_item(tss_request, "@VersionInfo", plist_new_string("libauthinstall-107.3"));
+	plist_dict_insert_item(tss_request, "ApBoardID", plist_new_uint(board_id));
+	plist_dict_insert_item(tss_request, "ApChipID", plist_new_uint(chip_id));
+	plist_dict_insert_item(tss_request, "ApECID", plist_new_string(ecid_string));
+	plist_dict_insert_item(tss_request, "ApProductionMode", plist_new_bool(1));
+	plist_dict_insert_item(tss_request, "ApSecurityDomain", plist_new_uint(security_domain));
+	plist_dict_insert_item(tss_request, "BasebandFirmware", plist_copy(bbfw_node));
+	plist_dict_insert_item(tss_request, "BbChipID", plist_new_uint(bb_chip_id));
+	plist_dict_insert_item(tss_request, "BbGoldCertId", plist_new_uint(bb_cert_id));
+	if (bb_nonce && (bb_nonce_size > 0)) {
+		plist_dict_insert_item(tss_request, "BbNonce", plist_new_data(bb_nonce, bb_nonce_size));
+	}
+	if (bb_snum && bb_snum_size > 0) {
+		plist_dict_insert_item(tss_request, "BbSNUM", plist_new_data(bb_snum, bb_snum_size));
+	}
+	plist_dict_insert_item(tss_request, "BbSkeyId", plist_copy(bb_skey_id_node));
+	plist_dict_insert_item(tss_request, "UniqueBuildID", plist_new_data(unique_build_data, unique_build_size));
+	free(unique_build_data);
+
+	if (idevicerestore_debug) {
+		debug_plist(tss_request);
+	}
+
+	return tss_request;
+}
+
 size_t tss_write_callback(char* data, size_t size, size_t nmemb, tss_response* response) {
 	size_t total = size * nmemb;
 	if (total != 0) {
@@ -228,6 +336,12 @@ plist_t tss_send_request(plist_t tss_request) {
 			free(response);
 			sleep(2);
 			continue;
+		} else if (status_code == 8) {
+			// server error (invalid bb request?)
+			break;
+		} else if (status_code == 49) {
+			// server error (invalid bb data, e.g. BbSNUM?)
+			break;
 		} else if (status_code == 94) {
 			// This device isn't eligible for the requested build.
 			break;
