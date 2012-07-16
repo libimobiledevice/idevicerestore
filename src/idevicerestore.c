@@ -95,17 +95,11 @@ static int load_version_data(struct idevicerestore_client_t* client)
 	int cached = 0;
 
 	if ((stat(VERSION_XML, &fst) < 0) || ((time(NULL)-86400) > fst.st_mtime)) {
-		char tmpf[256];
-		tmpf[0] = '\0';
-		if (!tmpnam(tmpf) || (tmpf[0] == '\0')) {
-			error("ERROR: Could not get temporary filename\n");
-			return -1;
-		}
+		__mkdir("cache", 0755);
 
-		if (download_to_file("http://ax.itunes.apple.com/check/version", tmpf) == 0) {
-			__mkdir("cache", 0755);
+		if (download_to_file("http://ax.itunes.apple.com/check/version",  VERSION_XML ".tmp") == 0) {
 			remove(VERSION_XML);
-			if (rename(tmpf, VERSION_XML) < 0) {
+			if (rename(VERSION_XML ".tmp", VERSION_XML) < 0) {
 				error("ERROR: Could not update '" VERSION_XML "'\n");
 			} else {
 				info("NOTE: Updated version data.\n");
@@ -125,6 +119,7 @@ static int load_version_data(struct idevicerestore_client_t* client)
 
 	client->version_data = NULL;
 	plist_from_xml(verbuf, verlen, &client->version_data);
+	free(verbuf);
 
 	if (!client->version_data) {
 		error("ERROR: Cannot parse plist data from '" VERSION_XML "'.\n");
