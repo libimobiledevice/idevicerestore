@@ -23,8 +23,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libimobiledevice/restore.h>
+#include <zip.h>
 
 #include "asr.h"
+#include "fls.h"
 #include "tss.h"
 #include "common.h"
 #include "restore.h"
@@ -510,6 +512,35 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 	return result;
 }
 
+int restore_handle_bb_update_status_msg(restored_client_t client, plist_t msg)
+{
+	int result = -1;
+	plist_t node = plist_dict_get_item(msg, "Accepted");
+	uint8_t accepted = 0;
+	plist_get_bool_val(node, &accepted);
+	debug_plist(msg);
+
+	if (!accepted) {
+		error("ERROR: device didn't accept BasebandData\n");
+		return result;
+	}
+
+	uint8_t done = 0;
+	node = plist_access_path(msg, 2, "Output", "done");
+	if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
+		plist_get_bool_val(node, &done);
+	}
+
+	if (done) {
+		info("Updating Baseband completed.\n");
+	} else {
+		info("Updating Baseband in progress...\n");
+	}
+	result = 0;
+
+	return result;
+}
+
 int restore_send_filesystem(idevice_t device, const char* filesystem) {
 	int i = 0;
 	FILE* file = NULL;
@@ -737,6 +768,492 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	return 0;
 }
 
+int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
+{
+	int res = -1;
+	uint64_t bb_cert_id = 0;
+	unsigned char* bb_snum = NULL;
+	uint64_t bb_snum_size = 0;
+	unsigned char* bb_nonce = NULL;
+	uint64_t bb_nonce_size = 0;
+
+	// setup request data
+	plist_t arguments = plist_dict_get_item(message, "Arguments");
+	if (arguments && plist_get_node_type(arguments) == PLIST_DICT) {
+		plist_t bb_cert_id_node = plist_dict_get_item(arguments, "CertID");
+		if (bb_cert_id_node && plist_get_node_type(bb_cert_id_node) == PLIST_UINT) {
+			plist_get_uint_val(bb_cert_id_node, &bb_cert_id);
+		}
+		plist_t bb_snum_node = plist_dict_get_item(arguments, "ChipSerialNo");
+		if (bb_snum_node && plist_get_node_type(bb_snum_node) == PLIST_DATA) {
+			plist_get_data_val(bb_snum_node, (char**)&bb_snum, &bb_snum_size);
+		}
+		plist_t bb_nonce_node = plist_dict_get_item(arguments, "Nonce");
+		if (bb_nonce_node && plist_get_node_type(bb_nonce_node) == PLIST_DATA) {
+			plist_get_data_val(bb_nonce_node, (char**)&bb_nonce, &bb_nonce_size);
+		}
+	}
+
+	// create Baseband TSS request
+	plist_t request = tss_create_baseband_request(build_identity, client->ecid, bb_cert_id, bb_snum, bb_snum_size, bb_nonce, bb_nonce_size);
+	if (request == NULL) {
+		error("ERROR: Unable to create Baseand TSS request\n");
+		return -1;
+	}
+
+	// send Baseband TSS request
+	debug_plist(request);
+	info("Sending Baseband TSS request... ");
+	plist_t response = tss_send_request(request);
+	plist_free(request);
+	if (response == NULL) {
+		error("ERROR: Unable to fetch Baseband TSS\n");
+		return -1;
+	}
+	debug_plist(response);
+
+	// check for BBTicket in result
+	plist_t bbticket = plist_dict_get_item(response, "BBTicket");
+	if (!bbticket || plist_get_node_type(bbticket) != PLIST_DATA) {
+		error("ERROR: Could not find BBTicket in Baseband TSS response\n");
+		free(response);
+		return -1;
+	}
+
+	// check for RamPSI-Blob in result
+	plist_t rampsi = plist_access_path(response, 2, "BasebandFirmware", "RamPSI-Blob");
+	if (!rampsi || plist_get_node_type(rampsi) != PLIST_DATA) {
+		error("ERROR: Could not find RamPSI-Blob in Baseband TSS response\n");
+		free(response);
+		return -1;
+	}
+
+	// check for FlashPSI-Blob in result
+	plist_t flashpsi = plist_access_path(response, 2, "BasebandFirmware", "FlashPSI-Blob");
+	if (!flashpsi || plist_get_node_type(flashpsi) != PLIST_DATA) {
+		error("ERROR: Could not find FlashPSI-Blob in Baseband TSS response\n");
+		free(response);
+		return -1;
+	}
+
+	// get baseband firmware file path from build identity
+	plist_t bbfw_path = plist_access_path(build_identity, 4, "Manifest", "BasebandFirmware", "Info", "Path");
+	if (!bbfw_path || plist_get_node_type(bbfw_path) != PLIST_STRING) {
+		error("ERROR: Unable to get BasebandFirmware/Info/Path node\n");
+		free(response);
+		return -1;
+	}
+	char* bbfwpath = NULL;
+	plist_get_string_val(bbfw_path, &bbfwpath);	
+	if (!bbfwpath) {
+		error("ERROR: Unable to get baseband path\n");
+		free(response);
+		return -1;
+	}
+
+	// extract baseband firmware to temp file
+	char* bbfwtmp = tempnam(NULL, "bbfw_");
+	if (!bbfwtmp) {
+		error("WARNING: Could not generate temporary filename, using bbfw.tmp\n");
+		bbfwtmp = strdup("bbfw.tmp");
+	}
+	if (ipsw_extract_to_file(client->ipsw, bbfwpath, bbfwtmp) != 0) {
+		error("ERROR: Unable to extract baseband firmware from ipsw\n");
+		free(response);
+		return -1;
+	}
+
+	unsigned char* buffer = NULL;
+	unsigned char* blob = NULL;
+	unsigned char* flsdata = NULL;
+	off_t flssize = 0;
+	uint64_t blob_size = 0;
+	int zerr = 0;
+	int zindex = -1;
+	int size = 0;
+	struct zip_stat zstat;
+	struct zip_file* zfile = NULL;
+	struct zip* za = NULL;
+	struct zip_source* zs = NULL;
+	fls_file* fls = NULL;
+
+	za = zip_open(bbfwtmp, 0, &zerr);
+	if (!za) {
+		error("ERROR: Could not open ZIP archive '%s': %d\n", bbfwtmp, zerr);
+		goto leave;
+	}
+
+	if (!bb_nonce) {
+		// just sign psi_ram.fls
+		zindex = zip_name_locate(za, "psi_ram.fls", 0);
+		if (zindex < 0) {
+			error("ERROR: can't locate 'psi_ram.fls' in '%s'\n", bbfwtmp);
+			goto leave;
+		}
+
+		zip_stat_init(&zstat);
+		if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
+			error("ERROR: zip_stat_index failed for index %d\n", zindex);
+			goto leave;
+		}
+
+		zfile = zip_fopen_index(za, zindex, 0);
+		if (zfile == NULL) {
+			error("ERROR: zip_fopen_index failed for index %d\n", zindex);
+			goto leave;
+		}
+
+		size = zstat.size;
+		buffer = (unsigned char*) malloc(size+1);
+		if (buffer == NULL) {
+			error("ERROR: Out of memory\n");
+			goto leave;
+		}
+
+		if (zip_fread(zfile, buffer, size) != size) {
+			error("ERROR: zip_fread: failed\n");
+			goto leave;
+		}
+		buffer[size] = '\0';
+
+		zip_fclose(zfile);
+		zfile = NULL;
+
+		fls = fls_parse(buffer, size);
+		free(buffer);
+		buffer = NULL;
+		if (!fls) {
+			error("ERROR: could not parse fls file\n");
+			goto leave;
+		}
+
+		blob = NULL;
+		blob_size = 0;
+		plist_get_data_val(rampsi, (char**)&blob, &blob_size);
+		if (!blob) {
+			error("ERROR: could not get RamPSI-Blob data\n");
+			goto leave;
+		}
+
+		if (fls_update_sig_blob(fls, blob, (unsigned int)blob_size) != 0) {
+			error("ERROR: could not sign psi_ram.fls\n");
+			goto leave;
+		}
+		free(blob);
+		blob = NULL;
+
+		// remove all files from zip
+		int i;
+		int numf = zip_get_num_files(za);
+		for (i = 0; i < numf; i++) {
+			zip_delete(za, i);
+		}
+
+		flssize = fls->size;
+		flsdata = (unsigned char*)malloc(flssize);
+		memcpy(flsdata, fls->data, flssize);
+		fls_free(fls);
+		fls = NULL;
+
+		zs = zip_source_buffer(za, flsdata, flssize, 1);
+		if (!zs) {
+			error("ERROR: out of memory\n");
+			goto leave;
+		}
+
+		if (zip_add(za, "psi_ram.fls", zs) == -1) {
+			error("ERROR: could not add signed psi_ram.fls to archive\n");
+			goto leave;
+		}
+	} else {
+		// sign psi_ram.fls
+		zindex = zip_name_locate(za, "psi_ram.fls", 0);
+		if (zindex < 0) {
+			error("ERROR: can't locate 'psi_ram.fls' in '%s'\n", bbfwtmp);
+			goto leave;
+		}
+
+		zip_stat_init(&zstat);
+		if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
+			error("ERROR: zip_stat_index failed for index %d\n", zindex);
+			goto leave;
+		}
+
+		zfile = zip_fopen_index(za, zindex, 0);
+		if (zfile == NULL) {
+			error("ERROR: zip_fopen_index failed for index %d\n", zindex);
+			goto leave;
+		}
+
+		size = zstat.size;
+		buffer = (unsigned char*) malloc(size+1);
+		if (buffer == NULL) {
+			error("ERROR: Out of memory\n");
+			goto leave;
+		}
+
+		if (zip_fread(zfile, buffer, size) != size) {
+			error("ERROR: zip_fread: failed\n");
+			goto leave;
+		}
+		buffer[size] = '\0';
+
+		zip_fclose(zfile);
+		zfile = NULL;
+
+		fls = fls_parse(buffer, size);
+		free(buffer);
+		buffer = NULL;
+		if (!fls) {
+			error("ERROR: could not parse fls file\n");
+			goto leave;
+		}
+
+		blob = NULL;
+		blob_size = 0;
+		plist_get_data_val(rampsi, (char**)&blob, &blob_size);
+		if (!blob) {
+			error("ERROR: could not get RamPSI-Blob data\n");
+			goto leave;
+		}
+
+		if (fls_update_sig_blob(fls, blob, (unsigned int)blob_size) != 0) {
+			error("ERROR: could not sign psi_ram.fls\n");
+			goto leave;
+		}
+		free(blob);
+		blob = NULL;
+
+		flssize = fls->size;
+		flsdata = (unsigned char*)malloc(flssize);
+		memcpy(flsdata, fls->data, flssize);
+		fls_free(fls);
+		fls = NULL;
+
+		zs = zip_source_buffer(za, flsdata, flssize, 1);
+		if (!zs) {
+			error("ERROR: out of memory\n");
+			goto leave;
+		}
+
+		if (zip_replace(za, zindex, zs) == -1) {
+			error("ERROR: could not add signed psi_ram.fls to archive\n");
+			goto leave;
+		}
+
+		// sign psi_flash.fls
+		zindex = zip_name_locate(za, "psi_flash.fls", 0);
+		if (zindex < 0) {
+			error("ERROR: can't locate 'psi_flash.fls' in '%s'\n", bbfwtmp);
+			goto leave;
+		}
+
+		zip_stat_init(&zstat);
+		if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
+			error("ERROR: zip_stat_index failed for index %d\n", zindex);
+			goto leave;
+		}
+
+		zfile = zip_fopen_index(za, zindex, 0);
+		if (zfile == NULL) {
+			error("ERROR: zip_fopen_index failed for index %d\n", zindex);
+			goto leave;
+		}
+
+		size = zstat.size;
+		buffer = (unsigned char*) malloc(size+1);
+		if (buffer == NULL) {
+			error("ERROR: Out of memory\n");
+			goto leave;
+		}
+
+		if (zip_fread(zfile, buffer, size) != size) {
+			error("ERROR: zip_fread: failed\n");
+			goto leave;
+		}
+		buffer[size] = '\0';
+
+		zip_fclose(zfile);
+		zfile = NULL;
+
+		fls = fls_parse(buffer, size);
+		free(buffer);
+		buffer = NULL;
+		if (!fls) {
+			error("ERROR: could not parse fls file\n");
+			goto leave;
+		}
+
+		blob = NULL;
+		blob_size = 0;
+		plist_get_data_val(flashpsi, (char**)&blob, &blob_size);
+		if (!blob) {
+			error("ERROR: could not get FlashPSI-Blob data\n");
+			goto leave;
+		}
+
+		if (fls_update_sig_blob(fls, blob, (unsigned int)blob_size) != 0) {
+			error("ERROR: could not sign psi_flash.fls\n");
+			goto leave;
+		}
+		free(blob);
+		blob = NULL;
+
+		flssize = fls->size;
+		flsdata = (unsigned char*)malloc(flssize);
+		memcpy(flsdata, fls->data, flssize);
+		fls_free(fls);
+		fls = NULL;
+
+		zs = zip_source_buffer(za, flsdata, flssize, 1);
+		if (!zs) {
+			error("ERROR: out of memory\n");
+			goto leave;
+		}
+
+		if (zip_replace(za, zindex, zs) == -1) {
+			error("ERROR: could not add signed psi_flash.fls to archive\n");
+			goto leave;
+		}
+
+		// add ticket to ebl.fls
+		zindex = zip_name_locate(za, "ebl.fls", 0);
+		if (zindex < 0) {
+			error("ERROR: can't locate 'ebl.fls' in '%s'\n", bbfwtmp);
+			goto leave;
+		}
+
+		zip_stat_init(&zstat);
+		if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
+			error("ERROR: zip_stat_index failed for index %d\n", zindex);
+			goto leave;
+		}
+
+		zfile = zip_fopen_index(za, zindex, 0);
+		if (zfile == NULL) {
+			error("ERROR: zip_fopen_index failed for index %d\n", zindex);
+			goto leave;
+		}
+
+		size = zstat.size;
+		buffer = (unsigned char*) malloc(size+1);
+		if (buffer == NULL) {
+			error("ERROR: Out of memory\n");
+			goto leave;
+		}
+
+		if (zip_fread(zfile, buffer, size) != size) {
+			error("ERROR: zip_fread: failed\n");
+			goto leave;
+		}
+		buffer[size] = '\0';
+
+		zip_fclose(zfile);
+		zfile = NULL;
+
+		fls = fls_parse(buffer, size);
+		free(buffer);
+		buffer = NULL;
+		if (!fls) {
+			error("ERROR: could not parse fls file\n");
+			goto leave;
+		}
+
+		blob = NULL;
+		blob_size = 0;
+		plist_get_data_val(bbticket, (char**)&blob, &blob_size);
+		if (!blob) {
+			error("ERROR: could not get BBTicket data\n");
+			goto leave;
+		}
+
+		if (fls_insert_ticket(fls, blob, (unsigned int)blob_size) != 0) {
+			error("ERROR: could not insert BBTicket to ebl.fls\n");
+			goto leave;
+		}
+		free(blob);
+		blob = NULL;
+
+		flssize = fls->size;
+		flsdata = (unsigned char*)malloc(flssize);
+		memcpy(flsdata, fls->data, flssize);
+		fls_free(fls);
+		fls = NULL;
+
+		zs = zip_source_buffer(za, flsdata, flssize, 1);
+		if (!zs) {
+			error("ERROR: out of memory\n");
+			goto leave;
+		}
+
+		if (zip_replace(za, zindex, zs) == -1) {
+			error("ERROR: could not add ticketed ebl.fls to archive\n");
+			goto leave;
+		}
+	}
+
+	// this will write out the modified zip
+	zip_close(za);
+	za = NULL;
+	zs = NULL;
+
+	buffer = NULL;
+	size_t sz = 0;
+	if (read_file(bbfwtmp, (void**)&buffer, &sz) < 0) {
+		error("ERROR: could not read updated bbfw archive\n");
+		goto leave;
+	}
+
+	// send file
+	plist_t dict = plist_new_dict();
+	plist_dict_insert_item(dict, "BasebandData", plist_new_data(buffer, (uint64_t)sz));
+	free(buffer);
+	buffer = NULL;
+
+	if (restored_send(restore, dict) != RESTORE_E_SUCCESS) {
+		error("ERROR: Unable to send BasebandData data\n");
+		goto leave;
+	}
+
+	plist_free(dict);
+	dict = NULL;
+
+	res = 0;
+
+leave:
+	if (dict) {
+		plist_free(dict);
+	}
+	if (fls) {
+		fls_free(fls);
+	}
+	if (zfile) {
+		zip_fclose(zfile);
+	}
+	if (zs) {
+		zip_source_free(zs);
+	}
+	if (za) {
+		zip_unchange_all(za);
+		zip_close(za);
+	}
+	if (buffer) {
+		free(buffer);
+	}
+	if (blob) {
+		free(blob);
+	}
+	if (bbfwtmp) {
+		remove(bbfwtmp);
+		free(bbfwtmp);
+	}
+	if (response) {
+		free(response);
+	}
+
+	return res;
+}
+
 int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t build_identity, const char* filesystem) {
 	char* type = NULL;
 	plist_t node = NULL;
@@ -780,6 +1297,13 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 			} else {
 				info("Not sending NORData... Quitting...\n");
 				client->flags |= FLAG_QUIT;
+			}
+		}
+
+		else if (!strcmp(type, "BasebandData")) {
+			if(restore_send_baseband_data(restore, client, build_identity, message) < 0) {
+				error("ERROR: Unable to send baseband data\n");
+				return -1;
 			}
 
 		} else {
@@ -927,6 +1451,11 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			if (restore_finished) {
 				client->flags |= FLAG_QUIT;
 			}
+		}
+
+		// baseband update message
+		else if (!strcmp(type, "BBUpdateStatusMsg")) {
+			error = restore_handle_bb_update_status_msg(restore, message);
 		}
 
 		// there might be some other message types i'm not aware of, but I think
