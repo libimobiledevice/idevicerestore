@@ -42,6 +42,7 @@ int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest, int *t
 int ipsw_extract_restore_plist(const char* ipsw, plist_t* restore_plist);
 void ipsw_free_file(ipsw_file* file);
 
+int ipsw_get_latest_fw(plist_t version_data, const char* product, char** fwurl, unsigned char* sha1buf);
 int ipsw_download_latest_fw(plist_t version_data, const char* product, const char* todir, char** ipswfile);
 
 #ifdef __cplusplus

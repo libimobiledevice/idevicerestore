@@ -222,7 +222,7 @@ void ipsw_close(ipsw_archive* archive) {
 	}
 }
 
-static int get_latest_fw(plist_t version_data, const char* product, char** fwurl, unsigned char* sha1buf)
+int ipsw_get_latest_fw(plist_t version_data, const char* product, char** fwurl, unsigned char* sha1buf)
 {
 	*fwurl = NULL;
 	memset(sha1buf, '\0', 20);
@@ -394,7 +394,7 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 
 	*ipswfile = NULL;
 
-	if ((get_latest_fw(version_data, product, &fwurl, isha1) < 0) || !fwurl) {
+	if ((ipsw_get_latest_fw(version_data, product, &fwurl, isha1) < 0) || !fwurl) {
 		error("ERROR: can't get URL for latest firmware\n");
 		return -1;
 	}
