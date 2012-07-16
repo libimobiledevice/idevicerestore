@@ -20,10 +20,10 @@
  */
 #ifndef LOCKING_H
 #define LOCKING_H
+#include <stdio.h>
 #ifdef WIN32
 #include <windows.h>
 #else
-#include <stdio.h>
 #include <fcntl.h>
 #endif
 
