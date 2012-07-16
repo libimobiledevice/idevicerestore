@@ -47,6 +47,7 @@ extern "C" {
 #define FLAG_CUSTOM          8
 #define FLAG_EXCLUDE        16
 #define FLAG_PWN            32
+#define FLAG_NOACTION       64
 
 extern int use_apple_server;
 

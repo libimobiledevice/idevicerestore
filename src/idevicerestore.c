@@ -57,6 +57,7 @@ static struct option longopts[] = {
 	{ "exclude", no_argument,       NULL, 'x' },
 	{ "shsh",    no_argument,       NULL, 't' },
 	{ "pwn",     no_argument,       NULL, 'p' },
+	{ "no-action", no_argument,     NULL, 'n' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -80,6 +81,8 @@ void usage(int argc, char* argv[]) {
 	printf("  -x|--exclude    exclude nor/baseband upgrade\n");
 	printf("  -t|--shsh       fetch TSS record and save to .shsh file, then exit\n");
 	printf("  -p|--pwn        Put device in pwned DFU mode and exit (limera1n devices only)\n");
+	printf("  -n|--no-action  Do not perform any restore action. If combined with -l option\n");
+	printf("                  the on demand ipsw download is performed before exiting.\n");
 	printf("\n");
 }
 
@@ -298,7 +301,7 @@ int main(int argc, char* argv[]) {
 	}
 	memset(client, '\0', sizeof(struct idevicerestore_client_t));
 
-	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:n", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -353,6 +356,10 @@ int main(int argc, char* argv[]) {
 
 		case 'p':
 			client->flags |= FLAG_PWN;
+			break;
+
+		case 'n':
+			client->flags |= FLAG_NOACTION;
 			break;
 
 		default:
@@ -554,6 +561,10 @@ int main(int argc, char* argv[]) {
 			client->ipsw = ipsw;
 			free(fwurl);
 		}
+	}
+
+	if (client->flags & FLAG_NOACTION) {
+		return 0;
 	}
 
 	if (client->mode->index == MODE_RESTORE) {
