@@ -373,7 +373,7 @@ int main(int argc, char* argv[]) {
 	if (client->mode->index == MODE_RESTORE) {
 		if (restore_reboot(client) < 0) {
 			error("ERROR: Unable to exit restore mode\n");
-			return -1;
+			return -2;
 		}
 
 		// we need to refresh the current mode again
@@ -700,7 +700,7 @@ int main(int argc, char* argv[]) {
 				plist_free(client->tss);
 			if (filesystem)
 				unlink(filesystem);
-			return -1;
+			return -2;
 		}
 	}
 
@@ -712,7 +712,7 @@ int main(int argc, char* argv[]) {
 			error("ERROR: Unable to send iBEC\n");
 			if (filesystem)
 				unlink(filesystem);
-			return -1;
+			return -2;
 		}
 		recovery_client_free(client);
 	
@@ -786,7 +786,7 @@ int main(int argc, char* argv[]) {
 				plist_free(client->tss);
 			if (filesystem)
 				unlink(filesystem);
-			return -1;
+			return -2;
 		}
 
 		info("waiting for device...\n");

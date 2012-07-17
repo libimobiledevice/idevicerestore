@@ -1382,7 +1382,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	// open our connection to the device and verify we're in restore mode
 	if (restore_open_with_timeout(client) < 0) {
 		error("ERROR: Unable to open device in restore mode\n");
-		return -1;
+		return -2;
 	}
 	info("Device has successfully entered restore mode\n");
 
