@@ -299,10 +299,21 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 	return (strcasecmp(this_srnm, client->srnm) == 0);
 }
 
+static void restore_device_event_cb(const idevice_event_t *event, void *user_data)
+{
+	if (event->event == IDEVICE_DEVICE_ADD) {
+		struct idevicerestore_client_t* client = (struct idevicerestore_client_t*)user_data;
+		if (restore_is_current_device(client, event->udid)) {
+			restore_device_connected = 1;
+			client->udid = strdup(event->udid);
+		}
+	}
+}
+
 int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 	int i = 0;
 	int j = 0;
-	int attempts = 20;
+	int attempts = 180;
 	char *type = NULL;
 	uint64_t version = 0;
 	idevice_t device = NULL;
@@ -332,38 +343,19 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 
 	restore_device_connected = 0;
 
-	info("trying to connect...\n");
-	for (i = 0; i < attempts; i++) {
-		int num_devices = 0;
-		char **devices = NULL;
-		idevice_get_device_list(&devices, &num_devices);
-		if (num_devices == 0) {
-			sleep(2);
-			continue;
-		}
-		for (j = 0; j < num_devices; j++) {
-			if (restore_is_current_device(client, devices[j])) {
-				restore_device_connected = 1;
-				client->udid = strdup(devices[j]);
-				break;
-			}
-		}
-		idevice_device_list_free(devices);
-
-		if (restore_device_connected == 1) {
+	info("Waiting for device...\n");
+	idevice_event_subscribe(restore_device_event_cb, client);
+	i = 0;
+	while (i++ < attempts) {
+		if (restore_device_connected) {
 			break;
 		}
-
-		if (i == attempts) {
-			error("ERROR: Unable to connect to device in restore mode\n");
-			return -1;
-		}
-
-		sleep(2);
+		sleep(1);
 	}
+	idevice_event_unsubscribe();
 
 	if (!restore_device_connected) {
-		error("hm... could not connect\n");
+		error("ERROR: Unable to connect to device in restore mode\n");
 		return -1;
 	}
 
