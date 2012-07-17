@@ -657,6 +657,8 @@ int main(int argc, char* argv[]) {
 			if (client->tss)
 				plist_free(client->tss);
 			plist_free(buildmanifest);
+			if (filesystem)
+				unlink(filesystem);
 			return -1;
 		}
 	}
@@ -667,6 +669,8 @@ int main(int argc, char* argv[]) {
 		if (client->flags & FLAG_CUSTOM) {
 			info("connecting to DFU\n");
 			if (dfu_client_new(client) < 0) {
+				if (filesystem)
+					unlink(filesystem);
 				return -1;
 			}
 			info("exploiting with limera1n\n");
@@ -674,6 +678,8 @@ int main(int argc, char* argv[]) {
 			if (limera1n_exploit(client->device, client->dfu->client) != 0) {
 				error("ERROR: limera1n exploit failed\n");
 				dfu_client_free(client);
+				if (filesystem)
+					unlink(filesystem);
 				return -1;
 			}
 			dfu_client_free(client);
@@ -684,6 +690,8 @@ int main(int argc, char* argv[]) {
 			plist_free(buildmanifest);
 			if (client->tss)
 				plist_free(client->tss);
+			if (filesystem)
+				unlink(filesystem);
 			return -1;
 		}
 	}
@@ -694,6 +702,8 @@ int main(int argc, char* argv[]) {
 		/* now we load the iBEC */
 		if (recovery_send_ibec(client, build_identity) < 0) {
 			error("ERROR: Unable to send iBEC\n");
+			if (filesystem)
+				unlink(filesystem);
 			return -1;
 		}
 		recovery_client_free(client);
@@ -711,6 +721,8 @@ int main(int argc, char* argv[]) {
 		if (get_nonce(client, &nonce, &nonce_size) < 0) {
 			error("ERROR: Unable to get nonce from device!\n");
 			recovery_send_reset(client);
+			if (filesystem)
+				unlink(filesystem);
 			return -1;
 		}
 
@@ -737,10 +749,14 @@ int main(int argc, char* argv[]) {
 			plist_free(client->tss);
 			if (get_shsh_blobs(client, client->ecid, client->nonce, client->nonce_size, build_identity, &client->tss) < 0) {
 				error("ERROR: Unable to get SHSH blobs for this device\n");
+				if (filesystem)
+					unlink(filesystem);
 				return -1;
 			}
 			if (!client->tss) {
 				error("ERROR: can't continue without TSS\n");
+				if (filesystem)
+					unlink(filesystem);
 				return -1;
 			}
 			fixup_tss(client->tss);
@@ -751,6 +767,8 @@ int main(int argc, char* argv[]) {
 	if (client->mode->index == MODE_RECOVERY) {
 		if (client->srnm == NULL) {
 			error("ERROR: could not retrieve device serial number. Can't continue.\n");
+			if (filesystem)
+				unlink(filesystem);
 			return -1;
 		}
 		if (recovery_enter_restore(client, build_identity) < 0) {
@@ -758,6 +776,8 @@ int main(int argc, char* argv[]) {
 			plist_free(buildmanifest);
 			if (client->tss)
 				plist_free(client->tss);
+			if (filesystem)
+				unlink(filesystem);
 			return -1;
 		}
 	}
@@ -767,6 +787,8 @@ int main(int argc, char* argv[]) {
 		info("About to restore device... \n");
 		if (restore_device(client, build_identity, filesystem) < 0) {
 			error("ERROR: Unable to restore device\n");
+			if (filesystem)
+				unlink(filesystem);
 			return -1;
 		}
 	}
