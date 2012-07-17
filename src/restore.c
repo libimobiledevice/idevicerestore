@@ -1219,6 +1219,7 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 			error("ERROR: Unable to fetch Baseband TSS\n");
 			return -1;
 		}
+		info("received Baseband SHSH blobs\n");
 
 		if (idevicerestore_debug)
 			debug_plist(response);
