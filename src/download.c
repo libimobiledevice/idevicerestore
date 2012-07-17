@@ -93,7 +93,7 @@ int download_progress(void *clientp, double dltotal, double dlnow, double ultota
 
 	if (p < 100.0f) {
 		if ((int)p > lastprogress) {
-			print_progress_bar(p);
+			info("downloading: %d%%\n", (int)p);
 			lastprogress = (int)p;
 		}
 	}
