@@ -1478,5 +1478,5 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	}
 
 	restore_client_free(client);
-	return 0;
+	return error;
 }
