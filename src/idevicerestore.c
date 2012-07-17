@@ -646,6 +646,18 @@ int main(int argc, char* argv[]) {
 		fixup_tss(client->tss);
 	}
 
+	// if the device is in normal mode, place device into recovery mode
+	if (client->mode->index == MODE_NORMAL) {
+		info("Entering recovery mode...\n");
+		if (normal_enter_recovery(client) < 0) {
+			error("ERROR: Unable to place device into recovery mode from %s mode\n", client->mode->string);
+			if (client->tss)
+				plist_free(client->tss);
+			plist_free(buildmanifest);
+			return -2;
+		}
+	}
+
 	// Extract filesystem from IPSW and return its name
 	char* filesystem = NULL;
 	if (ipsw_extract_filesystem(client->ipsw, build_identity, &filesystem) < 0) {
@@ -654,20 +666,6 @@ int main(int argc, char* argv[]) {
 			plist_free(client->tss);
 		plist_free(buildmanifest);
 		return -1;
-	}
-
-	// if the device is in normal mode, place device into recovery mode
-	if (client->mode->index == MODE_NORMAL) {
-		info("Entering recovery mode...\n");
-		if (normal_enter_recovery(client) < 0) {
-			error("ERROR: Unable to place device into recovery mode\n");
-			if (client->tss)
-				plist_free(client->tss);
-			plist_free(buildmanifest);
-			if (filesystem)
-				unlink(filesystem);
-			return -1;
-		}
 	}
 
 	// if the device is in DFU mode, place device into recovery mode
