@@ -1425,6 +1425,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		if (node && plist_get_node_type(node) == PLIST_STRING) {
 			plist_get_string_val(node, &sval);
 			info("USB log is available:\n%s\n", sval);
+			free(sval);
 			sval = NULL;
 		}
 
@@ -1432,6 +1433,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		if (node && plist_get_node_type(node) == PLIST_STRING) {
 			plist_get_string_val(node, &sval);
 			info("Panic log is available:\n%s\n", sval);
+			free(sval);
 			sval = NULL;
 		}
 		plist_free(info);
