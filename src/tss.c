@@ -323,6 +323,12 @@ plist_t tss_send_request(plist_t tss_request) {
 	unsigned int size = 0;
 	char curl_error_message[CURL_ERROR_SIZE];
 
+	const char* urls[3] = {
+		"http://gs.apple.com/TSS/controller?action=2",
+		"http://17.171.36.30/TSS/controller?action=2",
+		"http://17.151.36.30/TSS/controller?action=2"
+	};
+
 	plist_to_xml(tss_request, &request, &size);
 
 	tss_response* response = NULL;
@@ -359,7 +365,9 @@ plist_t tss_send_request(plist_t tss_request) {
 		if (use_apple_server==0) {
 			curl_easy_setopt(handle, CURLOPT_URL, "http://cydia.saurik.com/TSS/controller?action=2");
 		} else {
-			curl_easy_setopt(handle, CURLOPT_URL, "http://gs.apple.com/TSS/controller?action=2");
+			int url_index = (retry - 1) % 3;
+			curl_easy_setopt(handle, CURLOPT_URL, urls[url_index]);
+			info("Request URL set to %s\n", urls[url_index]);
 		}
 
 		info("Sending TSS request attempt %d... ", retry);
