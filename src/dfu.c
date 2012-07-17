@@ -134,6 +134,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	char* path = NULL;
 	char* blob = NULL;
 	irecv_error_t error = 0;
+	int flag = 1;
 
 	if (client->tss) {
 		if (tss_get_entry_path(client->tss, component, &path) < 0) {
@@ -177,12 +178,13 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 		free(data);
 		data = newdata;
 		size += fillsize;
+		flag = 2;
 	}
 
 	info("Sending %s (%d bytes)...\n", component, size);
 
 	// FIXME: Did I do this right????
-	error = irecv_send_buffer(client->dfu->client, data, size, 1);
+	error = irecv_send_buffer(client->dfu->client, data, size, flag);
 	free(path);
 	if (error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(error));
