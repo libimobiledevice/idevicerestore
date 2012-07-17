@@ -151,6 +151,7 @@ plist_t tss_create_request(plist_t build_identity, uint64_t ecid, unsigned char*
 plist_t tss_create_baseband_request(plist_t build_identity, uint64_t ecid, uint64_t bb_cert_id, unsigned char* bb_snum, uint64_t bb_snum_size, unsigned char* bb_nonce, int bb_nonce_size) {
 	uint64_t unique_build_size = 0;
 	char* unique_build_data = NULL;
+
 	plist_t unique_build_node = plist_dict_get_item(build_identity, "UniqueBuildID");
 	if (!unique_build_node || plist_get_node_type(unique_build_node) != PLIST_DATA) {
 		error("ERROR: Unable to find UniqueBuildID node\n");
@@ -206,12 +207,6 @@ plist_t tss_create_baseband_request(plist_t build_identity, uint64_t ecid, uint6
 	plist_get_string_val(bb_chip_id_node, &bb_chip_id_string);
 	sscanf(bb_chip_id_string, "%x", &bb_chip_id);
 
-	plist_t bb_skey_id_node = plist_dict_get_item(build_identity, "BbSkeyId");
-	if (!bb_skey_id_node || plist_get_node_type(bb_skey_id_node) != PLIST_DATA) {
-		error("ERROR: Unable to find BbSkeyId node\n");
-		return NULL;
-	}
-
 	plist_t bbfw_node = plist_access_path(build_identity, 2, "Manifest", "BasebandFirmware");
 	if (!bbfw_node || plist_get_node_type(bbfw_node) != PLIST_DICT) {
 		error("ERROR: Unable to get BasebandFirmware node\n");
@@ -245,7 +240,26 @@ plist_t tss_create_baseband_request(plist_t build_identity, uint64_t ecid, uint6
 	if (bb_snum && bb_snum_size > 0) {
 		plist_dict_insert_item(tss_request, "BbSNUM", plist_new_data(bb_snum, bb_snum_size));
 	}
-	plist_dict_insert_item(tss_request, "BbSkeyId", plist_copy(bb_skey_id_node));
+
+	/* Used by XMM 6180/GSM */
+	plist_t bb_node = NULL;
+	bb_node = plist_dict_get_item(build_identity, "BbSkeyId");
+	if (bb_node && plist_get_node_type(bb_node) == PLIST_DATA) {
+		plist_dict_insert_item(tss_request, "BbSkeyId", plist_copy(bb_node));
+	} else {
+		error("WARNING: Unable to find BbSkeyId node\n");
+	}
+	bb_node = NULL;
+
+	/* Used by Qualcomm MDM6610 */
+	bb_node = plist_dict_get_item(build_identity, "BbProvisioningManifestKeyHash");
+	if (bb_node && plist_get_node_type(bb_node) == PLIST_DATA) {
+		plist_dict_insert_item(tss_request, "BbProvisioningManifestKeyHash", plist_copy(bb_node));
+	} else {
+		error("WARNING: Unable to find BbProvisioningManifestKeyHash node\n");
+	}
+	bb_node = NULL;
+
 	plist_dict_insert_item(tss_request, "UniqueBuildID", plist_new_data(unique_build_data, unique_build_size));
 	free(unique_build_data);
 
