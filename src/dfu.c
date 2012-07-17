@@ -250,6 +250,8 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		return -1;
 	}
 
+	irecv_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
+
 	dfu_error = irecv_reset(client->dfu->client);
 	if (dfu_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to reset device\n");
@@ -314,6 +316,8 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 			irecv_close(client->dfu->client);
 			return -1;
 		}
+
+		irecv_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
 
 		dfu_error = irecv_reset(client->dfu->client);
 		if (dfu_error != IRECV_E_SUCCESS) {

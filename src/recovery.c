@@ -298,6 +298,7 @@ int recovery_send_ibec(struct idevicerestore_client_t* client, plist_t build_ide
 		error("ERROR: Unable to execute %s\n", component);
 		return -1;
 	}
+	irecv_control_transfer(client->recovery->client, 0x21, 1, 0, 0, 0, 0, 5000);
 
 	return 0;
 }
@@ -412,6 +413,8 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t bu
 		error("ERROR: Unable to execute %s\n", component);
 		return -1;
 	}
+
+	irecv_control_transfer(client->recovery->client, 0x21, 1, 0, 0, 0, 0, 5000);
 
 	return 0;
 }
