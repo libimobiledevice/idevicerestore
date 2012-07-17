@@ -93,52 +93,113 @@ void restore_client_free(struct idevicerestore_client_t* client) {
 	}
 }
 
-int restore_check_mode(struct idevicerestore_client_t* client) {
-	char* type = NULL;
-	uint64_t version = 0;
-	idevice_t device = NULL;
+static int restore_idevice_new(struct idevicerestore_client_t* client, idevice_t* device)
+{
+	int num_devices = 0;
+	char **devices = NULL;
+	idevice_get_device_list(&devices, &num_devices);
+	if (num_devices == 0) {
+		return -1;
+	}
+	*device = NULL;
+	idevice_t dev = NULL;
+	idevice_error_t device_error;
 	restored_client_t restore = NULL;
-	idevice_error_t device_error = IDEVICE_E_SUCCESS;
-	restored_error_t restore_error = RESTORE_E_SUCCESS;
+	int j;
+	for (j = 0; j < num_devices; j++) {
+		if (restore != NULL) {
+			restored_client_free(restore);
+			restore = NULL;
+		}
+		if (dev != NULL) {
+			idevice_free(dev);
+			dev = NULL;
+		}
+		device_error = idevice_new(&dev, devices[j]);
+		if (device_error != IDEVICE_E_SUCCESS) {
+			error("ERROR: %s: can't open device with UUID %s", __func__, devices[j]);
+			continue;
+		}
 
-	device_error = idevice_new(&device, client->udid);
-	if (device_error != IDEVICE_E_SUCCESS) {
+		if (restored_client_new(dev, &restore, "idevicerestore") != RESTORE_E_SUCCESS) {
+			error("ERROR: %s: can't connect to restored on device with UUID %s", __func__, devices[j]);
+			continue;
+
+		}
+		char* type = NULL;
+		uint64_t version = 0;
+		if (restored_query_type(restore, &type, &version) != RESTORE_E_SUCCESS) {
+			continue;
+		}
+		if (strcmp(type, "com.apple.mobile.restored") != 0) {
+			free(type);
+			continue;
+		}
+		free(type);
+
+		if (client->ecid != 0) {
+			plist_t node = NULL;
+			plist_t info = NULL;
+
+			if (restored_query_value(restore, "HardwareInfo", &info) != RESTORE_E_SUCCESS) {
+				
+				continue;
+			}
+
+			node = plist_dict_get_item(info, "UniqueChipID");
+			if (!node || plist_get_node_type(node) != PLIST_UINT) {
+				if (info) {
+					plist_free(info);
+				}
+				continue;
+			}
+			restored_client_free(restore);
+			restore = NULL;
+
+			uint64_t this_ecid = 0;
+			plist_get_uint_val(node, &this_ecid);
+			plist_free(info);
+
+			if (this_ecid != client->ecid) {
+				continue;
+			}
+		}
+		if (restore) {
+			restored_client_free(restore);
+			restore = NULL;
+		}
+		client->udid = strdup(devices[j]);
+		*device = dev;
+		break;
+	}
+	idevice_device_list_free(devices);
+
+	return 0;
+}
+
+int restore_check_mode(struct idevicerestore_client_t* client) {
+	idevice_t device = NULL;
+
+	restore_idevice_new(client, &device);
+	if (!device) {
 		return -1;
 	}
-
-	restore_error = restored_client_new(device, &restore, "idevicerestore");
-	if (restore_error != RESTORE_E_SUCCESS) {
-		idevice_free(device);
-		return -1;
-	}
-
-	restore_error = restored_query_type(restore, &type, &version);
-	if (restore_error != RESTORE_E_SUCCESS) {
-		restored_client_free(restore);
-		idevice_free(device);
-		return -1;
-	}
-
-	restored_client_free(restore);
 	idevice_free(device);
-	restore = NULL;
-	device = NULL;
+
 	return 0;
 }
 
 int restore_check_device(struct idevicerestore_client_t* client) {
 	int i = 0;
-	char* type = NULL;
 	char* model = NULL;
 	plist_t node = NULL;
-	uint64_t version = 0;
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
-	device_error = idevice_new(&device, client->udid);
-	if (device_error != IDEVICE_E_SUCCESS) {
+	restore_idevice_new(client, &device);
+	if (!device) {
 		return -1;
 	}
 
@@ -148,8 +209,7 @@ int restore_check_device(struct idevicerestore_client_t* client) {
 		return -1;
 	}
 
-	restore_error = restored_query_type(restore, &type, &version);
-	if (restore_error != RESTORE_E_SUCCESS) {
+	if (restored_query_type(restore, NULL, NULL) != RESTORE_E_SUCCESS) {
 		restored_client_free(restore);
 		idevice_free(device);
 		return -1;
