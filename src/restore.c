@@ -1339,6 +1339,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	char* kernel = NULL;
 	plist_t node = NULL;
 	plist_t message = NULL;
+	plist_t info = NULL;
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
@@ -1355,6 +1356,38 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 	restore = client->restore->client;
 	device = client->restore->device;
+
+	restore_error = restored_query_value(restore, "HardwareInfo", &info);
+	if (restore_error == RESTORE_E_SUCCESS) {
+		uint64_t i = 0;
+		uint8_t b = 0;
+		info("Hardware Information:\n");
+
+		node = plist_dict_get_item(info, "BoardID");
+		if (node && plist_get_node_type(node) == PLIST_UINT) {
+			plist_get_uint_val(node, &i);
+			info("BoardID: %d\n", (int)i);
+		}
+
+		node = plist_dict_get_item(info, "ChipID");
+		if (node && plist_get_node_type(node) == PLIST_UINT) {
+			plist_get_uint_val(node, &i);
+			info("ChipID: %d\n", (int)i);
+		}
+
+		node = plist_dict_get_item(info, "UniqueChipID");
+		if (node && plist_get_node_type(node) == PLIST_UINT) {
+			plist_get_uint_val(node, &i);
+			info("UniqueChipID: " FMT_qu "\n", (long long unsigned int)i);
+		}
+
+		node = plist_dict_get_item(info, "ProductionMode");
+		if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
+			plist_get_bool_val(node, &b);
+			info("ProductionMode: %s\n", (b==1) ? "true":"false");
+		}
+		plist_free(info);
+	}
 
 	plist_t opts = plist_new_dict();
 	// FIXME: required?
