@@ -1302,7 +1302,6 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 		return -1;
 	}
 
-	info("Sending TSS request... ");
 	response = tss_send_request(request);
 	if (response == NULL) {
 		info("ERROR: Unable to send TSS request\n");
@@ -1310,7 +1309,7 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 		return -1;
 	}
 
-	info("received SHSH blobs\n");
+	info("Received SHSH blobs\n");
 
 	plist_free(request);
 	*tss = response;

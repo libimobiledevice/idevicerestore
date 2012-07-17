@@ -304,14 +304,17 @@ size_t tss_write_callback(char* data, size_t size, size_t nmemb, tss_response* r
 plist_t tss_send_request(plist_t tss_request) {
 	curl_global_init(CURL_GLOBAL_ALL);
 
-	int status_code = -1;
 	char* request = NULL;
+	int status_code = -1;
 	int retry = 0;
 	int max_retries = 15;
 	unsigned int size = 0;
+	char curl_error_message[CURL_ERROR_SIZE];
+
 	plist_to_xml(tss_request, &request, &size);
 
 	tss_response* response = NULL;
+	memset(curl_error_message, '\0', CURL_ERROR_SIZE);
 
 	while (retry++ < max_retries) {
 		response = NULL;
@@ -334,6 +337,7 @@ plist_t tss_send_request(plist_t tss_request) {
 		response->content = malloc(1);
 		response->content[0] = '\0';
 
+		curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, &curl_error_message);
 		curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, (curl_write_callback)&tss_write_callback);
 		curl_easy_setopt(handle, CURLOPT_WRITEDATA, response);
 		curl_easy_setopt(handle, CURLOPT_HTTPHEADER, header);
@@ -346,12 +350,15 @@ plist_t tss_send_request(plist_t tss_request) {
 			curl_easy_setopt(handle, CURLOPT_URL, "http://gs.apple.com/TSS/controller?action=2");
 		}
 
+		info("Sending TSS request attempt %d... ", retry);
+
 		curl_easy_perform(handle);
 		curl_slist_free_all(header);
 		curl_easy_cleanup(handle);
 	
 		if (strstr(response->content, "MESSAGE=SUCCESS")) {
 			status_code = 0;
+			info("response successfully received\n");
 			break;
 		}
 
@@ -364,6 +371,7 @@ plist_t tss_send_request(plist_t tss_request) {
 			sscanf(status+7, "%d&%*s", &status_code);
 		}
 		if (status_code == -1) {
+			error("%s\n", curl_error_message);
 			// no status code in response. retry
 			free(response->content);
 			free(response);
@@ -387,20 +395,24 @@ plist_t tss_send_request(plist_t tss_request) {
 	}
 
 	if (status_code != 0) {
-		char* message = strstr(response->content, "MESSAGE=") + strlen("MESSAGE=");
-		error("ERROR: TSS request failed (status=%d, message=%s)\n", status_code, message);
+		if (strstr(response->content, "MESSAGE=") != NULL) {
+			char* message = strstr(response->content, "MESSAGE=") + strlen("MESSAGE=");
+			error("ERROR: TSS request failed (status=%d, message=%s)\n", status_code, message);
+		} else {
+			error("ERROR: TSS request failed: %s (status=%d)\n", curl_error_message, status_code);
+		}
+		free(request);
 		free(response->content);
 		free(response);
-		free(request);
 		return NULL;
 	}
 
 	char* tss_data = strstr(response->content, "<?xml");
 	if (tss_data == NULL) {
 		error("ERROR: Incorrectly formatted TSS response\n");
+		free(request);
 		free(response->content);
 		free(response);
-		free(request);
 		return NULL;
 	}
 
