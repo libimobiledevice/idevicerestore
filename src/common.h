@@ -52,7 +52,7 @@ extern int use_apple_server;
 
 struct dfu_client_t;
 struct normal_client_t;
-struct restore_clien_t;
+struct restore_client_t;
 struct recovery_client_t;
 
 struct idevicerestore_mode_t {
