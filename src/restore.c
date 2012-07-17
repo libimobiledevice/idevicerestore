@@ -1601,6 +1601,13 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	// this is the restore process loop, it reads each message in from
 	// restored and passes that data on to it's specific handler
 	while ((client->flags & FLAG_QUIT) == 0) {
+		// finally, if any of these message handlers returned -1 then we encountered
+		// an unrecoverable error, so we need to bail.
+		if (error < 0) {
+			error("ERROR: Unable to successfully restore device\n");
+			client->flags |= FLAG_QUIT;
+		}
+
 		restore_error = restored_receive(restore, &message);
 		if (restore_error != RESTORE_E_SUCCESS) {
 			debug("No data to read\n");
@@ -1658,13 +1665,6 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			debug("Unknown message type received\n");
 			//if (idevicerestore_debug)
 				debug_plist(message);
-		}
-
-		// finally, if any of these message handlers returned -1 then we encountered
-		// an unrecoverable error, so we need to bail.
-		if (error < 0) {
-			error("ERROR: Unable to successfully restore device\n");
-			client->flags |= FLAG_QUIT;
 		}
 
 		plist_free(message);
