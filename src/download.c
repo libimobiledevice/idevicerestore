@@ -128,7 +128,7 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 	if (enable_progress > 0)
 		curl_easy_setopt(handle, CURLOPT_PROGRESSFUNCTION, (curl_progress_callback)&download_progress);
 
-	curl_easy_setopt(handle, CURLOPT_NOPROGRESS, 0);
+	curl_easy_setopt(handle, CURLOPT_NOPROGRESS, enable_progress > 0 ? 0: 1);
 	curl_easy_setopt(handle, CURLOPT_USERAGENT, "InetURL/1.0");
 	curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1);
 	curl_easy_setopt(handle, CURLOPT_URL, url);
