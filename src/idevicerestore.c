@@ -773,6 +773,8 @@ int main(int argc, char* argv[]) {
 		if (strstr(filesystem, ".extract")) {
 			// rename <fsname>.extract to <fsname>
 			rename(filesystem, tmpf);
+			free(filesystem);
+			filesystem = strdup(tmpf); 
 		}
 	}
 
