@@ -155,6 +155,7 @@ int main(int argc, char* argv[]) {
 	int latest = 0;
 	char* shsh_dir = NULL;
 	use_apple_server=1;
+	int result = 0;
 
 	// create an instance of our context
 	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) malloc(sizeof(struct idevicerestore_client_t));
@@ -791,11 +792,12 @@ int main(int argc, char* argv[]) {
 	// device is finally in restore mode, let's do this
 	if (client->mode->index == MODE_RESTORE) {
 		info("About to restore device... \n");
-		if (restore_device(client, build_identity, filesystem) < 0) {
+		result = restore_device(client, build_identity, filesystem);
+		if (result < 0) {
 			error("ERROR: Unable to restore device\n");
 			if (filesystem)
 				unlink(filesystem);
-			return -1;
+			return result;
 		}
 	}
 
@@ -804,7 +806,7 @@ int main(int argc, char* argv[]) {
 		unlink(filesystem);
 
 	info("DONE\n");
-	return 0;
+	return result;
 }
 
 int check_mode(struct idevicerestore_client_t* client) {
