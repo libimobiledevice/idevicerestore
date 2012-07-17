@@ -59,8 +59,8 @@ int mbn_update_sig_blob(mbn_file* mbn, const unsigned char* sigdata, unsigned in
 		error("ERROR: %s: no data\n", __func__);
 		return -1;
 	}
-	mbn->parsed_sig_offset = mbn->parsed_size - siglen;
-	if ((mbn->parsed_sig_offset + siglen) > mbn->parsed_size) {
+	mbn->parsed_sig_offset = mbn->size - siglen;
+	if ((mbn->parsed_sig_offset + siglen) > mbn->size) {
 		error("ERROR: %s: signature is larger than mbn file size\n", __func__);
 		return -1;
 	}
