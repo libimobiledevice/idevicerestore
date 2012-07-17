@@ -574,6 +574,9 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 			info("Status: Restore Finished\n");
 			restore_finished = 1;
 			break;
+		case 0xFFFFFFFFFFFFFFFFLL:
+			info("Status: Verification Error\n");
+			break;
 		case 6:
 			info("Status: Disk Failure\n");
 			break;
@@ -594,6 +597,9 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 	if (node && plist_get_node_type(node) == PLIST_UINT) {
 		plist_get_uint_val(node, &value);
 		result = -value;
+		if (result > 0) {
+			result = -result;
+		}
 	}
 
 	// check if log is available
