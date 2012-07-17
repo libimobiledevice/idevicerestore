@@ -1018,7 +1018,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const char* bb_
 		}
 		// check for anything but .mbn and .fls if bb_nonce is set
 		if (bb_nonce && !skip) {
-			char* fn = zip_get_name(za, i, 0);
+			const char* fn = zip_get_name(za, i, 0);
 			if (fn) {
 				char* ext = strrchr(fn, '.');
 				if (strcmp(ext, ".fls") == 0 || strcmp(ext, ".mbn") == 0) {
