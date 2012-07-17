@@ -88,7 +88,7 @@ void restore_client_free(struct idevicerestore_client_t* client) {
 	}
 }
 
-int restore_check_mode(const char* udid) {
+int restore_check_mode(struct idevicerestore_client_t* client) {
 	char* type = NULL;
 	uint64_t version = 0;
 	idevice_t device = NULL;
@@ -96,7 +96,7 @@ int restore_check_mode(const char* udid) {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
-	device_error = idevice_new(&device, udid);
+	device_error = idevice_new(&device, client->udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		return -1;
 	}
@@ -121,7 +121,7 @@ int restore_check_mode(const char* udid) {
 	return 0;
 }
 
-int restore_check_device(const char* udid) {
+int restore_check_device(struct idevicerestore_client_t* client) {
 	int i = 0;
 	char* type = NULL;
 	char* model = NULL;
@@ -132,7 +132,7 @@ int restore_check_device(const char* udid) {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
-	device_error = idevice_new(&device, udid);
+	device_error = idevice_new(&device, client->udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		return -1;
 	}

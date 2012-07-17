@@ -823,7 +823,7 @@ int check_mode(struct idevicerestore_client_t* client) {
 		mode = MODE_NORMAL;
 	}
 
-	else if (!client->ecid && client->udid && (restore_check_mode(client->udid) == 0)) {
+	else if (!client->ecid && client->udid && (restore_check_mode(client) == 0)) {
 		mode = MODE_RESTORE;
 	}
 
@@ -839,7 +839,7 @@ int check_device(struct idevicerestore_client_t* client) {
 	switch (client->mode->index) {
 	case MODE_RESTORE:
 		if (!client->ecid && client->udid) {
-			device = restore_check_device(client->udid);
+			device = restore_check_device(client);
 			if (device < 0) {
 				device = DEVICE_UNKNOWN;
 			}
