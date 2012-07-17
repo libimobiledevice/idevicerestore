@@ -26,6 +26,7 @@
 #include <getopt.h>
 #include <plist/plist.h>
 #include <zlib.h>
+#include <libgen.h>
 
 #include "dfu.h"
 #include "tss.h"
@@ -683,17 +684,66 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	// Extract filesystem from IPSW and return its name
-	char* filesystem = NULL;
-	int ipsw_res = ipsw_extract_filesystem(client->ipsw, build_identity, &filesystem);
-	if (ipsw_res < 0) {
-		error("ERROR: Unable to extract filesystem from IPSW\n");
-		if (client->tss)
-			plist_free(client->tss);
-		plist_free(buildmanifest);
+	// Get filesystem name from build identity
+	char* fsname = NULL;
+	if (build_identity_get_component_path(build_identity, "OS", &fsname) < 0) {
+		error("ERROR: Unable get path for filesystem component\n");
 		return -1;
 	}
-	int delete_fs = (ipsw_res == 0);
+
+	// check if we already have an extracted filesystem
+	int delete_fs = 0;
+	char* filesystem = NULL;
+	struct stat st;
+	memset(&st, '\0', sizeof(struct stat));
+	char tmpf[1024];
+	if (client->cache_dir) {
+		if (stat(client->cache_dir, &st) < 0) {
+			mkdir_with_parents(client->cache_dir, 0755);
+		}
+		strcpy(tmpf, client->cache_dir);
+		strcat(tmpf, "/");
+		char *ipswtmp = strdup(client->ipsw);
+		strcat(tmpf, basename(ipswtmp));
+		free(ipswtmp);
+	} else {
+		strcpy(tmpf, ipsw);
+	}
+	char* p = strrchr((const char*)tmpf, '.');
+	if (p) {
+		*p = '\0';
+	}
+	strcat(tmpf, "/");
+	strcat(tmpf, fsname);
+
+	memset(&st, '\0', sizeof(struct stat));
+	if (stat(tmpf, &st) == 0) {
+		off_t fssize = 0;
+		ipsw_get_file_size(client->ipsw, fsname, &fssize);
+		if ((fssize > 0) && (st.st_size == fssize)) {
+			info("Using cached filesystem from '%s'\n", tmpf);
+			filesystem = strdup(tmpf);
+		}
+	}
+
+	if (!filesystem) {
+		filesystem = tempnam(NULL, "ipsw_");
+		if (!filesystem) {
+			error("WARNING: Could not get temporary filename!\n");
+			filesystem = strdup(fsname);
+		}
+		delete_fs = 1;
+
+		// Extract filesystem from IPSW
+		info("Extracting filesystem from IPSW\n");
+		if (ipsw_extract_to_file(client->ipsw, fsname, filesystem) < 0) {
+			error("ERROR: Unable to extract filesystem from IPSW\n");
+			if (client->tss)
+				plist_free(client->tss);
+			plist_free(buildmanifest);
+			return -1;
+		}
+	}
 
 
 	// if the device is in DFU mode, place device into recovery mode
@@ -1274,58 +1324,6 @@ int build_manifest_get_identity_count(plist_t build_manifest) {
 
 	// check and make sure this identity exists in buildmanifest
 	return plist_array_get_size(build_identities_array);
-}
-
-int ipsw_extract_filesystem(const char* ipsw, plist_t build_identity, char** filesystem) {
-	char* filename = NULL;
-
-	if (build_identity_get_component_path(build_identity, "OS", &filename) < 0) {
-		error("ERROR: Unable get path for filesystem component\n");
-		return -1;
-	}
-
-	// check if we already have an extracted filesystem
-	// for /path/X.ipsw we check /path/X/[filename].dmg
-	char tmpf[1024];
-	strcpy(tmpf, ipsw);
-	char* p = strrchr((const char*)tmpf, '.');
-	if (p) {
-		*p = '\0';
-	}
-	strcat(tmpf, "/");
-	strcat(tmpf, filename);
-
-	struct stat st;
-	memset(&st, '\0', sizeof(struct stat));
-	if (stat(tmpf, &st) == 0) {
-		off_t fssize = 0;
-		ipsw_get_file_size(ipsw, filename, &fssize);
-		if ((fssize > 0) && (st.st_size == fssize)) {
-			info("Using cached filesystem from '%s'\n", tmpf);
-			*filesystem = strdup(tmpf);
-			free(filename);
-			return 1;
-		}
-	}
-
-	char* outfile = tempnam(NULL, "ipsw_");
-	if (!outfile) {
-		error("WARNING: Could not get temporary filename!\n");
-	}
-
-	info("Extracting filesystem from IPSW\n");
-	if (ipsw_extract_to_file(ipsw, filename, (outfile) ? outfile : filename) < 0) {
-		error("ERROR: Unable to extract filesystem\n");
-		free(filename);
-		if (outfile) {
-			free(outfile);
-		}
-		return -1;
-	}
-
-	*filesystem = outfile;
-	free(filename);
-	return 0;
 }
 
 int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* component, const char* path, char** data, uint32_t* size) {
