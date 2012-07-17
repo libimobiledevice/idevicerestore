@@ -1389,6 +1389,34 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		plist_free(info);
 	}
 
+	restore_error = restored_query_value(restore, "SavedDebugInfo", &info);
+	if (restore_error == RESTORE_E_SUCCESS) {
+		char* sval = NULL;
+
+		node = plist_dict_get_item(info, "PreviousExitStatus");
+		if (node && plist_get_node_type(node) == PLIST_STRING) {
+			plist_get_string_val(node, &sval);
+			info("Previous restore exit status: %s\n", sval);
+			free(sval);
+			sval = NULL;
+		}
+
+		node = plist_dict_get_item(info, "USBLog");
+		if (node && plist_get_node_type(node) == PLIST_STRING) {
+			plist_get_string_val(node, &sval);
+			info("USB log is available:\n%s\n", sval);
+			sval = NULL;
+		}
+
+		node = plist_dict_get_item(info, "PanicLog");
+		if (node && plist_get_node_type(node) == PLIST_STRING) {
+			plist_get_string_val(node, &sval);
+			info("Panic log is available:\n%s\n", sval);
+			sval = NULL;
+		}
+		plist_free(info);
+	}
+
 	plist_t opts = plist_new_dict();
 	// FIXME: required?
 	//plist_dict_insert_item(opts, "AuthInstallRestoreBehavior", plist_new_string("Erase"));
