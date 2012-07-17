@@ -232,14 +232,6 @@ plist_t tss_create_baseband_request(plist_t build_identity, uint64_t ecid, uint6
 	plist_dict_insert_item(tss_request, "ApProductionMode", plist_new_bool(1));
 	plist_dict_insert_item(tss_request, "ApSecurityDomain", plist_new_uint(security_domain));
 	plist_dict_insert_item(tss_request, "BasebandFirmware", plist_copy(bbfw_node));
-	plist_dict_insert_item(tss_request, "BbChipID", plist_new_uint(bb_chip_id));
-	plist_dict_insert_item(tss_request, "BbGoldCertId", plist_new_uint(bb_cert_id));
-	if (bb_nonce && (bb_nonce_size > 0)) {
-		plist_dict_insert_item(tss_request, "BbNonce", plist_new_data(bb_nonce, bb_nonce_size));
-	}
-	if (bb_snum && bb_snum_size > 0) {
-		plist_dict_insert_item(tss_request, "BbSNUM", plist_new_data(bb_snum, bb_snum_size));
-	}
 
 	/* Used by XMM 6180/GSM */
 	plist_t bb_node = NULL;
@@ -252,6 +244,29 @@ plist_t tss_create_baseband_request(plist_t build_identity, uint64_t ecid, uint6
 	bb_node = NULL;
 
 	/* Used by Qualcomm MDM6610 */
+	bb_node = plist_dict_get_item(build_identity, "BbActivationManifestKeyHash");
+	if (bb_node && plist_get_node_type(bb_node) == PLIST_DATA) {
+		plist_dict_insert_item(tss_request, "BbActivationManifestKeyHash", plist_copy(bb_node));
+	} else {
+		error("WARNING: Unable to find BbActivationManifestKeyHash node\n");
+	}
+	bb_node = NULL;
+
+	bb_node = plist_dict_get_item(build_identity, "BbCalibrationManifestKeyHash");
+	if (bb_node && plist_get_node_type(bb_node) == PLIST_DATA) {
+		plist_dict_insert_item(tss_request, "BbCalibrationManifestKeyHash", plist_copy(bb_node));
+	} else {
+		error("WARNING: Unable to find BbCalibrationManifestKeyHash node\n");
+	}
+	bb_node = NULL;
+
+	plist_dict_insert_item(tss_request, "BbChipID", plist_new_uint(bb_chip_id));
+	plist_dict_insert_item(tss_request, "BbGoldCertId", plist_new_uint(bb_cert_id));
+
+	if (bb_nonce && (bb_nonce_size > 0)) {
+		plist_dict_insert_item(tss_request, "BbNonce", plist_new_data(bb_nonce, bb_nonce_size));
+	}
+
 	bb_node = plist_dict_get_item(build_identity, "BbProvisioningManifestKeyHash");
 	if (bb_node && plist_get_node_type(bb_node) == PLIST_DATA) {
 		plist_dict_insert_item(tss_request, "BbProvisioningManifestKeyHash", plist_copy(bb_node));
@@ -259,6 +274,10 @@ plist_t tss_create_baseband_request(plist_t build_identity, uint64_t ecid, uint6
 		error("WARNING: Unable to find BbProvisioningManifestKeyHash node\n");
 	}
 	bb_node = NULL;
+
+	if (bb_snum && bb_snum_size > 0) {
+		plist_dict_insert_item(tss_request, "BbSNUM", plist_new_data(bb_snum, bb_snum_size));
+	}
 
 	plist_dict_insert_item(tss_request, "UniqueBuildID", plist_new_data(unique_build_data, unique_build_size));
 	free(unique_build_data);
