@@ -150,6 +150,23 @@ int restore_check_device(struct idevicerestore_client_t* client) {
 		return -1;
 	}
 
+	if (client->srnm == NULL) {
+		char snbuf[256];
+		snbuf[0] = '\0';
+
+		restore_error = restored_get_value(restore, "SerialNumber", &node);
+		if (restore_error != RESTORE_E_SUCCESS || !node || plist_get_node_type(node) != PLIST_STRING) {
+			error("ERROR: Unable to get SerialNumber from restored\n");
+			restored_client_free(restore);
+			idevice_free(device);
+			return -1;
+		}
+
+		plist_get_string_val(node, &client->srnm);
+		info("INFO: device serial number is %s\n", client->srnm);
+		node = NULL;
+	}
+
 	restore_error = restored_get_value(restore, "HardwareModel", &node);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to get HardwareModel from restored\n");
