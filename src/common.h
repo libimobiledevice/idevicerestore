@@ -91,6 +91,7 @@ struct idevicerestore_client_t {
 	char* version;
 	char* build;
 	char* restore_boot_args;
+	char* cache_dir;
 };
 
 static struct idevicerestore_mode_t idevicerestore_modes[] = {
@@ -122,6 +123,8 @@ char *generate_guid();
 #define __mkdir(path, mode) mkdir(path, mode)
 #define FMT_qu "%qu"
 #endif
+
+int mkdir_with_parents(const char *dir, int mode);
 
 extern struct idevicerestore_client_t* idevicerestore;
 

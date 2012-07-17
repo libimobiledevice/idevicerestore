@@ -42,7 +42,7 @@
 
 #include "locking.h"
 
-#define VERSION_XML "cache/version.xml"
+#define VERSION_XML "version.xml"
 
 int use_apple_server;
 
@@ -59,6 +59,7 @@ static struct option longopts[] = {
 	{ "shsh",    no_argument,       NULL, 't' },
 	{ "pwn",     no_argument,       NULL, 'p' },
 	{ "no-action", no_argument,     NULL, 'n' },
+	{ "cache-path", required_argument, NULL, 'C' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -84,6 +85,8 @@ void usage(int argc, char* argv[]) {
 	printf("  -p|--pwn        Put device in pwned DFU mode and exit (limera1n devices only)\n");
 	printf("  -n|--no-action  Do not perform any restore action. If combined with -l option\n");
 	printf("                  the on demand ipsw download is performed before exiting.\n");
+	printf("  -C|--cache-path DIR  Use specified directory for caching extracted\n");
+	printf("                  or other reused files.\n");
 	printf("\n");
 }
 
@@ -96,13 +99,28 @@ static int load_version_data(struct idevicerestore_client_t* client)
 	struct stat fst;
 	int cached = 0;
 
-	if ((stat(VERSION_XML, &fst) < 0) || ((time(NULL)-86400) > fst.st_mtime)) {
-		__mkdir("cache", 0755);
+	char version_xml[1024];
 
-		if (download_to_file("http://ax.itunes.apple.com/check/version",  VERSION_XML ".tmp", 0) == 0) {
-			remove(VERSION_XML);
-			if (rename(VERSION_XML ".tmp", VERSION_XML) < 0) {
-				error("ERROR: Could not update '" VERSION_XML "'\n");
+	if (client->cache_dir) {
+		if (stat(client->cache_dir, &fst) < 0) {
+			mkdir_with_parents(client->cache_dir, 0755);
+		}
+		strcpy(version_xml, client->cache_dir);
+		strcat(version_xml, "/");
+		strcat(version_xml, VERSION_XML);
+	} else {
+		strcpy(version_xml, VERSION_XML);
+	}
+
+	if ((stat(version_xml, &fst) < 0) || ((time(NULL)-86400) > fst.st_mtime)) {
+		char version_xml_tmp[1024];
+		strcpy(version_xml_tmp, version_xml);
+		strcat(version_xml_tmp, ".tmp");
+
+		if (download_to_file("http://ax.itunes.apple.com/check/version",  version_xml_tmp, 0) == 0) {
+			remove(version_xml);
+			if (rename(version_xml_tmp, version_xml) < 0) {
+				error("ERROR: Could not update '%s'\n", version_xml);
 			} else {
 				info("NOTE: Updated version data.\n");
 			}
@@ -113,10 +131,10 @@ static int load_version_data(struct idevicerestore_client_t* client)
 
 	char *verbuf = NULL;
 	size_t verlen = 0;
-	read_file(VERSION_XML, (void**)&verbuf, &verlen);
+	read_file(version_xml, (void**)&verbuf, &verlen);
 
 	if (!verbuf) {
-		error("ERROR: Could not load '" VERSION_XML "'.\n");
+		error("ERROR: Could not load '%s'\n", version_xml);
 		return -1;
 	}
 
@@ -125,7 +143,7 @@ static int load_version_data(struct idevicerestore_client_t* client)
 	free(verbuf);
 
 	if (!client->version_data) {
-		error("ERROR: Cannot parse plist data from '" VERSION_XML "'.\n");
+		error("ERROR: Cannot parse plist data from '%s'.\n", version_xml);
 		return -1;
 	}
 
@@ -156,7 +174,7 @@ int main(int argc, char* argv[]) {
 	}
 	memset(client, '\0', sizeof(struct idevicerestore_client_t));
 
-	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:n", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -215,6 +233,10 @@ int main(int argc, char* argv[]) {
 
 		case 'n':
 			client->flags |= FLAG_NOACTION;
+			break;
+
+		case 'C':
+			client->cache_dir = strdup(optarg);
 			break;
 
 		default:
@@ -289,10 +311,18 @@ int main(int argc, char* argv[]) {
 			fnpart++;
 		}
 		struct stat fst;
-		char wtfipsw[256];
-		sprintf(wtfipsw, "cache/%s", fnpart);
+		char wtfipsw[1024];
+		if (client->cache_dir) {
+			if (stat(client->cache_dir, &fst) < 0) {
+				mkdir_with_parents(client->cache_dir, 0755);
+			}
+			strcpy(wtfipsw, client->cache_dir);
+			strcat(wtfipsw, "/");
+			strcat(wtfipsw, fnpart);
+		} else {
+			strcpy(wtfipsw, fnpart);
+		}
 		if (stat(wtfipsw, &fst) != 0) {
-			__mkdir("cache", 0755);
 			download_to_file(s_wtfurl, wtfipsw, 0);
 		}
 

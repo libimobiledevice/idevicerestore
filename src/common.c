@@ -21,6 +21,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 
 #include "common.h"
 
@@ -131,4 +133,27 @@ char *generate_guid()
 	}
 	guid[36] = '\0';
 	return guid;
+}
+
+int mkdir_with_parents(const char *dir, int mode)
+{
+	if (!dir) return -1;
+	if (__mkdir(dir, mode) == 0) {
+		return 0;
+	} else {
+		if (errno == EEXIST) return 0;	
+	}
+	int res;
+	char *parent = strdup(dir);
+	parent = dirname(parent);
+	if (parent && (strcmp(parent, ".") != 0)) {
+		res = mkdir_with_parents(parent, mode);
+	} else {
+		res = -1;	
+	}
+	free(parent);
+	if (res == 0) {
+		mkdir_with_parents(dir, mode);
+	}
+	return res;
 }
