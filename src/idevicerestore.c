@@ -785,6 +785,9 @@ int main(int argc, char* argv[]) {
 				unlink(filesystem);
 			return -1;
 		}
+
+		info("waiting for device...\n");
+		sleep(15);
 	}
 
 	// device is finally in restore mode, let's do this
