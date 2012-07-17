@@ -502,7 +502,6 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 	int result = 0;
 	uint64_t value = 0;
 	info("Got status message\n");
-	debug_plist(msg);
 
 	plist_t node = plist_dict_get_item(msg, "Status");
 	plist_get_uint_val(node, &value);
@@ -523,6 +522,7 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 			break;
 		default:
 			info("Unhandled status message (" FMT_qu ")\n", (long long unsigned int)value);
+			debug_plist(msg);
 			break;
 	}
 
@@ -541,7 +541,6 @@ int restore_handle_bb_update_status_msg(restored_client_t client, plist_t msg)
 	plist_t node = plist_dict_get_item(msg, "Accepted");
 	uint8_t accepted = 0;
 	plist_get_bool_val(node, &accepted);
-	debug_plist(msg);
 
 	if (!accepted) {
 		error("ERROR: device didn't accept BasebandData\n");
@@ -1210,7 +1209,9 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		}
 
 		// send Baseband TSS request
-		debug_plist(request);
+		if (idevicerestore_debug)
+			debug_plist(request);
+
 		info("Sending Baseband TSS request... ");
 		response = tss_send_request(request);
 		plist_free(request);
@@ -1219,7 +1220,8 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 			return -1;
 		}
 
-		debug_plist(response);
+		if (idevicerestore_debug)
+			debug_plist(response);
 	}
 
 	// get baseband firmware file path from build identity
