@@ -28,7 +28,7 @@ extern "C" {
 #include <stdint.h>
 
 int download_to_buffer(const char* url, char** buf, uint32_t* length);
-int download_to_file(const char* url, const char* filename);
+int download_to_file(const char* url, const char* filename, int enable_progress);
 
 #ifdef __cplusplus
 }

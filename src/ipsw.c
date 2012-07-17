@@ -449,7 +449,7 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 		} else {
 			remove(fwlfn);
 			info("Downloading latest firmware (%s)\n", fwurl);
-			download_to_file(fwurl, fwlfn);
+			download_to_file(fwurl, fwlfn, 1);
 			if (memcmp(isha1, zsha1, 20) != 0) {
 				info("\nVerifying '%s'...\n", fwlfn);
 				FILE* f = fopen(fwlfn, "rb");

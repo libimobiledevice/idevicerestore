@@ -104,7 +104,7 @@ static int load_version_data(struct idevicerestore_client_t* client)
 	if ((stat(VERSION_XML, &fst) < 0) || ((time(NULL)-86400) > fst.st_mtime)) {
 		__mkdir("cache", 0755);
 
-		if (download_to_file("http://ax.itunes.apple.com/check/version",  VERSION_XML ".tmp") == 0) {
+		if (download_to_file("http://ax.itunes.apple.com/check/version",  VERSION_XML ".tmp", 0) == 0) {
 			remove(VERSION_XML);
 			if (rename(VERSION_XML ".tmp", VERSION_XML) < 0) {
 				error("ERROR: Could not update '" VERSION_XML "'\n");
@@ -301,7 +301,7 @@ int main(int argc, char* argv[]) {
 		sprintf(wtfipsw, "cache/%s", fnpart);
 		if (stat(wtfipsw, &fst) != 0) {
 			__mkdir("cache", 0755);
-			download_to_file(s_wtfurl, wtfipsw);
+			download_to_file(s_wtfurl, wtfipsw, 0);
 		}
 
 		char wtfname[256];
