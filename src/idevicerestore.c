@@ -387,13 +387,13 @@ int main(int argc, char* argv[]) {
 	if (client->flags & FLAG_CUSTOM) {
 		info("Extracting Restore.plist from IPSW\n");
 		if (ipsw_extract_restore_plist(ipsw, &buildmanifest) < 0) {
-			error("ERROR: Unable to extract Restore.plist from %s\n", ipsw);
+			error("ERROR: Unable to extract Restore.plist from %s. Firmware file might be corrupt.\n", ipsw);
 			return -1;
 		}
 	} else {
 		info("Extracting BuildManifest from IPSW\n");
 		if (ipsw_extract_build_manifest(ipsw, &buildmanifest, &tss_enabled) < 0) {
-			error("ERROR: Unable to extract BuildManifest from %s\n", ipsw);
+			error("ERROR: Unable to extract BuildManifest from %s. Firmware file might be corrupt.\n", ipsw);
 			return -1;
 		}
 	}
