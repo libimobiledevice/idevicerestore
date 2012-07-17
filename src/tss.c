@@ -359,7 +359,7 @@ plist_t tss_send_request(plist_t tss_request) {
 		response->content[0] = '\0';
 
 		curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0);
-		curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, &curl_error_message);
+		curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, curl_error_message);
 		curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, (curl_write_callback)&tss_write_callback);
 		curl_easy_setopt(handle, CURLOPT_WRITEDATA, response);
 		curl_easy_setopt(handle, CURLOPT_HTTPHEADER, header);
