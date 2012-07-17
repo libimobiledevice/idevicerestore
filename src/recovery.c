@@ -288,6 +288,12 @@ int recovery_send_ibec(struct idevicerestore_client_t* client, plist_t build_ide
 	const char* component = "iBEC";
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
+	if (client->recovery == NULL) {
+		if (recovery_client_new(client) < 0) {
+			return -1;
+		}
+	}
+
 	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
 		return -1;
