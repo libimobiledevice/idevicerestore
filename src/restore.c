@@ -1237,7 +1237,7 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		return -1;
 	}
 
-	if (bb_nonce) {
+	if (bb_nonce && !client->restore->bbtss) {
 		// keep the response for later requests
 		client->restore->bbtss = response;
 		response = NULL;
