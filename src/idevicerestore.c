@@ -1260,6 +1260,30 @@ int ipsw_extract_filesystem(const char* ipsw, plist_t build_identity, char** fil
 		return -1;
 	}
 
+	// check if we already have an extracted filesystem
+	// for /path/X.ipsw we check /path/X/[filename].dmg
+	char tmpf[1024];
+	strcpy(tmpf, ipsw);
+	char* p = strrchr((const char*)tmpf, '.');
+	if (p) {
+		*p = '\0';
+	}
+	strcat(tmpf, "/");
+	strcat(tmpf, filename);
+
+	struct stat st;
+	memset(&st, '\0', sizeof(struct stat));
+	if (stat(tmpf, &st) == 0) {
+		off_t fssize = 0;
+		ipsw_get_file_size(ipsw, filename, &fssize);
+		if ((fssize > 0) && (st.st_size == fssize)) {
+			info("Using cached filesystem from '%s'\n", tmpf);
+			*filesystem = strdup(tmpf);
+			free(filename);
+			return 0;
+		}
+	}
+
 	char* outfile = tempnam(NULL, "ipsw_");
 	if (!outfile) {
 		error("WARNING: Could not get temporary filename!\n");
