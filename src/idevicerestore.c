@@ -375,6 +375,9 @@ int main(int argc, char* argv[]) {
 			error("ERROR: Unable to exit restore mode\n");
 			return -1;
 		}
+
+		// we need to refresh the current mode again
+		check_mode(client);
 	}
 
 	// verify if ipsw file exists
