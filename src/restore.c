@@ -807,7 +807,7 @@ static int restore_handle_trek_bbfw(const char* bbfwtmp, plist_t response, unsig
 	// check for RestoreDBL-Blob in result
 	plist_t restoredbl = plist_access_path(response, 2, "BasebandFirmware", "RestoreDBL-Blob");
 	if (!restoredbl || plist_get_node_type(restoredbl) != PLIST_DATA) {
-		error("ERROR: Could not find FlashPSI-Blob in Baseband TSS response\n");
+		error("ERROR: Could not find RestoreDBL-Blob in Baseband TSS response\n");
 		return -1;
 	}
 
@@ -982,7 +982,7 @@ static int restore_handle_trek_bbfw(const char* bbfwtmp, plist_t response, unsig
 		}
 
 		if (zip_replace(za, zindex, zs) == -1) {
-			error("ERROR: could not add signed dbl.mbn to archive\n");
+			error("ERROR: could not add signed restoredbl.mbn to archive\n");
 			goto leave;
 		}
 		restoredbl_index = zindex;
@@ -1144,7 +1144,7 @@ static int restore_handle_trek_bbfw(const char* bbfwtmp, plist_t response, unsig
 		}
 
 		if (zip_replace(za, zindex, zs) == -1) {
-			error("ERROR: could not add signed dbl.mbn to archive\n");
+			error("ERROR: could not add signed restoredbl.mbn to archive\n");
 			goto leave;
 		}
 
