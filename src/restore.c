@@ -1395,7 +1395,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		if (!strcmp(type, "SystemImageData")) {
 			if(restore_send_filesystem(device, filesystem) < 0) {
 				error("ERROR: Unable to send filesystem\n");
-				return -1;
+				return -2;
 			}
 		}
 
