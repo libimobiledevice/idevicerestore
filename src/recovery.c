@@ -55,7 +55,7 @@ void recovery_client_free(struct idevicerestore_client_t* client) {
 
 int recovery_client_new(struct idevicerestore_client_t* client) {
 	int i = 0;
-	int attempts = 10;
+	int attempts = 20;
 	irecv_client_t recovery = NULL;
 	irecv_error_t recovery_error = IRECV_E_UNKNOWN_ERROR;
 
