@@ -1162,6 +1162,7 @@ static int restore_handle_trek_bbfw(const char* bbfwtmp, plist_t response, unsig
 			error("ERROR: out of memory\n");
 			goto leave;
 		}
+		blob = NULL;
 
 		if (zip_add(za, "bbticket.der", zs) == -1) {
 			error("ERROR: could not add bbticket.der to archive\n");
