@@ -364,7 +364,7 @@ static void restore_device_event_cb(const idevice_event_t *event, void *user_dat
 {
 	if (event->event == IDEVICE_DEVICE_ADD) {
 		struct idevicerestore_client_t* client = (struct idevicerestore_client_t*)user_data;
-		if (restore_is_current_device(client, event->udid)) {
+		if (!restore_device_connected && restore_is_current_device(client, event->udid)) {
 			restore_device_connected = 1;
 			client->udid = strdup(event->udid);
 		}
