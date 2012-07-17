@@ -90,7 +90,13 @@ plist_t tss_create_request(plist_t build_identity, uint64_t ecid, unsigned char*
 	plist_dict_insert_item(tss_request, "@APTicket", plist_new_bool(1));
 	plist_dict_insert_item(tss_request, "@BBTicket", plist_new_bool(1));
 	plist_dict_insert_item(tss_request, "@HostIpAddress", plist_new_string("192.168.0.1"));
-	plist_dict_insert_item(tss_request, "@HostPlatformInfo", plist_new_string("mac"));
+	plist_dict_insert_item(tss_request, "@HostPlatformInfo",
+#ifdef WIN32
+		plist_new_string("windows")
+#else
+		plist_new_string("mac")
+#endif
+	);
 	plist_dict_insert_item(tss_request, "@Locality", plist_new_string("en_US"));
 	char* guid = generate_guid();
 	if (guid) {
@@ -217,7 +223,13 @@ plist_t tss_create_baseband_request(plist_t build_identity, uint64_t ecid, uint6
 	plist_t tss_request = plist_new_dict();
 	plist_dict_insert_item(tss_request, "@BBTicket", plist_new_bool(1));
 	plist_dict_insert_item(tss_request, "@HostIpAddress", plist_new_string("192.168.0.1"));
-	plist_dict_insert_item(tss_request, "@HostPlatformInfo", plist_new_string("mac"));
+	plist_dict_insert_item(tss_request, "@HostPlatformInfo",
+#ifdef WIN32
+		plist_new_string("windows")
+#else
+		plist_new_string("mac")
+#endif
+	);
 	plist_dict_insert_item(tss_request, "@Locality", plist_new_string("en_US"));
 
 	char* guid = generate_guid();
