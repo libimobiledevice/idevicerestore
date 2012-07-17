@@ -376,6 +376,12 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
+	// verify if ipsw file exists
+	if (access(ipsw, F_OK) < 0) {
+		error("ERROR: Firmware file %s does not exist.\n", ipsw);
+		return -1;
+	}
+
 	// extract buildmanifest
 	plist_t buildmanifest = NULL;
 	if (client->flags & FLAG_CUSTOM) {
