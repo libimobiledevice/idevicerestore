@@ -1452,6 +1452,8 @@ const char* get_component_name(const char* filename)
 		return "BatteryCharging1";
 	} else if (!strncmp(filename, "batteryfull", 11)) {
 		return "BatteryFull";
+	} else if (!strncmp(filename, "needservice", 11)) {
+		return "NeedService";
 	} else if (!strncmp(filename, "SCAB", 4)) {
 		return "SCAB";
 	} else {
