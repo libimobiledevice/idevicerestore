@@ -61,6 +61,9 @@ int download_to_buffer(const char* url, char** buf, uint32_t* length)
 	response.content = malloc(1);
 	response.content[0] = '\0';
 
+	if (idevicerestore_debug)
+		curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
+
 	curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, (curl_write_callback)&download_write_buffer_callback);
 	curl_easy_setopt(handle, CURLOPT_WRITEDATA, &response);
 	curl_easy_setopt(handle, CURLOPT_USERAGENT, "InetURL/1.0");
@@ -115,6 +118,10 @@ int download_to_file(const char* url, const char* filename)
 	}
 
 	lastprogress = 0;
+
+	if (idevicerestore_debug)
+		curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
+
 	curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, (curl_write_callback)&fwrite);
 	curl_easy_setopt(handle, CURLOPT_WRITEDATA, f);
 	curl_easy_setopt(handle, CURLOPT_PROGRESSFUNCTION, (curl_progress_callback)&download_progress);
