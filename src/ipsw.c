@@ -405,7 +405,7 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 	char* fwfn = strrchr(fwurl, '/');
 	if (!fwfn) {
 		error("ERROR: can't get local filename for firmware ipsw\n");
-		return -1;
+		return -2;
 	}
 	fwfn++;
 
@@ -445,7 +445,7 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 	if (need_dl) {
 		if (strncmp(fwurl, "protected:", 10) == 0) {
 			error("ERROR: Can't download '%s' because it needs a purchase.\n", fwfn);
-			res = -1;
+			res = -3;
 		} else {
 			remove(fwlfn);
 			info("Downloading latest firmware (%s)\n", fwurl);
@@ -458,7 +458,7 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 						info("Checksum matches.\n");
 					} else {
 						error("ERROR: File download failed (checksum mismatch).\n");
-						res = -1;
+						res = -4;
 					}
 					fclose(f);
 
@@ -467,7 +467,7 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 						remove(fwlfn);
 				} else {
 					error("ERROR: Can't open '%s' for checksum verification\n", fwlfn);
-					res = -1;
+					res = -5;
 				}
 			}
 		}
