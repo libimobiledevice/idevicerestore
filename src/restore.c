@@ -555,6 +555,18 @@ int restore_handle_bb_update_status_msg(restored_client_t client, plist_t msg)
 
 	if (done) {
 		info("Updating Baseband completed.\n");
+		plist_t provisioning = plist_access_path(msg, 2, "Output", "provisioning");
+		if (provisioning && plist_get_node_type(provisioning) == PLIST_DICT) {
+			info("Provisioning:\n");
+			char* sval = NULL;
+			node = plist_dict_get_item(provisioning, "IMEI");
+			if (node && plist_get_node_type(node) == PLIST_STRING) {
+				plist_get_string_val(node, &sval);
+				info("IMEI:%s\n", sval);
+				free(sval);
+				sval = NULL;
+			}
+		}
 	} else {
 		info("Updating Baseband in progress...\n");
 	}
