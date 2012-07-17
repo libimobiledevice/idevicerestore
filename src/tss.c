@@ -387,7 +387,7 @@ plist_t tss_send_request(plist_t tss_request) {
 	}
 
 	if (status_code != 0) {
-		char* message = strstr(response->content, "MESSAGE=");
+		char* message = strstr(response->content, "MESSAGE=") + strlen("MESSAGE=");
 		error("ERROR: TSS request failed (status=%d, message=%s)\n", status_code, message);
 		free(response->content);
 		free(response);
