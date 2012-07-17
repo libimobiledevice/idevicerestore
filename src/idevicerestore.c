@@ -378,6 +378,7 @@ int main(int argc, char* argv[]) {
 
 		// we need to refresh the current mode again
 		check_mode(client);
+		info("Found device in %s mode\n", client->mode->string);
 	}
 
 	// verify if ipsw file exists
