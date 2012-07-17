@@ -178,7 +178,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 		free(data);
 		data = newdata;
 		size += fillsize;
-		flag = 2;
+		flag = 1;
 	}
 
 	info("Sending %s (%d bytes)...\n", component, size);
