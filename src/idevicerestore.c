@@ -694,7 +694,7 @@ int main(int argc, char* argv[]) {
 			info("exploited\n");
 		}
 		if (dfu_enter_recovery(client, build_identity) < 0) {
-			error("ERROR: Unable to place device into recovery mode\n");
+			error("ERROR: Unable to place device into recovery mode from %s mode\n", client->mode->string);
 			plist_free(buildmanifest);
 			if (client->tss)
 				plist_free(client->tss);
