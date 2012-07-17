@@ -166,9 +166,20 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 		return -1;
 	}
 
-	irecv_send_command(client->recovery->client, "getenv build-version");
-	irecv_send_command(client->recovery->client, "getenv build-style");
-	irecv_send_command(client->recovery->client, "getenv radio-error");
+	info("Recovery Mode Environment:\n");
+	char* value = NULL;
+	irecv_getenv(client->recovery->client, "build-version", &value);
+	info("iBoot build-version=%s\n", value);
+	irecv_getenv(client->recovery->client, "build-style", &value);
+	info("iBoot build-style=%s\n", value);
+	unsigned long radio_error = 0;
+	irecv_getenv(client->recovery->client, "radio-error", &value);
+	radio_error = strtoul(value, NULL, 0);
+	if (radio_error > 0) {
+		info("radio-error=%s\n", value);
+		irecv_getenv(client->recovery->client, "radio-error-string", &value);
+		info("radio-error-string=%s\n", value);
+	}
 
 	/* send logo and show it */
 	if (recovery_send_applelogo(client, build_identity) < 0) {
