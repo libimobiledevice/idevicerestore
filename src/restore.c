@@ -285,6 +285,7 @@ int restore_reboot(struct idevicerestore_client_t* client) {
 		}
 	}
 
+	info("Rebooting restore mode device...\n");
 	restored_reboot(client->restore->client);
 
 	restored_client_free(client->restore->client);
