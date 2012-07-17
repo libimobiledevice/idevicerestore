@@ -658,7 +658,7 @@ int main(int argc, char* argv[]) {
 			if (client->tss)
 				plist_free(client->tss);
 			plist_free(buildmanifest);
-			return -2;
+			return -5;
 		}
 	}
 
