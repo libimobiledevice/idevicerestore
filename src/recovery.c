@@ -407,6 +407,8 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t bu
 		return -1;
 	}
 
+	irecv_control_transfer(client->recovery->client, 0x21, 1, 0, 0, 0, 0, 5000);
+
 	if (client->restore_boot_args) {
 		char setba[256];
 		strcpy(setba, "setenv boot-args ");
@@ -419,8 +421,6 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t bu
 		error("ERROR: Unable to execute %s\n", component);
 		return -1;
 	}
-
-	irecv_control_transfer(client->recovery->client, 0x21, 1, 0, 0, 0, 0, 5000);
 
 	return 0;
 }
