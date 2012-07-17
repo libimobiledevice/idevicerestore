@@ -640,7 +640,7 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 	int i = 0;
 	FILE* file = NULL;
 	plist_t data = NULL;
-	idevice_connection_t asr = NULL;
+	asr_client_t asr = NULL;
 	idevice_error_t device_error = IDEVICE_E_UNKNOWN_ERROR;
 
 	info("About to send filesystem...\n");
@@ -651,20 +651,12 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 	}
 	info("Connected to ASR\n");
 
-	/* receive Initiate command message */
-	if (asr_receive(asr, &data) < 0) {
-		error("ERROR: Unable to receive data from ASR\n");
-		asr_close(asr);
-		return -1;
-	}
-	plist_free(data);
-
 	// this step sends requested chunks of data from various offsets to asr so
 	// it can validate the filesystem before installing it
 	info("Validating the filesystem\n");
 	if (asr_perform_validation(asr, filesystem) < 0) {
 		error("ERROR: ASR was unable to validate the filesystem\n");
-		asr_close(asr);
+		asr_free(asr);
 		return -1;
 	}
 	info("Filesystem validated\n");
@@ -674,12 +666,12 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 	info("Sending filesystem now...\n");
 	if (asr_send_payload(asr, filesystem) < 0) {
 		error("ERROR: Unable to send payload to ASR\n");
-		asr_close(asr);
+		asr_free(asr);
 		return -1;
 	}
 	info("Done sending filesystem\n");
 
-	asr_close(asr);
+	asr_free(asr);
 	return 0;
 }
 
