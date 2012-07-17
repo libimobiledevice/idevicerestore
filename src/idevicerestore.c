@@ -962,6 +962,46 @@ int check_device(struct idevicerestore_client_t* client) {
 			}
 			break;
 
+		case CPID_APPLETV31:
+			if (get_bdid(client, &bdid) < 0) {
+				error("ERROR: Unable to get device BDID\n");
+				break;
+			}
+			switch (bdid) {
+			case BDID_APPLETV31:
+				device = DEVICE_APPLETV31;
+				break;
+			case BDID_IPAD24:
+				device = DEVICE_IPAD24;
+				break;
+			default:
+				device = DEVICE_UNKNOWN;
+				break;
+			}
+			break;
+
+		case CPID_IPAD31:
+			// A5X devices
+			if (get_bdid(client, &bdid) < 0) {
+				error("ERROR: Unable to get device BDID\n");
+				break;
+			}
+			switch (bdid) {
+			case BDID_IPAD31:
+				device = DEVICE_IPAD31;
+				break;
+			case BDID_IPAD32:
+				device = DEVICE_IPAD32;
+				break;
+			case BDID_IPAD33:
+				device = DEVICE_IPAD33;
+				break;
+			default:
+				device = DEVICE_UNKNOWN;
+				break;
+			}
+			break;
+
 		default:
 			device = DEVICE_UNKNOWN;
 			break;
