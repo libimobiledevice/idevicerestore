@@ -1528,12 +1528,12 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 		// data request messages are sent by restored whenever it requires
 		// files sent to the server by the client. these data requests include
-		// SystemImageData, KernelCache, and NORData requests
+		// SystemImageData, RootTicket, KernelCache, NORData and BasebandData requests
 		if (!strcmp(type, "DataRequestMsg")) {
 			error = restore_handle_data_request_msg(client, device, restore, message, build_identity, filesystem);
 		}
 
-		// previous restore logs are available if a previous restore failed
+		// restore logs are available if a previous restore failed
 		else if (!strcmp(type, "PreviousRestoreLogMsg")) {
 			error = restore_handle_previous_restore_log_msg(restore, message);
 		}
