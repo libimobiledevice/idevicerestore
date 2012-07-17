@@ -664,13 +664,16 @@ int main(int argc, char* argv[]) {
 
 	// Extract filesystem from IPSW and return its name
 	char* filesystem = NULL;
-	if (ipsw_extract_filesystem(client->ipsw, build_identity, &filesystem) < 0) {
+	int ipsw_res = ipsw_extract_filesystem(client->ipsw, build_identity, &filesystem);
+	if (ipsw_res < 0) {
 		error("ERROR: Unable to extract filesystem from IPSW\n");
 		if (client->tss)
 			plist_free(client->tss);
 		plist_free(buildmanifest);
 		return -1;
 	}
+	int delete_fs = (ipsw_res == 0);
+
 
 	// if the device is in DFU mode, place device into recovery mode
 	if (client->mode->index == MODE_DFU) {
@@ -678,7 +681,7 @@ int main(int argc, char* argv[]) {
 		if (client->flags & FLAG_CUSTOM) {
 			info("connecting to DFU\n");
 			if (dfu_client_new(client) < 0) {
-				if (filesystem)
+				if (delete_fs && filesystem)
 					unlink(filesystem);
 				return -1;
 			}
@@ -687,7 +690,7 @@ int main(int argc, char* argv[]) {
 			if (limera1n_exploit(client->device, client->dfu->client) != 0) {
 				error("ERROR: limera1n exploit failed\n");
 				dfu_client_free(client);
-				if (filesystem)
+				if (delete_fs && filesystem)
 					unlink(filesystem);
 				return -1;
 			}
@@ -699,7 +702,7 @@ int main(int argc, char* argv[]) {
 			plist_free(buildmanifest);
 			if (client->tss)
 				plist_free(client->tss);
-			if (filesystem)
+			if (delete_fs && filesystem)
 				unlink(filesystem);
 			return -2;
 		}
@@ -711,7 +714,7 @@ int main(int argc, char* argv[]) {
 		/* now we load the iBEC */
 		if (recovery_send_ibec(client, build_identity) < 0) {
 			error("ERROR: Unable to send iBEC\n");
-			if (filesystem)
+			if (delete_fs && filesystem)
 				unlink(filesystem);
 			return -2;
 		}
@@ -730,7 +733,7 @@ int main(int argc, char* argv[]) {
 		if (get_nonce(client, &nonce, &nonce_size) < 0) {
 			error("ERROR: Unable to get nonce from device!\n");
 			recovery_send_reset(client);
-			if (filesystem)
+			if (delete_fs && filesystem)
 				unlink(filesystem);
 			return -1;
 		}
@@ -758,13 +761,13 @@ int main(int argc, char* argv[]) {
 			plist_free(client->tss);
 			if (get_shsh_blobs(client, client->ecid, client->nonce, client->nonce_size, build_identity, &client->tss) < 0) {
 				error("ERROR: Unable to get SHSH blobs for this device\n");
-				if (filesystem)
+				if (delete_fs && filesystem)
 					unlink(filesystem);
 				return -1;
 			}
 			if (!client->tss) {
 				error("ERROR: can't continue without TSS\n");
-				if (filesystem)
+				if (delete_fs && filesystem)
 					unlink(filesystem);
 				return -1;
 			}
@@ -776,7 +779,7 @@ int main(int argc, char* argv[]) {
 	if (client->mode->index == MODE_RECOVERY) {
 		if (client->srnm == NULL) {
 			error("ERROR: could not retrieve device serial number. Can't continue.\n");
-			if (filesystem)
+			if (delete_fs && filesystem)
 				unlink(filesystem);
 			return -1;
 		}
@@ -785,7 +788,7 @@ int main(int argc, char* argv[]) {
 			plist_free(buildmanifest);
 			if (client->tss)
 				plist_free(client->tss);
-			if (filesystem)
+			if (delete_fs && filesystem)
 				unlink(filesystem);
 			return -2;
 		}
@@ -797,14 +800,14 @@ int main(int argc, char* argv[]) {
 		result = restore_device(client, build_identity, filesystem);
 		if (result < 0) {
 			error("ERROR: Unable to restore device\n");
-			if (filesystem)
+			if (delete_fs && filesystem)
 				unlink(filesystem);
 			return result;
 		}
 	}
 
 	info("Cleaning up...\n");
-	if (filesystem)
+	if (delete_fs && filesystem)
 		unlink(filesystem);
 
 	info("DONE\n");
@@ -1280,7 +1283,7 @@ int ipsw_extract_filesystem(const char* ipsw, plist_t build_identity, char** fil
 			info("Using cached filesystem from '%s'\n", tmpf);
 			*filesystem = strdup(tmpf);
 			free(filename);
-			return 0;
+			return 1;
 		}
 	}
 
