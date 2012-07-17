@@ -369,7 +369,6 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 
 	restore_error = restored_client_new(device, &restored, "idevicerestore");
 	if (restore_error != RESTORE_E_SUCCESS) {
-		//idevice_event_unsubscribe();
 		idevice_free(device);
 		return -1;
 	}
@@ -381,7 +380,6 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 	} else {
 		error("ERROR: Unable to connect to restored, error=%d\n", restore_error);
 		restored_client_free(restored);
-		//idevice_event_unsubscribe();
 		idevice_free(device);
 		return -1;
 	}
