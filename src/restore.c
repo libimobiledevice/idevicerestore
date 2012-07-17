@@ -1727,7 +1727,7 @@ leave:
 		free(bbfwtmp);
 	}
 	if (response) {
-		free(response);
+		plist_free(response);
 	}
 
 	return res;
