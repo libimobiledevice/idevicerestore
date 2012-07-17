@@ -713,6 +713,10 @@ int main(int argc, char* argv[]) {
 	if (p) {
 		*p = '\0';
 	}
+
+	if (stat(tmpf, &st) < 0) {
+		__mkdir(tmpf, 0755);
+	}
 	strcat(tmpf, "/");
 	strcat(tmpf, fsname);
 
@@ -727,12 +731,34 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (!filesystem) {
-		filesystem = tempnam(NULL, "ipsw_");
-		if (!filesystem) {
-			error("WARNING: Could not get temporary filename!\n");
-			filesystem = strdup(fsname);
+		char extfn[1024];
+		strcpy(extfn, tmpf);
+		strcat(extfn, ".extract");
+		char lockfn[1024];
+		strcpy(lockfn, tmpf);
+		strcat(lockfn, ".lock");
+		lock_info_t li;
+
+		lock_file(lockfn, &li);
+		FILE* extf = NULL;
+		if (access(extfn, F_OK) != 0) {
+			extf = fopen(extfn, "w");
 		}
-		delete_fs = 1;
+		unlock_file(&li);
+		if (!extf) {
+			// use temp filename
+			filesystem = tempnam(NULL, "ipsw_");
+			if (!filesystem) {
+				error("WARNING: Could not get temporary filename, using '%s' in current directory\n", fsname);
+				filesystem = strdup(fsname);
+			}
+			delete_fs = 1;
+		} else {
+			// use <fsname>.extract as filename
+			filesystem = strdup(extfn);
+			fclose(extf);
+		}
+		remove(lockfn);
 
 		// Extract filesystem from IPSW
 		info("Extracting filesystem from IPSW\n");
@@ -742,6 +768,11 @@ int main(int argc, char* argv[]) {
 				plist_free(client->tss);
 			plist_free(buildmanifest);
 			return -1;
+		}
+
+		if (strstr(filesystem, ".extract")) {
+			// rename <fsname>.extract to <fsname>
+			rename(filesystem, tmpf);
 		}
 	}
 
