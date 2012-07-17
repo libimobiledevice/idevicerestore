@@ -1002,26 +1002,37 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const char* bb_
 	}
 	free(iter);
 
-	if (!bb_nonce) {
-		// remove everything but required signed files
-		int i;
-		int j;
-		int skip = 0;
-		int numf = zip_get_num_files(za);
-		for (i = 0; i < numf; i++) {
-			skip = 0;
-			for (j = 0; j < signed_file_count; j++) {
-				if (i == signed_file_idxs[j]) {
+	// remove everything but required files
+	int i;
+	int j;
+	int skip = 0;
+	int numf = zip_get_num_files(za);
+	for (i = 0; i < numf; i++) {
+		skip = 0;
+		// check for signed file index
+		for (j = 0; j < signed_file_count; j++) {
+			if (i == signed_file_idxs[j]) {
+				skip = 1;
+				break;
+			}
+		}
+		// check for anything but .mbn and .fls if bb_nonce is set
+		if (bb_nonce && !skip) {
+			char* fn = zip_get_name(za, i, 0);
+			if (fn) {
+				char* ext = strrchr(fn, '.');
+				if (strcmp(ext, ".fls") == 0 || strcmp(ext, ".mbn") == 0) {
 					skip = 1;
-					break;
 				}
 			}
-			if (skip) {
-				continue;
-			}
-			zip_delete(za, i);
 		}
-	} else {
+		if (skip) {
+			continue;
+		}
+		zip_delete(za, i);
+	}
+
+	if (bb_nonce) {
 		if (is_fls) {
 			// add BBTicket to file ebl.fls
 			zindex = zip_name_locate(za, "ebl.fls", 0);
