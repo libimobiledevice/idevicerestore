@@ -1208,11 +1208,14 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const char* bb_
 	}
 
 	// this will write out the modified zip
-	zip_close(za);
+	if (zip_close(za) == -1) {
+		error("ERROR: could not close and write modified archive: %s\n", zip_strerror(za));
+		res = -1;
+	} else {
+		res = 0;
+	}
 	za = NULL;
 	zs = NULL;
-
-	res = 0;
 
 leave:
 	if (mbn) {
