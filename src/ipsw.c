@@ -461,6 +461,10 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 						res = -1;
 					}
 					fclose(f);
+
+					// make sure to remove invalid files
+					if (res < 0)
+						remove(fwlfn);
 				} else {
 					error("ERROR: Can't open '%s' for checksum verification\n", fwlfn);
 					res = -1;
