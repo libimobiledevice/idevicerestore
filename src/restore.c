@@ -419,7 +419,7 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 
 	if (!restore_device_connected) {
 		error("ERROR: Unable to connect to device in restore mode\n");
-		return -1;
+		return (i == attempts ? -2:-1);
 	}
 
 	info("Connecting now...\n");
@@ -1457,9 +1457,10 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	restore_finished = 0;
 
 	// open our connection to the device and verify we're in restore mode
-	if (restore_open_with_timeout(client) < 0) {
+	error = restore_open_with_timeout(client);
+	if (error < 0) {
 		error("ERROR: Unable to open device in restore mode\n");
-		return -2;
+		return (error == -2) ? -1: -2;
 	}
 	info("Device has successfully entered restore mode\n");
 
