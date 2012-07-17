@@ -56,6 +56,32 @@ ipsw_archive* ipsw_open(const char* ipsw) {
 	return archive;
 }
 
+int ipsw_get_file_size(const char* ipsw, const char* infile, off_t* size) {
+	ipsw_archive* archive = ipsw_open(ipsw);
+	if (archive == NULL || archive->zip == NULL) {
+		error("ERROR: Invalid archive\n");
+		return -1;
+	}
+
+	int zindex = zip_name_locate(archive->zip, infile, 0);
+	if (zindex < 0) {
+		error("ERROR: zip_name_locate: %s\n", infile);
+		return -1;
+	}
+
+	struct zip_stat zstat;
+	zip_stat_init(&zstat);
+	if (zip_stat_index(archive->zip, zindex, 0, &zstat) != 0) {
+		error("ERROR: zip_stat_index: %s\n", infile);
+		return -1;
+	}
+
+	*size = zstat.size;
+
+	ipsw_close(archive);
+	return 0;
+}
+
 int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfile) {
 	ipsw_archive* archive = ipsw_open(ipsw);
 	if (archive == NULL || archive->zip == NULL) {

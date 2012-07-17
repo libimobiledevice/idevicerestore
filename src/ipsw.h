@@ -37,6 +37,8 @@ typedef struct {
 	unsigned char* data;
 } ipsw_file;
 
+int ipsw_get_file_size(const char* ipsw, const char* infile, off_t* size);
+int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfile);
 int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer, uint32_t* psize);
 int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest, int *tss_enabled);
 int ipsw_extract_restore_plist(const char* ipsw, plist_t* restore_plist);
