@@ -97,6 +97,7 @@ void debug_plist(plist_t plist) {
 }
 
 void print_progress_bar(double progress) {
+#ifndef WIN32
 	int i = 0;
 	if(progress < 0) return;
 	if(progress > 100) progress = 100;
@@ -108,6 +109,7 @@ void print_progress_bar(double progress) {
 	info("] %5.1f%%", progress);
 	if(progress == 100) info("\n");
 	fflush(stdout);
+#endif
 }
 
 #define GET_RAND(min, max) ((rand() % (max - min)) + min)
