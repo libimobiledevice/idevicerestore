@@ -227,7 +227,10 @@ int restore_reboot(struct idevicerestore_client_t* client) {
 
 	restored_reboot(client->restore->client);
 
+	restored_client_free(client->restore->client);
+
 	// FIXME: wait for device disconnect here
+	sleep(10);
 
 	return 0;
 }
