@@ -582,6 +582,8 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 	idevice_connection_t asr = NULL;
 	idevice_error_t device_error = IDEVICE_E_UNKNOWN_ERROR;
 
+	info("About to send filesystem...\n");
+
 	if (asr_open_with_timeout(device, &asr) < 0) {
 		error("ERROR: Unable to connect to ASR\n");
 		return -1;
@@ -614,7 +616,7 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 		asr_close(asr);
 		return -1;
 	}
-	info("Filesystem sent\n");
+	info("Done sending filesystem\n");
 
 	asr_close(asr);
 	return 0;
@@ -626,6 +628,8 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 	plist_t dict;
 	unsigned char* data = NULL;
 	uint32_t len = 0;
+
+	info("About to send RootTicket...\n");
 
 	if (!client->tss && !(client->flags & FLAG_CUSTOM)) {
 		error("ERROR: Cannot send RootTicket without TSS\n");
@@ -644,6 +648,7 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 		info("NOTE: not sending RootTicketData (no data present)\n");
 	}
 
+	info("Sending RootTicket now...\n");
 	restore_error = restored_send(restore, dict);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send RootTicket (%d)\n", restore_error);
@@ -665,7 +670,7 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 	plist_t dict = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
-	info("Sending kernelcache\n");
+	info("About to send KernelCache...\n");
 
 	if (client->tss) {
 		if (tss_get_entry_path(client->tss, "KernelCache", &path) < 0) {
@@ -690,6 +695,7 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 	blob = plist_new_data(data, size);
 	plist_dict_insert_item(dict, "KernelCacheFile", blob);
 
+	info("Sending KernelCache now...\n");
 	restore_error = restored_send(restore, dict);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send kernelcache data\n");
@@ -697,7 +703,7 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 		return -1;
 	}
 
-	info("Done sending kernelcache\n");
+	info("Done sending KernelCache\n");
 	plist_free(dict);
 	free(data);
 	return 0;
@@ -719,6 +725,8 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	char* nor_data = NULL;
 	plist_t norimage_array = NULL;
 	restored_error_t ret = RESTORE_E_SUCCESS;
+
+	info("About to send NORData...\n");
 
 	if (client->tss) {
 		if (tss_get_entry_path(client->tss, "LLB", &llb_path) < 0) {
@@ -791,6 +799,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	if (idevicerestore_debug)
 		debug_plist(dict);
 
+	info("Sending NORData now...\n");
 	ret = restored_send(restore, dict);
 	if (ret != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send NORImageData data\n");
@@ -798,6 +807,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		return -1;
 	}
 
+	info("Done sending NORData\n");
 	plist_free(dict);
 	return 0;
 }
@@ -1177,6 +1187,8 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	uint64_t bb_chip_id = 0;
 	plist_t response = NULL;
 
+	info("About to send BasebandData...\n");
+
 	// NOTE: this function is called 2 or 3 times!
 
 	// setup request data
@@ -1278,11 +1290,13 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	free(buffer);
 	buffer = NULL;
 
+	info("Sending BasebandData now...\n");
 	if (restored_send(restore, dict) != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send BasebandData data\n");
 		goto leave;
 	}
 
+	info("Done sending BasebandData\n");
 	plist_free(dict);
 	dict = NULL;
 
@@ -1341,7 +1355,6 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		else if (!strcmp(type, "NORData")) {
 			if((client->flags & FLAG_EXCLUDE) == 0) {
-				info("Sending NORData\n");
 				if(restore_send_nor(restore, client, build_identity) < 0) {
 					error("ERROR: Unable to send NOR data\n");
 					return -1;
