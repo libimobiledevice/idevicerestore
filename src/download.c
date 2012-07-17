@@ -122,7 +122,7 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 	if (idevicerestore_debug)
 		curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
 
-	curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, (curl_write_callback)&fwrite);
+	curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, NULL);
 	curl_easy_setopt(handle, CURLOPT_WRITEDATA, f);
 
 	if (enable_progress > 0)
