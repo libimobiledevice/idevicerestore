@@ -126,6 +126,24 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 	return 0;
 }
 
+int ipsw_file_exists(const char* ipsw, const char* infile)
+{
+	ipsw_archive* archive = ipsw_open(ipsw);
+	if (archive == NULL || archive->zip == NULL) {
+		return -1;
+	}
+
+	int zindex = zip_name_locate(archive->zip, infile, 0);
+	if (zindex < 0) {
+		ipsw_close(archive);
+		return -2;
+	}
+
+	ipsw_close(archive);
+
+	return 0;
+}
+
 int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer, uint32_t* psize) {
 	ipsw_archive* archive = ipsw_open(ipsw);
 	if (archive == NULL || archive->zip == NULL) {
@@ -184,9 +202,11 @@ int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest, int *t
 	*tss_enabled = 0;
 
 	/* older devices don't require personalized firmwares and use a BuildManifesto.plist */
-	if (ipsw_extract_to_memory(ipsw, "BuildManifesto.plist", &data, &size) == 0) {
-		plist_from_xml(data, size, buildmanifest);
-		return 0;
+	if (ipsw_file_exists(ipsw, "BuildManifesto.plist") == 0) {
+		if (ipsw_extract_to_memory(ipsw, "BuildManifesto.plist", &data, &size) == 0) {
+			plist_from_xml(data, size, buildmanifest);
+			return 0;
+		}
 	}
 
 	data = NULL;
