@@ -37,7 +37,6 @@ mbn_file* mbn_parse(unsigned char* data, unsigned int size)
 	/* FIXME: header parsing is not big endian safe */
 	memcpy(&mbn->header, data, sizeof(mbn_header));
 	mbn->parsed_size = mbn->header.data_size + sizeof(mbn_header);
-	mbn->parsed_sig_offset = mbn->header.sig_offset - (mbn->header.data_size & 0xFF);
 	if (mbn->parsed_size != mbn->size) {
 		printf("size mismatch?!\n");
 	}
@@ -56,15 +55,11 @@ void mbn_free(mbn_file* mbn)
 
 int mbn_update_sig_blob(mbn_file* mbn, const unsigned char* sigdata, unsigned int siglen)
 {
+	mbn->parsed_sig_offset = mbn->parsed_size - siglen;
 	if (!mbn) {
 		error("ERROR: %s: no data\n", __func__);
 		return -1;
 	}
-	if (!mbn->parsed_sig_offset || (mbn->parsed_sig_offset >= mbn->parsed_size)) {
-		error("ERROR: %s: invalid signature offset in mbn header\n", __func__);
-		return -1;
-	}
-
 	if ((mbn->parsed_sig_offset + siglen) > mbn->parsed_size) {
 		error("ERROR: %s: signature is larger than mbn file size\n", __func__);
 		return -1;
