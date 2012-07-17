@@ -29,6 +29,7 @@
 
 #define ASR_PORT 12345
 #define ASR_BUFFER_SIZE 65536
+#define ASR_PAYLOAD_PACKET_SIZE 1450
 
 int asr_open_with_timeout(idevice_t device, idevice_connection_t* asr) {
 	int i = 0;
@@ -161,7 +162,7 @@ int asr_perform_validation(idevice_connection_t asr, const char* filesystem) {
 
 	packet_info = plist_new_dict();
 	plist_dict_insert_item(packet_info, "FEC Slice Stride", plist_new_uint(40));
-	plist_dict_insert_item(packet_info, "Packet Payload Size", plist_new_uint(1450));
+	plist_dict_insert_item(packet_info, "Packet Payload Size", plist_new_uint(ASR_PAYLOAD_PACKET_SIZE));
 	plist_dict_insert_item(packet_info, "Packets Per FEC", plist_new_uint(25));
 	plist_dict_insert_item(packet_info, "Payload", payload_info);
 	plist_dict_insert_item(packet_info, "Stream ID", plist_new_uint(1));
@@ -263,7 +264,7 @@ int asr_handle_oob_data_request(idevice_connection_t asr, plist_t packet, FILE* 
 
 int asr_send_payload(idevice_connection_t asr, const char* filesystem) {
 	int i = 0;
-	char data[1450];
+	char data[ASR_PAYLOAD_PACKET_SIZE];
 	FILE* file = NULL;
 	uint32_t bytes = 0;
 	uint32_t count = 0;
@@ -279,9 +280,9 @@ int asr_send_payload(idevice_connection_t asr, const char* filesystem) {
 	length = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	for(i = length; i > 0; i -= 1450) {
-		int size = 1450;
-		if (i < 1450) {
+	for(i = length; i > 0; i -= ASR_PAYLOAD_PACKET_SIZE) {
+		int size = ASR_PAYLOAD_PACKET_SIZE;
+		if (i < ASR_PAYLOAD_PACKET_SIZE) {
 			size = i;
 		}
 
