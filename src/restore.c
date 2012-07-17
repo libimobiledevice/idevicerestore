@@ -83,6 +83,10 @@ void restore_client_free(struct idevicerestore_client_t* client) {
 				idevice_free(client->restore->device);
 				client->restore->device = NULL;
 			}
+			if(client->restore->bbtss) {
+				plist_free(client->restore->bbtss);
+				client->restore->bbtss = NULL;
+			}
 			free(client->restore);
 			client->restore = NULL;
 		}
@@ -786,35 +790,56 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	return 0;
 }
 
-static int restore_handle_trek_bbfw(const char* bbfwtmp, plist_t response, unsigned char* bb_nonce)
+static const char* restore_get_bbfw_fn_for_element(const char* elem)
+{
+	struct bbfw_fn_elem_t {
+		const char* element;
+		const char* fn;
+	};
+
+	struct bbfw_fn_elem_t bbfw_fn_elem[] = {
+		// ICE3 firmware files
+		{ "RamPSI", "psi_ram.fls" },
+		{ "FlashPSI", "psi_flash.fls" },
+		// Trek firmware files
+		{ "eDBL", "dbl.mbn" },
+		{ "RestoreDBL", "restoredbl.mbn" },
+		// Phoenix/Mav4 firmware files
+		{ "DBL", "dbl.mbn" },
+		{ "ENANDPRG", "ENPRG.mbn" },	
+		{ NULL, NULL }
+	};
+
+	int i;
+	for (i = 0; bbfw_fn_elem[i].element != NULL; i++) {
+		if (strcmp(bbfw_fn_elem[i].element, elem) == 0) {
+			return bbfw_fn_elem[i].fn;
+		}
+	}
+	return NULL;
+}
+
+static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const char* bb_nonce)
 {
 	int res = -1;
 
 	// check for BBTicket in result
-	plist_t bbticket = plist_dict_get_item(response, "BBTicket");
+	plist_t bbticket = plist_dict_get_item(bbtss, "BBTicket");
 	if (!bbticket || plist_get_node_type(bbticket) != PLIST_DATA) {
 		error("ERROR: Could not find BBTicket in Baseband TSS response\n");
 		return -1;
 	}
 
-	// check for eDBL-Blob in result
-	plist_t edbl = plist_access_path(response, 2, "BasebandFirmware", "eDBL-Blob");
-	if (!edbl || plist_get_node_type(edbl) != PLIST_DATA) {
-		error("ERROR: Could not find eDBL-Blob in Baseband TSS response\n");
-		return -1;
-	}
-
-	// check for RestoreDBL-Blob in result
-	plist_t restoredbl = plist_access_path(response, 2, "BasebandFirmware", "RestoreDBL-Blob");
-	if (!restoredbl || plist_get_node_type(restoredbl) != PLIST_DATA) {
-		error("ERROR: Could not find RestoreDBL-Blob in Baseband TSS response\n");
+	plist_t bbfw_dict = plist_dict_get_item(bbtss, "BasebandFirmware");
+	if (!bbfw_dict || plist_get_node_type(bbfw_dict) != PLIST_DICT) {
+		error("ERROR: Could not find BasebandFirmware Dictionary node in Baseband TSS response\n");
 		return -1;
 	}
 
 	unsigned char* buffer = NULL;
 	unsigned char* blob = NULL;
-	unsigned char* mbndata = NULL;
-	off_t mbnsize = 0;
+	unsigned char* fdata = NULL;
+	off_t fsize = 0;
 	uint64_t blob_size = 0;
 	int zerr = 0;
 	int zindex = -1;
@@ -824,8 +849,7 @@ static int restore_handle_trek_bbfw(const char* bbfwtmp, plist_t response, unsig
 	struct zip* za = NULL;
 	struct zip_source* zs = NULL;
 	mbn_file* mbn = NULL;
-	int dbl_index = -1;
-	int restoredbl_index = -1;
+	fls_file* fls = NULL;
 
 	za = zip_open(bbfwtmp, 0, &zerr);
 	if (!za) {
@@ -833,340 +857,255 @@ static int restore_handle_trek_bbfw(const char* bbfwtmp, plist_t response, unsig
 		goto leave;
 	}
 
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(bbfw_dict, &iter);
+	if (!iter) {
+		error("ERROR: Could not create dict iter for BasebandFirmware Dictionary\n");
+		return -1;
+	}
+
+	int is_fls = 0;
+	int signed_file_idxs[16];
+	int signed_file_count = 0;
+	char* key = NULL;
+	plist_t node = NULL;
+	while (1) {
+		plist_dict_next_item(bbfw_dict, iter, &key, &node);
+		if (key == NULL)
+			break;
+		if (node && (strcmp(key + (strlen(key) - 5), "-Blob") == 0) && (plist_get_node_type(node) == PLIST_DATA)) {
+			key[strlen(key)-5] = 0;
+			const char* signfn = restore_get_bbfw_fn_for_element(key);
+			char* ext = strrchr(signfn, '.');
+			if (strcmp(ext, ".fls") == 0) {
+				is_fls = 1;
+			}
+
+			zindex = zip_name_locate(za, signfn, 0);
+			if (zindex < 0) {
+				error("ERROR: can't locate '%s' in '%s'\n", signfn, bbfwtmp);
+				goto leave;
+			}
+
+			zip_stat_init(&zstat);
+			if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
+				error("ERROR: zip_stat_index failed for index %d\n", zindex);
+				goto leave;
+			}
+
+			zfile = zip_fopen_index(za, zindex, 0);
+			if (zfile == NULL) {
+				error("ERROR: zip_fopen_index failed for index %d\n", zindex);
+				goto leave;
+			}
+
+			size = zstat.size;
+			buffer = (unsigned char*) malloc(size+1);
+			if (buffer == NULL) {
+				error("ERROR: Out of memory\n");
+				goto leave;
+			}
+
+			if (zip_fread(zfile, buffer, size) != size) {
+				error("ERROR: zip_fread: failed\n");
+				goto leave;
+			}
+			buffer[size] = '\0';
+
+			zip_fclose(zfile);
+			zfile = NULL;
+
+			if (is_fls) {
+				fls = fls_parse(buffer, size);
+				if (!fls) {
+					error("ERROR: could not parse fls file\n");
+					goto leave;
+				}
+			} else {
+				mbn = mbn_parse(buffer, size);
+				if (!mbn) {
+					error("ERROR: could not parse mbn file\n");
+					goto leave;
+				}
+			}
+			free(buffer);
+			buffer = NULL;
+
+			blob = NULL;
+			blob_size = 0;
+			plist_get_data_val(node, (char**)&blob, &blob_size);
+			if (!blob) {
+				error("ERROR: could not get %s-Blob data\n", key);
+				goto leave;
+			}
+
+			if (is_fls) {
+				if (fls_update_sig_blob(fls, blob, (unsigned int)blob_size) != 0) {
+					error("ERROR: could not sign psi_ram.fls\n");
+					goto leave;
+				}
+			} else {
+				if (mbn_update_sig_blob(mbn, blob, (unsigned int)blob_size) != 0) {
+					error("ERROR: could not sign dbl.mbn\n");
+					goto leave;
+				}
+			}
+			free(blob);
+			blob = NULL;
+
+			if (is_fls) {
+				fsize = fls->size;
+				fdata = (unsigned char*)malloc(fsize);
+				memcpy(fdata, fls->data, fsize);
+				fls_free(fls);
+				fls = NULL;
+			} else {
+				fsize = mbn->size;
+				fdata = (unsigned char*)malloc(fsize);
+				memcpy(fdata, mbn->data, fsize);
+				mbn_free(mbn);
+				mbn = NULL;
+			}
+
+			zs = zip_source_buffer(za, fdata, fsize, 1);
+			if (!zs) {
+				error("ERROR: out of memory\n");
+				goto leave;
+			}
+
+			if (zip_replace(za, zindex, zs) == -1) {
+				error("ERROR: could not update signed '%s' in archive\n", signfn);
+				goto leave;
+			}
+
+			if (is_fls && !bb_nonce) {
+				if (strcmp(key, "RamPSI") == 0) {
+					signed_file_idxs[signed_file_count++] = zindex;
+				}
+			} else {
+				signed_file_idxs[signed_file_count++] = zindex;
+			}
+		}
+		free(key);
+	}
+	free(iter);
+
 	if (!bb_nonce) {
-		// first time call
-		// sign dbl.mbn
-		zindex = zip_name_locate(za, "dbl.mbn", 0);
-		if (zindex < 0) {
-			error("ERROR: can't locate 'dbl.mbn' in '%s'\n", bbfwtmp);
-			goto leave;
-		}
-
-		zip_stat_init(&zstat);
-		if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
-			error("ERROR: zip_stat_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		zfile = zip_fopen_index(za, zindex, 0);
-		if (zfile == NULL) {
-			error("ERROR: zip_fopen_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		size = zstat.size;
-		buffer = (unsigned char*) malloc(size+1);
-		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
-			goto leave;
-		}
-
-		if (zip_fread(zfile, buffer, size) != size) {
-			error("ERROR: zip_fread: failed\n");
-			goto leave;
-		}
-		buffer[size] = '\0';
-
-		zip_fclose(zfile);
-		zfile = NULL;
-
-		mbn = mbn_parse(buffer, size);
-		free(buffer);
-		buffer = NULL;
-		if (!mbn) {
-			error("ERROR: could not parse mbn file\n");
-			goto leave;
-		}
-
-		blob = NULL;
-		blob_size = 0;
-		plist_get_data_val(edbl, (char**)&blob, &blob_size);
-		if (!blob) {
-			error("ERROR: could not get eDBL-Blob data\n");
-			goto leave;
-		}
-
-		if (mbn_update_sig_blob(mbn, blob, (unsigned int)blob_size) != 0) {
-			error("ERROR: could not sign dbl.mbn\n");
-			goto leave;
-		}
-		free(blob);
-		blob = NULL;
-
-		mbnsize = mbn->size;
-		mbndata = (unsigned char*)malloc(mbnsize);
-		memcpy(mbndata, mbn->data, mbnsize);
-		mbn_free(mbn);
-		mbn = NULL;
-
-		zs = zip_source_buffer(za, mbndata, mbnsize, 1);
-		if (!zs) {
-			error("ERROR: out of memory\n");
-			goto leave;
-		}
-
-		if (zip_replace(za, zindex, zs) == -1) {
-			error("ERROR: could not add signed dbl.mbn to archive\n");
-			goto leave;
-		}
-		dbl_index = zindex;
-
-		// sign restoredbl.mbn
-		zindex = zip_name_locate(za, "restoredbl.mbn", 0);
-		if (zindex < 0) {
-			error("ERROR: can't locate 'restoredbl.mbn' in '%s'\n", bbfwtmp);
-			goto leave;
-		}
-
-		zip_stat_init(&zstat);
-		if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
-			error("ERROR: zip_stat_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		zfile = zip_fopen_index(za, zindex, 0);
-		if (zfile == NULL) {
-			error("ERROR: zip_fopen_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		size = zstat.size;
-		buffer = (unsigned char*) malloc(size+1);
-		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
-			goto leave;
-		}
-
-		if (zip_fread(zfile, buffer, size) != size) {
-			error("ERROR: zip_fread: failed\n");
-			goto leave;
-		}
-		buffer[size] = '\0';
-
-		zip_fclose(zfile);
-		zfile = NULL;
-
-		mbn = mbn_parse(buffer, size);
-		free(buffer);
-		buffer = NULL;
-		if (!mbn) {
-			error("ERROR: could not parse mbn file\n");
-			goto leave;
-		}
-
-		blob = NULL;
-		blob_size = 0;
-		plist_get_data_val(restoredbl, (char**)&blob, &blob_size);
-		if (!blob) {
-			error("ERROR: could not get RestoreDBL-Blob data\n");
-			goto leave;
-		}
-
-		if (mbn_update_sig_blob(mbn, blob, (unsigned int)blob_size) != 0) {
-			error("ERROR: could not sign restoredbl.mbn\n");
-			goto leave;
-		}
-		free(blob);
-		blob = NULL;
-
-		mbnsize = mbn->size;
-		mbndata = (unsigned char*)malloc(mbnsize);
-		memcpy(mbndata, mbn->data, mbnsize);
-		mbn_free(mbn);
-		mbn = NULL;
-
-		zs = zip_source_buffer(za, mbndata, mbnsize, 1);
-		if (!zs) {
-			error("ERROR: out of memory\n");
-			goto leave;
-		}
-
-		if (zip_replace(za, zindex, zs) == -1) {
-			error("ERROR: could not add signed restoredbl.mbn to archive\n");
-			goto leave;
-		}
-		restoredbl_index = zindex;
-
-		// remove all other files from zip
+		// remove everything but required signed files
 		int i;
+		int j;
+		int skip = 0;
 		int numf = zip_get_num_files(za);
 		for (i = 0; i < numf; i++) {
-			if ((i == dbl_index) || (i == restoredbl_index)) {
+			skip = 0;
+			for (j = 0; j < signed_file_count; j++) {
+				if (i == signed_file_idxs[j]) {
+					skip = 1;
+					break;
+				}
+			}
+			if (skip) {
 				continue;
 			}
 			zip_delete(za, i);
 		}
 	} else {
-		// second time call
-		// sign dbl.mbn
-		zindex = zip_name_locate(za, "dbl.mbn", 0);
-		if (zindex < 0) {
-			error("ERROR: can't locate 'dbl.mbn' in '%s'\n", bbfwtmp);
-			goto leave;
-		}
+		if (is_fls) {
+			// add BBTicket to file ebl.fls
+			zindex = zip_name_locate(za, "ebl.fls", 0);
+			if (zindex < 0) {
+				error("ERROR: can't locate 'ebl.fls' in '%s'\n", bbfwtmp);
+				goto leave;
+			}
 
-		zip_stat_init(&zstat);
-		if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
-			error("ERROR: zip_stat_index failed for index %d\n", zindex);
-			goto leave;
-		}
+			zip_stat_init(&zstat);
+			if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
+				error("ERROR: zip_stat_index failed for index %d\n", zindex);
+				goto leave;
+			}
 
-		zfile = zip_fopen_index(za, zindex, 0);
-		if (zfile == NULL) {
-			error("ERROR: zip_fopen_index failed for index %d\n", zindex);
-			goto leave;
-		}
+			zfile = zip_fopen_index(za, zindex, 0);
+			if (zfile == NULL) {
+				error("ERROR: zip_fopen_index failed for index %d\n", zindex);
+				goto leave;
+			}
 
-		size = zstat.size;
-		buffer = (unsigned char*) malloc(size+1);
-		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
-			goto leave;
-		}
+			size = zstat.size;
+			buffer = (unsigned char*) malloc(size+1);
+			if (buffer == NULL) {
+				error("ERROR: Out of memory\n");
+				goto leave;
+			}
 
-		if (zip_fread(zfile, buffer, size) != size) {
-			error("ERROR: zip_fread: failed\n");
-			goto leave;
-		}
-		buffer[size] = '\0';
+			if (zip_fread(zfile, buffer, size) != size) {
+				error("ERROR: zip_fread: failed\n");
+				goto leave;
+			}
+			buffer[size] = '\0';
 
-		zip_fclose(zfile);
-		zfile = NULL;
+			zip_fclose(zfile);
+			zfile = NULL;
 
-		mbn = mbn_parse(buffer, size);
-		free(buffer);
-		buffer = NULL;
-		if (!mbn) {
-			error("ERROR: could not parse mbn file\n");
-			goto leave;
-		}
+			fls = fls_parse(buffer, size);
+			free(buffer);
+			buffer = NULL;
+			if (!fls) {
+				error("ERROR: could not parse fls file\n");
+				goto leave;
+			}
 
-		blob = NULL;
-		blob_size = 0;
-		plist_get_data_val(edbl, (char**)&blob, &blob_size);
-		if (!blob) {
-			error("ERROR: could not get eDBL-Blob data\n");
-			goto leave;
-		}
+			blob = NULL;
+			blob_size = 0;
+			plist_get_data_val(bbticket, (char**)&blob, &blob_size);
+			if (!blob) {
+				error("ERROR: could not get BBTicket data\n");
+				goto leave;
+			}
 
-		if (mbn_update_sig_blob(mbn, blob, (unsigned int)blob_size) != 0) {
-			error("ERROR: could not sign dbl.mbn\n");
-			goto leave;
-		}
-		free(blob);
-		blob = NULL;
+			if (fls_insert_ticket(fls, blob, (unsigned int)blob_size) != 0) {
+				error("ERROR: could not insert BBTicket to ebl.fls\n");
+				goto leave;
+			}
+			free(blob);
+			blob = NULL;
 
-		mbnsize = mbn->size;
-		mbndata = (unsigned char*)malloc(mbnsize);
-		memcpy(mbndata, mbn->data, mbnsize);
-		mbn_free(mbn);
-		mbn = NULL;
+			fsize = fls->size;
+			fdata = (unsigned char*)malloc(fsize);
+			memcpy(fdata, fls->data, fsize);
+			fls_free(fls);
+			fls = NULL;
 
-		zs = zip_source_buffer(za, mbndata, mbnsize, 1);
-		if (!zs) {
-			error("ERROR: out of memory\n");
-			goto leave;
-		}
+			zs = zip_source_buffer(za, fdata, fsize, 1);
+			if (!zs) {
+				error("ERROR: out of memory\n");
+				goto leave;
+			}
 
-		if (zip_replace(za, zindex, zs) == -1) {
-			error("ERROR: could not add signed dbl.mbn to archive\n");
-			goto leave;
-		}
+			if (zip_replace(za, zindex, zs) == -1) {
+				error("ERROR: could not update archive with ticketed ebl.fls\n");
+				goto leave;
+			}
+		} else {
+			// add BBTicket as bbticket.der
+			blob = NULL;
+			blob_size = 0;
+			plist_get_data_val(bbticket, (char**)&blob, &blob_size);
+			if (!blob) {
+				error("ERROR: could not get BBTicket data\n");
+				goto leave;
+			}
 
-		// sign restoredbl.mbn
-		zindex = zip_name_locate(za, "restoredbl.mbn", 0);
-		if (zindex < 0) {
-			error("ERROR: can't locate 'restoredbl.mbn' in '%s'\n", bbfwtmp);
-			goto leave;
-		}
+			zs = zip_source_buffer(za, blob, blob_size, 1);
+			if (!zs) {
+				error("ERROR: out of memory\n");
+				goto leave;
+			}
+			blob = NULL;
 
-		zip_stat_init(&zstat);
-		if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
-			error("ERROR: zip_stat_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		zfile = zip_fopen_index(za, zindex, 0);
-		if (zfile == NULL) {
-			error("ERROR: zip_fopen_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		size = zstat.size;
-		buffer = (unsigned char*) malloc(size+1);
-		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
-			goto leave;
-		}
-
-		if (zip_fread(zfile, buffer, size) != size) {
-			error("ERROR: zip_fread: failed\n");
-			goto leave;
-		}
-		buffer[size] = '\0';
-
-		zip_fclose(zfile);
-		zfile = NULL;
-
-		mbn = mbn_parse(buffer, size);
-		free(buffer);
-		buffer = NULL;
-		if (!mbn) {
-			error("ERROR: could not parse mbn file\n");
-			goto leave;
-		}
-
-		blob = NULL;
-		blob_size = 0;
-		plist_get_data_val(restoredbl, (char**)&blob, &blob_size);
-		if (!blob) {
-			error("ERROR: could not get RestoreDBL-Blob data\n");
-			goto leave;
-		}
-
-		if (mbn_update_sig_blob(mbn, blob, (unsigned int)blob_size) != 0) {
-			error("ERROR: could not sign restoredbl.mbn\n");
-			goto leave;
-		}
-		free(blob);
-		blob = NULL;
-
-		mbnsize = mbn->size;
-		mbndata = (unsigned char*)malloc(mbnsize);
-		memcpy(mbndata, mbn->data, mbnsize);
-		mbn_free(mbn);
-		mbn = NULL;
-
-		zs = zip_source_buffer(za, mbndata, mbnsize, 1);
-		if (!zs) {
-			error("ERROR: out of memory\n");
-			goto leave;
-		}
-
-		if (zip_replace(za, zindex, zs) == -1) {
-			error("ERROR: could not add signed restoredbl.mbn to archive\n");
-			goto leave;
-		}
-
-		// add BBTicket as bbticket.der
-		blob = NULL;
-		blob_size = 0;
-		plist_get_data_val(bbticket, (char**)&blob, &blob_size);
-		if (!blob) {
-			error("ERROR: could not get BBTicket data\n");
-			goto leave;
-		}
-
-		zs = zip_source_buffer(za, blob, blob_size, 1);
-		if (!zs) {
-			error("ERROR: out of memory\n");
-			goto leave;
-		}
-		blob = NULL;
-
-		if (zip_add(za, "bbticket.der", zs) == -1) {
-			error("ERROR: could not add bbticket.der to archive\n");
-			goto leave;
+			if (zip_add(za, "bbticket.der", zs) == -1) {
+				error("ERROR: could not add bbticket.der to archive\n");
+				goto leave;
+			}
 		}
 	}
 
@@ -1181,388 +1120,6 @@ leave:
 	if (mbn) {
 		mbn_free(mbn);
 	}
-	if (zfile) {
-		zip_fclose(zfile);
-	}
-	if (zs) {
-		zip_source_free(zs);
-	}
-	if (za) {
-		zip_unchange_all(za);
-		zip_close(za);
-	}
-	if (buffer) {
-		free(buffer);
-	}
-	if (blob) {
-		free(blob);
-	}
-
-	return res;
-}
-
-static int restore_handle_ice3_bbfw(const char* bbfwtmp, plist_t response, unsigned char* bb_nonce)
-{
-	int res = -1;
-
-	// check for BBTicket in result
-	plist_t bbticket = plist_dict_get_item(response, "BBTicket");
-	if (!bbticket || plist_get_node_type(bbticket) != PLIST_DATA) {
-		error("ERROR: Could not find BBTicket in Baseband TSS response\n");
-		return -1;
-	}
-
-	// check for RamPSI-Blob in result
-	plist_t rampsi = plist_access_path(response, 2, "BasebandFirmware", "RamPSI-Blob");
-	if (!rampsi || plist_get_node_type(rampsi) != PLIST_DATA) {
-		error("ERROR: Could not find RamPSI-Blob in Baseband TSS response\n");
-		return -1;
-	}
-
-	// check for FlashPSI-Blob in result
-	plist_t flashpsi = plist_access_path(response, 2, "BasebandFirmware", "FlashPSI-Blob");
-	if (!flashpsi || plist_get_node_type(flashpsi) != PLIST_DATA) {
-		error("ERROR: Could not find FlashPSI-Blob in Baseband TSS response\n");
-		return -1;
-	}
-
-	unsigned char* buffer = NULL;
-	unsigned char* blob = NULL;
-	unsigned char* flsdata = NULL;
-	off_t flssize = 0;
-	uint64_t blob_size = 0;
-	int zerr = 0;
-	int zindex = -1;
-	int size = 0;
-	struct zip_stat zstat;
-	struct zip_file* zfile = NULL;
-	struct zip* za = NULL;
-	struct zip_source* zs = NULL;
-	fls_file* fls = NULL;
-
-	za = zip_open(bbfwtmp, 0, &zerr);
-	if (!za) {
-		error("ERROR: Could not open ZIP archive '%s': %d\n", bbfwtmp, zerr);
-		goto leave;
-	}
-
-	if (!bb_nonce) {
-		// just sign psi_ram.fls
-		zindex = zip_name_locate(za, "psi_ram.fls", 0);
-		if (zindex < 0) {
-			error("ERROR: can't locate 'psi_ram.fls' in '%s'\n", bbfwtmp);
-			goto leave;
-		}
-
-		zip_stat_init(&zstat);
-		if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
-			error("ERROR: zip_stat_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		zfile = zip_fopen_index(za, zindex, 0);
-		if (zfile == NULL) {
-			error("ERROR: zip_fopen_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		size = zstat.size;
-		buffer = (unsigned char*) malloc(size+1);
-		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
-			goto leave;
-		}
-
-		if (zip_fread(zfile, buffer, size) != size) {
-			error("ERROR: zip_fread: failed\n");
-			goto leave;
-		}
-		buffer[size] = '\0';
-
-		zip_fclose(zfile);
-		zfile = NULL;
-
-		fls = fls_parse(buffer, size);
-		free(buffer);
-		buffer = NULL;
-		if (!fls) {
-			error("ERROR: could not parse fls file\n");
-			goto leave;
-		}
-
-		blob = NULL;
-		blob_size = 0;
-		plist_get_data_val(rampsi, (char**)&blob, &blob_size);
-		if (!blob) {
-			error("ERROR: could not get RamPSI-Blob data\n");
-			goto leave;
-		}
-
-		if (fls_update_sig_blob(fls, blob, (unsigned int)blob_size) != 0) {
-			error("ERROR: could not sign psi_ram.fls\n");
-			goto leave;
-		}
-		free(blob);
-		blob = NULL;
-
-		// remove all files from zip
-		int i;
-		int numf = zip_get_num_files(za);
-		for (i = 0; i < numf; i++) {
-			zip_delete(za, i);
-		}
-
-		flssize = fls->size;
-		flsdata = (unsigned char*)malloc(flssize);
-		memcpy(flsdata, fls->data, flssize);
-		fls_free(fls);
-		fls = NULL;
-
-		zs = zip_source_buffer(za, flsdata, flssize, 1);
-		if (!zs) {
-			error("ERROR: out of memory\n");
-			goto leave;
-		}
-
-		if (zip_add(za, "psi_ram.fls", zs) == -1) {
-			error("ERROR: could not add signed psi_ram.fls to archive\n");
-			goto leave;
-		}
-	} else {
-		// sign psi_ram.fls
-		zindex = zip_name_locate(za, "psi_ram.fls", 0);
-		if (zindex < 0) {
-			error("ERROR: can't locate 'psi_ram.fls' in '%s'\n", bbfwtmp);
-			goto leave;
-		}
-
-		zip_stat_init(&zstat);
-		if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
-			error("ERROR: zip_stat_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		zfile = zip_fopen_index(za, zindex, 0);
-		if (zfile == NULL) {
-			error("ERROR: zip_fopen_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		size = zstat.size;
-		buffer = (unsigned char*) malloc(size+1);
-		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
-			goto leave;
-		}
-
-		if (zip_fread(zfile, buffer, size) != size) {
-			error("ERROR: zip_fread: failed\n");
-			goto leave;
-		}
-		buffer[size] = '\0';
-
-		zip_fclose(zfile);
-		zfile = NULL;
-
-		fls = fls_parse(buffer, size);
-		free(buffer);
-		buffer = NULL;
-		if (!fls) {
-			error("ERROR: could not parse fls file\n");
-			goto leave;
-		}
-
-		blob = NULL;
-		blob_size = 0;
-		plist_get_data_val(rampsi, (char**)&blob, &blob_size);
-		if (!blob) {
-			error("ERROR: could not get RamPSI-Blob data\n");
-			goto leave;
-		}
-
-		if (fls_update_sig_blob(fls, blob, (unsigned int)blob_size) != 0) {
-			error("ERROR: could not sign psi_ram.fls\n");
-			goto leave;
-		}
-		free(blob);
-		blob = NULL;
-
-		flssize = fls->size;
-		flsdata = (unsigned char*)malloc(flssize);
-		memcpy(flsdata, fls->data, flssize);
-		fls_free(fls);
-		fls = NULL;
-
-		zs = zip_source_buffer(za, flsdata, flssize, 1);
-		if (!zs) {
-			error("ERROR: out of memory\n");
-			goto leave;
-		}
-
-		if (zip_replace(za, zindex, zs) == -1) {
-			error("ERROR: could not add signed psi_ram.fls to archive\n");
-			goto leave;
-		}
-
-		// sign psi_flash.fls
-		zindex = zip_name_locate(za, "psi_flash.fls", 0);
-		if (zindex < 0) {
-			error("ERROR: can't locate 'psi_flash.fls' in '%s'\n", bbfwtmp);
-			goto leave;
-		}
-
-		zip_stat_init(&zstat);
-		if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
-			error("ERROR: zip_stat_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		zfile = zip_fopen_index(za, zindex, 0);
-		if (zfile == NULL) {
-			error("ERROR: zip_fopen_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		size = zstat.size;
-		buffer = (unsigned char*) malloc(size+1);
-		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
-			goto leave;
-		}
-
-		if (zip_fread(zfile, buffer, size) != size) {
-			error("ERROR: zip_fread: failed\n");
-			goto leave;
-		}
-		buffer[size] = '\0';
-
-		zip_fclose(zfile);
-		zfile = NULL;
-
-		fls = fls_parse(buffer, size);
-		free(buffer);
-		buffer = NULL;
-		if (!fls) {
-			error("ERROR: could not parse fls file\n");
-			goto leave;
-		}
-
-		blob = NULL;
-		blob_size = 0;
-		plist_get_data_val(flashpsi, (char**)&blob, &blob_size);
-		if (!blob) {
-			error("ERROR: could not get FlashPSI-Blob data\n");
-			goto leave;
-		}
-
-		if (fls_update_sig_blob(fls, blob, (unsigned int)blob_size) != 0) {
-			error("ERROR: could not sign psi_flash.fls\n");
-			goto leave;
-		}
-		free(blob);
-		blob = NULL;
-
-		flssize = fls->size;
-		flsdata = (unsigned char*)malloc(flssize);
-		memcpy(flsdata, fls->data, flssize);
-		fls_free(fls);
-		fls = NULL;
-
-		zs = zip_source_buffer(za, flsdata, flssize, 1);
-		if (!zs) {
-			error("ERROR: out of memory\n");
-			goto leave;
-		}
-
-		if (zip_replace(za, zindex, zs) == -1) {
-			error("ERROR: could not add signed psi_flash.fls to archive\n");
-			goto leave;
-		}
-
-		// add ticket to ebl.fls
-		zindex = zip_name_locate(za, "ebl.fls", 0);
-		if (zindex < 0) {
-			error("ERROR: can't locate 'ebl.fls' in '%s'\n", bbfwtmp);
-			goto leave;
-		}
-
-		zip_stat_init(&zstat);
-		if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
-			error("ERROR: zip_stat_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		zfile = zip_fopen_index(za, zindex, 0);
-		if (zfile == NULL) {
-			error("ERROR: zip_fopen_index failed for index %d\n", zindex);
-			goto leave;
-		}
-
-		size = zstat.size;
-		buffer = (unsigned char*) malloc(size+1);
-		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
-			goto leave;
-		}
-
-		if (zip_fread(zfile, buffer, size) != size) {
-			error("ERROR: zip_fread: failed\n");
-			goto leave;
-		}
-		buffer[size] = '\0';
-
-		zip_fclose(zfile);
-		zfile = NULL;
-
-		fls = fls_parse(buffer, size);
-		free(buffer);
-		buffer = NULL;
-		if (!fls) {
-			error("ERROR: could not parse fls file\n");
-			goto leave;
-		}
-
-		blob = NULL;
-		blob_size = 0;
-		plist_get_data_val(bbticket, (char**)&blob, &blob_size);
-		if (!blob) {
-			error("ERROR: could not get BBTicket data\n");
-			goto leave;
-		}
-
-		if (fls_insert_ticket(fls, blob, (unsigned int)blob_size) != 0) {
-			error("ERROR: could not insert BBTicket to ebl.fls\n");
-			goto leave;
-		}
-		free(blob);
-		blob = NULL;
-
-		flssize = fls->size;
-		flsdata = (unsigned char*)malloc(flssize);
-		memcpy(flsdata, fls->data, flssize);
-		fls_free(fls);
-		fls = NULL;
-
-		zs = zip_source_buffer(za, flsdata, flssize, 1);
-		if (!zs) {
-			error("ERROR: out of memory\n");
-			goto leave;
-		}
-
-		if (zip_replace(za, zindex, zs) == -1) {
-			error("ERROR: could not add ticketed ebl.fls to archive\n");
-			goto leave;
-		}
-	}
-
-	// this will write out the modified zip
-	zip_close(za);
-	za = NULL;
-	zs = NULL;
-
-	res = 0;
-
-leave:
 	if (fls) {
 		fls_free(fls);
 	}
@@ -1595,8 +1152,9 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	unsigned char* bb_nonce = NULL;
 	uint64_t bb_nonce_size = 0;
 	uint64_t bb_chip_id = 0;
+	plist_t response = NULL;
 
-	// NOTE: this function is called twice!
+	// NOTE: this function is called 2 or 3 times!
 
 	// setup request data
 	plist_t arguments = plist_dict_get_item(message, "Arguments");
@@ -1619,23 +1177,26 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		}
 	}
 
-	// create Baseband TSS request
-	plist_t request = tss_create_baseband_request(build_identity, client->ecid, bb_cert_id, bb_snum, bb_snum_size, bb_nonce, bb_nonce_size);
-	if (request == NULL) {
-		error("ERROR: Unable to create Baseand TSS request\n");
-		return -1;
-	}
+	if ((bb_nonce == NULL) || (client->restore->bbtss == NULL)) {
+		// create Baseband TSS request
+		plist_t request = tss_create_baseband_request(build_identity, client->ecid, bb_cert_id, bb_snum, bb_snum_size, bb_nonce, bb_nonce_size);
+		if (request == NULL) {
+			error("ERROR: Unable to create Baseand TSS request\n");
+			return -1;
+		}
 
-	// send Baseband TSS request
-	debug_plist(request);
-	info("Sending Baseband TSS request... ");
-	plist_t response = tss_send_request(request);
-	plist_free(request);
-	if (response == NULL) {
-		error("ERROR: Unable to fetch Baseband TSS\n");
-		return -1;
+		// send Baseband TSS request
+		debug_plist(request);
+		info("Sending Baseband TSS request... ");
+		response = tss_send_request(request);
+		plist_free(request);
+		if (response == NULL) {
+			error("ERROR: Unable to fetch Baseband TSS\n");
+			return -1;
+		}
+
+		debug_plist(response);
 	}
-	debug_plist(response);
 
 	// get baseband firmware file path from build identity
 	plist_t bbfw_path = plist_access_path(build_identity, 4, "Manifest", "BasebandFirmware", "Info", "Path");
@@ -1664,29 +1225,13 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		return -1;
 	}
 
-	switch (bb_chip_id) {
-		// iPhone 4S
-		case 0x5a00e1:
-			res = restore_handle_trek_bbfw(bbfwtmp, response, bb_nonce);
-			break;
-		// iPhone 4 GSM
-		case 0x50:
-			res = restore_handle_ice3_bbfw(bbfwtmp, response, bb_nonce);
-			break;
-		// iPad/iPhone CDMA
-		case 0x005000E1:
-		// iPad 3 4G LTE
-		case 0x004600E1:
-		// iPhone1,1
-		case 0x1B00:
-		default:
-			error("ERROR: Unable to handle baseband firmware file format '%s' for BbChipID %x\n", bbfwpath, (int)bb_chip_id);
-			remove(bbfwtmp);
-			free(bbfwtmp);
-			plist_free(response);
-			return -1;
+	if (bb_nonce) {
+		// keep the response for later requests
+		client->restore->bbtss = response;
+		response = NULL;
 	}
 
+	res = restore_sign_bbfw(bbfwtmp, (client->restore->bbtss) ? client->restore->bbtss : response, bb_nonce);
 	if (res != 0) {
 		goto leave;
 	}

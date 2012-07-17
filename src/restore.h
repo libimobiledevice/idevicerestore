@@ -32,6 +32,7 @@ extern "C" {
 
 struct restore_client_t {
 	plist_t tss;
+	plist_t bbtss;
 	idevice_t device;
 	char* udid;
 	unsigned int operation;
