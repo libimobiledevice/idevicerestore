@@ -806,7 +806,7 @@ int main(int argc, char* argv[]) {
 			recovery_send_reset(client);
 			if (delete_fs && filesystem)
 				unlink(filesystem);
-			return -1;
+			return -2;
 		}
 
 		if (!client->nonce || (nonce_size != client->nonce_size) || (memcmp(nonce, client->nonce, nonce_size) != 0)) {
