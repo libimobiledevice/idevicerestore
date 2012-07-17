@@ -159,7 +159,7 @@ int asr_send_buffer(asr_client_t asr, const char* data, uint32_t size) {
 
 	device_error = idevice_connection_send(asr->connection, data, size, &bytes);
 	if (device_error != IDEVICE_E_SUCCESS || bytes != size) {
-		error("ERROR: Unable to send data to ASR\n");
+		error("ERROR: Unable to send data to ASR. Sent %u of %u bytes.\n", bytes, size);
 		return -1;
 	}
 
