@@ -562,8 +562,10 @@ int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 	int result = 0;
 	uint64_t value = 0;
+	char* log = NULL;
 	info("Got status message\n");
 
+	// read status code
 	plist_t node = plist_dict_get_item(msg, "Status");
 	plist_get_uint_val(node, &value);
 
@@ -587,10 +589,20 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 			break;
 	}
 
+	// read error code
 	node = plist_dict_get_item(msg, "AMRError");
 	if (node && plist_get_node_type(node) == PLIST_UINT) {
 		plist_get_uint_val(node, &value);
 		result = -value;
+	}
+
+	// check if log is available
+	node = plist_dict_get_item(msg, "Log");
+	if (node && plist_get_node_type(node) == PLIST_STRING) {
+		plist_get_string_val(node, &log);
+		info("Log is available:\n%s\n", log);
+		free(log);
+		log = NULL;
 	}
 
 	return result;
