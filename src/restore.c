@@ -332,8 +332,6 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 
 	restore_device_connected = 0;
 
-	info("waiting for device...\n");
-	sleep(15);
 	info("trying to connect...\n");
 	for (i = 0; i < attempts; i++) {
 		int num_devices = 0;
