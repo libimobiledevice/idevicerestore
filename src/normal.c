@@ -223,16 +223,48 @@ int normal_check_device(struct idevicerestore_client_t* client) {
 	}
 
 	lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
+	if (lockdown_error == LOCKDOWN_E_PASSWORD_PROTECTED) {
+		lockdown_error = lockdownd_client_new(device, &lockdown, "idevicerestore");
+	} else if (lockdown_error == LOCKDOWN_E_INVALID_HOST_ID) {
+		char* udid = NULL;
+		lockdownd_unpair(lockdown, NULL);
+		idevice_get_udid(device, &udid);
+		if (udid) {
+			userpref_remove_device_public_key(udid);
+		}
+		lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
+	}
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
 		idevice_free(device);
 		return -1;
 	}
 
-	lockdown_error = lockdownd_get_value(lockdown, NULL, "ProductType", &product_type_node);
-	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-		lockdownd_client_free(lockdown);
-		idevice_free(device);
-		return -1;
+	plist_t pval = NULL;
+	lockdownd_get_value(lockdown, NULL, "HardwareModel", &pval);
+	if (pval && (plist_get_node_type(pval) == PLIST_STRING)) {
+		char* strval = NULL;
+		plist_get_string_val(pval, &strval);
+		if (strval) {
+			for (i = 0; irecv_devices[i].model != NULL; i++) {
+				if (!strcasecmp(strval, irecv_devices[i].model)) {
+					product_type = (char*)irecv_devices[i].product;
+					break;
+				}
+			}
+			free(strval);
+		}
+	}
+	if (pval) {
+		plist_free(pval);
+	}
+
+	if (product_type == NULL) {
+		lockdown_error = lockdownd_get_value(lockdown, NULL, "ProductType", &product_type_node);
+		if (lockdown_error != LOCKDOWN_E_SUCCESS) {
+			lockdownd_client_free(lockdown);
+			idevice_free(device);
+			return -1;
+		}
 	}
 
 	lockdownd_client_free(lockdown);
@@ -240,16 +272,18 @@ int normal_check_device(struct idevicerestore_client_t* client) {
 	lockdown = NULL;
 	device = NULL;
 
-	if (!product_type_node || plist_get_node_type(product_type_node) != PLIST_STRING) {
-		if (product_type_node)
-			plist_free(product_type_node);
-		return -1;
+	if (product_type_node != NULL) {
+		if (!product_type_node || plist_get_node_type(product_type_node) != PLIST_STRING) {
+			if (product_type_node)
+				plist_free(product_type_node);
+			return -1;
+		}
+		plist_get_string_val(product_type_node, &product_type);
+		plist_free(product_type_node);
 	}
-	plist_get_string_val(product_type_node, &product_type);
-	plist_free(product_type_node);
 
 	for (i = 0; irecv_devices[i].product != NULL; i++) {
-		if (!strcmp(product_type, irecv_devices[i].product)) {
+		if (!strcasecmp(product_type, irecv_devices[i].product)) {
 			break;
 		}
 	}
@@ -321,7 +355,7 @@ int normal_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 		return -1;
 	}
 
-	lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
+	lockdown_error = lockdownd_client_new(device, &lockdown, "idevicerestore");
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
 		error("ERROR: Unable to connect to lockdownd\n");
 		idevice_free(device);
