@@ -38,7 +38,7 @@ mbn_file* mbn_parse(unsigned char* data, unsigned int size)
 	memcpy(&mbn->header, data, sizeof(mbn_header));
 	mbn->parsed_size = mbn->header.data_size + sizeof(mbn_header);
 	if (mbn->parsed_size != mbn->size) {
-		printf("size mismatch?!\n");
+		debug("WARNING: size mismatch when parsing MBN file.\n");
 	}
 	return mbn;
 }
