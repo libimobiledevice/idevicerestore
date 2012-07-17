@@ -1593,12 +1593,17 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	uint64_t bb_snum_size = 0;
 	unsigned char* bb_nonce = NULL;
 	uint64_t bb_nonce_size = 0;
+	uint64_t bb_chip_id = 0;
 
 	// NOTE: this function is called twice!
 
 	// setup request data
 	plist_t arguments = plist_dict_get_item(message, "Arguments");
 	if (arguments && plist_get_node_type(arguments) == PLIST_DICT) {
+		plist_t bb_chip_id_node = plist_dict_get_item(arguments, "ChipID");
+		if (bb_chip_id_node && plist_get_node_type(bb_chip_id_node) == PLIST_UINT) {
+			plist_get_uint_val(bb_chip_id_node, &bb_chip_id);
+		}
 		plist_t bb_cert_id_node = plist_dict_get_item(arguments, "CertID");
 		if (bb_cert_id_node && plist_get_node_type(bb_cert_id_node) == PLIST_UINT) {
 			plist_get_uint_val(bb_cert_id_node, &bb_cert_id);
@@ -1658,16 +1663,27 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		return -1;
 	}
 
-	if (strncmp(bbfwpath, "Trek", 4) == 0) {
-		res = restore_handle_trek_bbfw(bbfwtmp, response, bb_nonce);
-	} else if (strncmp(bbfwpath, "ICE3", 4) == 0) {
-		res = restore_handle_ice3_bbfw(bbfwtmp, response, bb_nonce);
-	} else {
-		error("ERROR: unknown baseband firmware file format '%s'\n", bbfwpath);
-		remove(bbfwtmp);
-		free(bbfwtmp);
-		plist_free(response);
-		return -1;
+	switch (bb_chip_id) {
+		// iPhone 4S
+		case 0x5a00e1:
+			res = restore_handle_trek_bbfw(bbfwtmp, response, bb_nonce);
+			break;
+		// iPhone 4 GSM
+		case 0x50:
+			res = restore_handle_ice3_bbfw(bbfwtmp, response, bb_nonce);
+			break;
+		// iPad/iPhone CDMA
+		case 0x005000E1:
+		// iPad 3 4G LTE
+		case 0x004600E1:
+		// iPhone1,1
+		case 0x1B00:
+		default:
+			error("ERROR: Unable to handle baseband firmware file format '%s' for BbChipID %x\n", bbfwpath, (int)bb_chip_id);
+			remove(bbfwtmp);
+			free(bbfwtmp);
+			plist_free(response);
+			return -1;
 	}
 
 	if (res != 0) {
