@@ -122,6 +122,7 @@ int dfu_send_buffer(struct idevicerestore_client_t* client, char* buffer, uint32
 	if (error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to reset device\n");
 		irecv_close(client->dfu->client);
+		client->dfu->client = NULL;
 		return -1;
 	}
 
@@ -247,6 +248,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 	if (dfu_send_component(client, build_identity, "iBSS") < 0) {
 		error("ERROR: Unable to send iBSS to device\n");
 		irecv_close(client->dfu->client);
+		client->dfu->client = NULL;
 		return -1;
 	}
 
@@ -256,6 +258,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 	if (dfu_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to reset device\n");
 		irecv_close(client->dfu->client);
+		client->dfu->client = NULL;
 		return -1;
 	}
 
@@ -314,6 +317,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		if (dfu_send_component(client, build_identity, "iBEC") < 0) {
 			error("ERROR: Unable to send iBEC to device\n");
 			irecv_close(client->dfu->client);
+			client->dfu->client = NULL;
 			return -1;
 		}
 
@@ -323,6 +327,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		if (dfu_error != IRECV_E_SUCCESS) {
 			error("ERROR: Unable to reset device\n");
 			irecv_close(client->dfu->client);
+			client->dfu->client = NULL;
 			return -1;
 		}
 	}
@@ -334,8 +339,10 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 	// Reconnect to device, but this time make sure we're not still in DFU mode
 	if (recovery_client_new(client) < 0 || client->recovery->client->mode == kDfuMode) {
 		error("ERROR: Unable to connect to recovery device\n");
-		if (client->recovery->client)
+		if (client->recovery->client) {
 			irecv_close(client->recovery->client);
+			client->recovery->client = NULL;
+		}
 		return -1;
 	}
 	return 0;
