@@ -347,7 +347,9 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 	idevice_event_subscribe(restore_device_event_cb, client);
 	i = 0;
 	while (i++ < attempts) {
+		info("Attempt %d to connect to restore mode device...\n", i);
 		if (restore_device_connected) {
+			info("Device is now connected in restore mode...\n");
 			break;
 		}
 		sleep(1);
@@ -359,7 +361,7 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 		return -1;
 	}
 
-	info("Connecting now\n");
+	info("Connecting now...\n");
 	device_error = idevice_new(&device, client->udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		return -1;
