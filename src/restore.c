@@ -117,12 +117,12 @@ static int restore_idevice_new(struct idevicerestore_client_t* client, idevice_t
 		}
 		device_error = idevice_new(&dev, devices[j]);
 		if (device_error != IDEVICE_E_SUCCESS) {
-			error("ERROR: %s: can't open device with UUID %s", __func__, devices[j]);
+			error("ERROR: %s: can't open device with UDID %s", __func__, devices[j]);
 			continue;
 		}
 
 		if (restored_client_new(dev, &restore, "idevicerestore") != RESTORE_E_SUCCESS) {
-			error("ERROR: %s: can't connect to restored on device with UUID %s", __func__, devices[j]);
+			error("ERROR: %s: can't connect to restored on device with UDID %s", __func__, devices[j]);
 			continue;
 
 		}
