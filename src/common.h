@@ -47,6 +47,7 @@ extern "C" {
 #define FLAG_EXCLUDE        16
 #define FLAG_PWN            32
 #define FLAG_NOACTION       64
+#define FLAG_SHSHONLY      128
 
 struct dfu_client_t;
 struct normal_client_t;

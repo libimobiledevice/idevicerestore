@@ -159,9 +159,7 @@ int main(int argc, char* argv[]) {
 	char* ipsw = NULL;
 	char* udid = NULL;
 	int tss_enabled = 0;
-	int shsh_only = 0;
 	int latest = 0;
-	char* shsh_dir = NULL;
 	int result = 0;
 
 	// create an instance of our context
@@ -222,7 +220,7 @@ int main(int argc, char* argv[]) {
 			break;
 
 		case 't':
-			shsh_only = 1;
+			client->flags |= FLAG_SHSHONLY;
 			break;
 
 		case 'p':
@@ -621,7 +619,7 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	if (shsh_only) {
+	if (client->flags & FLAG_SHSHONLY) {
 		if (!tss_enabled) {
 			info("This device does not require a TSS record");
 			return 0;
