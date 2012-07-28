@@ -635,9 +635,15 @@ int main(int argc, char* argv[]) {
 			uint32_t blen = 0;
 			plist_to_bin(client->tss, &bin, &blen);
 			if (bin) {
-				char zfn[512];
-				sprintf(zfn, "shsh/" FMT_qu "-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
-				__mkdir("shsh", 0755);
+				char zfn[1024];
+				if (client->cache_dir) {
+					strcpy(zfn, client->cache_dir);
+					strcat(zfn, "/shsh");
+				} else {
+					strcpy(zfn, "shsh");
+				}
+				mkdir_with_parents(zfn, 0755);
+				sprintf(zfn+strlen(zfn), "/" FMT_qu "-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
 				struct stat fst;
 				if (stat(zfn, &fst) != 0) {
 					gzFile zf = gzopen(zfn, "wb");
@@ -1260,9 +1266,13 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 		error("checking for local shsh\n");
 
 		/* first check for local copy */
-		char zfn[512];
+		char zfn[1024];
 		if (client->version) {
-			sprintf(zfn, "shsh/" FMT_qu "-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
+			if (client->cache_dir) {
+				sprintf(zfn, "%s/shsh/" FMT_qu "-%s-%s.shsh", client->cache_dir, (long long int)client->ecid, client->device->product, client->version);
+			} else {
+				sprintf(zfn, "shsh/" FMT_qu "-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
+			}
 			struct stat fst;
 			if (stat(zfn, &fst) == 0) {
 				gzFile zf = gzopen(zfn, "rb");
