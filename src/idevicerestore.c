@@ -45,8 +45,6 @@
 
 #define VERSION_XML "version.xml"
 
-int use_apple_server;
-
 static struct option longopts[] = {
 	{ "ecid",    required_argument, NULL, 'i' },
 	{ "udid",    required_argument, NULL, 'u' },
@@ -164,7 +162,6 @@ int main(int argc, char* argv[]) {
 	int shsh_only = 0;
 	int latest = 0;
 	char* shsh_dir = NULL;
-	use_apple_server=1;
 	int result = 0;
 
 	// create an instance of our context
@@ -195,7 +192,7 @@ int main(int argc, char* argv[]) {
 			break;
 
 		case 's':
-			use_apple_server=0;
+			client->tss_url = strdup("http://cydia.saurik.com/TSS/controller?action=2");
 			break;
 
 		case 'x':
@@ -1302,7 +1299,7 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 		return -1;
 	}
 
-	response = tss_send_request(request);
+	response = tss_send_request(request, client->tss_url);
 	if (response == NULL) {
 		info("ERROR: Unable to send TSS request\n");
 		plist_free(request);

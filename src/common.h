@@ -48,8 +48,6 @@ extern "C" {
 #define FLAG_PWN            32
 #define FLAG_NOACTION       64
 
-extern int use_apple_server;
-
 struct dfu_client_t;
 struct normal_client_t;
 struct restore_client_t;
@@ -73,6 +71,7 @@ struct idevicerestore_entry_t {
 struct idevicerestore_client_t {
 	int flags;
 	plist_t tss;
+	char* tss_url;
 	plist_t version_data;
 	uint64_t ecid;
 	unsigned char* nonce;

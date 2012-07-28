@@ -1299,7 +1299,7 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 			debug_plist(request);
 
 		info("Sending Baseband TSS request...\n");
-		response = tss_send_request(request);
+		response = tss_send_request(request, client->tss_url);
 		plist_free(request);
 		if (response == NULL) {
 			error("ERROR: Unable to fetch Baseband TSS\n");

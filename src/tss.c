@@ -313,7 +313,7 @@ size_t tss_write_callback(char* data, size_t size, size_t nmemb, tss_response* r
 	return total;
 }
 
-plist_t tss_send_request(plist_t tss_request) {
+plist_t tss_send_request(plist_t tss_request, const char* server_url_string) {
 	curl_global_init(CURL_GLOBAL_ALL);
 
 	char* request = NULL;
@@ -366,8 +366,8 @@ plist_t tss_send_request(plist_t tss_request) {
 		curl_easy_setopt(handle, CURLOPT_POSTFIELDS, request);
 		curl_easy_setopt(handle, CURLOPT_USERAGENT, "InetURL/1.0");
 		curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, strlen(request));
-		if (use_apple_server==0) {
-			curl_easy_setopt(handle, CURLOPT_URL, "http://cydia.saurik.com/TSS/controller?action=2");
+		if (server_url_string) {
+			curl_easy_setopt(handle, CURLOPT_URL, server_url_string);
 		} else {
 			int url_index = (retry - 1) % 6;
 			curl_easy_setopt(handle, CURLOPT_URL, urls[url_index]);
