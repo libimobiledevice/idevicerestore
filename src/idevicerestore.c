@@ -159,7 +159,6 @@ int main(int argc, char* argv[]) {
 	char* ipsw = NULL;
 	char* udid = NULL;
 	int tss_enabled = 0;
-	int latest = 0;
 	int result = 0;
 
 	// create an instance of our context
@@ -198,7 +197,7 @@ int main(int argc, char* argv[]) {
 			break;
 
 		case 'l':
-			latest = 1;
+			client->flags |= FLAG_LATEST;
 			break;
 
 		case 'i':
@@ -241,7 +240,7 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	if (((argc-optind) == 1) || (client->flags & FLAG_PWN) || (latest)) {
+	if (((argc-optind) == 1) || (client->flags & FLAG_PWN) || (client->flags & FLAG_LATEST)) {
 		argc -= optind;
 		argv += optind;
 
@@ -251,7 +250,7 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	if (latest) {
+	if (client->flags & FLAG_LATEST) {
 		if (client->flags & FLAG_CUSTOM) {
 			error("ERROR: You can't use --custom and --latest options at the same time.\n");
 			return -1;
@@ -374,7 +373,7 @@ int main(int argc, char* argv[]) {
 		return 0;
 	}
 
-	if (latest) {
+	if (client->flags & FLAG_LATEST) {
 		int res = ipsw_download_latest_fw(client->version_data, client->device->product, "cache", &ipsw);
 		if (res != 0) {
 			return res;
