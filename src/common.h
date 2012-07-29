@@ -80,7 +80,7 @@ struct idevicerestore_client_t {
 	int nonce_size;
 	char* udid;
 	char* srnm;
-	const char* ipsw;
+	char* ipsw;
 	const char* filesystem;
 	struct dfu_client_t* dfu;
 	struct normal_client_t* normal;
@@ -126,8 +126,6 @@ char *generate_guid();
 #endif
 
 int mkdir_with_parents(const char *dir, int mode);
-
-extern struct idevicerestore_client_t* idevicerestore;
 
 #ifdef __cplusplus
 }

@@ -31,6 +31,18 @@ extern "C" {
 
 #include "common.h"
 
+struct idevicerestore_client_t;
+
+struct idevicerestore_client_t* idevicerestore_client_new();
+void idevicerestore_client_free(struct idevicerestore_client_t* client);
+
+void idevicerestore_set_ecid(struct idevicerestore_client_t* client, unsigned long long ecid);
+void idevicerestore_set_udid(struct idevicerestore_client_t* client, const char* udid);
+void idevicerestore_set_flags(struct idevicerestore_client_t* client, int flags);
+void idevicerestore_set_ipsw(struct idevicerestore_client_t* client, const char* path);
+
+int idevicerestore_start(struct idevicerestore_client_t* client);
+
 void usage(int argc, char* argv[]);
 int check_mode(struct idevicerestore_client_t* client);
 int check_device(struct idevicerestore_client_t* client);

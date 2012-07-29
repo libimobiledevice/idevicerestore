@@ -153,117 +153,29 @@ static int load_version_data(struct idevicerestore_client_t* client)
 	return 0;
 }
 
-int main(int argc, char* argv[]) {
-	int opt = 0;
-	int optindex = 0;
-	char* ipsw = NULL;
-	char* udid = NULL;
+int idevicerestore_start(struct idevicerestore_client_t* client)
+{
 	int tss_enabled = 0;
 	int result = 0;
 
-	// create an instance of our context
-	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) malloc(sizeof(struct idevicerestore_client_t));
-	if (client == NULL) {
-		error("ERROR: Out of memory\n");
-		return -1;
-	}
-	memset(client, '\0', sizeof(struct idevicerestore_client_t));
-
-	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:", longopts, &optindex)) > 0) {
-		switch (opt) {
-		case 'h':
-			usage(argc, argv);
-			return 0;
-
-		case 'd':
-			client->flags |= FLAG_DEBUG;
-			idevicerestore_debug = 1;
-			break;
-
-		case 'e':
-			client->flags |= FLAG_ERASE;
-			break;
-
-		case 'c':
-			client->flags |= FLAG_CUSTOM;
-			break;
-
-		case 's':
-			client->tss_url = strdup("http://cydia.saurik.com/TSS/controller?action=2");
-			break;
-
-		case 'x':
-			client->flags |= FLAG_EXCLUDE;
-			break;
-
-		case 'l':
-			client->flags |= FLAG_LATEST;
-			break;
-
-		case 'i':
-			if (optarg) {
-				char* tail = NULL;
-				client->ecid = strtoull(optarg, &tail, 16);
-				if (tail && (tail[0] != '\0')) {
-					client->ecid = 0;
-				}
-				if (client->ecid == 0) {
-					error("ERROR: Could not parse ECID from '%s'\n", optarg);
-					return -1;
-				}
-			}
-			break;
-
-		case 'u':
-			udid = optarg;
-			break;
-
-		case 't':
-			client->flags |= FLAG_SHSHONLY;
-			break;
-
-		case 'p':
-			client->flags |= FLAG_PWN;
-			break;
-
-		case 'n':
-			client->flags |= FLAG_NOACTION;
-			break;
-
-		case 'C':
-			client->cache_dir = strdup(optarg);
-			break;
-
-		default:
-			usage(argc, argv);
-			return -1;
-		}
-	}
-
-	if (((argc-optind) == 1) || (client->flags & FLAG_PWN) || (client->flags & FLAG_LATEST)) {
-		argc -= optind;
-		argv += optind;
-
-		ipsw = argv[0];
-	} else {
-		usage(argc, argv);
+	if (!client) {
 		return -1;
 	}
 
-	if (client->flags & FLAG_LATEST) {
-		if (client->flags & FLAG_CUSTOM) {
-			error("ERROR: You can't use --custom and --latest options at the same time.\n");
-			return -1;
-		}
+	if ((client->flags & FLAG_LATEST) && (client->flags & FLAG_CUSTOM)) {
+		error("ERROR: FLAG_LATEST cannot be used with FLAG_CUSTOM.\n");
+		return -1;
+	}
+
+	if (!client->ipsw && !(client->flags & FLAG_PWN) && !(client->flags & FLAG_LATEST)) {
+		error("ERROR: no ipsw file given\n");
+		return -1;
 	}
 
 	if (client->flags & FLAG_DEBUG) {
 		idevice_set_debug_level(1);
 		irecv_set_debug_level(1);
 	}
-
-	client->udid = udid;
-	client->ipsw = ipsw;
 
 	// update version data (from cache, or apple if too old)
 	load_version_data(client);
@@ -374,8 +286,12 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (client->flags & FLAG_LATEST) {
+		char* ipsw = NULL;
 		int res = ipsw_download_latest_fw(client->version_data, client->device->product, "cache", &ipsw);
 		if (res != 0) {
+			if (ipsw) {
+				free(ipsw);
+			}
 			return res;
 		} else {
 			client->ipsw = ipsw;
@@ -398,8 +314,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	// verify if ipsw file exists
-	if (access(ipsw, F_OK) < 0) {
-		error("ERROR: Firmware file %s does not exist.\n", ipsw);
+	if (access(client->ipsw, F_OK) < 0) {
+		error("ERROR: Firmware file %s does not exist.\n", client->ipsw);
 		return -1;
 	}
 
@@ -407,14 +323,14 @@ int main(int argc, char* argv[]) {
 	plist_t buildmanifest = NULL;
 	if (client->flags & FLAG_CUSTOM) {
 		info("Extracting Restore.plist from IPSW\n");
-		if (ipsw_extract_restore_plist(ipsw, &buildmanifest) < 0) {
-			error("ERROR: Unable to extract Restore.plist from %s. Firmware file might be corrupt.\n", ipsw);
+		if (ipsw_extract_restore_plist(client->ipsw, &buildmanifest) < 0) {
+			error("ERROR: Unable to extract Restore.plist from %s. Firmware file might be corrupt.\n", client->ipsw);
 			return -1;
 		}
 	} else {
 		info("Extracting BuildManifest from IPSW\n");
-		if (ipsw_extract_build_manifest(ipsw, &buildmanifest, &tss_enabled) < 0) {
-			error("ERROR: Unable to extract BuildManifest from %s. Firmware file might be corrupt.\n", ipsw);
+		if (ipsw_extract_build_manifest(client->ipsw, &buildmanifest, &tss_enabled) < 0) {
+			error("ERROR: Unable to extract BuildManifest from %s. Firmware file might be corrupt.\n", client->ipsw);
 			return -1;
 		}
 	}
@@ -473,7 +389,7 @@ int main(int argc, char* argv[]) {
 			char *files[16];
 			char *fmanifest = NULL;
 			uint32_t msize = 0;
-			if (ipsw_extract_to_memory(ipsw, tmpstr, &fmanifest, &msize) < 0) {
+			if (ipsw_extract_to_memory(client->ipsw, tmpstr, &fmanifest, &msize) < 0) {
 				error("ERROR: could not extract %s from IPSW\n", tmpstr);
 				return -1;
 			}
@@ -707,7 +623,7 @@ int main(int argc, char* argv[]) {
 		strcat(tmpf, basename(ipswtmp));
 		free(ipswtmp);
 	} else {
-		strcpy(tmpf, ipsw);
+		strcpy(tmpf, client->ipsw);
 	}
 	char* p = strrchr((const char*)tmpf, '.');
 	if (p) {
@@ -917,6 +833,206 @@ int main(int argc, char* argv[]) {
 	info("DONE\n");
 	return result;
 }
+
+struct idevicerestore_client_t* idevicerestore_client_new()
+{
+	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) malloc(sizeof(struct idevicerestore_client_t));
+	if (client == NULL) {
+		error("ERROR: Out of memory\n");
+		return NULL;
+	}
+	memset(client, '\0', sizeof(struct idevicerestore_client_t));
+	return client;
+}
+
+void idevicerestore_client_free(struct idevicerestore_client_t* client)
+{
+	if (!client) {
+		return;
+	}
+
+	if (client->tss_url) {
+		free(client->tss_url);
+	}
+	if (client->version_data) {
+		plist_free(client->version_data);
+	}
+	if (client->nonce) {
+		free(client->nonce);
+	}
+	if (client->udid) {
+		free(client->udid);
+	}
+	if (client->srnm) {
+		free(client->srnm);
+	}
+	if (client->ipsw) {
+		free(client->ipsw);
+	}
+	if (client->version) {
+		free(client->version);
+	}
+	if (client->build) {
+		free(client->build);
+	}
+	if (client->restore_boot_args) {
+		free(client->restore_boot_args);
+	}
+	if (client->cache_dir) {
+		free(client->cache_dir);
+	}
+	free(client);
+}
+
+void idevicerestore_set_ecid(struct idevicerestore_client_t* client, unsigned long long ecid)
+{
+	if (!client)
+		return;
+	client->ecid = ecid;
+}
+
+void idevicerestore_set_udid(struct idevicerestore_client_t* client, const char* udid)
+{
+	if (!client)
+		return;
+	if (client->udid) {
+		free(client->udid);
+		client->udid = NULL;
+	}
+	if (udid) {
+		client->udid = strdup(udid);
+	}
+}
+
+void idevicerestore_set_flags(struct idevicerestore_client_t* client, int flags)
+{
+	if (!client)
+		return;
+	client->flags = flags;
+}
+
+void idevicerestore_set_ipsw(struct idevicerestore_client_t* client, const char* path)
+{
+	if (!client)
+		return;
+	if (client->ipsw) {
+		free(client->ipsw);
+		client->ipsw = NULL;
+	}
+	if (path) {
+		client->ipsw = strdup(path);
+	}
+}
+
+#ifndef IDEVICERESTORE_NOMAIN
+int main(int argc, char* argv[]) {
+	int opt = 0;
+	int optindex = 0;
+	char* ipsw = NULL;
+	char* udid = NULL;
+	int result = 0;
+
+	struct idevicerestore_client_t* client = idevicerestore_client_new();
+	if (client == NULL) {
+		error("ERROR: could not create idevicerestore client\n");
+		return -1;
+	}
+
+	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:", longopts, &optindex)) > 0) {
+		switch (opt) {
+		case 'h':
+			usage(argc, argv);
+			return 0;
+
+		case 'd':
+			client->flags |= FLAG_DEBUG;
+			idevicerestore_debug = 1;
+			break;
+
+		case 'e':
+			client->flags |= FLAG_ERASE;
+			break;
+
+		case 'c':
+			client->flags |= FLAG_CUSTOM;
+			break;
+
+		case 's':
+			client->tss_url = strdup("http://cydia.saurik.com/TSS/controller?action=2");
+			break;
+
+		case 'x':
+			client->flags |= FLAG_EXCLUDE;
+			break;
+
+		case 'l':
+			client->flags |= FLAG_LATEST;
+			break;
+
+		case 'i':
+			if (optarg) {
+				char* tail = NULL;
+				client->ecid = strtoull(optarg, &tail, 16);
+				if (tail && (tail[0] != '\0')) {
+					client->ecid = 0;
+				}
+				if (client->ecid == 0) {
+					error("ERROR: Could not parse ECID from '%s'\n", optarg);
+					return -1;
+				}
+			}
+			break;
+
+		case 'u':
+			client->udid = strdup(optarg);
+			break;
+
+		case 't':
+			client->flags |= FLAG_SHSHONLY;
+			break;
+
+		case 'p':
+			client->flags |= FLAG_PWN;
+			break;
+
+		case 'n':
+			client->flags |= FLAG_NOACTION;
+			break;
+
+		case 'C':
+			client->cache_dir = strdup(optarg);
+			break;
+
+		default:
+			usage(argc, argv);
+			return -1;
+		}
+	}
+
+	if (((argc-optind) == 1) || (client->flags & FLAG_PWN) || (client->flags & FLAG_LATEST)) {
+		argc -= optind;
+		argv += optind;
+
+		ipsw = argv[0];
+	} else {
+		usage(argc, argv);
+		return -1;
+	}
+
+	if ((client->flags & FLAG_LATEST) && (client->flags & FLAG_CUSTOM)) {
+		error("ERROR: You can't use --custom and --latest options at the same time.\n");
+		return -1;
+	}
+
+	client->ipsw = strdup(ipsw);
+
+	result = idevicerestore_start(client);
+
+	idevicerestore_client_free(client);
+
+	return result;
+}
+#endif
 
 int check_mode(struct idevicerestore_client_t* client) {
 	int mode = MODE_UNKNOWN;
