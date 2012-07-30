@@ -1024,7 +1024,9 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	client->ipsw = strdup(ipsw);
+	if (ipsw) {
+		client->ipsw = strdup(ipsw);
+	}
 
 	result = idevicerestore_start(client);
 
