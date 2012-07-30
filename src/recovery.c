@@ -34,7 +34,7 @@
 
 int recovery_progress_callback(irecv_client_t client, const irecv_event_t* event) {
 	if (event->type == IRECV_PROGRESS) {
-		print_progress_bar(event->progress);
+		//print_progress_bar(event->progress);
 	}
 	return 0;
 }
