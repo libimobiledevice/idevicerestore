@@ -169,6 +169,7 @@ void debug_plist(plist_t plist) {
 
 void print_progress_bar(double progress) {
 #ifndef WIN32
+	if (info_disabled) return;
 	int i = 0;
 	if(progress < 0) return;
 	if(progress > 100) progress = 100;
@@ -179,7 +180,7 @@ void print_progress_bar(double progress) {
 	}
 	info("] %5.1f%%", progress);
 	if(progress == 100) info("\n");
-	fflush(stdout);
+	fflush((info_stream) ? info_stream : stdout);
 #endif
 }
 
