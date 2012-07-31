@@ -175,6 +175,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	if (client->flags & FLAG_DEBUG) {
 		idevice_set_debug_level(1);
 		irecv_set_debug_level(1);
+		idevicerestore_debug = 1;
 	}
 
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.0);
@@ -984,7 +985,6 @@ int main(int argc, char* argv[]) {
 
 		case 'd':
 			client->flags |= FLAG_DEBUG;
-			idevicerestore_debug = 1;
 			break;
 
 		case 'e':
