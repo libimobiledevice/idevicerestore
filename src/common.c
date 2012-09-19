@@ -51,13 +51,15 @@ void info(const char* format, ...)
 
 void error(const char* format, ...)
 {
-	va_list vargs;
+	va_list vargs, vargs2;
 	va_start(vargs, format);
+	va_copy(vargs2, vargs);
 	vsnprintf(idevicerestore_err_buff, idevicerestore_err_buff_size, format, vargs);
-	if (!error_disabled) {
-		vfprintf((error_stream) ? error_stream : stderr, format, vargs);
-	}
 	va_end(vargs);
+	if (!error_disabled) {
+		vfprintf((error_stream) ? error_stream : stderr, format, vargs2);
+	}
+	va_end(vargs2);
 }
 
 void debug(const char* format, ...)
