@@ -1373,8 +1373,10 @@ int get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int
 
 	switch (client->mode->index) {
 	case MODE_NORMAL:
-		error("ERROR: Can't get nonce in Normal mode\n");
-		return -1;
+		if (normal_get_nonce(client, nonce, nonce_size) < 0) {
+			return -1;
+		}
+		break;
 	case MODE_DFU:
 		if (dfu_get_nonce(client, nonce, nonce_size) < 0) {
 			return -1;
