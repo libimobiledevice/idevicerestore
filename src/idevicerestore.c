@@ -741,6 +741,13 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	if (client->mode->index == MODE_DFU) {
 		client->mode = &idevicerestore_modes[MODE_RECOVERY];
 	} else {
+		if ((client->build_major > 8) && !(client->flags & FLAG_CUSTOM)) {
+			/* send ApTicket */
+			if (recovery_send_ticket(client) < 0) {
+				error("WARNING: Unable to send APTicket\n");
+			}
+		}
+
 		/* now we load the iBEC */
 		if (recovery_send_ibec(client, build_identity) < 0) {
 			error("ERROR: Unable to send iBEC\n");

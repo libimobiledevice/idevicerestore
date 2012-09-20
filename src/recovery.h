@@ -48,6 +48,7 @@ int recovery_send_devicetree(struct idevicerestore_client_t* client, plist_t bui
 int recovery_send_ramdisk(struct idevicerestore_client_t* client, plist_t build_identity);
 int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t build_identity);
 int recovery_send_reset(struct idevicerestore_client_t* client);
+int recovery_send_ticket(struct idevicerestore_client_t* client);
 int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
 int recovery_get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
 int recovery_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid);
