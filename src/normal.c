@@ -335,6 +335,49 @@ int normal_enter_recovery(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
+int normal_get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+	idevice_t device = NULL;
+	plist_t nonce_node = NULL;
+	lockdownd_client_t lockdown = NULL;
+	idevice_error_t device_error = IDEVICE_E_SUCCESS;
+	lockdownd_error_t lockdown_error = IDEVICE_E_SUCCESS;
+
+	device_error = idevice_new(&device, client->udid);
+	if (device_error != IDEVICE_E_SUCCESS) {
+		return -1;
+	}
+
+	lockdown_error = lockdownd_client_new(device, &lockdown, "idevicerestore");
+	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
+		error("ERROR: Unable to connect to lockdownd\n");
+		idevice_free(device);
+		return -1;
+	}
+
+	lockdown_error = lockdownd_get_value(lockdown, NULL, "ApNonce", &nonce_node);
+	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
+		error("ERROR: Unable to get ApNonce from lockdownd\n");
+		lockdownd_client_free(lockdown);
+		idevice_free(device);
+		return -1;
+	}
+
+	if (!nonce_node || plist_get_node_type(nonce_node) != PLIST_DATA) {
+		error("ERROR: Unable to get nonce\n");
+		lockdownd_client_free(lockdown);
+		idevice_free(device);
+		return -1;
+	}
+	plist_get_data_val(nonce_node, nonce, nonce_size);
+	plist_free(nonce_node);
+
+	lockdownd_client_free(lockdown);
+	idevice_free(device);
+	lockdown = NULL;
+	device = NULL;
+	return 0;
+}
+
 int normal_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
 	return 0;
 }
