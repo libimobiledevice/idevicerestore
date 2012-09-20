@@ -536,7 +536,35 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 		info("Found ECID " FMT_qu "\n", (long long unsigned int)client->ecid);
 
-		if (get_shsh_blobs(client, client->ecid, NULL, 0, build_identity, &client->tss) < 0) {
+		if (client->build_major > 8) {
+			unsigned char* nonce = NULL;
+			int nonce_size = 0;
+			int nonce_changed = 0;
+			if (get_nonce(client, &nonce, &nonce_size) < 0) {
+				error("ERROR: Unable to get nonce from device!\n");
+				return -2;
+			}
+
+			if (!client->nonce || (nonce_size != client->nonce_size) || (memcmp(nonce, client->nonce, nonce_size) != 0)) {
+				nonce_changed = 1;
+				if (client->nonce) {
+					free(client->nonce);
+				}
+				client->nonce = nonce;
+				client->nonce_size = nonce_size;
+			} else {
+				free(nonce);
+			}
+
+			info("Nonce: ");
+			int i;
+			for (i = 0; i < client->nonce_size; i++) {
+				info("%02x ", client->nonce[i]);
+			}
+			info("\n");
+		}
+
+		if (get_shsh_blobs(client, client->ecid, client->nonce, client->nonce_size, build_identity, &client->tss) < 0) {
 			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
 		}
