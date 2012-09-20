@@ -858,13 +858,12 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		return -1;
 	}
 
-	dict = plist_new_dict();
-
 	if (ipsw_get_component_by_path(client->ipsw, client->tss, "LLB", llb_path, &llb_data, &llb_size) < 0) {
 		error("ERROR: Unable to get signed LLB\n");
 		return -1;
 	}
 
+	dict = plist_new_dict();
 	plist_dict_insert_item(dict, "LlbImageData", plist_new_data(llb_data, (uint64_t) llb_size));
 
 	norimage_array = plist_new_array();
