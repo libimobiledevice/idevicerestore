@@ -263,7 +263,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		return -1;
 	}
 
-	if (client->build[0] > '8') {
+	if (client->build_major > 8) {
 		/* reconnect */
 		dfu_client_free(client);
 		sleep(2);

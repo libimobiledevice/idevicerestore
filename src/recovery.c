@@ -141,7 +141,7 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 
-	if (client->build[0] >= '8') {
+	if (client->build_major >= 8) {
 		client->restore_boot_args = strdup("rd=md0 nand-enable-reformat=1 -progress");
 	}
 
@@ -153,7 +153,7 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 		}
 	}
 
-	if ((client->build[0] > '8') && !(client->flags & FLAG_CUSTOM)) {
+	if ((client->build_major > 8) && !(client->flags & FLAG_CUSTOM)) {
 		/* send ApTicket */
 		if (recovery_send_ticket(client) < 0) {
 			error("ERROR: Unable to send APTicket\n");

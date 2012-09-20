@@ -349,7 +349,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	/* print iOS information from the manifest */
-	build_manifest_get_version_information(buildmanifest, &client->version, &client->build);
+	build_manifest_get_version_information(buildmanifest, client);
 
 	info("Product Version: %s\n", client->version);
 	info("Product Build: %s\n", client->build);
@@ -756,7 +756,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.5);
 
-	if (client->build[0] > '8') {
+	if (client->build_major > 8) {
 		// we need another tss request with nonce.
 		unsigned char* nonce = NULL;
 		int nonce_size = 0;
@@ -1415,7 +1415,7 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 	plist_t response = NULL;
 	*tss = NULL;
 
-	if ((client->build[0] <= '8') || (client->flags & FLAG_CUSTOM)) {
+	if ((client->build_major <= 8) || (client->flags & FLAG_CUSTOM)) {
 		error("checking for local shsh\n");
 
 		/* first check for local copy */
@@ -1612,24 +1612,26 @@ int build_manifest_check_compatibility(plist_t build_manifest, const char* produ
 	return res;
 }
 
-void build_manifest_get_version_information(plist_t build_manifest, char** product_version, char** product_build) {
+void build_manifest_get_version_information(plist_t build_manifest, struct idevicerestore_client_t* client) {
 	plist_t node = NULL;
-	*product_version = NULL;
-	*product_build = NULL;
+	client->version = NULL;
+	client->build = NULL;
 
 	node = plist_dict_get_item(build_manifest, "ProductVersion");
 	if (!node || plist_get_node_type(node) != PLIST_STRING) {
 		error("ERROR: Unable to find ProductVersion node\n");
 		return;
 	}
-	plist_get_string_val(node, product_version);
+	plist_get_string_val(node, &client->version);
 
 	node = plist_dict_get_item(build_manifest, "ProductBuildVersion");
 	if (!node || plist_get_node_type(node) != PLIST_STRING) {
 		error("ERROR: Unable to find ProductBuildVersion node\n");
 		return;
 	}
-	plist_get_string_val(node, product_build);
+	plist_get_string_val(node, &client->build);
+
+	client->build_major = strtoul(client->build, NULL, 10);
 }
 
 void build_identity_print_information(plist_t build_identity) {

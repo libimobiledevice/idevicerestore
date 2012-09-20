@@ -81,6 +81,7 @@ struct idevicerestore_client_t {
 	struct idevicerestore_mode_t* mode;
 	char* version;
 	char* build;
+	int build_major;
 	char* restore_boot_args;
 	char* cache_dir;
 	idevicerestore_progress_cb_t progress_cb;
