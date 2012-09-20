@@ -217,7 +217,8 @@ int recovery_send_ticket(struct idevicerestore_client_t* client)
 	unsigned char* data = NULL;
 	uint32_t size = 0;
 	if (tss_get_ticket(client->tss, &data, &size) < 0) {
-		error("ERROR: Unable to get ApTicket from TSS request\n");			return -1;
+		error("ERROR: Unable to get ApTicket from TSS request\n");
+		return -1;
 	}
 
 	info("Sending APTicket (%d bytes)\n", size);

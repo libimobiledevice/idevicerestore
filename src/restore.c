@@ -825,7 +825,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 
 	if (client->tss) {
 		if (tss_get_entry_path(client->tss, "LLB", &llb_path) < 0) {
-			debug("NOTE: could not get LLB path from TSS data, will fetch from build identity\n");
+			debug("NOTE: Could not get LLB path from TSS data, will fetch from build identity\n");
 		}
 	}
 	if (llb_path == NULL) {

@@ -344,7 +344,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	/* check if device type is supported by the given build manifest */
 	if (build_manifest_check_compatibility(buildmanifest, client->device->product) < 0) {
-		error("ERROR: could not make sure this firmware is suitable for the current device. refusing to continue.\n");
+		error("ERROR: Could not make sure this firmware is suitable for the current device. Refusing to continue.\n");
 		return -1;
 	}
 
