@@ -859,7 +859,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	}
 
 	if (ipsw_get_component_by_path(client->ipsw, client->tss, "LLB", llb_path, &llb_data, &llb_size) < 0) {
-		error("ERROR: Unable to get signed LLB\n");
+		error("ERROR: Unable to get personalized LLB\n");
 		return -1;
 	}
 
@@ -878,7 +878,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		memset(firmware_filename, '\0', sizeof(firmware_filename));
 		snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
 		if (ipsw_get_component_by_path(client->ipsw, client->tss, get_component_name(filename), firmware_filename, &nor_data, &nor_size) < 0) {
-			error("ERROR: Unable to get signed firmware file %s\n", firmware_filename);
+			error("ERROR: Unable to get personalized firmware file %s\n", firmware_filename);
 			break;
 		}
 
