@@ -1568,53 +1568,64 @@ int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* compon
 	else
 		component_name = (char*) path;
 
-	info("Extracting %s\n", component_name);
+	info("Extracting %s...\n", component_name);
+
 	if (ipsw_extract_to_memory(ipsw, path, &component_data, &component_size) < 0) {
 		error("ERROR: Unable to extract %s from %s\n", component_name, ipsw);
 		return -1;
 	}
 
 	if (tss) {
-		img3 = img3_parse_file(component_data, component_size);
-		if (img3 == NULL) {
-			error("ERROR: Unable to parse IMG3: %s\n", component_name);
-			free(component_data);
-			return -1;
-		}
-		free(component_data);
-
-		/* sign the blob if required */
+		/* try to get blob for current component from tss response */
 		if (component) {
 			if (tss_get_blob_by_name(tss, component, &component_blob) < 0) {
-				error("ERROR: Unable to get SHSH blob for TSS %s entry\n", component_name);
-				img3_free(img3);
-				return -1;
+				debug("NOTE: No SHSH blob found for TSS entry %s from component %s\n", component_name, component);
 			}
 		} else {
 			if (tss_get_blob_by_path(tss, path, &component_blob) < 0) {
-				error("ERROR: Unable to get SHSH blob for TSS %s entry\n", component_name);
-				img3_free(img3);
-				return -1;
+				debug("NOTE: No SHSH blob found for TSS entry %s from path %s\n", component_name, path);
 			}
 		}
 
-		info("Signing %s\n", component_name);
-		if (img3_replace_signature(img3, component_blob) < 0) {
-			error("ERROR: Unable to replace IMG3 signature\n");
-			free(component_blob);
+		if (component_blob != NULL) {
+			/* parse current component as img3 */
+			img3 = img3_parse_file(component_data, component_size);
+			if (img3 == NULL) {
+				error("ERROR: Unable to parse IMG3: %s\n", component_name);
+				free(component_blob);
+				free(component_data);
+				return -1;
+			}
+
+			/* we no longer require the original data */
+			free(component_data);
+
+			info("Personalizing component %s...\n", component_name);
+
+			/* personalize the component using the blob */
+			if (img3_replace_signature(img3, component_blob) < 0) {
+				error("ERROR: Unable to replace IMG3 signature\n");
+				free(component_blob);
+				img3_free(img3);
+				return -1;
+			}
+
+			/* get the img3 file as data */
+			if (img3_get_data(img3, &component_data, &component_size) < 0) {
+				error("ERROR: Unable to reconstruct IMG3\n");
+				free(component_blob);
+				img3_free(img3);
+				return -1;
+			}
+
+			/* cleanup */
 			img3_free(img3);
-			return -1;
+		} else {
+			info("Not personalizing component %s...\n", component_name);
 		}
 
 		if (component_blob)
 			free(component_blob);
-
-		if (img3_get_data(img3, &component_data, &component_size) < 0) {
-			error("ERROR: Unable to reconstruct IMG3\n");
-			img3_free(img3);
-			return -1;
-		}
-		img3_free(img3);
 	}
 
 	if (idevicerestore_debug) {
