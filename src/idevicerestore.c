@@ -1304,6 +1304,24 @@ int check_device(struct idevicerestore_client_t* client) {
 			}
 			break;
 
+		case CPID_IPHONE5:
+			if (get_bdid(client, &bdid) < 0) {
+				error("ERROR: Unable to get device BDID\n");
+				break;
+			}
+			switch (bdid) {
+			case BDID_IPHONE51:
+				device = DEVICE_IPHONE51;
+				break;
+			case BDID_IPHONE52:
+				device = DEVICE_IPHONE52;
+				break;
+			default:
+				device = DEVICE_UNKNOWN;
+				break;
+			}
+			break;
+
 		default:
 			device = DEVICE_UNKNOWN;
 			break;

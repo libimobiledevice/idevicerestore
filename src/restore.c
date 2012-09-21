@@ -923,6 +923,9 @@ static const char* restore_get_bbfw_fn_for_element(const char* elem)
 		// Phoenix/Mav4 firmware files
 		{ "DBL", "dbl.mbn" },
 		{ "ENANDPRG", "ENPRG.mbn" },	
+		// Mav5 firmware files
+		{ "RestoreSBL1", "restoresbl1.mbn" },
+		{ "SBL1", "sbl1.mbn" },
 		{ NULL, NULL }
 	};
 
