@@ -541,8 +541,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			int nonce_size = 0;
 			int nonce_changed = 0;
 			if (get_nonce(client, &nonce, &nonce_size) < 0) {
-				error("ERROR: Unable to get nonce from device!\n");
-				return -2;
+				/* the first nonce request with older firmware releases can fail and it's OK */
+				info("NOTE: Unable to get nonce from device\n");
 			}
 
 			if (!client->nonce || (nonce_size != client->nonce_size) || (memcmp(nonce, client->nonce, nonce_size) != 0)) {
