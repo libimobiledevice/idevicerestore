@@ -555,13 +555,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			} else {
 				free(nonce);
 			}
-
-			info("Nonce: ");
-			int i;
-			for (i = 0; i < client->nonce_size; i++) {
-				info("%02x ", client->nonce[i]);
-			}
-			info("\n");
 		}
 
 		if (get_shsh_blobs(client, client->ecid, client->nonce, client->nonce_size, build_identity, &client->tss) < 0) {
@@ -814,13 +807,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		} else {
 			free(nonce);
 		}
-
-		info("Nonce: ");
-		int i;
-		for (i = 0; i < client->nonce_size; i++) {
-			info("%02x ", client->nonce[i]);
-		}
-		info("\n");
 
 		if (nonce_changed && !(client->flags & FLAG_CUSTOM)) {
 			// Welcome iOS5. We have to re-request the TSS with our nonce.
@@ -1417,19 +1403,27 @@ int get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int
 	*nonce = NULL;
 	*nonce_size = 0;
 
+	info("Getting nonce ");
+
 	switch (client->mode->index) {
 	case MODE_NORMAL:
+		info("in normal mode... ");
 		if (normal_get_nonce(client, nonce, nonce_size) < 0) {
+			info("failed\n");
 			return -1;
 		}
 		break;
 	case MODE_DFU:
+		info("in dfu mode... ");
 		if (dfu_get_nonce(client, nonce, nonce_size) < 0) {
+			info("failed\n");
 			return -1;
 		}
 		break;
 	case MODE_RECOVERY:
+		info("in recovery mode... ");
 		if (recovery_get_nonce(client, nonce, nonce_size) < 0) {
+			info("failed\n");
 			return -1;
 		}
 		break;
@@ -1439,9 +1433,14 @@ int get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int
 		return -1;
 	}
 
+	int i = 0;
+	for (i = 0; i < *nonce_size; i++) {
+		info("%02x ", (*nonce)[i]);
+	}
+	info("\n");
+
 	return 0;
 }
-
 
 plist_t build_manifest_get_build_identity(plist_t build_manifest, uint32_t identity) {
 	// fetch build identities array from BuildManifest
