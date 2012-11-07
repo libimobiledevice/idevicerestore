@@ -352,7 +352,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	build_manifest_get_version_information(buildmanifest, client);
 
 	info("Product Version: %s\n", client->version);
-	info("Product Build: %s\n", client->build);
+	info("Product Build: %s Major: %d\n", client->build, client->build_major);
 
 	if (client->flags & FLAG_CUSTOM) {
 		/* prevent signing custom firmware */
