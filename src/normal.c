@@ -368,7 +368,8 @@ int normal_get_nonce(struct idevicerestore_client_t* client, unsigned char** non
 		idevice_free(device);
 		return -1;
 	}
-	plist_get_data_val(nonce_node, nonce, nonce_size);
+
+	plist_get_data_val(nonce_node, (char**)nonce, (uint64_t*)nonce_size);
 	plist_free(nonce_node);
 
 	lockdownd_client_free(lockdown);
