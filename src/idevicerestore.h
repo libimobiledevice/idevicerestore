@@ -31,6 +31,16 @@ extern "C" {
 
 #include "common.h"
 
+// the flag with value 1 is reserved for internal use only. don't use it.
+#define FLAG_DEBUG           1 << 1
+#define FLAG_ERASE           1 << 2
+#define FLAG_CUSTOM          1 << 3
+#define FLAG_EXCLUDE         1 << 4
+#define FLAG_PWN             1 << 5
+#define FLAG_NOACTION        1 << 6
+#define FLAG_SHSHONLY        1 << 7
+#define FLAG_LATEST          1 << 8
+
 struct idevicerestore_client_t;
 
 struct idevicerestore_client_t* idevicerestore_client_new();

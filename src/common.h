@@ -41,14 +41,6 @@ extern "C" {
 #define MODE_NORMAL          4
 
 #define FLAG_QUIT            1
-#define FLAG_DEBUG           2
-#define FLAG_ERASE           4
-#define FLAG_CUSTOM          8
-#define FLAG_EXCLUDE        16
-#define FLAG_PWN            32
-#define FLAG_NOACTION       64
-#define FLAG_SHSHONLY      128
-#define FLAG_LATEST        256
 
 struct dfu_client_t;
 struct normal_client_t;

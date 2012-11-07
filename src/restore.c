@@ -25,11 +25,11 @@
 #include <libimobiledevice/restore.h>
 #include <zip.h>
 
+#include "idevicerestore.h"
 #include "asr.h"
 #include "fls.h"
 #include "mbn.h"
 #include "tss.h"
-#include "common.h"
 #include "restore.h"
 
 #define WAIT_FOR_STORAGE       11

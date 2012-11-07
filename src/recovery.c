@@ -26,12 +26,11 @@
 #include <libimobiledevice/restore.h>
 #include <libimobiledevice/libimobiledevice.h>
 
+#include "idevicerestore.h"
 #include "tss.h"
 #include "img3.h"
-#include "common.h"
 #include "restore.h"
 #include "recovery.h"
-#include "idevicerestore.h"
 
 int recovery_progress_callback(irecv_client_t client, const irecv_event_t* event) {
 	if (event->type == IRECV_PROGRESS) {
