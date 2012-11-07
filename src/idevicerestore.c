@@ -941,6 +941,19 @@ void idevicerestore_set_ipsw(struct idevicerestore_client_t* client, const char*
 	}
 }
 
+void idevicerestore_set_cache_path(struct idevicerestore_client_t* client, const char* path)
+{
+	if (!client)
+		return;
+	if (client->cache_dir) {
+		free(client->cache_dir);
+		client->cache_dir = NULL;
+	}
+	if (path) {
+		client->cache_dir = strdup(path);
+	}
+}
+
 void idevicerestore_set_progress_callback(struct idevicerestore_client_t* client, idevicerestore_progress_cb_t cbfunc, void* userdata)
 {
 	if (!client)
