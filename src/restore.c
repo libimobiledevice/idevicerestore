@@ -558,6 +558,9 @@ int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t 
 		case 18:
 			idevicerestore_progress(client, RESTORE_STEP_FLASH_NOR, progress / 100.0);
 			break;
+		case 19:
+			idevicerestore_progress(client, RESTORE_STEP_FLASH_BB, progress / 100.0);
+			break;
 		default:
 			debug("Unhandled progress operation %d\n", (int)operation);
 			break;
