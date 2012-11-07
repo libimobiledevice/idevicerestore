@@ -31,10 +31,6 @@ extern "C" {
 
 #include "idevicerestore.h"
 
-#define info(...) printf(__VA_ARGS__)
-#define error(...) fprintf(stderr, __VA_ARGS__)
-#define debug(...) if(idevicerestore_debug) fprintf(stderr, __VA_ARGS__)
-
 #define MODE_UNKNOWN        -1
 #define MODE_WTF             0
 #define MODE_DFU             1
@@ -101,6 +97,10 @@ static struct idevicerestore_mode_t idevicerestore_modes[] = {
 };
 
 extern int idevicerestore_debug;
+
+void info(const char* format, ...);
+void error(const char* format, ...);
+void debug(const char* format, ...);
 
 void debug_plist(plist_t plist);
 void print_progress_bar(double progress);

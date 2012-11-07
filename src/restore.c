@@ -1477,12 +1477,12 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 }
 
 int restore_device(struct idevicerestore_client_t* client, plist_t build_identity, const char* filesystem) {
-	int error = 0;
+	int err = 0;
 	char* type = NULL;
 	char* kernel = NULL;
 	plist_t node = NULL;
 	plist_t message = NULL;
-	plist_t info = NULL;
+	plist_t hwinfo = NULL;
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
@@ -1491,53 +1491,53 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	restore_finished = 0;
 
 	// open our connection to the device and verify we're in restore mode
-	error = restore_open_with_timeout(client);
-	if (error < 0) {
+	err = restore_open_with_timeout(client);
+	if (err < 0) {
 		error("ERROR: Unable to open device in restore mode\n");
-		return (error == -2) ? -1: -2;
+		return (err == -2) ? -1: -2;
 	}
 	info("Device has successfully entered restore mode\n");
 
 	restore = client->restore->client;
 	device = client->restore->device;
 
-	restore_error = restored_query_value(restore, "HardwareInfo", &info);
+	restore_error = restored_query_value(restore, "HardwareInfo", &hwinfo);
 	if (restore_error == RESTORE_E_SUCCESS) {
 		uint64_t i = 0;
 		uint8_t b = 0;
 		info("Hardware Information:\n");
 
-		node = plist_dict_get_item(info, "BoardID");
+		node = plist_dict_get_item(hwinfo, "BoardID");
 		if (node && plist_get_node_type(node) == PLIST_UINT) {
 			plist_get_uint_val(node, &i);
 			info("BoardID: %d\n", (int)i);
 		}
 
-		node = plist_dict_get_item(info, "ChipID");
+		node = plist_dict_get_item(hwinfo, "ChipID");
 		if (node && plist_get_node_type(node) == PLIST_UINT) {
 			plist_get_uint_val(node, &i);
 			info("ChipID: %d\n", (int)i);
 		}
 
-		node = plist_dict_get_item(info, "UniqueChipID");
+		node = plist_dict_get_item(hwinfo, "UniqueChipID");
 		if (node && plist_get_node_type(node) == PLIST_UINT) {
 			plist_get_uint_val(node, &i);
 			info("UniqueChipID: " FMT_qu "\n", (long long unsigned int)i);
 		}
 
-		node = plist_dict_get_item(info, "ProductionMode");
+		node = plist_dict_get_item(hwinfo, "ProductionMode");
 		if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
 			plist_get_bool_val(node, &b);
 			info("ProductionMode: %s\n", (b==1) ? "true":"false");
 		}
-		plist_free(info);
+		plist_free(hwinfo);
 	}
 
-	restore_error = restored_query_value(restore, "SavedDebugInfo", &info);
+	restore_error = restored_query_value(restore, "SavedDebugInfo", &hwinfo);
 	if (restore_error == RESTORE_E_SUCCESS) {
 		char* sval = NULL;
 
-		node = plist_dict_get_item(info, "PreviousExitStatus");
+		node = plist_dict_get_item(hwinfo, "PreviousExitStatus");
 		if (node && plist_get_node_type(node) == PLIST_STRING) {
 			plist_get_string_val(node, &sval);
 			info("Previous restore exit status: %s\n", sval);
@@ -1545,7 +1545,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			sval = NULL;
 		}
 
-		node = plist_dict_get_item(info, "USBLog");
+		node = plist_dict_get_item(hwinfo, "USBLog");
 		if (node && plist_get_node_type(node) == PLIST_STRING) {
 			plist_get_string_val(node, &sval);
 			info("USB log is available:\n%s\n", sval);
@@ -1553,14 +1553,14 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			sval = NULL;
 		}
 
-		node = plist_dict_get_item(info, "PanicLog");
+		node = plist_dict_get_item(hwinfo, "PanicLog");
 		if (node && plist_get_node_type(node) == PLIST_STRING) {
 			plist_get_string_val(node, &sval);
 			info("Panic log is available:\n%s\n", sval);
 			free(sval);
 			sval = NULL;
 		}
-		plist_free(info);
+		plist_free(hwinfo);
 	}
 
 	plist_t opts = plist_new_dict();
@@ -1662,24 +1662,24 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// files sent to the server by the client. these data requests include
 		// SystemImageData, RootTicket, KernelCache, NORData and BasebandData requests
 		if (!strcmp(type, "DataRequestMsg")) {
-			error = restore_handle_data_request_msg(client, device, restore, message, build_identity, filesystem);
+			err = restore_handle_data_request_msg(client, device, restore, message, build_identity, filesystem);
 		}
 
 		// restore logs are available if a previous restore failed
 		else if (!strcmp(type, "PreviousRestoreLogMsg")) {
-			error = restore_handle_previous_restore_log_msg(restore, message);
+			err = restore_handle_previous_restore_log_msg(restore, message);
 		}
 
 		// progress notification messages sent by the restored inform the client
 		// of it's current operation and sometimes percent of progress is complete
 		else if (!strcmp(type, "ProgressMsg")) {
-			error = restore_handle_progress_msg(client, message);
+			err = restore_handle_progress_msg(client, message);
 		}
 
 		// status messages usually indicate the current state of the restored
 		// process or often to signal an error has been encountered
 		else if (!strcmp(type, "StatusMsg")) {
-			error = restore_handle_status_msg(restore, message);
+			err = restore_handle_status_msg(restore, message);
 			if (restore_finished) {
 				client->flags |= FLAG_QUIT;
 			}
@@ -1687,7 +1687,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 		// baseband update message
 		else if (!strcmp(type, "BBUpdateStatusMsg")) {
-			error = restore_handle_bb_update_status_msg(restore, message);
+			err = restore_handle_bb_update_status_msg(restore, message);
 		}
 
 		// there might be some other message types i'm not aware of, but I think
@@ -1703,5 +1703,5 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	}
 
 	restore_client_free(client);
-	return error;
+	return err;
 }

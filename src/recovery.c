@@ -221,16 +221,16 @@ int recovery_send_ticket(struct idevicerestore_client_t* client)
 	}
 
 	info("Sending APTicket (%d bytes)\n", size);
-	irecv_error_t error = irecv_send_buffer(client->recovery->client, data, size, 0);
-	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to send APTicket: %s\n", irecv_strerror(error));
+	irecv_error_t err = irecv_send_buffer(client->recovery->client, data, size, 0);
+	if (err != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to send APTicket: %s\n", irecv_strerror(err));
 		free(data);
 		return -1;
 	}
 	free(data);
 
-	error = irecv_send_command(client->recovery->client, "ticket");
-	if (error != IRECV_E_SUCCESS) {
+	err = irecv_send_command(client->recovery->client, "ticket");
+	if (err != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send ticket command\n");
 		return -1;
 	}
@@ -243,7 +243,7 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 	char* data = NULL;
 	char* path = NULL;
 	char* blob = NULL;
-	irecv_error_t error = 0;
+	irecv_error_t err = 0;
 
 	if (client->tss) {
 		if (tss_get_entry_path(client->tss, component, &path) < 0) {
@@ -271,10 +271,10 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 	info("Sending %s (%d bytes)...\n", component, size);
 
 	// FIXME: Did I do this right????
-	error = irecv_send_buffer(client->recovery->client, data, size, 0);
+	err = irecv_send_buffer(client->recovery->client, data, size, 0);
 	free(path);
-	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(error));
+	if (err != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(err));
 		free(data);
 		return -1;
 	}

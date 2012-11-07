@@ -30,7 +30,7 @@
 
 int limera1n_exploit(struct irecv_device *device, irecv_client_t client)
 {
-	irecv_error_t error = IRECV_E_SUCCESS;
+	irecv_error_t err = IRECV_E_SUCCESS;
 	unsigned int i = 0;
 	unsigned char buf[0x800];
 	unsigned char shellcode[0x800];
@@ -57,9 +57,9 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t client)
 	memcpy(shellcode, limera1n_payload, sizeof(limera1n_payload));
 
 	debug("Resetting device counters\n");
-	error = irecv_reset_counters(client);
-	if (error != IRECV_E_SUCCESS) {
-		error("%s\n", irecv_strerror(error));
+	err = irecv_reset_counters(client);
+	if (err != IRECV_E_SUCCESS) {
+		error("%s\n", irecv_strerror(err));
 		return -1;
 	}
 
@@ -98,7 +98,6 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t client)
 	debug("Reconnecting to device\n");
 	client = irecv_reconnect(client, 7);
 	if (client == NULL) {
-		debug("%s\n", irecv_strerror(error));
 		error("Unable to reconnect\n");
 		return -1;
 	}

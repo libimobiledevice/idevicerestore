@@ -27,6 +27,7 @@
 #include "dfu.h"
 #include "recovery.h"
 #include "idevicerestore.h"
+#include "common.h"
 
 int dfu_progress_callback(irecv_client_t client, const irecv_event_t* event) {
 	if (event->type == IRECV_PROGRESS) {
@@ -108,18 +109,18 @@ int dfu_check_mode(struct idevicerestore_client_t* client, int* mode) {
 
 int dfu_send_buffer(struct idevicerestore_client_t* client, char* buffer, uint32_t size)
 {
-	irecv_error_t error = 0;
+	irecv_error_t err = 0;
 
 	info("Sending data (%d bytes)...\n", size);
 
-	error = irecv_send_buffer(client->dfu->client, buffer, size, 1);
-	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to send data: %s\n", irecv_strerror(error));
+	err = irecv_send_buffer(client->dfu->client, buffer, size, 1);
+	if (err != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to send data: %s\n", irecv_strerror(err));
 		return -1;
 	}
 
-	error = irecv_reset(client->dfu->client);
-	if (error != IRECV_E_SUCCESS) {
+	err = irecv_reset(client->dfu->client);
+	if (err != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to reset device\n");
 		irecv_close(client->dfu->client);
 		client->dfu->client = NULL;
@@ -134,7 +135,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	char* data = NULL;
 	char* path = NULL;
 	char* blob = NULL;
-	irecv_error_t error = 0;
+	irecv_error_t err = 0;
 	int flag = 1;
 
 	if (client->tss) {
@@ -185,10 +186,10 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	info("Sending %s (%d bytes)...\n", component, size);
 
 	// FIXME: Did I do this right????
-	error = irecv_send_buffer(client->dfu->client, data, size, flag);
+	err = irecv_send_buffer(client->dfu->client, data, size, flag);
 	free(path);
 	if (error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(error));
+		error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(err));
 		free(data);
 		return -1;
 	}

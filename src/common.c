@@ -29,6 +29,74 @@
 
 int idevicerestore_debug = 0;
 
+static FILE* info_stream = NULL;
+static FILE* error_stream = NULL;
+static FILE* debug_stream = NULL;
+
+static int info_disabled = 0;
+static int error_disabled = 0;
+static int debug_disabled = 0;
+
+void info(const char* format, ...)
+{
+	if (info_disabled) return;
+	va_list vargs;
+	va_start(vargs, format);
+	vfprintf((info_stream) ? info_stream : stdout, format, vargs);
+	va_end(vargs);
+}
+
+void error(const char* format, ...)
+{
+	if (error_disabled) return;
+	va_list vargs;
+	va_start(vargs, format);
+	vfprintf((error_stream) ? error_stream : stderr, format, vargs);
+	va_end(vargs);
+}
+
+void debug(const char* format, ...)
+{
+	if (debug_disabled) return;
+	if (!idevicerestore_debug) {
+		return;
+	}
+	va_list vargs;
+	va_start(vargs, format);
+	vfprintf((debug_stream) ? debug_stream : stderr, format, vargs);
+	va_end(vargs);
+}
+
+void idevicerestore_set_info_stream(FILE* strm)
+{
+	if (strm) {
+		info_disabled = 0;
+		info_stream = strm;
+	} else {
+		info_disabled = 1;
+	}
+}
+
+void idevicerestore_set_error_stream(FILE* strm)
+{
+	if (strm) {
+		error_disabled = 0;
+		error_stream = strm;
+	} else {
+		error_disabled = 1;
+	}
+}
+
+void idevicerestore_set_debug_stream(FILE* strm)
+{
+	if (strm) {
+		debug_disabled = 0;
+		debug_stream = strm;
+	} else {
+		debug_disabled = 1;
+	}
+}
+
 int write_file(const char* filename, const void* data, size_t size) {
 	size_t bytes = 0;
 	FILE* file = NULL;
