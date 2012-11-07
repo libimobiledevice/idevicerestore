@@ -29,6 +29,8 @@ extern "C" {
 #include <plist/plist.h>
 #include <libirecovery.h>
 
+#include "idevicerestore.h"
+
 #define info(...) printf(__VA_ARGS__)
 #define error(...) fprintf(stderr, __VA_ARGS__)
 #define debug(...) if(idevicerestore_debug) fprintf(stderr, __VA_ARGS__)
@@ -85,6 +87,8 @@ struct idevicerestore_client_t {
 	char* build;
 	char* restore_boot_args;
 	char* cache_dir;
+	idevicerestore_progress_cb_t progress_cb;
+	void* progress_cb_data;
 };
 
 static struct idevicerestore_mode_t idevicerestore_modes[] = {
@@ -118,6 +122,8 @@ char *generate_guid();
 #endif
 
 int mkdir_with_parents(const char *dir, int mode);
+
+void idevicerestore_progress(struct idevicerestore_client_t* client, int step, double progress);
 
 #ifdef __cplusplus
 }

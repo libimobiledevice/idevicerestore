@@ -27,6 +27,7 @@
 
 #include "asr.h"
 #include "idevicerestore.h"
+#include "common.h"
 
 #define ASR_VERSION 1
 #define ASR_STREAM_ID 1
@@ -101,6 +102,15 @@ int asr_open_with_timeout(idevice_t device, asr_client_t* asr) {
 	*asr = asr_loc;
 
 	return 0;
+}
+
+void asr_set_progress_callback(asr_client_t asr, asr_progress_cb_t cbfunc, void* userdata)
+{
+	if (!asr) {
+		return;
+	}
+	asr->progress_cb = cbfunc;
+	asr->progress_cb_data = userdata;
 }
 
 int asr_receive(asr_client_t asr, plist_t* data) {
@@ -387,8 +397,11 @@ int asr_send_payload(asr_client_t asr, const char* filesystem) {
 		}
 
 		bytes += size;
-		progress = ((double) bytes/ (double) length) * 100.0;
-		print_progress_bar(progress);
+		progress = ((double) bytes/ (double) length);
+		if (asr->progress_cb && ((int)(progress*100) > asr->lastprogress)) {
+			asr->progress_cb(progress, asr->progress_cb_data);
+			asr->lastprogress = (int)(progress*100);
+		}
 	}
 
 	// if last chunk wasn't terminated with a checksum we do it here

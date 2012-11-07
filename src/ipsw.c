@@ -27,6 +27,7 @@
 
 #include "ipsw.h"
 #include "locking.h"
+#include "common.h"
 #include "idevicerestore.h"
 
 #define BUFSIZE 0x100000

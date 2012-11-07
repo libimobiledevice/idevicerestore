@@ -28,13 +28,19 @@ extern "C" {
 
 #include <libimobiledevice/libimobiledevice.h>
 
+typedef void (*asr_progress_cb_t)(double, void*);
+
 struct asr_client {
 	idevice_connection_t connection;
 	uint8_t checksum_chunks;
+	int lastprogress;
+	asr_progress_cb_t progress_cb;
+	void* progress_cb_data;
 };
 typedef struct asr_client *asr_client_t;
 
 int asr_open_with_timeout(idevice_t device, asr_client_t* asr);
+void asr_set_progress_callback(asr_client_t asr, asr_progress_cb_t, void* userdata);
 int asr_send(asr_client_t asr, plist_t* data);
 int asr_receive(asr_client_t asr, plist_t* data);
 int asr_send_buffer(asr_client_t asr, const char* data, uint32_t size);

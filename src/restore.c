@@ -31,6 +31,7 @@
 #include "mbn.h"
 #include "tss.h"
 #include "restore.h"
+#include "common.h"
 
 #define WAIT_FOR_STORAGE       11
 #define CREATE_PARTITION_MAP   12
@@ -527,7 +528,7 @@ int restore_handle_previous_restore_log_msg(restored_client_t client, plist_t ms
 	return 0;
 }
 
-int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
+int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t msg) {
 	plist_t node = NULL;
 	uint64_t progress = 0;
 	uint64_t operation = 0;
@@ -546,11 +547,21 @@ int restore_handle_progress_msg(restored_client_t client, plist_t msg) {
 	}
 	plist_get_uint_val(node, &progress);
 
-	if ((progress > 0) && (progress < 100)) {
+	if ((progress > 0) && (progress <= 100)) {
 		if (operation != lastop) {
 			info("%s (%d)\n", restore_progress_string(operation), (int)operation);
 		}
-		print_progress_bar((double) progress);
+		switch ((int)operation) {
+		case 14:
+			idevicerestore_progress(client, RESTORE_STEP_FLASH_FS, progress / 100.0);
+			break;
+		case 18:
+			idevicerestore_progress(client, RESTORE_STEP_FLASH_NOR, progress / 100.0);
+			break;
+		default:
+			debug("Unhandled progress operation %d\n", (int)operation);
+			break;
+		}
 	} else {
 		info("%s (%d)\n", restore_progress_string(operation), (int)operation);
 	}
@@ -654,7 +665,15 @@ int restore_handle_bb_update_status_msg(restored_client_t client, plist_t msg)
 	return result;
 }
 
-int restore_send_filesystem(idevice_t device, const char* filesystem) {
+void restore_asr_progress_cb(double progress, void* userdata)
+{
+	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*)userdata;
+	if (client) {
+		idevicerestore_progress(client, RESTORE_STEP_UPLOAD_FS, progress);
+	}
+}
+
+int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t device, const char* filesystem) {
 	int i = 0;
 	FILE* file = NULL;
 	plist_t data = NULL;
@@ -668,6 +687,8 @@ int restore_send_filesystem(idevice_t device, const char* filesystem) {
 		return -1;
 	}
 	info("Connected to ASR\n");
+
+	asr_set_progress_callback(asr, restore_asr_progress_cb, (void*)client);
 
 	// this step sends requested chunks of data from various offsets to asr so
 	// it can validate the filesystem before installing it
@@ -1406,7 +1427,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		// this request is sent when restored is ready to receive the filesystem
 		if (!strcmp(type, "SystemImageData")) {
-			if(restore_send_filesystem(device, filesystem) < 0) {
+			if(restore_send_filesystem(client, device, filesystem) < 0) {
 				error("ERROR: Unable to send filesystem\n");
 				return -2;
 			}
@@ -1606,6 +1627,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		return -1;
 	}
 	plist_free(opts);
+	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 1.0);
 
 	// this is the restore process loop, it reads each message in from
 	// restored and passes that data on to it's specific handler
@@ -1651,7 +1673,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// progress notification messages sent by the restored inform the client
 		// of it's current operation and sometimes percent of progress is complete
 		else if (!strcmp(type, "ProgressMsg")) {
-			error = restore_handle_progress_msg(restore, message);
+			error = restore_handle_progress_msg(client, message);
 		}
 
 		// status messages usually indicate the current state of the restored

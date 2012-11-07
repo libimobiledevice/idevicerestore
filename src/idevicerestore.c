@@ -177,6 +177,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		irecv_set_debug_level(1);
 	}
 
+	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.0);
+
 	// update version data (from cache, or apple if too old)
 	load_version_data(client);
 
@@ -185,6 +187,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
 		return -1;
 	}
+	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.1);
 	info("Found device in %s mode\n", client->mode->string);
 
 	if (client->mode->index == MODE_WTF) {
@@ -258,6 +261,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		error("ERROR: Unable to discover device type\n");
 		return -1;
 	}
+	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.2);
 	info("Identified device as %s\n", client->device->product);
 
 	if ((client->flags & FLAG_PWN) && (client->mode->index != MODE_DFU)) {
@@ -297,6 +301,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			client->ipsw = ipsw;
 		}
 	}
+	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.6);
 
 	if (client->flags & FLAG_NOACTION) {
 		return 0;
@@ -334,6 +339,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return -1;
 		}
 	}
+	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.8);
 
 	/* check if device type is supported by the given build manifest */
 	if (build_manifest_check_compatibility(buildmanifest, client->device->product) < 0) {
@@ -518,6 +524,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	/* print information about current build identity */
 	build_identity_print_information(build_identity);
 
+	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.0);
 	/* retrieve shsh blobs if required */
 	if (tss_enabled) {
 		debug("Getting device's ECID for TSS request\n");
@@ -587,6 +594,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		/* fix empty dicts */
 		fixup_tss(client->tss);
 	}
+	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.1);
 
 	// if the device is in normal mode, place device into recovery mode
 	if (client->mode->index == MODE_NORMAL) {
@@ -694,6 +702,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 	}
 
+	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.3);
 
 	// if the device is in DFU mode, place device into recovery mode
 	if (client->mode->index == MODE_DFU) {
@@ -744,6 +753,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		/* FIXME: Probably better to detect if the device is back then */
 		sleep(7);
 	}
+	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.5);
 
 	if (client->build[0] > '8') {
 		// we need another tss request with nonce.
@@ -794,6 +804,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			fixup_tss(client->tss);
 		}
 	}
+	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.7);
 
 	// now finally do the magic to put the device into restore mode
 	if (client->mode->index == MODE_RECOVERY) {
@@ -813,6 +824,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return -2;
 		}
 	}
+	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.9);
 
 	// device is finally in restore mode, let's do this
 	if (client->mode->index == MODE_RESTORE) {
@@ -831,6 +843,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		unlink(filesystem);
 
 	info("DONE\n");
+
+	if (result == 0) {
+		idevicerestore_progress(client, RESTORE_NUM_STEPS-1, 1.0);
+	}
+
 	return result;
 }
 
@@ -922,6 +939,14 @@ void idevicerestore_set_ipsw(struct idevicerestore_client_t* client, const char*
 	if (path) {
 		client->ipsw = strdup(path);
 	}
+}
+
+void idevicerestore_set_progress_callback(struct idevicerestore_client_t* client, idevicerestore_progress_cb_t cbfunc, void* userdata)
+{
+	if (!client)
+		return;
+	client->progress_cb = cbfunc;
+	client->progress_cb_data = userdata;
 }
 
 #ifndef IDEVICERESTORE_NOMAIN

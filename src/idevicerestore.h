@@ -29,8 +29,6 @@ extern "C" {
 #include <stdint.h>
 #include <plist/plist.h>
 
-#include "common.h"
-
 // the flag with value 1 is reserved for internal use only. don't use it.
 #define FLAG_DEBUG           1 << 1
 #define FLAG_ERASE           1 << 2
@@ -43,6 +41,17 @@ extern "C" {
 
 struct idevicerestore_client_t;
 
+enum {
+	RESTORE_STEP_DETECT = 0,
+	RESTORE_STEP_PREPARE,
+	RESTORE_STEP_UPLOAD_FS,
+	RESTORE_STEP_FLASH_FS,
+	RESTORE_STEP_FLASH_NOR,
+	RESTORE_NUM_STEPS
+};
+
+typedef void (*idevicerestore_progress_cb_t)(int step, double step_progress, void* userdata);
+
 struct idevicerestore_client_t* idevicerestore_client_new();
 void idevicerestore_client_free(struct idevicerestore_client_t* client);
 
@@ -50,6 +59,8 @@ void idevicerestore_set_ecid(struct idevicerestore_client_t* client, unsigned lo
 void idevicerestore_set_udid(struct idevicerestore_client_t* client, const char* udid);
 void idevicerestore_set_flags(struct idevicerestore_client_t* client, int flags);
 void idevicerestore_set_ipsw(struct idevicerestore_client_t* client, const char* path);
+
+void idevicerestore_set_progress_callback(struct idevicerestore_client_t* client, idevicerestore_progress_cb_t cbfunc, void* userdata);
 
 int idevicerestore_start(struct idevicerestore_client_t* client);
 
