@@ -29,6 +29,9 @@
 
 int idevicerestore_debug = 0;
 
+#define idevicerestore_err_buff_size 256
+static char idevicerestore_err_buff[idevicerestore_err_buff_size] = {0, };
+
 static FILE* info_stream = NULL;
 static FILE* error_stream = NULL;
 static FILE* debug_stream = NULL;
@@ -48,10 +51,12 @@ void info(const char* format, ...)
 
 void error(const char* format, ...)
 {
-	if (error_disabled) return;
 	va_list vargs;
 	va_start(vargs, format);
-	vfprintf((error_stream) ? error_stream : stderr, format, vargs);
+	vsnprintf(idevicerestore_err_buff, idevicerestore_err_buff_size, format, vargs);
+	if (!error_disabled) {
+		vfprintf((error_stream) ? error_stream : stderr, format, vargs);
+	}
 	va_end(vargs);
 }
 
@@ -94,6 +99,19 @@ void idevicerestore_set_debug_stream(FILE* strm)
 		debug_stream = strm;
 	} else {
 		debug_disabled = 1;
+	}
+}
+
+const char* idevicerestore_get_error()
+{
+	if (idevicerestore_err_buff[0] == 0) {
+		return NULL;
+	} else {
+		char* p = NULL;
+		while ((strlen(idevicerestore_err_buff) > 0) && (p = strrchr(idevicerestore_err_buff, '\n'))) {
+			p[0] = '\0';
+		}
+		return (const char*)idevicerestore_err_buff;
 	}
 }
 

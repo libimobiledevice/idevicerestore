@@ -66,6 +66,7 @@ void idevicerestore_set_error_stream(FILE* strm);
 void idevicerestore_set_debug_stream(FILE* strm);
 
 int idevicerestore_start(struct idevicerestore_client_t* client);
+const char* idevicerestore_get_error();
 
 void usage(int argc, char* argv[]);
 int check_mode(struct idevicerestore_client_t* client);
