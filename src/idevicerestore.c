@@ -1262,6 +1262,12 @@ int check_device(struct idevicerestore_client_t* client) {
 			case BDID_IPAD24:
 				device = DEVICE_IPAD24;
 				break;
+			case BDID_IPAD25:
+				device = DEVICE_IPAD25;
+				break;
+			case BDID_IPOD5G:
+				device_id = DEVICE_IPOD5G;
+				break;
 			default:
 				device = DEVICE_UNKNOWN;
 				break;
@@ -1304,6 +1310,21 @@ int check_device(struct idevicerestore_client_t* client) {
 				break;
 			default:
 				device = DEVICE_UNKNOWN;
+				break;
+			}
+			break;
+
+		case CPID_IPAD34:
+			if (get_bdid(client, &bdid) < 0) {
+				error("ERROR: Unable to get device BDID\n");
+				break;
+			}
+			switch (bdid) {
+			case BDID_IPAD34:
+				device_id = DEVICE_IPAD34;
+				break;
+			default:
+				device_id = DEVICE_UNKNOWN;
 				break;
 			}
 			break;
