@@ -1266,7 +1266,7 @@ int check_device(struct idevicerestore_client_t* client) {
 				device = DEVICE_IPAD25;
 				break;
 			case BDID_IPOD5G:
-				device_id = DEVICE_IPOD5G;
+				device = DEVICE_IPOD5G;
 				break;
 			default:
 				device = DEVICE_UNKNOWN;
@@ -1321,10 +1321,10 @@ int check_device(struct idevicerestore_client_t* client) {
 			}
 			switch (bdid) {
 			case BDID_IPAD34:
-				device_id = DEVICE_IPAD34;
+				device = DEVICE_IPAD34;
 				break;
 			default:
-				device_id = DEVICE_UNKNOWN;
+				device = DEVICE_UNKNOWN;
 				break;
 			}
 			break;
