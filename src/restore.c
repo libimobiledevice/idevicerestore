@@ -1639,7 +1639,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	while ((client->flags & FLAG_QUIT) == 0) {
 		// finally, if any of these message handlers returned -1 then we encountered
 		// an unrecoverable error, so we need to bail.
-		if (error < 0) {
+		if (err < 0) {
 			error("ERROR: Unable to successfully restore device\n");
 			client->flags |= FLAG_QUIT;
 		}
