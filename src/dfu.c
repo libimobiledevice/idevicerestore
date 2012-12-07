@@ -185,7 +185,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	// FIXME: Did I do this right????
 	err = irecv_send_buffer(client->dfu->client, data, size, flag);
 	free(path);
-	if (error != IRECV_E_SUCCESS) {
+	if (err != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(err));
 		free(data);
 		return -1;
