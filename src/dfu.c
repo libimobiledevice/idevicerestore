@@ -89,7 +89,7 @@ int dfu_check_mode(struct idevicerestore_client_t* client, int* mode) {
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 
 	irecv_init();
-	dfu_error=irecv_open(&dfu, client->ecid);
+	dfu_error = irecv_open(&dfu, client->ecid);
 
 	if (dfu_error != IRECV_E_SUCCESS) {
 		return -1;
