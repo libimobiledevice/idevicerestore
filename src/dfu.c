@@ -107,6 +107,27 @@ int dfu_check_mode(struct idevicerestore_client_t* client, int* mode) {
 	return 0;
 }
 
+int dfu_check_device(struct idevicerestore_client_t* client) {
+	irecv_client_t dfu = NULL;
+	irecv_error_t dfu_error = IRECV_E_SUCCESS;
+	irecv_device_t device = NULL;
+
+	irecv_init();
+	dfu_error = irecv_open(&dfu, client->ecid);
+	if (dfu_error != IRECV_E_SUCCESS) {
+		return -1;
+	}
+
+	dfu_error = irecv_get_device(dfu, &device);
+	if (dfu_error != IRECV_E_SUCCESS) {
+		return -1;
+	}
+
+	irecv_close(dfu);
+
+	return device->index;
+}
+
 int dfu_send_buffer(struct idevicerestore_client_t* client, char* buffer, uint32_t size)
 {
 	irecv_error_t err = 0;
