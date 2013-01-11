@@ -217,9 +217,6 @@ int restore_check_device(struct idevicerestore_client_t* client) {
 	}
 
 	if (client->srnm == NULL) {
-		char snbuf[256];
-		snbuf[0] = '\0';
-
 		restore_error = restored_get_value(restore, "SerialNumber", &node);
 		if (restore_error != RESTORE_E_SUCCESS || !node || plist_get_node_type(node) != PLIST_STRING) {
 			error("ERROR: Unable to get SerialNumber from restored\n");
