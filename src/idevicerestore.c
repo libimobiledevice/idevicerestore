@@ -368,13 +368,13 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		{
 			plist_t node;
 			plist_t comp;
-			plist_t info;
+			plist_t inf;
 			plist_t manifest;
 
-			info = plist_new_dict();
-			plist_dict_insert_item(info, "RestoreBehavior", plist_new_string((client->flags & FLAG_ERASE) ? "Erase" : "Update"));
-			plist_dict_insert_item(info, "Variant", plist_new_string((client->flags & FLAG_ERASE) ? "Customer Erase Install (IPSW)" : "Customer Upgrade Install (IPSW)"));
-			plist_dict_insert_item(build_identity, "Info", info);
+			inf = plist_new_dict();
+			plist_dict_insert_item(inf, "RestoreBehavior", plist_new_string((client->flags & FLAG_ERASE) ? "Erase" : "Update"));
+			plist_dict_insert_item(inf, "Variant", plist_new_string((client->flags & FLAG_ERASE) ? "Customer Erase Install (IPSW)" : "Customer Upgrade Install (IPSW)"));
+			plist_dict_insert_item(build_identity, "Info", inf);
 
 			manifest = plist_new_dict();
 
@@ -413,13 +413,13 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			free(fmanifest);
 
 			for (x = 0; x < fc; x++) {
-				info = plist_new_dict();
+				inf = plist_new_dict();
 				strcpy(tmpstr, p_all_flash);
 				strcat(tmpstr, "/");
 				strcat(tmpstr, files[x]);
-				plist_dict_insert_item(info, "Path", plist_new_string(tmpstr));
+				plist_dict_insert_item(inf, "Path", plist_new_string(tmpstr));
 				comp = plist_new_dict();
-				plist_dict_insert_item(comp, "Info", info);
+				plist_dict_insert_item(comp, "Info", inf);
 				const char* compname = get_component_name(files[x]);
 				if (compname) {
 					plist_dict_insert_item(manifest, compname, comp);
@@ -436,18 +436,18 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 			// add iBSS
 			sprintf(tmpstr, "Firmware/dfu/iBSS.%s.%s.dfu", lcmodel, "RELEASE");
-			info = plist_new_dict();
-			plist_dict_insert_item(info, "Path", plist_new_string(tmpstr));
+			inf = plist_new_dict();
+			plist_dict_insert_item(inf, "Path", plist_new_string(tmpstr));
 			comp = plist_new_dict();
-			plist_dict_insert_item(comp, "Info", info);
+			plist_dict_insert_item(comp, "Info", inf);
 			plist_dict_insert_item(manifest, "iBSS", comp);
 
 			// add iBEC
 			sprintf(tmpstr, "Firmware/dfu/iBEC.%s.%s.dfu", lcmodel, "RELEASE");
-			info = plist_new_dict();
-			plist_dict_insert_item(info, "Path", plist_new_string(tmpstr));
+			inf = plist_new_dict();
+			plist_dict_insert_item(inf, "Path", plist_new_string(tmpstr));
 			comp = plist_new_dict();
-			plist_dict_insert_item(comp, "Info", info);
+			plist_dict_insert_item(comp, "Info", inf);
 			plist_dict_insert_item(manifest, "iBEC", comp);
 
 			// add kernel cache
@@ -460,10 +460,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				if (kdict && (plist_get_node_type(kdict) == PLIST_DICT)) {
 					plist_t kc = plist_dict_get_item(kdict, "Release");
 					if (kc && (plist_get_node_type(kc) == PLIST_STRING)) {
-						info = plist_new_dict();
-						plist_dict_insert_item(info, "Path", plist_copy(kc));
+						inf = plist_new_dict();
+						plist_dict_insert_item(inf, "Path", plist_copy(kc));
 						comp = plist_new_dict();
-						plist_dict_insert_item(comp, "Info", info);
+						plist_dict_insert_item(comp, "Info", inf);
 						plist_dict_insert_item(manifest, "KernelCache", comp);
 						plist_dict_insert_item(manifest, "RestoreKernelCache", plist_copy(comp));
 
@@ -476,10 +476,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			if (node && (plist_get_node_type(node) == PLIST_DICT)) {
 				plist_t rd = plist_dict_get_item(node, (client->flags & FLAG_ERASE) ? "User" : "Update");
 				if (rd && (plist_get_node_type(rd) == PLIST_STRING)) {
-					info = plist_new_dict();
-					plist_dict_insert_item(info, "Path", plist_copy(rd));
+					inf = plist_new_dict();
+					plist_dict_insert_item(inf, "Path", plist_copy(rd));
 					comp = plist_new_dict();
-					plist_dict_insert_item(comp, "Info", info);
+					plist_dict_insert_item(comp, "Info", inf);
 					plist_dict_insert_item(manifest, "RestoreRamDisk", comp);
 				}
 			}
@@ -493,10 +493,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			if (!os) {
 				error("ERROR: missing filesystem in Restore.plist\n");
 			} else {
-				info = plist_new_dict();
-				plist_dict_insert_item(info, "Path", plist_copy(os));
+				inf = plist_new_dict();
+				plist_dict_insert_item(inf, "Path", plist_copy(os));
 				comp = plist_new_dict();
-				plist_dict_insert_item(comp, "Info", info);
+				plist_dict_insert_item(comp, "Info", inf);
 				plist_dict_insert_item(manifest, "OS", comp);
 			}
 
@@ -989,7 +989,6 @@ int main(int argc, char* argv[]) {
 	int opt = 0;
 	int optindex = 0;
 	char* ipsw = NULL;
-	char* udid = NULL;
 	int result = 0;
 
 	struct idevicerestore_client_t* client = idevicerestore_client_new();
