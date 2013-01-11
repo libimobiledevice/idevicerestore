@@ -140,17 +140,17 @@ static int restore_idevice_new(struct idevicerestore_client_t* client, idevice_t
 
 		if (client->ecid != 0) {
 			plist_t node = NULL;
-			plist_t info = NULL;
+			plist_t hwinfo = NULL;
 
-			if (restored_query_value(restore, "HardwareInfo", &info) != RESTORE_E_SUCCESS) {
+			if (restored_query_value(restore, "HardwareInfo", &hwinfo) != RESTORE_E_SUCCESS) {
 				
 				continue;
 			}
 
-			node = plist_dict_get_item(info, "UniqueChipID");
+			node = plist_dict_get_item(hwinfo, "UniqueChipID");
 			if (!node || plist_get_node_type(node) != PLIST_UINT) {
-				if (info) {
-					plist_free(info);
+				if (hwinfo) {
+					plist_free(hwinfo);
 				}
 				continue;
 			}
@@ -159,7 +159,7 @@ static int restore_idevice_new(struct idevicerestore_client_t* client, idevice_t
 
 			uint64_t this_ecid = 0;
 			plist_get_uint_val(node, &this_ecid);
-			plist_free(info);
+			plist_free(hwinfo);
 
 			if (this_ecid != client->ecid) {
 				continue;
