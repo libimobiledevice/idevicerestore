@@ -1120,8 +1120,6 @@ int check_mode(struct idevicerestore_client_t* client) {
 
 int check_device(struct idevicerestore_client_t* client) {
 	int device = DEVICE_UNKNOWN;
-	uint32_t bdid = 0;
-	uint32_t cpid = 0;
 
 	switch (client->mode->index) {
 	case MODE_RESTORE:
