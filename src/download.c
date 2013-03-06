@@ -64,6 +64,9 @@ int download_to_buffer(const char* url, char** buf, uint32_t* length)
 	if (idevicerestore_debug)
 		curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
 
+	/* disable SSL verification to allow download from untrusted https locations */
+	curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0);
+
 	curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, (curl_write_callback)&download_write_buffer_callback);
 	curl_easy_setopt(handle, CURLOPT_WRITEDATA, &response);
 	curl_easy_setopt(handle, CURLOPT_USERAGENT, "InetURL/1.0");
@@ -121,6 +124,9 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 
 	if (idevicerestore_debug)
 		curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
+
+	/* disable SSL verification to allow download from untrusted https locations */
+	curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0);
 
 	curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, NULL);
 	curl_easy_setopt(handle, CURLOPT_WRITEDATA, f);
