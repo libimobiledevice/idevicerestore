@@ -36,20 +36,25 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 	unsigned char shellcode[0x800];
 	unsigned int max_size = 0x24000;
 	//unsigned int load_address = 0x84000000;
-	unsigned int stack_address = 0x84033F98;
-	unsigned int shellcode_address = 0x84023001;
+	unsigned int stack_address = 0;
+	unsigned int shellcode_address = 0;
 	unsigned int shellcode_length = 0;
 
-
-	if (device->chip_id == 8930) {
+	if (device->chip_id == irecv_devices[DEVICE_IPHONE4].chip_id) {
 		max_size = 0x2C000;
 		stack_address = 0x8403BF9C;
 		shellcode_address = 0x8402B001;
-	}
-	if (device->chip_id == 8920) {
+	} else if (device->chip_id == irecv_devices[DEVICE_IPHONE3GS].chip_id) {
 		max_size = 0x24000;
 		stack_address = 0x84033FA4;
 		shellcode_address = 0x84023001;
+	} else if (device->chip_id == irecv_devices[DEVICE_IPOD3G].chip_id) {
+		max_size = 0x24000;
+		stack_address = 0x84033F98;
+		shellcode_address = 0x84023001;	
+	} else {
+		error("Unsupported ChipID 0x%04x. Can't exploit with limera1n.\n", device->chip_id);
+		return -1;
 	}
 
 	memset(shellcode, 0x0, 0x800);
