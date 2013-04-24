@@ -116,7 +116,7 @@ static int load_version_data(struct idevicerestore_client_t* client)
 		strcpy(version_xml_tmp, version_xml);
 		strcat(version_xml_tmp, ".tmp");
 
-		if (download_to_file("http://ax.itunes.apple.com/check/version",  version_xml_tmp, 0) == 0) {
+		if (download_to_file("http://itunes.apple.com/check/version",  version_xml_tmp, 0) == 0) {
 			remove(version_xml);
 			if (rename(version_xml_tmp, version_xml) < 0) {
 				error("ERROR: Could not update '%s'\n", version_xml);
