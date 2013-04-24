@@ -28,7 +28,7 @@
 #include "limera1n.h"
 #include "limera1n_payload.h"
 
-int limera1n_exploit(struct irecv_device *device, irecv_client_t client)
+int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 {
 	irecv_error_t err = IRECV_E_SUCCESS;
 	unsigned int i = 0;
@@ -55,6 +55,8 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t client)
 	memset(shellcode, 0x0, 0x800);
 	shellcode_length = sizeof(limera1n_payload);
 	memcpy(shellcode, limera1n_payload, sizeof(limera1n_payload));
+
+	irecv_client_t client = *pclient;
 
 	debug("Resetting device counters\n");
 	err = irecv_reset_counters(client);
@@ -96,9 +98,13 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t client)
 	debug("Exploit sent\n");
 
 	debug("Reconnecting to device\n");
-	client = irecv_reconnect(client, 7);
-	if (client == NULL) {
+	*pclient = irecv_reconnect(client, 7);
+	if (*pclient == NULL) {
 		error("Unable to reconnect\n");
+		return -1;
+	}
+	if ((*pclient)->mode != kDfuMode) {
+		error("Device reconnected in non-DFU mode\n");
 		return -1;
 	}
 

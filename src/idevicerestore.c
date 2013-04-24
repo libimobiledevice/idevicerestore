@@ -279,7 +279,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 		info("exploiting with limera1n...\n");
 		// TODO: check for non-limera1n device and fail
-		if (limera1n_exploit(client->device, client->dfu->client) != 0) {
+		if (limera1n_exploit(client->device, &client->dfu->client) != 0) {
 			error("ERROR: limera1n exploit failed\n");
 			dfu_client_free(client);
 			return -1;
@@ -738,7 +738,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			}
 			info("exploiting with limera1n\n");
 			// TODO: check for non-limera1n device and fail
-			if (limera1n_exploit(client->device, client->dfu->client) != 0) {
+			if (limera1n_exploit(client->device, &client->dfu->client) != 0) {
 				error("ERROR: limera1n exploit failed\n");
 				dfu_client_free(client);
 				if (delete_fs && filesystem)
