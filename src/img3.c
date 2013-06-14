@@ -333,10 +333,6 @@ int img3_replace_signature(img3_file* image, char* signature) {
 			image->idx_shsh_element = image->num_elements;
 			image->num_elements++;
 		}
-
-		error("%s: ERROR: no SHSH element found to be replaced\n", __func__);
-		img3_free_element(shsh);
-		return -1;
 	}
 
 	if (image->idx_cert_element >= 0) {
