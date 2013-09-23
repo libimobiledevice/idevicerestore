@@ -2,6 +2,7 @@
  * download.c
  * file download helper functions
  *
+ * Copyright (c) 2012-2013 Martin Szulecki. All Rights Reserved.
  * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or

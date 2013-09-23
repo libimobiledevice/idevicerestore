@@ -2,6 +2,8 @@
  * img3.h
  * Functions for handling with Apple's IMG3 format
  *
+ * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
+ * Copyright (c) 2010 Martin Szulecki. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or

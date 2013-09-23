@@ -2,6 +2,7 @@
  * download.h
  * file download helper functions (header file)
  *
+ * Copyright (c) 2012 Martin Szulecki. All Rights Reserved.
  * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or

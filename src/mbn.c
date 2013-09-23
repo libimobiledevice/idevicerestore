@@ -2,6 +2,7 @@
  * mbn.c
  * support for .mbn file format (found in .bbfw files)
  *
+ * Copyright (c) 2012 Martin Szulecki. All Rights Reserved.
  * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or

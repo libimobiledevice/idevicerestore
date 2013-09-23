@@ -2,6 +2,8 @@
  * asr.h
  * Functions for handling asr connections
  *
+ * Copyright (c) 2012 Martin Szulecki. All Rights Reserved.
+ * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or

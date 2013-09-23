@@ -1,7 +1,8 @@
 /*
- * ipsw.c
+ * tss.h
  * Definitions for communicating with Apple's TSS server.
  *
+ * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
