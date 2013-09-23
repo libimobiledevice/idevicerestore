@@ -1,67 +1,76 @@
+About
+=====
 
-## ---Installing idevicerestore---
+The idevicerestore tool allows to restore firmware files to iOS devices.
 
-## First We Need to Install the dependencies
+It is a full reimplementation of all granular steps which are performed during
+restore of a firmware to a device.
 
-sudo apt-get install build-essential automake cmake autoconf \
-libreadline6 autotools-dev libcurl4-openssl-dev \
-libplist1 libplist-utils libplist-dev libplist++-dev \
-libzip-dev git-core git-arch git-cvs git-svn git-email \
-git-daemon-run gitk gitweb git-doc rsync curl libgnutls-dev libtool 
-python-dev libreadline-dev libusb-dev
+In general, upgrades and downgrades are possible, however subject to
+availability of SHSH blobs from Apple for signing the firmare files.
 
-## Now to get what we need from Git
+To restore a device to some firmware, simply run the following:
+$ sudo idevicerestore -l
 
-git clone git://git.marcansoft.com/usbmuxd.git
-cd usbmuxd
-cmake ~/usbmuxd
-make && sudo make install
+This will download and restore a device to the latest firmware available.
 
-cd ~
+Requirements
+============
 
-git clone http://git.sukimashita.com/libimobiledevice.git
-cd libimobiledevice
-./autogen.sh
-make && sudo make install
+Development Packages of:
+  libimobiledevice
+  libirecovery
+  libusbmuxd
+  libplist
+  libzip
+  openssl
 
-sudo ldconfig
+Software:
+  usbmuxd
+  make
+  autoheader
+  automake
+  autoconf
+  libtool
+  pkg-config
+  gcc
 
-## Now we can compile idevicerestore
+Installation
+============
 
-cd ~
+To compile run:
+  ./configure
+  make
+  sudo make install
 
-git clone http://github.com/posixninja/idevicerestore.git
-cd idevicerestore
-./autogen.sh
-make && sudo make install
-sudo ldconfig
+Who/What/Where?
+===============
 
-## We also need ideviceactivate to activate the device
+Home:
+  http://www.libimobiledevice.org/
+  http://www.openjailbreak.org/
 
-git clone http://github.com/posixninja/ideviceactivate.git
-cd ideviceactivate 
-make
+Code:
+  git clone http://git.sukimashita.com/idevicerestore.git
 
-## idevicerestore usage - may need to be run as root
+Code (Mirror):
+  git clone https://github.com/libimobiledevice/idevicerestore
 
-idevicerestore [-d] [-u] [-c] [-v] [-h] <input.ipsw>
+Tickets:
+  http://github.com/libimobiledevice/idevicerestore/issues
 
-  -d, 		enable communication debugging
-  -u, 		target specific device by its 40-digit device UDID
-  -h, 		prints usage information
-  -c, 		restore with a custom firmware
-  -e,		erase the device first
-  -s,		use saurik's server instead of Apple's
-  -x,		exclude NOR/Baseband update
-  -v, 		enable incremental levels of verboseness
+Mailing List:
+  http://lists.libimobiledevice.org/mailman/listinfo/libimobiledevice-devel
 
+IRC:
+  irc://irc.freenode.net#libimobiledevice
 
-## ideviceactivate usage - may need to be run as root
+Credits
+=======
 
-./ideviceactivate [-x] [-d] [-h] [-u] [-f]
+Apple, iPhone, iPod, and iPod Touch are trademarks of Apple Inc.
+idevicerestore is an independent software tool and has not been
+authorized, sponsored, or otherwise approved by Apple Inc.
 
-  -x		deactivate the target device
-  -d		enable communication debugging
-  -h		prints usage information
-  -u UDID	target specific device by its 40-digit device UDID
-  -f FILE	activates device with local activation record
+README Updated on:
+  2013-09-23
