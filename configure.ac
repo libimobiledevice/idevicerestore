@@ -1,7 +1,11 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.59)
+AC_PREREQ(2.61)
 AC_INIT(idevicerestore, 1.0)
+
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
+
+AC_CONFIG_SRCDIR([src/])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -42,6 +46,19 @@ AC_SUBST(GLOBAL_CFLAGS)
 AC_SUBST(AC_LDFLAGS)
 AC_SUBST(AC_LDADD)
 
-AC_CONFIG_FILES(Makefile src/Makefile)
-AC_OUTPUT
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 
+AC_OUTPUT([
+Makefile
+src/Makefile
+])
+
+echo "
+Configuration for $PACKAGE $VERSION:
+-------------------------------------------
+
+  Install prefix: .........: $prefix
+
+  Now type 'make' to build $PACKAGE $VERSION,
+  and then 'make install' for installation.
+"
