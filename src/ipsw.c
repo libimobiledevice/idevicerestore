@@ -336,6 +336,11 @@ int ipsw_get_latest_fw(plist_t version_data, const char* product, char** fwurl, 
 		return -1;
 	}
 
+	if (major == 11) {
+		/* FIXME workaround as with the iOS 7 release, Apple broke their own XML structure and logic */
+		major = 12;
+	}
+
 	char majstr[32]; // should be enough for a uint64_t value
 	sprintf(majstr, FMT_qu, (long long unsigned int)major);
 	n1 = plist_access_path(version_data, 7, "MobileDeviceSoftwareVersionsByVersion", majstr, "MobileDeviceSoftwareVersions", product, "Unknown", "Universal", "Restore");
