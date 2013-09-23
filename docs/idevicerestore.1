@@ -1,0 +1,69 @@
+.TH "idevicerestore" 1
+.SH NAME
+idevicerestore \- Restore IPSW firmware FILE to an iOS device
+.SH SYNOPSIS
+.B idevicerestore
+[OPTIONS] FILE
+
+.SH DESCRIPTION
+
+Restore firmware files to iOS devices while either erasing the device or 
+updating to preserve content and settings.
+
+.SH OPTIONS
+.TP
+.B \-i, \-\-ecid ECID
+target specific device by its hexadecimal ECID e.g. 0xaabb123456 or 00000012AABBCCDD.
+.TP
+.B \-u, \-\-udid UDID
+target specific device by its 40-digit device UDID.
+NOTE: only works with devices in normal mode.
+.TP 
+.B \-e, \-\-erase
+perform a full restore, erasing all data (defaults to update).
+.TP 
+.B \-c, \-\-custom
+restore with a custom firmware.
+.TP 
+.B \-l, \-\-latest
+use latest available firmware (with download on demand). \
+DO NOT USE if you need to preserve the baseband (unlock)! \
+USE WITH CARE if you want to keep a jailbreakable firmware! \
+The FILE argument is ignored when using this option.
+.TP
+.B \-s, \-\-cydia
+use Cydia's signature service instead of Apple's.
+.TP
+.B \-x, \-\-exclude
+exclude nor/baseband upgrade.
+.TP
+.B \-t, \-\-shsh
+fetch TSS record and save to .shsh file, then exit.
+.TP
+.B \-p, \-\-pwn
+put device in pwned DFU mode and exit (limera1n devices only).
+.TP
+.B \-n, \-\-no\-action
+do not perform any restore action. If combined with -l option the on demand
+IPSW download is performed before exiting.
+.TP
+.B \-C, \-\-cache\-path DIR
+use specified directory for caching extracted or other reused files.
+.TP
+.B \-d, \-\-debug
+enable communication debugging.
+.TP
+.B \-h, \-\-help
+prints usage information.
+
+.SH AUTHORS
+Martin Szulecki
+
+Nikias Bassen
+
+Joshua Hill
+
+.SH ON THE WEB
+http://www.libimobiledevice.org
+
+http://www.openjailbreak.org
