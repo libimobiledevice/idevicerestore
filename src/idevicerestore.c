@@ -67,27 +67,27 @@ static struct option longopts[] = {
 void usage(int argc, char* argv[]) {
 	char* name = strrchr(argv[0], '/');
 	printf("Usage: %s [OPTIONS] FILE\n", (name ? name + 1 : argv[0]));
-	printf("Restore/upgrade IPSW firmware FILE to an iPhone/iPod Touch.\n");
-	printf("  -i|--ecid ECID  target specific device by its hexadecimal ECID\n");
-	printf("                  e.g. 0xaabb123456 or 00000012AABBCCDD\n");
-	printf("  -u|--udid UDID  target specific device by its 40-digit device UDID\n");
-	printf("                  NOTE: only works with devices in normal mode.\n");
-	printf("  -d|--debug      enable communication debugging\n");
-	printf("  -h|--help       prints usage information\n");
-	printf("  -e|--erase      perform a full restore, erasing all data\n");
-	printf("  -c|--custom     restore with a custom firmware\n");
-	printf("  -l|--latest     use latest available firmware (with download on demand)\n");
-	printf("                  DO NOT USE if you need to preserve the baseband (unlock)!\n");
-	printf("                  USE WITH CARE if you want to keep a jailbreakable firmware!\n");
-	printf("                  The FILE argument is ignored when using this option.\n");
-	printf("  -s|--cydia      use Cydia's signature service instead of Apple's\n");
-	printf("  -x|--exclude    exclude nor/baseband upgrade\n");
-	printf("  -t|--shsh       fetch TSS record and save to .shsh file, then exit\n");
-	printf("  -p|--pwn        Put device in pwned DFU mode and exit (limera1n devices only)\n");
-	printf("  -n|--no-action  Do not perform any restore action. If combined with -l option\n");
-	printf("                  the on demand ipsw download is performed before exiting.\n");
-	printf("  -C|--cache-path DIR  Use specified directory for caching extracted\n");
-	printf("                  or other reused files.\n");
+	printf("Restore IPSW firmware FILE to an iOS device.\n\n");
+	printf("  -i, --ecid ECID\ttarget specific device by its hexadecimal ECID\n");
+	printf("                 \te.g. 0xaabb123456 or 00000012AABBCCDD\n");
+	printf("  -u, --udid UDID\ttarget specific device by its 40-digit device UDID\n");
+	printf("                 \tNOTE: only works with devices in normal mode.\n");
+	printf("  -d, --debug\t\tenable communication debugging\n");
+	printf("  -h, --help\t\tprints usage information\n");
+	printf("  -e, --erase\t\tperform a full restore, erasing all data (defaults to update)\n");
+	printf("  -c, --custom\t\trestore with a custom firmware\n");
+	printf("  -l, --latest\t\tuse latest available firmware (with download on demand)\n");
+	printf("              \t\tDO NOT USE if you need to preserve the baseband (unlock)!\n");
+	printf("              \t\tUSE WITH CARE if you want to keep a jailbreakable firmware!\n");
+	printf("              \t\tThe FILE argument is ignored when using this option.\n");
+	printf("  -s, --cydia\t\tuse Cydia's signature service instead of Apple's\n");
+	printf("  -x, --exclude\t\texclude nor/baseband upgrade\n");
+	printf("  -t, --shsh\t\tfetch TSS record and save to .shsh file, then exit\n");
+	printf("  -p, --pwn\t\tPut device in pwned DFU mode and exit (limera1n devices only)\n");
+	printf("  -n, --no-action\tDo not perform any restore action. If combined with -l option\n");
+	printf("                 \tthe on demand ipsw download is performed before exiting.\n");
+	printf("  -C, --cache-path DIR\tUse specified directory for caching extracted\n");
+	printf("                      \tor other reused files.\n");
 	printf("\n");
 }
 
