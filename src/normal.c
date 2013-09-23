@@ -232,7 +232,7 @@ int normal_check_device(struct idevicerestore_client_t* client) {
 		lockdownd_unpair(lockdown, NULL);
 		idevice_get_udid(device, &udid);
 		if (udid) {
-			userpref_remove_device_public_key(udid);
+			userpref_remove_device_record(udid);
 		}
 		lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
 	}
