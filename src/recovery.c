@@ -170,16 +170,32 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 	info("Recovery Mode Environment:\n");
 	char* value = NULL;
 	irecv_getenv(client->recovery->client, "build-version", &value);
-	info("iBoot build-version=%s\n", value);
+	info("iBoot build-version=%s\n", (value) ? value : "(unknown)");
+	if (value) {
+		free(value);
+		value = NULL;
+	}
 	irecv_getenv(client->recovery->client, "build-style", &value);
-	info("iBoot build-style=%s\n", value);
+	info("iBoot build-style=%s\n", (value) ? value : "(unknown)");
+	if (value) {
+		free(value);
+		value = NULL;
+	}
 	unsigned long radio_error = 0;
 	irecv_getenv(client->recovery->client, "radio-error", &value);
-	radio_error = strtoul(value, NULL, 0);
+	if (value) {
+		radio_error = strtoul(value, NULL, 0);
+	}
 	if (radio_error > 0) {
 		info("radio-error=%s\n", value);
+		free(value);
+		value = NULL;
 		irecv_getenv(client->recovery->client, "radio-error-string", &value);
-		info("radio-error-string=%s\n", value);
+		if (value) {
+			info("radio-error-string=%s\n", value);
+			free(value);
+			value = NULL;
+		}
 	}
 
 	/* send logo and show it */
