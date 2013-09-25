@@ -43,7 +43,7 @@ typedef struct asr_client *asr_client_t;
 
 int asr_open_with_timeout(idevice_t device, asr_client_t* asr);
 void asr_set_progress_callback(asr_client_t asr, asr_progress_cb_t, void* userdata);
-int asr_send(asr_client_t asr, plist_t* data);
+int asr_send(asr_client_t asr, plist_t data);
 int asr_receive(asr_client_t asr, plist_t* data);
 int asr_send_buffer(asr_client_t asr, const char* data, uint32_t size);
 void asr_free(asr_client_t asr);

@@ -148,7 +148,7 @@ int asr_receive(asr_client_t asr, plist_t* data) {
 	return 0;
 }
 
-int asr_send(asr_client_t asr, plist_t* data) {
+int asr_send(asr_client_t asr, plist_t data) {
 	uint32_t size = 0;
 	char* buffer = NULL;
 
