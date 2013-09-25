@@ -449,23 +449,27 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			plist_dict_insert_item(manifest, "iBEC", comp);
 
 			// add kernel cache
+			plist_t kdict = NULL;
+
 			node = plist_dict_get_item(buildmanifest, "KernelCachesByTarget");
 			if (node && (plist_get_node_type(node) == PLIST_DICT)) {
 				char tt[4];
 				strncpy(tt, lcmodel, 3);
 				tt[3] = 0;
-				plist_t kdict = plist_dict_get_item(node, tt);
-				if (kdict && (plist_get_node_type(kdict) == PLIST_DICT)) {
-					plist_t kc = plist_dict_get_item(kdict, "Release");
-					if (kc && (plist_get_node_type(kc) == PLIST_STRING)) {
-						inf = plist_new_dict();
-						plist_dict_insert_item(inf, "Path", plist_copy(kc));
-						comp = plist_new_dict();
-						plist_dict_insert_item(comp, "Info", inf);
-						plist_dict_insert_item(manifest, "KernelCache", comp);
-						plist_dict_insert_item(manifest, "RestoreKernelCache", plist_copy(comp));
-
-					}
+				kdict = plist_dict_get_item(node, tt);
+			} else {
+				// Populated in older iOS IPSWs
+				kdict = plist_dict_get_item(buildmanifest, "RestoreKernelCaches");
+			}
+			if (kdict && (plist_get_node_type(kdict) == PLIST_DICT)) {
+				plist_t kc = plist_dict_get_item(kdict, "Release");
+				if (kc && (plist_get_node_type(kc) == PLIST_STRING)) {
+					inf = plist_new_dict();
+					plist_dict_insert_item(inf, "Path", plist_copy(kc));
+					comp = plist_new_dict();
+					plist_dict_insert_item(comp, "Info", inf);
+					plist_dict_insert_item(manifest, "KernelCache", comp);
+					plist_dict_insert_item(manifest, "RestoreKernelCache", plist_copy(comp));
 				}
 			}
 
