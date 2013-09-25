@@ -136,7 +136,7 @@ plist_t tss_create_request(plist_t build_identity, uint64_t ecid, unsigned char*
 			break;
 		if (!manifest_entry || plist_get_node_type(manifest_entry) != PLIST_DICT) {
 			error("ERROR: Unable to fetch BuildManifest entry\n");
-			free(tss_request);
+			plist_free(tss_request);
 			return NULL;
 		}
 
