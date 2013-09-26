@@ -1657,7 +1657,7 @@ const char* get_component_name(const char* filename)
 	} else if (!strncmp(filename, "iBoot", 5)) {
 		return "iBoot";
 	} else if (!strncmp(filename, "DeviceTree", 10)) {
-		return "RestoreDeviceTree";
+		return "DeviceTree";
 	} else if (!strncmp(filename, "applelogo", 9)) {
 		return "AppleLogo";
 	} else if (!strncmp(filename, "recoverymode", 12)) {
