@@ -743,7 +743,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	// if the device is in DFU mode, place device into recovery mode
 	if (client->mode->index == MODE_DFU) {
 		recovery_client_free(client);
-		if (client->flags & FLAG_CUSTOM) {
+		if ((client->flags & FLAG_CUSTOM) && limera1n_is_supported(client->device)) {
 			info("connecting to DFU\n");
 			if (dfu_client_new(client) < 0) {
 				if (delete_fs && filesystem)

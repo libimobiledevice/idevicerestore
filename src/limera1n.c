@@ -30,6 +30,13 @@
 #include "limera1n.h"
 #include "limera1n_payload.h"
 
+int limera1n_is_supported(struct irecv_device *device)
+{
+	return ((device->chip_id == irecv_devices[DEVICE_IPHONE4].chip_id) ||
+			(device->chip_id == irecv_devices[DEVICE_IPHONE3GS].chip_id) ||
+			(device->chip_id == irecv_devices[DEVICE_IPOD3G].chip_id));
+}
+
 int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 {
 	irecv_error_t err = IRECV_E_SUCCESS;
