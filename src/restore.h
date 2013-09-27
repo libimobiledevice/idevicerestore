@@ -44,7 +44,7 @@ struct restore_client_t {
 };
 
 int restore_check_mode(struct idevicerestore_client_t* client);
-int restore_check_device(struct idevicerestore_client_t* client);
+const char* restore_check_product_type(struct idevicerestore_client_t* client);
 int restore_client_new(struct idevicerestore_client_t* client);
 void restore_client_free(struct idevicerestore_client_t* client);
 int restore_reboot(struct idevicerestore_client_t* client);

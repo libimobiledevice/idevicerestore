@@ -73,7 +73,7 @@ const char* idevicerestore_get_error();
 
 void usage(int argc, char* argv[]);
 int check_mode(struct idevicerestore_client_t* client);
-int check_device(struct idevicerestore_client_t* client);
+const char* check_product_type(struct idevicerestore_client_t* client);
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
 int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid);
 int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid);

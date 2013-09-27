@@ -78,7 +78,7 @@ struct idevicerestore_client_t {
 	struct normal_client_t* normal;
 	struct restore_client_t* restore;
 	struct recovery_client_t* recovery;
-	struct irecv_device* device;
+	irecv_device_t device;
 	struct idevicerestore_entry_t** entries;
 	struct idevicerestore_mode_t* mode;
 	char* version;

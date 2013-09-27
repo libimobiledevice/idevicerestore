@@ -70,7 +70,7 @@ int recovery_client_new(struct idevicerestore_client_t* client) {
 	}
 
 	for (i = 1; i <= attempts; i++) {
-		recovery_error = irecv_open(&recovery, client->ecid);
+		recovery_error = irecv_open_with_ecid(&recovery, client->ecid);
 		if (recovery_error == IRECV_E_SUCCESS) {
 			break;
 		}
@@ -102,15 +102,18 @@ int recovery_client_new(struct idevicerestore_client_t* client) {
 int recovery_check_mode(struct idevicerestore_client_t* client) {
 	irecv_client_t recovery = NULL;
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
+	int mode = 0;
 
 	irecv_init();
-	recovery_error=irecv_open(&recovery, client->ecid);
+	recovery_error=irecv_open_with_ecid(&recovery, client->ecid);
 
 	if (recovery_error != IRECV_E_SUCCESS) {
 		return -1;
 	}
 
-	if ((recovery->mode == kDfuMode) || (recovery->mode == kWTFMode)) {
+	irecv_get_mode(recovery, &mode);
+
+	if ((mode == IRECV_K_DFU_MODE) || (mode == IRECV_K_WTF_MODE)) {
 		irecv_close(recovery);
 		return -1;
 	}
@@ -319,7 +322,7 @@ int recovery_send_ibec(struct idevicerestore_client_t* client, plist_t build_ide
 		error("ERROR: Unable to execute %s\n", component);
 		return -1;
 	}
-	irecv_control_transfer(client->recovery->client, 0x21, 1, 0, 0, 0, 0, 5000);
+	irecv_usb_control_transfer(client->recovery->client, 0x21, 1, 0, 0, 0, 0, 5000);
 
 	return 0;
 }
@@ -422,7 +425,7 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t bu
 		return -1;
 	}
 
-	irecv_control_transfer(client->recovery->client, 0x21, 1, 0, 0, 0, 0, 5000);
+	irecv_usb_control_transfer(client->recovery->client, 0x21, 1, 0, 0, 0, 0, 5000);
 
 	if (client->restore_boot_args) {
 		char setba[256];

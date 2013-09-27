@@ -210,10 +210,11 @@ int normal_open_with_timeout(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-int normal_check_device(struct idevicerestore_client_t* client) {
+const char* normal_check_product_type(struct idevicerestore_client_t* client) {
 	int i = 0;
 	idevice_t device = NULL;
 	char* product_type = NULL;
+	irecv_device_t irecv_device = NULL;
 	plist_t product_type_node = NULL;
 	lockdownd_client_t lockdown = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
@@ -221,7 +222,7 @@ int normal_check_device(struct idevicerestore_client_t* client) {
 
 	normal_idevice_new(client, &device);
 	if (!device) {
-		return -1;
+		return product_type;
 	}
 
 	lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
@@ -238,7 +239,7 @@ int normal_check_device(struct idevicerestore_client_t* client) {
 	}
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
 		idevice_free(device);
-		return -1;
+		return product_type;
 	}
 
 	plist_t pval = NULL;
@@ -247,11 +248,9 @@ int normal_check_device(struct idevicerestore_client_t* client) {
 		char* strval = NULL;
 		plist_get_string_val(pval, &strval);
 		if (strval) {
-			for (i = 0; irecv_devices[i].model != NULL; i++) {
-				if (!strcasecmp(strval, irecv_devices[i].model)) {
-					product_type = (char*)irecv_devices[i].product;
-					break;
-				}
+			irecv_devices_get_device_by_hardware_model(strval, &irecv_device);
+			if (irecv_device) {
+				product_type = strdup(irecv_device->product_type);
 			}
 			free(strval);
 		}
@@ -265,7 +264,7 @@ int normal_check_device(struct idevicerestore_client_t* client) {
 		if (lockdown_error != LOCKDOWN_E_SUCCESS) {
 			lockdownd_client_free(lockdown);
 			idevice_free(device);
-			return -1;
+			return product_type;
 		}
 	}
 
@@ -274,23 +273,30 @@ int normal_check_device(struct idevicerestore_client_t* client) {
 	lockdown = NULL;
 	device = NULL;
 
+	if (irecv_device) {
+		if (product_type)
+			free(product_type);
+
+		return irecv_device->product_type;
+	}
+
 	if (product_type_node != NULL) {
 		if (!product_type_node || plist_get_node_type(product_type_node) != PLIST_STRING) {
 			if (product_type_node)
 				plist_free(product_type_node);
-			return -1;
+			return product_type;
 		}
 		plist_get_string_val(product_type_node, &product_type);
 		plist_free(product_type_node);
-	}
 
-	for (i = 0; irecv_devices[i].product != NULL; i++) {
-		if (!strcasecmp(product_type, irecv_devices[i].product)) {
-			break;
+		irecv_devices_get_device_by_product_type(product_type, &irecv_device);
+		if (irecv_device && irecv_device->product_type) {
+			free(product_type);
+			return irecv_device->product_type;
 		}
 	}
 
-	return irecv_devices[i].index;
+	return product_type;
 }
 
 int normal_enter_recovery(struct idevicerestore_client_t* client) {

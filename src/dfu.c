@@ -54,7 +54,7 @@ int dfu_client_new(struct idevicerestore_client_t* client) {
 	}
 
 	for (i = 1; i <= attempts; i++) {
-		dfu_error = irecv_open(&dfu, client->ecid);
+		dfu_error = irecv_open_with_ecid(&dfu, client->ecid);
 		if (dfu_error == IRECV_E_SUCCESS) {
 			break;
 		}
@@ -89,45 +89,47 @@ void dfu_client_free(struct idevicerestore_client_t* client) {
 int dfu_check_mode(struct idevicerestore_client_t* client, int* mode) {
 	irecv_client_t dfu = NULL;
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
+	int probe_mode = -1;
 
 	irecv_init();
-	dfu_error = irecv_open(&dfu, client->ecid);
-
+	dfu_error = irecv_open_with_ecid(&dfu, client->ecid);
 	if (dfu_error != IRECV_E_SUCCESS) {
 		return -1;
 	}
 
-	if ((dfu->mode != kDfuMode) && (dfu->mode != kWTFMode)) {
+	irecv_get_mode(dfu, &probe_mode);
+
+	if ((probe_mode != IRECV_K_DFU_MODE) && (probe_mode != IRECV_K_WTF_MODE)) {
 		irecv_close(dfu);
 		return -1;
 	}
 
-	*mode = (dfu->mode == kWTFMode) ? MODE_WTF : MODE_DFU;
+	*mode = (probe_mode == IRECV_K_WTF_MODE) ? MODE_WTF : MODE_DFU;
 
 	irecv_close(dfu);
 
 	return 0;
 }
 
-int dfu_check_device(struct idevicerestore_client_t* client) {
+const char* dfu_check_product_type(struct idevicerestore_client_t* client) {
 	irecv_client_t dfu = NULL;
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 	irecv_device_t device = NULL;
 
 	irecv_init();
-	dfu_error = irecv_open(&dfu, client->ecid);
+	dfu_error = irecv_open_with_ecid(&dfu, client->ecid);
 	if (dfu_error != IRECV_E_SUCCESS) {
-		return -1;
+		return NULL;
 	}
 
-	dfu_error = irecv_get_device(dfu, &device);
+	dfu_error = irecv_devices_get_device_by_client(dfu, &device);
 	if (dfu_error != IRECV_E_SUCCESS) {
-		return -1;
+		return NULL;
 	}
 
 	irecv_close(dfu);
 
-	return device->index;
+	return device->product_type;
 }
 
 int dfu_send_buffer(struct idevicerestore_client_t* client, char* buffer, uint32_t size)
@@ -254,13 +256,16 @@ int dfu_get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce,
 
 int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_identity) {
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
+	int mode = 0;
 
 	if (dfu_client_new(client) < 0) {
 		error("ERROR: Unable to connect to DFU device\n");
 		return -1;
 	}
 
-	if (client->dfu->client->mode != kDfuMode) {
+	irecv_get_mode(client->dfu->client, &mode);
+
+	if (mode != IRECV_K_DFU_MODE) {
 		info("NOTE: device is not in DFU mode, assuming recovery mode.\n");
 		client->mode = &idevicerestore_modes[MODE_RECOVERY];
 		return 0;
@@ -273,7 +278,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		return -1;
 	}
 
-	irecv_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
+	irecv_usb_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
 
 	dfu_error = irecv_reset(client->dfu->client);
 	if (dfu_error != IRECV_E_SUCCESS) {
@@ -330,7 +335,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 			fixup_tss(client->tss);
 		}
 
-		if (irecv_set_configuration(client->dfu->client, 1) < 0) {
+		if (irecv_usb_set_configuration(client->dfu->client, 1) < 0) {
 			error("ERROR: set configuration failed\n");
 		}
 
@@ -342,7 +347,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 			return -1;
 		}
 
-		irecv_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
+		irecv_usb_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
 
 		dfu_error = irecv_reset(client->dfu->client);
 		if (dfu_error != IRECV_E_SUCCESS) {
@@ -358,7 +363,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 	sleep(7);
 
 	// Reconnect to device, but this time make sure we're not still in DFU mode
-	if (recovery_client_new(client) < 0 || client->recovery->client->mode == kDfuMode) {
+	if (recovery_client_new(client) < 0) {
 		error("ERROR: Unable to connect to recovery device\n");
 		if (client->recovery->client) {
 			irecv_close(client->recovery->client);
@@ -366,6 +371,18 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		}
 		return -1;
 	}
+
+	irecv_get_mode(client->recovery->client, &mode);
+
+	if (mode == IRECV_K_DFU_MODE) {
+		error("ERROR: Unable to connect to recovery device\n");
+		if (client->recovery->client) {
+			irecv_close(client->recovery->client);
+			client->recovery->client = NULL;
+		}
+		return -1;
+	}
+
 	return 0;
 }
 

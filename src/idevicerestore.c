@@ -260,12 +260,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	// discover the device type
-	if (check_device(client) < 0 || client->device->index == DEVICE_UNKNOWN) {
+	if (check_product_type(client) == NULL || client->device == NULL) {
 		error("ERROR: Unable to discover device type\n");
 		return -1;
 	}
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.2);
-	info("Identified device as %s\n", client->device->product);
+	info("Identified device as %s\n", client->device->product_type);
 
 	if ((client->flags & FLAG_PWN) && (client->mode->index != MODE_DFU)) {
 		error("ERROR: you need to put your device into DFU mode to pwn it.\n");
@@ -294,7 +294,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	if (client->flags & FLAG_LATEST) {
 		char* ipsw = NULL;
-		int res = ipsw_download_latest_fw(client->version_data, client->device->product, "cache", &ipsw);
+		int res = ipsw_download_latest_fw(client->version_data, client->device->product_type, "cache", &ipsw);
 		if (res != 0) {
 			if (ipsw) {
 				free(ipsw);
@@ -345,7 +345,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.8);
 
 	/* check if device type is supported by the given build manifest */
-	if (build_manifest_check_compatibility(buildmanifest, client->device->product) < 0) {
+	if (build_manifest_check_compatibility(buildmanifest, client->device->product_type) < 0) {
 		error("ERROR: Could not make sure this firmware is suitable for the current device. Refusing to continue.\n");
 		return -1;
 	}
@@ -383,7 +383,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			char tmpstr[256];
 			char p_all_flash[128];
 			char lcmodel[8];
-			strcpy(lcmodel, client->device->model);
+			strcpy(lcmodel, client->device->hardware_model);
 			int x = 0;
 			while (lcmodel[x]) {
 				lcmodel[x] = tolower(lcmodel[x]);
@@ -587,7 +587,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 					strcpy(zfn, "shsh");
 				}
 				mkdir_with_parents(zfn, 0755);
-				sprintf(zfn+strlen(zfn), "/" FMT_qu "-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
+				sprintf(zfn+strlen(zfn), "/" FMT_qu "-%s-%s.shsh", (long long int)client->ecid, client->device->product_type, client->version);
 				struct stat fst;
 				if (stat(zfn, &fst) != 0) {
 					gzFile zf = gzopen(zfn, "wb");
@@ -1120,40 +1120,32 @@ int check_mode(struct idevicerestore_client_t* client) {
 	return mode;
 }
 
-int check_device(struct idevicerestore_client_t* client) {
-	int device = DEVICE_UNKNOWN;
+const char* check_product_type(struct idevicerestore_client_t* client) {
+	const char* product_type = NULL;
+	irecv_device_t res = NULL;
 
 	switch (client->mode->index) {
 	case MODE_RESTORE:
-		device = restore_check_device(client);
-		if (device < 0) {
-			device = DEVICE_UNKNOWN;
-		}
+		product_type = restore_check_product_type(client);
 		break;
 
 	case MODE_NORMAL:
-		device = normal_check_device(client);
-		if (device < 0) {
-			device = DEVICE_UNKNOWN;
-		}
+		product_type = normal_check_product_type(client);
 		break;
 
 	case MODE_DFU:
 	case MODE_RECOVERY:
-		device = dfu_check_device(client);
-		if (device < 0) {
-			device = DEVICE_UNKNOWN;
-		}
+		product_type = dfu_check_product_type(client);
 		break;
 	default:
-		device = DEVICE_UNKNOWN;
 		break;
 	}
 
-	if (device != DEVICE_UNKNOWN)
-		client->device = &irecv_devices[device];
+	if (product_type != NULL) {
+		irecv_devices_get_device_by_product_type(product_type, &client->device);
+	}
 
-	return device;
+	return product_type;
 }
 
 int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
@@ -1308,9 +1300,9 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 		char zfn[1024];
 		if (client->version) {
 			if (client->cache_dir) {
-				sprintf(zfn, "%s/shsh/" FMT_qu "-%s-%s.shsh", client->cache_dir, (long long int)client->ecid, client->device->product, client->version);
+				sprintf(zfn, "%s/shsh/" FMT_qu "-%s-%s.shsh", client->cache_dir, (long long int)client->ecid, client->device->product_type, client->version);
 			} else {
-				sprintf(zfn, "shsh/" FMT_qu "-%s-%s.shsh", (long long int)client->ecid, client->device->product, client->version);
+				sprintf(zfn, "shsh/" FMT_qu "-%s-%s.shsh", (long long int)client->ecid, client->device->product_type, client->version);
 			}
 			struct stat fst;
 			if (stat(zfn, &fst) == 0) {

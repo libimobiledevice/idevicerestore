@@ -26,6 +26,7 @@
 #include <string.h>
 #include <libimobiledevice/restore.h>
 #include <zip.h>
+#include <libirecovery.h>
 
 #include "idevicerestore.h"
 #include "asr.h"
@@ -192,7 +193,7 @@ int restore_check_mode(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-int restore_check_device(struct idevicerestore_client_t* client) {
+const char* restore_check_product_type(struct idevicerestore_client_t* client) {
 	int i = 0;
 	char* model = NULL;
 	plist_t node = NULL;
@@ -200,22 +201,24 @@ int restore_check_device(struct idevicerestore_client_t* client) {
 	restored_client_t restore = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
+	char* product_type = NULL;
+	irecv_device_t irecv_device = NULL;
 
 	restore_idevice_new(client, &device);
 	if (!device) {
-		return -1;
+		return product_type;
 	}
 
 	restore_error = restored_client_new(device, &restore, "idevicerestore");
 	if (restore_error != RESTORE_E_SUCCESS) {
 		idevice_free(device);
-		return -1;
+		return product_type;
 	}
 
 	if (restored_query_type(restore, NULL, NULL) != RESTORE_E_SUCCESS) {
 		restored_client_free(restore);
 		idevice_free(device);
-		return -1;
+		return product_type;
 	}
 
 	if (client->srnm == NULL) {
@@ -224,7 +227,7 @@ int restore_check_device(struct idevicerestore_client_t* client) {
 			error("ERROR: Unable to get SerialNumber from restored\n");
 			restored_client_free(restore);
 			idevice_free(device);
-			return -1;
+			return product_type;
 		}
 
 		plist_get_string_val(node, &client->srnm);
@@ -237,7 +240,7 @@ int restore_check_device(struct idevicerestore_client_t* client) {
 		error("ERROR: Unable to get HardwareModel from restored\n");
 		restored_client_free(restore);
 		idevice_free(device);
-		return -1;
+		return product_type;
 	}
 
 	restored_client_free(restore);
@@ -249,17 +252,16 @@ int restore_check_device(struct idevicerestore_client_t* client) {
 		error("ERROR: Unable to get HardwareModel information\n");
 		if (node)
 			plist_free(node);
-		return -1;
+		return product_type;
 	}
 	plist_get_string_val(node, &model);
 
-	for (i = 0; irecv_devices[i].model != NULL; i++) {
-		if (!strcasecmp(model, irecv_devices[i].model)) {
-			break;
-		}
+	irecv_devices_get_device_by_hardware_model(model, &irecv_device);
+	if (irecv_device && irecv_device->product_type) {
+		return irecv_device->product_type;
 	}
 
-	return irecv_devices[i].index;
+	return product_type;
 }
 
 void restore_device_callback(const idevice_event_t* event, void* userdata) {
