@@ -296,9 +296,12 @@ int ipsw_get_latest_fw(plist_t version_data, const char* product, char** fwurl, 
 	do {
 		plist_dict_next_item(n1, iter, &key, &val);
 		if (key) {
-			long long unsigned int v = strtoull(key, NULL, 10);
-			if (v > major)
-				major = v;
+			plist_t pr = plist_access_path(n1, 3, key, "MobileDeviceSoftwareVersions", product);
+			if (pr) {
+				long long unsigned int v = strtoull(key, NULL, 10);
+				if (v > major)
+					major = v;
+			}
 			free(key);
 		}
 	} while (val);
