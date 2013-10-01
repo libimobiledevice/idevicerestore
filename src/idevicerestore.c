@@ -1538,6 +1538,8 @@ int build_manifest_check_compatibility(plist_t build_manifest, const char* produ
 	plist_t node = plist_dict_get_item(build_manifest, "SupportedProductTypes");
 	if (!node || (plist_get_node_type(node) != PLIST_ARRAY)) {
 		debug("%s: ERROR: SupportedProductTypes key missing\n", __func__);
+		debug("%s: WARNING: If attempting to install iPhoneOS 2.x, be advised that Restore.plist does not contain the", __func__);
+		debug("%s: WARNING: key 'SupportedProductTypes'. Recommendation is to manually add it to the Restore.plist.", __func__);
 		return -1;
 	}
 	uint32_t pc = plist_array_get_size(node);
