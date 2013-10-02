@@ -72,7 +72,7 @@ typedef struct {
 } img3_element;
 
 typedef struct {
-	char* data;
+	unsigned char* data;
 	img3_header* header;
 	int num_elements;
 	img3_element* elements[16];
@@ -96,11 +96,11 @@ typedef struct {
 } img3_file;
 
 void img3_free(img3_file* image);
-img3_element* img3_parse_element(char* data);
+img3_element* img3_parse_element(unsigned char* data);
 void img3_free_element(img3_element* element);
-img3_file* img3_parse_file(char* data, int size);
-int img3_get_data(img3_file* image, char** pdata, int* psize);
-int img3_replace_signature(img3_file* image, char* signature);
+img3_file* img3_parse_file(unsigned char* data, unsigned int size);
+int img3_get_data(img3_file* image, unsigned char** pdata, unsigned int* psize);
+int img3_replace_signature(img3_file* image, unsigned char* signature);
 
 
 #ifdef __cplusplus

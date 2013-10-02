@@ -195,7 +195,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	info("Found device in %s mode\n", client->mode->string);
 
 	if (client->mode->index == MODE_WTF) {
-		int cpid = 0;
+		unsigned int cpid = 0;
 
 		if (dfu_client_new(client) != 0) {
 			error("ERROR: Could not open device in WTF mode\n");
@@ -1427,9 +1427,9 @@ int build_manifest_get_identity_count(plist_t build_manifest) {
 
 int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* component, const char* path, char** data, uint32_t* size) {
 	img3_file* img3 = NULL;
-	uint32_t component_size = 0;
-	char* component_data = NULL;
-	char* component_blob = NULL;
+	unsigned int component_size = 0;
+	unsigned char* component_data = NULL;
+	unsigned char* component_blob = NULL;
 	char* component_name = NULL;
 
 	component_name = strrchr(path, '/');
