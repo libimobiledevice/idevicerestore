@@ -134,7 +134,7 @@ const char* dfu_check_product_type(struct idevicerestore_client_t* client) {
 	return device->product_type;
 }
 
-int dfu_send_buffer(struct idevicerestore_client_t* client, char* buffer, uint32_t size)
+int dfu_send_buffer(struct idevicerestore_client_t* client, unsigned char* buffer, unsigned int size)
 {
 	irecv_error_t err = 0;
 
@@ -159,9 +159,9 @@ int dfu_send_buffer(struct idevicerestore_client_t* client, char* buffer, uint32
 
 int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component) {
 	uint32_t size = 0;
-	char* data = NULL;
+	unsigned char* data = NULL;
 	char* path = NULL;
-	char* blob = NULL;
+	unsigned char* blob = NULL;
 	irecv_error_t err = 0;
 	int flag = 1;
 
@@ -186,8 +186,8 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	}
 
 	if (!(client->flags & FLAG_CUSTOM) && (strcmp(component, "iBEC") == 0)) {
-		char* ticket = NULL;
-		uint32_t tsize = 0;
+		unsigned char* ticket = NULL;
+		unsigned int tsize = 0;
 		if (tss_get_ticket(client->tss, &ticket, &tsize) < 0) {
 			error("ERROR: Unable to get ApTicket from TSS request\n");
 			return -1;
@@ -197,7 +197,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 			fillsize = ((tsize / 0x100) + 1) * 0x100;
 		}
 		debug("ticket size = %d\nfillsize = %d\n", tsize, fillsize);
-		char* newdata = (char*)malloc(size + fillsize);
+		unsigned char* newdata = (unsigned char*)malloc(size + fillsize);
 		memcpy(newdata, ticket, tsize);
 		memset(newdata+tsize, '\xFF', fillsize - tsize);
 		memcpy(newdata+fillsize, data, size);

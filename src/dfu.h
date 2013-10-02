@@ -41,7 +41,7 @@ int dfu_client_new(struct idevicerestore_client_t* client);
 void dfu_client_free(struct idevicerestore_client_t* client);
 int dfu_check_mode(struct idevicerestore_client_t* client, int* mode);
 const char* dfu_check_product_type(struct idevicerestore_client_t* client);
-int dfu_send_buffer(struct idevicerestore_client_t* client, char* buffer, uint32_t size);
+int dfu_send_buffer(struct idevicerestore_client_t* client, unsigned char* buffer, unsigned int size);
 int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component);
 int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid);
 int dfu_get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
