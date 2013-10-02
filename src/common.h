@@ -120,6 +120,7 @@ char *generate_guid();
 #define sleep(x) Sleep(x*1000)
 #endif
 #else
+#include <sys/stat.h>
 #define __mkdir(path, mode) mkdir(path, mode)
 #define FMT_qu "%qu"
 #endif

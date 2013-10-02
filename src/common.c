@@ -26,6 +26,7 @@
 #include <string.h>
 #include <errno.h>
 #include <libgen.h>
+#include <time.h>
 
 #include "common.h"
 
@@ -182,7 +183,7 @@ int read_file(const char* filename, void** data, size_t* size) {
 }
 
 void debug_plist(plist_t plist) {
-	int size = 0;
+	uint32_t size = 0;
 	char* data = NULL;
 	plist_to_xml(plist, &data, &size);
 	info("%s", data);
