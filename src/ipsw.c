@@ -29,6 +29,7 @@
 
 #include "ipsw.h"
 #include "locking.h"
+#include "download.h"
 #include "common.h"
 #include "idevicerestore.h"
 

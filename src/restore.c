@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <libimobiledevice/restore.h>
 #include <zip.h>
 #include <libirecovery.h>
@@ -33,6 +34,7 @@
 #include "fls.h"
 #include "mbn.h"
 #include "tss.h"
+#include "ipsw.h"
 #include "restore.h"
 #include "common.h"
 

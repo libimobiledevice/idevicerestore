@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <libirecovery.h>
 #include <libimobiledevice/lockdown.h>
 #include <libimobiledevice/libimobiledevice.h>
@@ -31,6 +32,8 @@
 #include "common.h"
 #include "normal.h"
 #include "recovery.h"
+
+extern int16_t userpref_remove_device_record(const char* udid);
 
 static int normal_device_connected = 0;
 

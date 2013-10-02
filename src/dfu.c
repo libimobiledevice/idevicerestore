@@ -24,9 +24,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <libirecovery.h>
 
 #include "dfu.h"
+#include "tss.h"
 #include "recovery.h"
 #include "idevicerestore.h"
 #include "common.h"

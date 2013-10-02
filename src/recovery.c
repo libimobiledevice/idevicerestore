@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <libirecovery.h>
 #include <libimobiledevice/restore.h>
 #include <libimobiledevice/libimobiledevice.h>
@@ -261,8 +262,8 @@ int recovery_send_ticket(struct idevicerestore_client_t* client)
 }
 
 int recovery_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component) {
-	uint32_t size = 0;
-	char* data = NULL;
+	unsigned int size = 0;
+	unsigned char* data = NULL;
 	char* path = NULL;
 	char* blob = NULL;
 	irecv_error_t err = 0;
