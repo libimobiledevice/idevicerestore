@@ -174,7 +174,7 @@ int ipsw_file_exists(const char* ipsw, const char* infile)
 	return 0;
 }
 
-int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer, uint32_t* psize) {
+int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char** pbuffer, unsigned int* psize) {
 	ipsw_archive* archive = ipsw_open(ipsw);
 	if (archive == NULL || archive->zip == NULL) {
 		error("ERROR: Invalid archive\n");
@@ -201,7 +201,7 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer,
 	}
 
 	int size = zstat.size;
-	char* buffer = (unsigned char*) malloc(size+1);
+	unsigned char* buffer = (unsigned char*) malloc(size+1);
 	if (buffer == NULL) {
 		error("ERROR: Out of memory\n");
 		zip_fclose(zfile);
@@ -226,15 +226,16 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, char** pbuffer,
 }
 
 int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest, int *tss_enabled) {
-	int size = 0;
-	char* data = NULL;
+	unsigned int size = 0;
+	unsigned char* data = NULL;
 
 	*tss_enabled = 0;
 
 	/* older devices don't require personalized firmwares and use a BuildManifesto.plist */
 	if (ipsw_file_exists(ipsw, "BuildManifesto.plist") == 0) {
 		if (ipsw_extract_to_memory(ipsw, "BuildManifesto.plist", &data, &size) == 0) {
-			plist_from_xml(data, size, buildmanifest);
+			plist_from_xml((char*)data, size, buildmanifest);
+			free(data);
 			return 0;
 		}
 	}
@@ -245,7 +246,8 @@ int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest, int *t
 	/* whereas newer devices do not require personalized firmwares and use a BuildManifest.plist */
 	if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &data, &size) == 0) {
 		*tss_enabled = 1;
-		plist_from_xml(data, size, buildmanifest);
+		plist_from_xml((char*)data, size, buildmanifest);
+		free(data);
 		return 0;
 	}
 
@@ -253,11 +255,12 @@ int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest, int *t
 }
 
 int ipsw_extract_restore_plist(const char* ipsw, plist_t* restore_plist) {
-	int size = 0;
-	char* data = NULL;
+	unsigned int size = 0;
+	unsigned char* data = NULL;
 
 	if (ipsw_extract_to_memory(ipsw, "Restore.plist", &data, &size) == 0) {
-		plist_from_xml(data, size, restore_plist);
+		plist_from_xml((char*)data, size, restore_plist);
+		free(data);
 		return 0;
 	}
 

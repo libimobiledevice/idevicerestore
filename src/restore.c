@@ -765,7 +765,7 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 
 int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity) {
 	unsigned int size = 0;
-	char* data = NULL;
+	unsigned char* data = NULL;
 	char* path = NULL;
 	plist_t blob = NULL;
 	plist_t dict = NULL;
@@ -793,7 +793,7 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 	}
 
 	dict = plist_new_dict();
-	blob = plist_new_data(data, size);
+	blob = plist_new_data((char*)data, size);
 	plist_dict_insert_item(dict, "KernelCacheFile", blob);
 
 	info("Sending KernelCache now...\n");
@@ -816,14 +816,14 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	char firmware_path[256];
 	char manifest_file[256];
 	unsigned int manifest_size = 0;
-	char* manifest_data = NULL;
+	unsigned char* manifest_data = NULL;
 	char firmware_filename[256];
 	unsigned int llb_size = 0;
-	char* llb_data = NULL;
+	unsigned char* llb_data = NULL;
 	plist_t dict = NULL;
 	char* filename = NULL;
 	unsigned int nor_size = 0;
-	char* nor_data = NULL;
+	unsigned char* nor_data = NULL;
 	plist_t norimage_array = NULL;
 	restored_error_t ret = RESTORE_E_SUCCESS;
 
@@ -870,11 +870,11 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	}
 
 	dict = plist_new_dict();
-	plist_dict_insert_item(dict, "LlbImageData", plist_new_data(llb_data, (uint64_t) llb_size));
+	plist_dict_insert_item(dict, "LlbImageData", plist_new_data((char*)llb_data, (uint64_t) llb_size));
 
 	norimage_array = plist_new_array();
 
-	filename = strtok(manifest_data, "\r\n");
+	filename = strtok((char*)manifest_data, "\r\n");
 	while (filename != NULL) {
 		if (!strncmp("LLB", filename, 3)) {
 			// skip LLB, it's already passed in LlbImageData
@@ -888,7 +888,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 			break;
 		}
 
-		plist_array_append_item(norimage_array, plist_new_data(nor_data, (uint64_t)nor_size));
+		plist_array_append_item(norimage_array, plist_new_data((char*)nor_data, (uint64_t)nor_size));
 		free(nor_data);
 		nor_data = NULL;
 		nor_size = 0;

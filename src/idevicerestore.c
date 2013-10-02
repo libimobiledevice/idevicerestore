@@ -242,8 +242,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 		char wtfname[256];
 		sprintf(wtfname, "Firmware/dfu/WTF.s5l%04xxall.RELEASE.dfu", cpid);
-		char* wtftmp = NULL;
-		uint32_t wtfsize = 0;
+		unsigned char* wtftmp = NULL;
+		unsigned int wtfsize = 0;
 		ipsw_extract_to_memory(wtfipsw, wtfname, &wtftmp, &wtfsize);
 		if (!wtftmp) {
 			error("ERROR: Could not extract WTF\n");
@@ -392,7 +392,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			char *files[16];
 			char *fmanifest = NULL;
 			uint32_t msize = 0;
-			if (ipsw_extract_to_memory(client->ipsw, tmpstr, &fmanifest, &msize) < 0) {
+			if (ipsw_extract_to_memory(client->ipsw, tmpstr, (unsigned char**)&fmanifest, &msize) < 0) {
 				error("ERROR: could not extract %s from IPSW\n", tmpstr);
 				return -1;
 			}
@@ -1425,7 +1425,7 @@ int build_manifest_get_identity_count(plist_t build_manifest) {
 	return plist_array_get_size(build_identities_array);
 }
 
-int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* component, const char* path, char** data, uint32_t* size) {
+int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* component, const char* path, unsigned char** data, unsigned int* size) {
 	img3_file* img3 = NULL;
 	unsigned int component_size = 0;
 	unsigned char* component_data = NULL;
