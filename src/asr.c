@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <libimobiledevice/libimobiledevice.h>
 #include <openssl/sha.h>
 
@@ -381,7 +382,7 @@ int asr_send_payload(asr_client_t asr, const char* filesystem) {
 
 			if (add_checksum) {
 				// get sha1 of last chunk
-				SHA1_Final(data, &sha1);
+				SHA1_Final((unsigned char*)data, &sha1);
 
 				// send checksum
 				if (asr_send_buffer(asr, data, 20) < 0) {
@@ -409,7 +410,7 @@ int asr_send_payload(asr_client_t asr, const char* filesystem) {
 	// if last chunk wasn't terminated with a checksum we do it here
 	if (asr->checksum_chunks && !add_checksum) {
 		// get sha1 of last chunk
-		SHA1_Final(data, &sha1);
+		SHA1_Final((unsigned char*)data, &sha1);
 
 		// send checksum
 		if (asr_send_buffer(asr, data, 20) < 0) {
