@@ -728,7 +728,7 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 	restored_error_t restore_error;
 	plist_t dict;
 	unsigned char* data = NULL;
-	uint32_t len = 0;
+	unsigned int len = 0;
 
 	info("About to send RootTicket...\n");
 
@@ -744,7 +744,7 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 
 	dict = plist_new_dict();
 	if (data && (len > 0)) {
-		plist_dict_insert_item(dict, "RootTicketData", plist_new_data(data, (uint64_t)len));
+		plist_dict_insert_item(dict, "RootTicketData", plist_new_data((char*)data, len));
 	} else {
 		info("NOTE: not sending RootTicketData (no data present)\n");
 	}
@@ -764,7 +764,7 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 }
 
 int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity) {
-	int size = 0;
+	unsigned int size = 0;
 	char* data = NULL;
 	char* path = NULL;
 	plist_t blob = NULL;
@@ -815,14 +815,14 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	char* llb_filename = NULL;
 	char firmware_path[256];
 	char manifest_file[256];
-	int manifest_size = 0;
+	unsigned int manifest_size = 0;
 	char* manifest_data = NULL;
 	char firmware_filename[256];
-	int llb_size = 0;
+	unsigned int llb_size = 0;
 	char* llb_data = NULL;
 	plist_t dict = NULL;
 	char* filename = NULL;
-	int nor_size = 0;
+	unsigned int nor_size = 0;
 	char* nor_data = NULL;
 	plist_t norimage_array = NULL;
 	restored_error_t ret = RESTORE_E_SUCCESS;
@@ -944,7 +944,7 @@ static const char* restore_get_bbfw_fn_for_element(const char* elem)
 	return NULL;
 }
 
-static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const char* bb_nonce)
+static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned char* bb_nonce)
 {
 	int res = -1;
 
@@ -1383,7 +1383,7 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 
 	res = -1;
 	
-	unsigned char* buffer = NULL;
+	char* buffer = NULL;
 	size_t sz = 0;
 	if (read_file(bbfwtmp, (void**)&buffer, &sz) < 0) {
 		error("ERROR: could not read updated bbfw archive\n");

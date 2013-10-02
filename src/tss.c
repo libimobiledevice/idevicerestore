@@ -111,7 +111,7 @@ plist_t tss_create_request(plist_t build_identity, uint64_t ecid, unsigned char*
 	plist_dict_insert_item(tss_request, "ApChipID", plist_new_uint(chip_id));
 	plist_dict_insert_item(tss_request, "ApECID", plist_new_string(ecid_string));
 	if (nonce && (nonce_size > 0)) {
-		plist_dict_insert_item(tss_request, "ApNonce", plist_new_data(nonce, nonce_size));
+		plist_dict_insert_item(tss_request, "ApNonce", plist_new_data((char*)nonce, nonce_size));
 	}
 	plist_dict_insert_item(tss_request, "ApProductionMode", plist_new_bool(1));
 	plist_dict_insert_item(tss_request, "ApSecurityDomain", plist_new_uint(security_domain));
@@ -279,7 +279,7 @@ plist_t tss_create_baseband_request(plist_t build_identity, uint64_t ecid, uint6
 	plist_dict_insert_item(tss_request, "BbGoldCertId", plist_new_uint(bb_cert_id));
 
 	if (bb_nonce && (bb_nonce_size > 0)) {
-		plist_dict_insert_item(tss_request, "BbNonce", plist_new_data(bb_nonce, bb_nonce_size));
+		plist_dict_insert_item(tss_request, "BbNonce", plist_new_data((char*)bb_nonce, bb_nonce_size));
 	}
 
 	bb_node = plist_dict_get_item(build_identity, "BbProvisioningManifestKeyHash");
@@ -291,7 +291,7 @@ plist_t tss_create_baseband_request(plist_t build_identity, uint64_t ecid, uint6
 	bb_node = NULL;
 
 	if (bb_snum && bb_snum_size > 0) {
-		plist_dict_insert_item(tss_request, "BbSNUM", plist_new_data(bb_snum, bb_snum_size));
+		plist_dict_insert_item(tss_request, "BbSNUM", plist_new_data((char*)bb_snum, bb_snum_size));
 	}
 
 	plist_dict_insert_item(tss_request, "UniqueBuildID", plist_new_data(unique_build_data, unique_build_size));
@@ -462,7 +462,7 @@ plist_t tss_send_request(plist_t tss_request, const char* server_url_string) {
 	return tss_response;
 }
 
-int tss_get_ticket(plist_t tss, unsigned char** ticket, uint32_t* tlen) {
+int tss_get_ticket(plist_t tss, unsigned char** ticket, unsigned int* tlen) {
 	plist_t entry_node = plist_dict_get_item(tss, "APTicket");
 	if (!entry_node || plist_get_node_type(entry_node) != PLIST_DATA) {
 		error("ERROR: Unable to find APTicket entry in TSS response\n");
@@ -472,8 +472,8 @@ int tss_get_ticket(plist_t tss, unsigned char** ticket, uint32_t* tlen) {
 	uint64_t len = 0;
 	plist_get_data_val(entry_node, &data, &len);
 	if (data) {
-		*tlen = (uint32_t)len;
-		*ticket = data;
+		*tlen = (unsigned int)len;
+		*ticket = (unsigned char*)data;
 		return 0;
 	} else {
 		error("ERROR: Unable to get APTicket data from TSS response\n");
@@ -505,7 +505,7 @@ int tss_get_entry_path(plist_t tss, const char* entry, char** path) {
 	return 0;
 }
 
-int tss_get_blob_by_path(plist_t tss, const char* path, char** blob) {
+int tss_get_blob_by_path(plist_t tss, const char* path, unsigned char** blob) {
 	int i = 0;
 	uint32_t tss_size = 0;
 	uint64_t blob_size = 0;
@@ -554,11 +554,11 @@ int tss_get_blob_by_path(plist_t tss, const char* path, char** blob) {
 		return -1;
 	}
 
-	*blob = blob_data;
+	*blob = (unsigned char*)blob_data;
 	return 0;
 }
 
-int tss_get_blob_by_name(plist_t tss, const char* entry, char** blob) {
+int tss_get_blob_by_name(plist_t tss, const char* entry, unsigned char** blob) {
 	uint64_t blob_size = 0;
 	char* blob_data = NULL;
 	plist_t blob_node = NULL;
@@ -579,6 +579,6 @@ int tss_get_blob_by_name(plist_t tss, const char* entry, char** blob) {
 	}
 	plist_get_data_val(blob_node, &blob_data, &blob_size);
 
-	*blob = blob_data;
+	*blob = (unsigned char*)blob_data;
 	return 0;
 }

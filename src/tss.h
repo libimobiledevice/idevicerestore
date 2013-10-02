@@ -32,10 +32,10 @@ extern "C" {
 plist_t tss_send_request(plist_t request, const char* server_url_string);
 plist_t tss_create_request(plist_t build_identity, uint64_t ecid, unsigned char* nonce, int nonce_size);
 plist_t tss_create_baseband_request(plist_t build_identity, uint64_t ecid, uint64_t bb_cert_id, unsigned char* bb_snum, uint64_t bb_snum_size, unsigned char* bb_nonce, int bb_nonce_size);
-int tss_get_ticket(plist_t tss, unsigned char** ticket, uint32_t* tlen);
+int tss_get_ticket(plist_t tss, unsigned char** ticket, unsigned int* tlen);
 int tss_get_entry_path(plist_t tss, const char* entry, char** path);
-int tss_get_blob_by_path(plist_t tss, const char* path, char** blob);
-int tss_get_blob_by_name(plist_t tss, const char* entry, char** blob);
+int tss_get_blob_by_path(plist_t tss, const char* path, unsigned char** blob);
+int tss_get_blob_by_name(plist_t tss, const char* entry, unsigned char** blob);
 
 
 #ifdef __cplusplus
