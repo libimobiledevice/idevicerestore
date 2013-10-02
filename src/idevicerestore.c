@@ -373,13 +373,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			plist_t inf;
 			plist_t manifest;
 
-			inf = plist_new_dict();
-			plist_dict_insert_item(inf, "RestoreBehavior", plist_new_string((client->flags & FLAG_ERASE) ? "Erase" : "Update"));
-			plist_dict_insert_item(inf, "Variant", plist_new_string((client->flags & FLAG_ERASE) ? "Customer Erase Install (IPSW)" : "Customer Upgrade Install (IPSW)"));
-			plist_dict_insert_item(build_identity, "Info", inf);
-
-			manifest = plist_new_dict();
-
 			char tmpstr[256];
 			char p_all_flash[128];
 			char lcmodel[8];
@@ -413,6 +406,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				tok = strtok(NULL, "\r\n");
 			}
 			free(fmanifest);
+
+			manifest = plist_new_dict();
 
 			for (x = 0; x < fc; x++) {
 				inf = plist_new_dict();
@@ -477,6 +472,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			node = plist_dict_get_item(buildmanifest, "RestoreRamDisks");
 			if (node && (plist_get_node_type(node) == PLIST_DICT)) {
 				plist_t rd = plist_dict_get_item(node, (client->flags & FLAG_ERASE) ? "User" : "Update");
+				// if no "Update" ram disk entry is found try "User" ram disk instead
+				if (!rd && !(client->flags & FLAG_ERASE)) {
+					rd = plist_dict_get_item(node, "User");
+					// also, set the ERASE flag since we actually change the restore variant
+					client->flags |= FLAG_ERASE;
+				}
 				if (rd && (plist_get_node_type(rd) == PLIST_STRING)) {
 					inf = plist_new_dict();
 					plist_dict_insert_item(inf, "Path", plist_copy(rd));
@@ -501,6 +502,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				plist_dict_insert_item(comp, "Info", inf);
 				plist_dict_insert_item(manifest, "OS", comp);
 			}
+
+			// add info
+			inf = plist_new_dict();
+			plist_dict_insert_item(inf, "RestoreBehavior", plist_new_string((client->flags & FLAG_ERASE) ? "Erase" : "Update"));
+			plist_dict_insert_item(inf, "Variant", plist_new_string((client->flags & FLAG_ERASE) ? "Customer Erase Install (IPSW)" : "Customer Upgrade Install (IPSW)"));
+			plist_dict_insert_item(build_identity, "Info", inf);
 
 			// finally add manifest
 			plist_dict_insert_item(build_identity, "Manifest", manifest);
