@@ -1316,8 +1316,29 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 			if (stat(zfn, &fst) == 0) {
 				gzFile zf = gzopen(zfn, "rb");
 				if (zf) {
-					unsigned char bin[65536];
-					int blen = gzread(zf, bin, sizeof(bin));
+					int blen = 0;
+					int readsize = 16384;
+					int bufsize = readsize;
+					char* bin = (char*)malloc(bufsize);
+					char* p = bin;
+					do {
+						int bytes_read = gzread(zf, p, readsize);
+						if (bytes_read < 0) {
+							fprintf(stderr, "Error reading gz compressed data\n");
+							exit(EXIT_FAILURE);
+						}
+						blen += bytes_read;
+						if (bytes_read < readsize) {
+							if (gzeof(zf)) {
+								bufsize += bytes_read;
+								break;
+							}
+						}
+						bufsize += readsize;
+						bin = realloc(bin, bufsize);
+						p = bin + blen;
+					} while (!gzeof(zf));
+					gzclose(zf);
 					if (blen > 0) {
 						if (memcmp(bin, "bplist00", 8) == 0) {
 							plist_from_bin(bin, blen, tss);
@@ -1325,7 +1346,7 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 							plist_from_xml(bin, blen, tss);
 						}
 					}
-					gzclose(zf);
+					free(bin);
 				}
 			} else {
 				error("no local file %s\n", zfn);
