@@ -125,7 +125,7 @@ int recovery_check_mode(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-static int recovery_set_autoboot(struct idevicerestore_client_t* client, int enable) {
+int recovery_set_autoboot(struct idevicerestore_client_t* client, int enable) {
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	recovery_error = irecv_send_command(client->recovery->client, (enable) ? "setenv auto-boot true" : "setenv auto-boot false");

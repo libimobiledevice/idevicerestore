@@ -855,6 +855,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				unlink(filesystem);
 			return -2;
 		}
+		recovery_client_free(client);
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.9);
 
@@ -873,6 +874,19 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	info("Cleaning up...\n");
 	if (delete_fs && filesystem)
 		unlink(filesystem);
+
+	/* special handling of AppleTVs */
+	if (strncmp(client->device->product_type, "AppleTV", 7) == 0) {
+		if (recovery_client_new(client) == 0) {
+			if (recovery_set_autoboot(client, 1) == 0) {
+				recovery_send_reset(client);
+			} else {
+				error("Setting auto-boot failed?!\n");
+			}
+		} else {
+			error("Could not connect to device in recovery mode.\n");
+		}
+	}
 
 	info("DONE\n");
 
