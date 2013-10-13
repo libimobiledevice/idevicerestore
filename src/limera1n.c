@@ -32,9 +32,17 @@
 
 int limera1n_is_supported(struct irecv_device *device)
 {
-	return ((device->chip_id == irecv_devices[DEVICE_IPHONE4].chip_id) ||
-			(device->chip_id == irecv_devices[DEVICE_IPHONE3GS].chip_id) ||
-			(device->chip_id == irecv_devices[DEVICE_IPOD3G].chip_id));
+	irecv_device_t iphone4 = NULL;
+	irecv_device_t iphone3gs = NULL;
+	irecv_device_t ipod3g = NULL;
+
+	irecv_devices_get_device_by_product_type("iPhone3,1", &iphone4);
+	irecv_devices_get_device_by_product_type("iPhone2,1", &iphone3gs);
+	irecv_devices_get_device_by_product_type("iPod3,1", &ipod3g);
+
+	return ((device->chip_id == iphone4->chip_id) ||
+			(device->chip_id == iphone3gs->chip_id) ||
+			(device->chip_id == ipod3g->chip_id));
 }
 
 int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
