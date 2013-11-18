@@ -579,7 +579,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			}
 		}
 
-		if (get_shsh_blobs(client, client->ecid, client->nonce, client->nonce_size, build_identity, &client->tss) < 0) {
+		if (get_shsh_blobs(client, build_identity, &client->tss) < 0) {
 			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
 		}
@@ -833,7 +833,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		if (nonce_changed && !(client->flags & FLAG_CUSTOM)) {
 			// Welcome iOS5. We have to re-request the TSS with our nonce.
 			plist_free(client->tss);
-			if (get_shsh_blobs(client, client->ecid, client->nonce, client->nonce_size, build_identity, &client->tss) < 0) {
+			if (get_shsh_blobs(client, build_identity, &client->tss) < 0) {
 				error("ERROR: Unable to get SHSH blobs for this device\n");
 				if (delete_fs && filesystem)
 					unlink(filesystem);
@@ -1322,7 +1322,7 @@ plist_t build_manifest_get_build_identity(plist_t build_manifest, uint32_t ident
 	return plist_copy(build_identity);
 }
 
-int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsigned char* nonce, int nonce_size, plist_t build_identity, plist_t* tss) {
+int get_shsh_blobs(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss) {
 	plist_t request = NULL;
 	plist_t response = NULL;
 	*tss = NULL;
@@ -1389,7 +1389,7 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsign
 		info("Trying to fetch new SHSH blob\n");
 	}
 
-	request = tss_create_request(build_identity, ecid, nonce, nonce_size);
+	request = tss_create_request(build_identity, client->ecid, client->nonce, client->nonce_size);
 	if (request == NULL) {
 		error("ERROR: Unable to create TSS request\n");
 		return -1;

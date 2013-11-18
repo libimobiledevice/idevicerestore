@@ -326,7 +326,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		if (nonce_changed && !(client->flags & FLAG_CUSTOM)) {
 			// Welcome iOS5. We have to re-request the TSS with our nonce.
 			plist_free(client->tss);
-			if (get_shsh_blobs(client, client->ecid, client->nonce, client->nonce_size, build_identity, &client->tss) < 0) {
+			if (get_shsh_blobs(client, build_identity, &client->tss) < 0) {
 				error("ERROR: Unable to get SHSH blobs for this device\n");
 				return -1;
 			}

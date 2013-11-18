@@ -78,7 +78,7 @@ int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
 int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid);
 int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid);
 int get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
-int get_shsh_blobs(struct idevicerestore_client_t* client, uint64_t ecid, unsigned char* nonce, int nonce_size, plist_t build_identity, plist_t* tss);
+int get_shsh_blobs(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss);
 void fixup_tss(plist_t tss);
 int build_manifest_get_identity_count(plist_t build_manifest);
 int build_manifest_check_compatibility(plist_t build_manifest, const char* product);
