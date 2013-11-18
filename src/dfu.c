@@ -239,7 +239,7 @@ int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid) {
 	return 0;
 }
 
-int dfu_get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 
 	if(client->dfu == NULL) {
@@ -248,7 +248,24 @@ int dfu_get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce,
 		}
 	}
 
-	dfu_error = irecv_get_nonce(client->dfu->client, nonce, nonce_size);
+	dfu_error = irecv_get_nonce_with_tag(client->dfu->client, "NONC", nonce, nonce_size);
+	if (dfu_error != IRECV_E_SUCCESS) {
+		return -1;
+	}
+
+	return 0;
+}
+
+int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+	irecv_error_t dfu_error = IRECV_E_SUCCESS;
+
+	if(client->dfu == NULL) {
+		if (dfu_client_new(client) < 0) {
+			return -1;
+		}
+	}
+
+	dfu_error = irecv_get_nonce_with_tag(client->dfu->client, "SNON", nonce, nonce_size);
 	if (dfu_error != IRECV_E_SUCCESS) {
 		return -1;
 	}
@@ -300,8 +317,8 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		unsigned char* nonce = NULL;
 		int nonce_size = 0;
 		int nonce_changed = 0;
-		if (dfu_get_nonce(client, &nonce, &nonce_size) < 0) {
-			error("ERROR: Unable to get nonce from device!\n");
+		if (dfu_get_ap_nonce(client, &nonce, &nonce_size) < 0) {
+			error("ERROR: Unable to get ApNonce from device!\n");
 			return -1;
 		}
 

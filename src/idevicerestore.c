@@ -1273,14 +1273,14 @@ int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, 
 		break;
 	case MODE_DFU:
 		info("in dfu mode... ");
-		if (dfu_get_nonce(client, nonce, nonce_size) < 0) {
+		if (dfu_get_ap_nonce(client, nonce, nonce_size) < 0) {
 			info("failed\n");
 			return -1;
 		}
 		break;
 	case MODE_RECOVERY:
 		info("in recovery mode... ");
-		if (recovery_get_nonce(client, nonce, nonce_size) < 0) {
+		if (recovery_get_ap_nonce(client, nonce, nonce_size) < 0) {
 			info("failed\n");
 			return -1;
 		}

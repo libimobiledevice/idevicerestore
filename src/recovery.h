@@ -54,7 +54,8 @@ int recovery_send_reset(struct idevicerestore_client_t* client);
 int recovery_send_ticket(struct idevicerestore_client_t* client);
 int recovery_set_autoboot(struct idevicerestore_client_t* client, int enable);
 int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
-int recovery_get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
+int recovery_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
+int recovery_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
 int recovery_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid);
 int recovery_get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid);
 
