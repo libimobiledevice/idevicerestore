@@ -33,8 +33,6 @@
 #include "normal.h"
 #include "recovery.h"
 
-extern int16_t userpref_remove_device_record(const char* udid);
-
 static int normal_device_connected = 0;
 
 void normal_device_callback(const idevice_event_t* event, void* userdata) {
@@ -229,16 +227,8 @@ const char* normal_check_product_type(struct idevicerestore_client_t* client) {
 	}
 
 	lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
-	if (lockdown_error == LOCKDOWN_E_PASSWORD_PROTECTED) {
+	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
 		lockdown_error = lockdownd_client_new(device, &lockdown, "idevicerestore");
-	} else if (lockdown_error == LOCKDOWN_E_INVALID_HOST_ID) {
-		char* udid = NULL;
-		lockdownd_unpair(lockdown, NULL);
-		idevice_get_udid(device, &udid);
-		if (udid) {
-			userpref_remove_device_record(udid);
-		}
-		lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
 	}
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
 		idevice_free(device);
