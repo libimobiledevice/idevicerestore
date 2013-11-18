@@ -140,7 +140,7 @@ plist_t tss_create_request(plist_t build_identity, uint64_t ecid, unsigned char*
 			return NULL;
 		}
 
-		if (strcmp(key, "BasebandFirmware") == 0) {
+		if ((strcmp(key, "BasebandFirmware") == 0) || (strcmp(key, "OS") == 0)) {
 			free(key);
 			continue;
 		}
