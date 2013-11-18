@@ -336,7 +336,7 @@ int normal_enter_recovery(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-int normal_get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+static normal_get_nonce_by_key(struct idevicerestore_client_t* client, const char* key, unsigned char** nonce, int* nonce_size) {
 	idevice_t device = NULL;
 	plist_t nonce_node = NULL;
 	lockdownd_client_t lockdown = NULL;
@@ -355,16 +355,16 @@ int normal_get_nonce(struct idevicerestore_client_t* client, unsigned char** non
 		return -1;
 	}
 
-	lockdown_error = lockdownd_get_value(lockdown, NULL, "ApNonce", &nonce_node);
+	lockdown_error = lockdownd_get_value(lockdown, NULL, key, &nonce_node);
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-		error("ERROR: Unable to get ApNonce from lockdownd\n");
+		error("ERROR: Unable to get %s from lockdownd\n", key);
 		lockdownd_client_free(lockdown);
 		idevice_free(device);
 		return -1;
 	}
 
 	if (!nonce_node || plist_get_node_type(nonce_node) != PLIST_DATA) {
-		error("ERROR: Unable to get nonce\n");
+		error("ERROR: Unable to get %s\n", key);
 		lockdownd_client_free(lockdown);
 		idevice_free(device);
 		return -1;
@@ -379,7 +379,16 @@ int normal_get_nonce(struct idevicerestore_client_t* client, unsigned char** non
 	idevice_free(device);
 	lockdown = NULL;
 	device = NULL;
+
 	return 0;
+}
+
+int normal_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+	return normal_get_nonce_by_key(client, "ApNonce", nonce, nonce_size);
+}
+
+int normal_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+	return normal_get_nonce_by_key(client, "SEPNonce", nonce, nonce_size);
 }
 
 int normal_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {

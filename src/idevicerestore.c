@@ -562,7 +562,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			unsigned char* nonce = NULL;
 			int nonce_size = 0;
 			int nonce_changed = 0;
-			if (get_nonce(client, &nonce, &nonce_size) < 0) {
+			if (get_ap_nonce(client, &nonce, &nonce_size) < 0) {
 				/* the first nonce request with older firmware releases can fail and it's OK */
 				info("NOTE: Unable to get nonce from device\n");
 			}
@@ -811,7 +811,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		unsigned char* nonce = NULL;
 		int nonce_size = 0;
 		int nonce_changed = 0;
-		if (get_nonce(client, &nonce, &nonce_size) < 0) {
+		if (get_ap_nonce(client, &nonce, &nonce_size) < 0) {
 			error("ERROR: Unable to get nonce from device!\n");
 			recovery_send_reset(client);
 			if (delete_fs && filesystem)
@@ -1257,16 +1257,16 @@ int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	return 0;
 }
 
-int get_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
 	*nonce = NULL;
 	*nonce_size = 0;
 
-	info("Getting nonce ");
+	info("Getting ApNonce ");
 
 	switch (client->mode->index) {
 	case MODE_NORMAL:
 		info("in normal mode... ");
-		if (normal_get_nonce(client, nonce, nonce_size) < 0) {
+		if (normal_get_ap_nonce(client, nonce, nonce_size) < 0) {
 			info("failed\n");
 			return -1;
 		}
