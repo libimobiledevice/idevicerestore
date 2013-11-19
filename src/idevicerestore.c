@@ -1274,6 +1274,49 @@ int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, 
 	return 0;
 }
 
+int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+	*nonce = NULL;
+	*nonce_size = 0;
+
+	info("Getting SepNonce ");
+
+	switch (client->mode->index) {
+	case MODE_NORMAL:
+		info("in normal mode... ");
+		if (normal_get_sep_nonce(client, nonce, nonce_size) < 0) {
+			info("failed\n");
+			return -1;
+		}
+		break;
+	case MODE_DFU:
+		info("in dfu mode... ");
+		if (dfu_get_sep_nonce(client, nonce, nonce_size) < 0) {
+			info("failed\n");
+			return -1;
+		}
+		break;
+	case MODE_RECOVERY:
+		info("in recovery mode... ");
+		if (recovery_get_sep_nonce(client, nonce, nonce_size) < 0) {
+			info("failed\n");
+			return -1;
+		}
+		break;
+
+	default:
+		error("ERROR: Device is in an invalid state\n");
+		return -1;
+	}
+
+	int i = 0;
+	for (i = 0; i < *nonce_size; i++) {
+		info("%02x ", (*nonce)[i]);
+	}
+	info("\n");
+
+	return 0;
+}
+
 plist_t build_manifest_get_build_identity(plist_t build_manifest, uint32_t identity) {
 	// fetch build identities array from BuildManifest
 	plist_t build_identities_array = plist_dict_get_item(build_manifest, "BuildIdentities");
