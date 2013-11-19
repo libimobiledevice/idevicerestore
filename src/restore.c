@@ -1333,7 +1333,8 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		tss_request_add_baseband_tags(request, parameters);
 
 		if (request == NULL) {
-			error("ERROR: Unable to create Baseand TSS request\n");
+			error("ERROR: Unable to create Baseband TSS request\n");
+			plist_free(parameters);
 			return -1;
 		}
 
