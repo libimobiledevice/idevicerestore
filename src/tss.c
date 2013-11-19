@@ -173,7 +173,7 @@ int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters) {
 
 	/* ApSecurityDomain */
 	node = plist_dict_get_item(request, "ApSecurityDomain");
-	if (!node || plist_get_node_type(node) != PLIST_STRING) {
+	if (!node || plist_get_node_type(node) != PLIST_UINT) {
 		error("ERROR: Unable to find required ApSecurityDomain in request\n");
 		return -1;
 	}
@@ -286,7 +286,7 @@ int tss_request_add_ap_tags_from_manifest(plist_t request, plist_t build_identit
 	}
 	plist_get_string_val(node, &string);
 	sscanf(string, "%x", &security_domain);
-	plist_dict_insert_item(request, "ApSecurityDomain", plist_new_string(string));
+	plist_dict_insert_item(request, "ApSecurityDomain", plist_new_uint(security_domain));
 	free(string);
 	string = NULL;
 	node = NULL;
