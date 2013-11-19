@@ -336,7 +336,7 @@ int normal_enter_recovery(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-static normal_get_nonce_by_key(struct idevicerestore_client_t* client, const char* key, unsigned char** nonce, int* nonce_size) {
+static int normal_get_nonce_by_key(struct idevicerestore_client_t* client, const char* key, unsigned char** nonce, int* nonce_size) {
 	idevice_t device = NULL;
 	plist_t nonce_node = NULL;
 	lockdownd_client_t lockdown = NULL;
