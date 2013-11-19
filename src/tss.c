@@ -318,8 +318,8 @@ int tss_request_add_ap_tags_from_manifest(plist_t request, plist_t build_identit
 			continue;
 		}
 
-		/* FIXME: populated if ApSupportsImg4 */
-		if ((strcmp(key, "OS") == 0) || (strcmp(key, "Diags") == 0)) {
+		/* FIXME: only used with diagnostics firmware */
+		if ((strcmp(key, "Diags") == 0) || (strcmp(key, "OS") == 0)) {
 			free(key);
 			continue;
 		}
