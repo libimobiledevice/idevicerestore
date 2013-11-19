@@ -580,7 +580,7 @@ plist_t tss_request_send(plist_t tss_request, const char* server_url_string) {
 	return tss_response;
 }
 
-static tss_response_get_data_by_key(plist_t response, const char* name, unsigned char** buffer, unsigned int* length) {
+static int tss_response_get_data_by_key(plist_t response, const char* name, unsigned char** buffer, unsigned int* length) {
 
 	plist_t node = plist_dict_get_item(response, name);
 	if (!node || plist_get_node_type(node) != PLIST_DATA) {
