@@ -461,6 +461,22 @@ int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	return 0;
 }
 
+int recovery_is_image4_supported(struct idevicerestore_client_t* client)
+{
+	if(client->recovery == NULL) {
+		if (recovery_client_new(client) < 0) {
+			return 0;
+		}
+	}
+
+	const struct irecv_device_info *device_info = irecv_get_device_info(client->recovery->client);
+	if (!device_info) {
+		return 0;
+	}
+
+	return (device_info->ibfl & IBOOT_FLAG_IMAGE4_AWARE);
+}
+
 int recovery_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 

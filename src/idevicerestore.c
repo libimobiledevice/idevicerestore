@@ -365,6 +365,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	info("Product Version: %s\n", client->version);
 	info("Product Build: %s Major: %d\n", client->build, client->build_major);
 
+	client->image4supported = is_image4_supported(client);
+	info("Device supports Image4: %s\n", (client->image4supported) ? "true" : "false");
+
 	if (client->flags & FLAG_CUSTOM) {
 		/* prevent signing custom firmware */
 		tss_enabled = 0;
@@ -1180,6 +1183,27 @@ const char* check_product_type(struct idevicerestore_client_t* client) {
 	}
 
 	return product_type;
+}
+
+int is_image4_supported(struct idevicerestore_client_t* client)
+{
+	int res = 0;
+
+	switch (client->mode->index) {
+	case MODE_NORMAL:
+		res = normal_is_image4_supported(client);
+		break;
+	case MODE_DFU:
+		res = dfu_is_image4_supported(client);
+		break;
+	case MODE_RECOVERY:
+		res = recovery_is_image4_supported(client);
+		break;
+	default:
+		error("ERROR: Device is in an invalid state\n");
+		return 0;
+	}
+	return res;
 }
 
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {

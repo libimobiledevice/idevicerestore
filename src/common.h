@@ -42,6 +42,13 @@ extern "C" {
 
 #define FLAG_QUIT            1
 
+#define CPFM_FLAG_SECURITY_MODE 1 << 0
+#define CPFM_FLAG_PRODUCTION_MODE 1 << 1
+
+#define IBOOT_FLAG_IMAGE4_AWARE  1 << 2
+#define IBOOT_FLAG_EFFECTIVE_SECURITY_MODE 1 << 3
+#define IBOOT_FLAG_EFFECTIVE_PRODUCTION_MODE 1 << 4
+
 struct dfu_client_t;
 struct normal_client_t;
 struct restore_client_t;
@@ -70,6 +77,7 @@ struct idevicerestore_client_t {
 	uint64_t ecid;
 	unsigned char* nonce;
 	int nonce_size;
+	int image4supported;
 	char* udid;
 	char* srnm;
 	char* ipsw;

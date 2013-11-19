@@ -241,6 +241,22 @@ int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid) {
 	return 0;
 }
 
+int dfu_is_image4_supported(struct idevicerestore_client_t* client)
+{
+	if(client->dfu == NULL) {
+		if (dfu_client_new(client) < 0) {
+			return 0;
+		}
+	}
+
+	const struct irecv_device_info *device_info = irecv_get_device_info(client->dfu->client);
+	if (!device_info) {
+		return 0;
+	}
+
+	return (device_info->ibfl & IBOOT_FLAG_IMAGE4_AWARE);
+}
+
 int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 
@@ -249,7 +265,6 @@ int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** non
 			return -1;
 		}
 	}
-
 
 	const struct irecv_device_info *device_info = irecv_get_device_info(client->dfu->client);
 	if (!device_info) {

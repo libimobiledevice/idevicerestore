@@ -75,6 +75,7 @@ void usage(int argc, char* argv[]);
 int check_mode(struct idevicerestore_client_t* client);
 const char* check_product_type(struct idevicerestore_client_t* client);
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
+int is_image4_supported(struct idevicerestore_client_t* client);
 int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
 int get_shsh_blobs(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss);
 void fixup_tss(plist_t tss);

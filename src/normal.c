@@ -391,6 +391,51 @@ int normal_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** 
 	return normal_get_nonce_by_key(client, "SEPNonce", nonce, nonce_size);
 }
 
+int normal_is_image4_supported(struct idevicerestore_client_t* client)
+{
+	idevice_t device = NULL;
+	plist_t node = NULL;
+	lockdownd_client_t lockdown = NULL;
+	idevice_error_t device_error = IDEVICE_E_SUCCESS;
+	lockdownd_error_t lockdown_error = IDEVICE_E_SUCCESS;
+
+	device_error = idevice_new(&device, client->udid);
+	if (device_error != IDEVICE_E_SUCCESS) {
+		return 0;
+	}
+
+	lockdown_error = lockdownd_client_new(device, &lockdown, "idevicerestore");
+	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
+		error("ERROR: Unable to connect to lockdownd\n");
+		idevice_free(device);
+		return 0;
+	}
+
+	lockdown_error = lockdownd_get_value(lockdown, NULL, "Image4Supported", &node);
+	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
+		lockdownd_client_free(lockdown);
+		idevice_free(device);
+		return 0;
+	}
+
+	if (!node || plist_get_node_type(node) != PLIST_BOOLEAN) {
+		lockdownd_client_free(lockdown);
+		idevice_free(device);
+		return 0;
+	}
+
+	uint8_t bval = 0;
+	plist_get_bool_val(node, &bval);
+	plist_free(node);
+
+	lockdownd_client_free(lockdown);
+	idevice_free(device);
+	lockdown = NULL;
+	device = NULL;
+
+	return bval;
+}
+
 int normal_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	idevice_t device = NULL;
 	plist_t unique_chip_node = NULL;
