@@ -1409,7 +1409,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 	/* populate parameters */
 	plist_t parameters = plist_new_dict();
 	plist_dict_insert_item(parameters, "ApECID", plist_new_uint(client->ecid));
-	plist_dict_insert_item(parameters, "ApNonce", plist_new_data(client->nonce, client->nonce_size));
+	plist_dict_insert_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
 	plist_dict_insert_item(parameters, "ApProductionMode", plist_new_bool(1));
 
 	/* create basic request */
