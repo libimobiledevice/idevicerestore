@@ -1329,22 +1329,23 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 
 		/* create baseband request */
 		plist_t request = tss_request_new(NULL);
-		tss_request_add_baseband_tags_from_manifest(request, build_identity, NULL);
-		tss_request_add_baseband_tags(request, parameters);
-
 		if (request == NULL) {
 			error("ERROR: Unable to create Baseband TSS request\n");
 			plist_free(parameters);
 			return -1;
 		}
 
-		// send Baseband TSS request
+		/* add baseband parameters */
+		tss_request_add_baseband_tags_from_manifest(request, build_identity, NULL);
+		tss_request_add_baseband_tags(request, parameters);
+
 		if (idevicerestore_debug)
 			debug_plist(request);
 
 		info("Sending Baseband TSS request...\n");
 		response = tss_request_send(request, client->tss_url);
 		plist_free(request);
+		plist_free(parameters);
 		if (response == NULL) {
 			error("ERROR: Unable to fetch Baseband TSS\n");
 			return -1;
