@@ -2,6 +2,7 @@
  * tss.h
  * Definitions for communicating with Apple's TSS server.
  *
+ * Copyright (c) 2013 Martin Szulecki. All Rights Reserved.
  * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
@@ -29,14 +30,29 @@ extern "C" {
 
 #include <plist/plist.h>
 
-plist_t tss_send_request(plist_t request, const char* server_url_string);
-plist_t tss_create_request(plist_t build_identity, uint64_t ecid, unsigned char* nonce, int nonce_size);
-plist_t tss_create_baseband_request(plist_t build_identity, uint64_t ecid, uint64_t bb_cert_id, unsigned char* bb_snum, uint64_t bb_snum_size, unsigned char* bb_nonce, int bb_nonce_size);
-int tss_get_ticket(plist_t tss, unsigned char** ticket, unsigned int* tlen);
-int tss_get_entry_path(plist_t tss, const char* entry, char** path);
-int tss_get_blob_by_path(plist_t tss, const char* path, unsigned char** blob);
-int tss_get_blob_by_name(plist_t tss, const char* entry, unsigned char** blob);
+/* request */
+plist_t tss_request_new(plist_t overrides);
 
+int tss_request_add_ap_tags_from_manifest(plist_t request, plist_t build_identity, plist_t overrides);
+int tss_request_add_baseband_tags_from_manifest(plist_t request, plist_t build_identity, plist_t overrides);
+
+int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters);
+int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters);
+int tss_request_add_baseband_tags(plist_t request, plist_t parameters);
+
+/* i/o */
+plist_t tss_request_send(plist_t request, const char* server_url_string);
+
+/* response */
+int tss_response_get_ap_img4_ticket(plist_t response, unsigned char** ticket, unsigned int* length);
+int tss_response_get_ap_ticket(plist_t response, unsigned char** ticket, unsigned int* length);
+int tss_response_get_baseband_ticket(plist_t response, unsigned char** ticket, unsigned int* length);
+int tss_response_get_path_by_entry(plist_t response, const char* entry, char** path);
+int tss_response_get_blob_by_path(plist_t response, const char* path, unsigned char** blob);
+int tss_response_get_blob_by_entry(plist_t response, const char* entry, unsigned char** blob);
+
+/* helpers */
+char* ecid_to_string(uint64_t ecid);
 
 #ifdef __cplusplus
 }

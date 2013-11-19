@@ -737,7 +737,7 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 		return -1;
 	}
 
-	if (!(client->flags & FLAG_CUSTOM) && (tss_get_ticket(client->tss, &data, &len) < 0)) {
+	if (!(client->flags & FLAG_CUSTOM) && (tss_response_get_ap_ticket(client->tss, &data, &len) < 0)) {
 		error("ERROR: Unable to get ticket from TSS\n");
 		return -1;
 	}
@@ -774,7 +774,7 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 	info("About to send KernelCache...\n");
 
 	if (client->tss) {
-		if (tss_get_entry_path(client->tss, "KernelCache", &path) < 0) {
+		if (tss_response_get_path_by_entry(client->tss, "KernelCache", &path) < 0) {
 			debug("NOTE: No path for component KernelCache in TSS, will fetch from build_identity\n");
 		}
 	}
@@ -830,7 +830,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	info("About to send NORData...\n");
 
 	if (client->tss) {
-		if (tss_get_entry_path(client->tss, "LLB", &llb_path) < 0) {
+		if (tss_response_get_path_by_entry(client->tss, "LLB", &llb_path) < 0) {
 			debug("NOTE: Could not get LLB path from TSS data, will fetch from build identity\n");
 		}
 	}
@@ -1319,8 +1319,19 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	}
 
 	if ((bb_nonce == NULL) || (client->restore->bbtss == NULL)) {
-		// create Baseband TSS request
-		plist_t request = tss_create_baseband_request(build_identity, client->ecid, bb_cert_id, bb_snum, bb_snum_size, bb_nonce, bb_nonce_size);
+		/* populate parameters */
+		plist_t parameters = plist_new_dict();
+		plist_dict_insert_item(parameters, "ApECID", plist_new_uint(client->ecid));
+		plist_dict_insert_item(parameters, "BbNonce", plist_new_data(bb_nonce, bb_nonce_size));
+		plist_dict_insert_item(parameters, "BbChipID", plist_new_uint(bb_chip_id));
+		plist_dict_insert_item(parameters, "BbGoldCertId", plist_new_uint(bb_cert_id));
+		plist_dict_insert_item(parameters, "BbSNUM", plist_new_data(bb_snum, bb_snum_size));
+
+		/* create baseband request */
+		plist_t request = tss_request_new(NULL);
+		tss_request_add_baseband_tags_from_manifest(request, build_identity, NULL);
+		tss_request_add_baseband_tags(request, parameters);
+
 		if (request == NULL) {
 			error("ERROR: Unable to create Baseand TSS request\n");
 			return -1;
@@ -1331,7 +1342,7 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 			debug_plist(request);
 
 		info("Sending Baseband TSS request...\n");
-		response = tss_send_request(request, client->tss_url);
+		response = tss_request_send(request, client->tss_url);
 		plist_free(request);
 		if (response == NULL) {
 			error("ERROR: Unable to fetch Baseband TSS\n");

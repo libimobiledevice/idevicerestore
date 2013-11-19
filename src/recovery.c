@@ -236,7 +236,7 @@ int recovery_send_ticket(struct idevicerestore_client_t* client)
 
 	unsigned char* data = NULL;
 	uint32_t size = 0;
-	if (tss_get_ticket(client->tss, &data, &size) < 0) {
+	if (tss_response_get_ap_ticket(client->tss, &data, &size) < 0) {
 		error("ERROR: Unable to get ApTicket from TSS request\n");
 		return -1;
 	}
@@ -267,7 +267,7 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 	irecv_error_t err = 0;
 
 	if (client->tss) {
-		if (tss_get_entry_path(client->tss, component, &path) < 0) {
+		if (tss_response_get_path_by_entry(client->tss, component, &path) < 0) {
 			debug("NOTE: No path for component %s in TSS, will fetch from build_identity\n", component);
 		}
 	}

@@ -166,7 +166,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	int flag = 1;
 
 	if (client->tss) {
-		if (tss_get_entry_path(client->tss, component, &path) < 0) {
+		if (tss_response_get_path_by_entry(client->tss, component, &path) < 0) {
 			debug("NOTE: No path for component %s in TSS, will fetch from build_identity\n", component);
 		}
 	}
@@ -188,7 +188,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	if (!(client->flags & FLAG_CUSTOM) && (strcmp(component, "iBEC") == 0)) {
 		unsigned char* ticket = NULL;
 		unsigned int tsize = 0;
-		if (tss_get_ticket(client->tss, &ticket, &tsize) < 0) {
+		if (tss_response_get_ap_ticket(client->tss, &ticket, &tsize) < 0) {
 			error("ERROR: Unable to get ApTicket from TSS request\n");
 			return -1;
 		}
@@ -379,7 +379,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		if (nonce_changed && !(client->flags & FLAG_CUSTOM)) {
 			// Welcome iOS5. We have to re-request the TSS with our nonce.
 			plist_free(client->tss);
-			if (get_shsh_blobs(client, build_identity, &client->tss) < 0) {
+			if (get_tss_response(client, build_identity, &client->tss) < 0) {
 				error("ERROR: Unable to get SHSH blobs for this device\n");
 				return -1;
 			}

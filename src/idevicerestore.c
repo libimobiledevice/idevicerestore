@@ -582,7 +582,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			}
 		}
 
-		if (get_shsh_blobs(client, build_identity, &client->tss) < 0) {
+		if (get_tss_response(client, build_identity, &client->tss) < 0) {
 			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
 		}
@@ -836,7 +836,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		if (nonce_changed && !(client->flags & FLAG_CUSTOM)) {
 			// Welcome iOS5. We have to re-request the TSS with our nonce.
 			plist_free(client->tss);
-			if (get_shsh_blobs(client, build_identity, &client->tss) < 0) {
+			if (get_tss_response(client, build_identity, &client->tss) < 0) {
 				error("ERROR: Unable to get SHSH blobs for this device\n");
 				if (delete_fs && filesystem)
 					unlink(filesystem);
@@ -1339,7 +1339,7 @@ plist_t build_manifest_get_build_identity(plist_t build_manifest, uint32_t ident
 	return plist_copy(build_identity);
 }
 
-int get_shsh_blobs(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss) {
+int get_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss) {
 	plist_t request = NULL;
 	plist_t response = NULL;
 	*tss = NULL;
@@ -1406,23 +1406,52 @@ int get_shsh_blobs(struct idevicerestore_client_t* client, plist_t build_identit
 		info("Trying to fetch new SHSH blob\n");
 	}
 
-	request = tss_create_request(build_identity, client->ecid, client->nonce, client->nonce_size);
+	/* populate parameters */
+	plist_t parameters = plist_new_dict();
+	plist_dict_insert_item(parameters, "ApECID", plist_new_uint(client->ecid));
+	plist_dict_insert_item(parameters, "ApNonce", plist_new_data(client->nonce, client->nonce_size));
+	plist_dict_insert_item(parameters, "ApProductionMode", plist_new_bool(1));
+
+	/* create basic request */
+	request = tss_request_new(NULL);
 	if (request == NULL) {
 		error("ERROR: Unable to create TSS request\n");
+		plist_free(parameters);
 		return -1;
 	}
 
-	response = tss_send_request(request, client->tss_url);
+	/* add tags from manifest */
+	if (tss_request_add_ap_tags_from_manifest(request, build_identity, NULL) < 0) {
+		error("ERROR: Unable to create TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* add personalized parameters */
+	if (tss_request_add_ap_img3_tags(request, parameters) < 0) {
+		error("ERROR: Unable to create TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	};
+
+	/* send request and grab response */
+	response = tss_request_send(request, client->tss_url);
 	if (response == NULL) {
 		info("ERROR: Unable to send TSS request\n");
 		plist_free(request);
+		plist_free(parameters);
 		return -1;
 	}
 
 	info("Received SHSH blobs\n");
 
 	plist_free(request);
+	plist_free(parameters);
+
 	*tss = response;
+
 	return 0;
 }
 
@@ -1492,11 +1521,11 @@ int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* compon
 	if (tss) {
 		/* try to get blob for current component from tss response */
 		if (component) {
-			if (tss_get_blob_by_name(tss, component, &component_blob) < 0) {
+			if (tss_response_get_blob_by_entry(tss, component, &component_blob) < 0) {
 				debug("NOTE: No SHSH blob found for TSS entry %s from component %s\n", component_name, component);
 			}
 		} else {
-			if (tss_get_blob_by_path(tss, path, &component_blob) < 0) {
+			if (tss_response_get_blob_by_path(tss, path, &component_blob) < 0) {
 				debug("NOTE: No SHSH blob found for TSS entry %s from path %s\n", component_name, path);
 			}
 		}
