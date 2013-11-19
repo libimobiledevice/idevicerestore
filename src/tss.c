@@ -439,6 +439,10 @@ size_t tss_write_callback(char* data, size_t size, size_t nmemb, tss_response* r
 plist_t tss_request_send(plist_t tss_request, const char* server_url_string) {
 	curl_global_init(CURL_GLOBAL_ALL);
 
+	if (idevicerestore_debug) {
+		debug_plist(tss_request);
+	}
+
 	char* request = NULL;
 	int status_code = -1;
 	int retry = 0;
