@@ -1469,11 +1469,12 @@ int build_manifest_get_identity_count(plist_t build_manifest) {
 }
 
 int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* component, const char* path, unsigned char** data, unsigned int* size) {
-	img3_file* img3 = NULL;
 	unsigned int component_size = 0;
 	unsigned char* component_data = NULL;
 	unsigned char* component_blob = NULL;
 	char* component_name = NULL;
+	unsigned char* stitched_component = NULL;
+	unsigned int stitched_component_size = 0;
 
 	component_name = strrchr(path, '/');
 	if (component_name != NULL)
@@ -1501,38 +1502,17 @@ int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* compon
 		}
 
 		if (component_blob != NULL) {
-			/* parse current component as img3 */
-			img3 = img3_parse_file(component_data, component_size);
-			if (img3 == NULL) {
-				error("ERROR: Unable to parse IMG3: %s\n", component_name);
-				free(component_blob);
-				free(component_data);
-				return -1;
-			}
-
-			/* we no longer require the original data */
-			free(component_data);
-
 			info("Personalizing component %s...\n", component_name);
 
-			/* personalize the component using the blob */
-			if (img3_replace_signature(img3, component_blob) < 0) {
+			if (img3_stitch_component(component_data, component_size, component_blob, 64, &stitched_component, &stitched_component_size) < 0) {
 				error("ERROR: Unable to replace IMG3 signature\n");
 				free(component_blob);
-				img3_free(img3);
 				return -1;
 			}
 
-			/* get the img3 file as data */
-			if (img3_get_data(img3, &component_data, &component_size) < 0) {
-				error("ERROR: Unable to reconstruct IMG3\n");
-				free(component_blob);
-				img3_free(img3);
-				return -1;
-			}
-
-			/* cleanup */
-			img3_free(img3);
+			free(component_data);
+			component_data = stitched_component;
+			component_size = stitched_component_size;
 		} else {
 			info("Not personalizing component %s...\n", component_name);
 		}
