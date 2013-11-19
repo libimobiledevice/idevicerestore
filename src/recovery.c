@@ -86,11 +86,9 @@ int recovery_client_new(struct idevicerestore_client_t* client) {
 	}
 
 	if (client->srnm == NULL) {
-		char snbuf[256];
-		snbuf[0] = '\0';
-		irecv_get_srnm(recovery, snbuf);
-		if (snbuf[0] != '\0') {
-			client->srnm = strdup(snbuf);
+		const struct irecv_device_info *device_info = irecv_get_device_info(recovery);
+		if (device_info && device_info->srnm) {
+			client->srnm = strdup(device_info->srnm);
 			info("INFO: device serial number is %s\n", client->srnm);
 		}
 	}
@@ -453,10 +451,12 @@ int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 		}
 	}
 
-	recovery_error = irecv_get_ecid(client->recovery->client, (long long unsigned int*)ecid);
-	if (recovery_error != IRECV_E_SUCCESS) {
+	const struct irecv_device_info *device_info = irecv_get_device_info(client->recovery->client);
+	if (!device_info) {
 		return -1;
 	}
+
+	*ecid = device_info->ecid;
 
 	return 0;
 }
@@ -470,9 +470,18 @@ int recovery_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char*
 		}
 	}
 
-	recovery_error = irecv_get_nonce_with_tag(client->recovery->client, "NONC", nonce, nonce_size);
-	if (recovery_error != IRECV_E_SUCCESS) {
+	const struct irecv_device_info *device_info = irecv_get_device_info(client->recovery->client);
+	if (!device_info) {
 		return -1;
+	}
+
+	if (device_info->ap_nonce && device_info->ap_nonce_size > 0) {
+		*nonce = (unsigned char*)malloc(device_info->ap_nonce_size);
+		if (!*nonce) {
+			return -1;
+		}
+		*nonce_size = device_info->ap_nonce_size;
+		memcpy(*nonce, device_info->ap_nonce, *nonce_size);
 	}
 
 	return 0;
@@ -487,43 +496,18 @@ int recovery_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char
 		}
 	}
 
-	recovery_error = irecv_get_nonce_with_tag(client->recovery->client, "SNON", nonce, nonce_size);
-	if (recovery_error != IRECV_E_SUCCESS) {
+	const struct irecv_device_info *device_info = irecv_get_device_info(client->recovery->client);
+	if (!device_info) {
 		return -1;
 	}
 
-	return 0;
-}
-
-int recovery_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
-	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-
-	if(client->recovery == NULL) {
-		if (recovery_client_new(client) < 0) {
+	if (device_info->sep_nonce && device_info->sep_nonce_size > 0) {
+		*nonce = (unsigned char*)malloc(device_info->sep_nonce_size);
+		if (!*nonce) {
 			return -1;
 		}
-	}
-
-	recovery_error = irecv_get_cpid(client->recovery->client, cpid);
-	if (recovery_error != IRECV_E_SUCCESS) {
-		return -1;
-	}
-
-	return 0;
-}
-
-int recovery_get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
-	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-
-	if(client->recovery == NULL) {
-		if (recovery_client_new(client) < 0) {
-			return -1;
-		}
-	}
-
-	recovery_error = irecv_get_bdid(client->recovery->client, bdid);
-	if (recovery_error != IRECV_E_SUCCESS) {
-		return -1;
+		*nonce_size = device_info->sep_nonce_size;
+		memcpy(*nonce, device_info->sep_nonce, *nonce_size);
 	}
 
 	return 0;

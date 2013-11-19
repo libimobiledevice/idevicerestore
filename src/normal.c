@@ -391,14 +391,6 @@ int normal_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** 
 	return normal_get_nonce_by_key(client, "SEPNonce", nonce, nonce_size);
 }
 
-int normal_get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
-	return 0;
-}
-
-int normal_get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
-	return 0;
-}
-
 int normal_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	idevice_t device = NULL;
 	plist_t unique_chip_node = NULL;

@@ -231,10 +231,12 @@ int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid) {
 		}
 	}
 
-	dfu_error = irecv_get_cpid(client->dfu->client, cpid);
-	if (dfu_error != IRECV_E_SUCCESS) {
+	const struct irecv_device_info *device_info = irecv_get_device_info(client->dfu->client);
+	if (!device_info) {
 		return -1;
 	}
+
+	*cpid = device_info->cpid;
 
 	return 0;
 }
@@ -248,9 +250,19 @@ int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** non
 		}
 	}
 
-	dfu_error = irecv_get_nonce_with_tag(client->dfu->client, "NONC", nonce, nonce_size);
-	if (dfu_error != IRECV_E_SUCCESS) {
+
+	const struct irecv_device_info *device_info = irecv_get_device_info(client->dfu->client);
+	if (!device_info) {
 		return -1;
+	}
+
+	if (device_info->ap_nonce && device_info->ap_nonce_size > 0) {
+		*nonce = (unsigned char*)malloc(device_info->ap_nonce_size);
+		if (!*nonce) {
+			return -1;
+		}
+		*nonce_size = device_info->ap_nonce_size;
+		memcpy(*nonce, device_info->ap_nonce, *nonce_size);
 	}
 
 	return 0;
@@ -265,9 +277,18 @@ int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** no
 		}
 	}
 
-	dfu_error = irecv_get_nonce_with_tag(client->dfu->client, "SNON", nonce, nonce_size);
-	if (dfu_error != IRECV_E_SUCCESS) {
+	const struct irecv_device_info *device_info = irecv_get_device_info(client->dfu->client);
+	if (!device_info) {
 		return -1;
+	}
+
+	if (device_info->sep_nonce && device_info->sep_nonce_size > 0) {
+		*nonce = (unsigned char*)malloc(device_info->sep_nonce_size);
+		if (!*nonce) {
+			return -1;
+		}
+		*nonce_size = device_info->sep_nonce_size;
+		memcpy(*nonce, device_info->sep_nonce, *nonce_size);
 	}
 
 	return 0;

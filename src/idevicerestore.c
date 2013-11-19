@@ -1182,56 +1182,6 @@ const char* check_product_type(struct idevicerestore_client_t* client) {
 	return product_type;
 }
 
-int get_bdid(struct idevicerestore_client_t* client, uint32_t* bdid) {
-	switch (client->mode->index) {
-	case MODE_NORMAL:
-		if (normal_get_bdid(client, bdid) < 0) {
-			*bdid = 0;
-			return -1;
-		}
-		break;
-
-	case MODE_DFU:
-	case MODE_RECOVERY:
-		if (recovery_get_bdid(client, bdid) < 0) {
-			*bdid = 0;
-			return -1;
-		}
-		break;
-
-	default:
-		error("ERROR: Device is in an invalid state\n");
-		return -1;
-	}
-
-	return 0;
-}
-
-int get_cpid(struct idevicerestore_client_t* client, uint32_t* cpid) {
-	switch (client->mode->index) {
-	case MODE_NORMAL:
-		if (normal_get_cpid(client, cpid) < 0) {
-			client->device->chip_id = -1;
-			return -1;
-		}
-		break;
-
-	case MODE_DFU:
-	case MODE_RECOVERY:
-		if (recovery_get_cpid(client, cpid) < 0) {
-			client->device->chip_id = -1;
-			return -1;
-		}
-		break;
-
-	default:
-		error("ERROR: Device is in an invalid state\n");
-		return -1;
-	}
-
-	return 0;
-}
-
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	switch (client->mode->index) {
 	case MODE_NORMAL:
