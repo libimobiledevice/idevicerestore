@@ -148,7 +148,7 @@ int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters) {
 
 	/* ApECID */
 	node = plist_dict_get_item(parameters, "ApECID");
-	if (!node || plist_get_node_type(node) != PLIST_STRING) {
+	if (!node || plist_get_node_type(node) != PLIST_UINT) {
 		error("ERROR: Unable to find required ApECID in parameters\n");
 		return -1;
 	}
