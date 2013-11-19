@@ -155,18 +155,18 @@ int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters) {
 	plist_dict_insert_item(request, "ApECID", plist_copy(node));
 	node = NULL;
 
-	/* ApBoardId */
-	node = plist_dict_get_item(request, "ApBoardId");
+	/* ApBoardID */
+	node = plist_dict_get_item(request, "ApBoardID");
 	if (!node || plist_get_node_type(node) != PLIST_UINT) {
-		error("ERROR: Unable to find required ApBoardId in request\n");
+		error("ERROR: Unable to find required ApBoardID in request\n");
 		return -1;
 	}
 	node = NULL;
 
-	/* ApChipId */
-	node = plist_dict_get_item(request, "ApChipId");
+	/* ApChipID */
+	node = plist_dict_get_item(request, "ApChipID");
 	if (!node || plist_get_node_type(node) != PLIST_UINT) {
-		error("ERROR: Unable to find required ApChipId in request\n");
+		error("ERROR: Unable to find required ApChipID in request\n");
 		return -1;
 	}
 	node = NULL;
