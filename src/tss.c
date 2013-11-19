@@ -134,12 +134,14 @@ int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters) {
 
 	/* ApNonce */
 	node = plist_dict_get_item(parameters, "ApNonce");
-	if (!node || plist_get_node_type(node) != PLIST_DATA) {
-		error("ERROR: Unable to find required ApNonce in parameters\n");
-		return -1;
+	if (node) {
+		if (plist_get_node_type(node) != PLIST_DATA) {
+			error("ERROR: Unable to find required ApNonce in parameters\n");
+			return -1;
+		}
+		plist_dict_insert_item(request, "ApNonce", plist_copy(node));
+		node = NULL;
 	}
-	plist_dict_insert_item(request, "ApNonce", plist_copy(node));
-	node = NULL;
 
 	/* @APTicket */
 	plist_dict_insert_item(request, "@APTicket", plist_new_bool(1));
