@@ -1718,6 +1718,8 @@ const char* get_component_name(const char* filename)
 		return "NeedService";
 	} else if (!strncmp(filename, "SCAB", 4)) {
 		return "SCAB";
+	} else if (!strncmp(filename, "sep-firmware", 12)) {
+		return "RestoreSEP";
 	} else {
 		error("WARNING: Unhandled component '%s'", filename);
 		return NULL;
