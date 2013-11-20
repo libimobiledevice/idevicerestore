@@ -834,6 +834,8 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity) {
 	char* llb_path = NULL;
 	char* llb_filename = NULL;
+	char* sep_path = NULL;
+	char* restore_sep_path = NULL;
 	char firmware_path[256];
 	char manifest_file[256];
 	unsigned int manifest_size = 0;
@@ -903,6 +905,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	}
 	free(component_data);
 	component_data = NULL;
+	component_size = 0;
 
 	dict = plist_new_dict();
 	plist_dict_insert_item(dict, "LlbImageData", plist_new_data((char*)llb_data, (uint64_t) llb_size));
@@ -911,7 +914,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 
 	filename = strtok((char*)manifest_data, "\r\n");
 	while (filename != NULL) {
-		if (!strncmp("LLB", filename, 3)) {
+		if ((!strncmp("LLB", filename, 3)) || (!strncmp("sep", filename, 3))) {
 			// skip LLB, it's already passed in LlbImageData
 			filename = strtok(NULL, "\r\n");
 			continue;
@@ -937,6 +940,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		}
 		free(component_data);
 		component_data = NULL;
+		component_size = 0;
 
 		plist_array_append_item(norimage_array, plist_new_data((char*)nor_data, (uint64_t)nor_size));
 		free(nor_data);
@@ -945,6 +949,59 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		filename = strtok(NULL, "\r\n");
 	}
 	plist_dict_insert_item(dict, "NorImageData", norimage_array);
+
+	unsigned char* personalized_data = NULL;
+	unsigned int personalized_size = 0;
+	
+	if (build_identity_get_component_path(build_identity, "RestoreSEP", &restore_sep_path) == 0) {
+		component = "RestoreSEP";
+		if (extract_component(client->ipsw, restore_sep_path, &component_data, &component_size) < 0) {
+			error("ERROR: Unable to extract component: %s\n", component);
+			free(restore_sep_path);
+			return -1;
+		}
+
+
+		if (personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size) < 0) {
+			error("ERROR: Unable to get personalized component: %s\n", component);
+			free(component_data);
+			free(restore_sep_path);
+			return -1;
+		}
+		free(component_data);
+		component_data = NULL;
+		component_size = 0;
+
+		plist_dict_insert_item(dict, "RestoreSEPImageData", plist_new_data((char*)personalized_data, (uint64_t) personalized_size));
+		free(personalized_data);
+		personalized_data = NULL;
+		personalized_size = 0;
+	}
+
+	if (build_identity_get_component_path(build_identity, "SEP", &sep_path) == 0) {
+		component = "SEP";
+		if (extract_component(client->ipsw, sep_path, &component_data, &component_size) < 0) {
+			error("ERROR: Unable to extract component: %s\n", component);
+			free(sep_path);
+			return -1;
+		}
+
+
+		if (personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size) < 0) {
+			error("ERROR: Unable to get personalized component: %s\n", component);
+			free(component_data);
+			free(sep_path);
+			return -1;
+		}
+		free(component_data);
+		component_data = NULL;
+		component_size = 0;
+
+		plist_dict_insert_item(dict, "SEPImageData", plist_new_data((char*)personalized_data, (uint64_t) personalized_size));
+		free(personalized_data);
+		personalized_data = NULL;
+		personalized_size = 0;
+	}
 
 	if (idevicerestore_debug)
 		debug_plist(dict);
