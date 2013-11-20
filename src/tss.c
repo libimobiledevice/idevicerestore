@@ -118,7 +118,7 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters) {
 		error("ERROR: Unable to find required ApSepNonce in parameters\n");
 		return -1;
 	}
-	plist_dict_insert_item(request, "ApSepNonce", plist_copy(node));
+	plist_dict_insert_item(request, "SepNonce", plist_copy(node));
 	node = NULL;
 
 	return 0;
