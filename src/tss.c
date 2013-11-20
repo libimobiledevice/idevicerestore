@@ -88,6 +88,15 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters) {
 		return -1;
 	}
 
+	/* ApECID */
+	node = plist_dict_get_item(parameters, "ApECID");
+	if (!node || plist_get_node_type(node) != PLIST_UINT) {
+		error("ERROR: Unable to find required ApECID in parameters\n");
+		return -1;
+	}
+	plist_dict_insert_item(request, "ApECID", plist_copy(node));
+	node = NULL;
+
 	/* ApNonce */
 	node = plist_dict_get_item(parameters, "ApNonce");
 	if (!node || plist_get_node_type(node) != PLIST_DATA) {
