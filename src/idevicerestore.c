@@ -1412,7 +1412,18 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 	if (client->nonce) {
 		plist_dict_insert_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
 	}
+	unsigned char* sep_nonce = NULL;
+	int sep_nonce_size = 0;
+	get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
+
+	if (sep_nonce) {
+		plist_dict_insert_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
+	}
+
 	plist_dict_insert_item(parameters, "ApProductionMode", plist_new_bool(1));
+	if (client->image4supported) {
+		plist_dict_insert_item(parameters, "ApSecurityMode", plist_new_bool(1));
+	}
 
 	/* create basic request */
 	request = tss_request_new(NULL);
@@ -1430,13 +1441,23 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		return -1;
 	}
 
-	/* add personalized parameters */
-	if (tss_request_add_ap_img3_tags(request, parameters) < 0) {
-		error("ERROR: Unable to create TSS request\n");
-		plist_free(request);
-		plist_free(parameters);
-		return -1;
-	};
+	if (client->image4supported) {
+		/* add personalized parameters */
+		if (tss_request_add_ap_img4_tags(request, parameters) < 0) {
+			error("ERROR: Unable to create TSS request\n");
+			plist_free(request);
+			plist_free(parameters);
+			return -1;
+		}
+	} else {
+		/* add personalized parameters */
+		if (tss_request_add_ap_img3_tags(request, parameters) < 0) {
+			error("ERROR: Unable to create TSS request\n");
+			plist_free(request);
+			plist_free(parameters);
+			return -1;
+		}
+	}
 
 	/* send request and grab response */
 	response = tss_request_send(request, client->tss_url);
