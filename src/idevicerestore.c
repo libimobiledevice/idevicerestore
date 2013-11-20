@@ -1446,7 +1446,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 
 	/* add tags from manifest */
 	if (tss_request_add_ap_tags_from_manifest(request, build_identity, NULL) < 0) {
-		error("ERROR: Unable to create TSS request\n");
+		error("ERROR: Unable to add common tags to TSS request\n");
 		plist_free(request);
 		plist_free(parameters);
 		return -1;
@@ -1455,7 +1455,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 	if (client->image4supported) {
 		/* add personalized parameters */
 		if (tss_request_add_ap_img4_tags(request, parameters) < 0) {
-			error("ERROR: Unable to create TSS request\n");
+			error("ERROR: Unable to add img4 tags to TSS request\n");
 			plist_free(request);
 			plist_free(parameters);
 			return -1;
@@ -1463,7 +1463,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 	} else {
 		/* add personalized parameters */
 		if (tss_request_add_ap_img3_tags(request, parameters) < 0) {
-			error("ERROR: Unable to create TSS request\n");
+			error("ERROR: Unable to add img3 tags to TSS request\n");
 			plist_free(request);
 			plist_free(parameters);
 			return -1;
