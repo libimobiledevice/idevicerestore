@@ -117,6 +117,15 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 
 	outbuf = (unsigned char*)malloc(img4header_size + content_size);
 	if (!outbuf) {
+		if (magic_header) {
+			free(magic_header);
+		}
+		if (blob_header) {
+			free(blob_header);
+		}
+		if (img4header) {
+			free(img4header);
+		}
 		return -1;
 	}
 	p = outbuf;
@@ -137,6 +146,16 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 
 	*img4_data = outbuf;
 	*img4_size = (p - outbuf);
+
+	if (magic_header) {
+		free(magic_header);
+	}
+	if (blob_header) {
+		free(blob_header);
+	}
+	if (img4header) {
+		free(img4header);
+	}
 
 	return 0;
 }
