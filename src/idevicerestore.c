@@ -912,6 +912,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		idevicerestore_progress(client, RESTORE_NUM_STEPS-1, 1.0);
 	}
 
+	if (buildmanifest)
+		plist_free(buildmanifest);
+
+	if (build_identity)
+		plist_free(build_identity);
+
 	return result;
 }
 
