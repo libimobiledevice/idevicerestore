@@ -1835,6 +1835,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 				debug_plist(message);
 		}
 
+		if (type)
+			free(type);
+
 		plist_free(message);
 		message = NULL;
 	}
