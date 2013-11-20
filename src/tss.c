@@ -442,8 +442,12 @@ int tss_request_add_baseband_tags_from_manifest(plist_t request, plist_t build_i
 		error("ERROR: Unable to get BasebandFirmware node\n");
 		return -1;
 	}
-	plist_dict_insert_item(request, "BasebandFirmware", plist_copy(bb_node));
+	plist_t bbfwdict = plist_copy(bb_node);
 	bb_node = NULL;
+	if (plist_dict_get_item(bbfwdict, "Info")) {
+		plist_dict_remove_item(bbfwdict, "Info");
+	}
+	plist_dict_insert_item(request, "BasebandFirmware", bbfwdict);
 
 	/* apply overrides */
 	if (overrides) {
