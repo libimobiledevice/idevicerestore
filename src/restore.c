@@ -1432,7 +1432,9 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		/* populate parameters */
 		plist_t parameters = plist_new_dict();
 		plist_dict_insert_item(parameters, "ApECID", plist_new_uint(client->ecid));
-		plist_dict_insert_item(parameters, "BbNonce", plist_new_data((const char*)bb_nonce, bb_nonce_size));
+		if (bb_nonce) {
+			plist_dict_insert_item(parameters, "BbNonce", plist_new_data((const char*)bb_nonce, bb_nonce_size));
+		}
 		plist_dict_insert_item(parameters, "BbChipID", plist_new_uint(bb_chip_id));
 		plist_dict_insert_item(parameters, "BbGoldCertId", plist_new_uint(bb_cert_id));
 		plist_dict_insert_item(parameters, "BbSNUM", plist_new_data((const char*)bb_snum, bb_snum_size));

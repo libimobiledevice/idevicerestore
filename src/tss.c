@@ -222,12 +222,10 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters) {
 
 	/* BbNonce */
 	node = plist_dict_get_item(parameters, "BbNonce");
-	if (!node || plist_get_node_type(node) != PLIST_DATA) {
-		error("ERROR: Unable to find required BbNonce in parameters\n");
-		return -1;
+	if (node) {
+		plist_dict_insert_item(request, "BbNonce", plist_copy(node));
+		node = NULL;
 	}
-	plist_dict_insert_item(request, "BbNonce", plist_copy(node));
-	node = NULL;
 
 	/* @BBTicket */
 	plist_dict_insert_item(request, "@BBTicket", plist_new_bool(1));
