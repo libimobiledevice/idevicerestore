@@ -197,7 +197,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	free(component_data);
 	component_data = NULL;
 
-	if (!(client->flags & FLAG_CUSTOM) && (strcmp(component, "iBEC") == 0)) {
+	if (!client->image4supported && !(client->flags & FLAG_CUSTOM) && (strcmp(component, "iBEC") == 0)) {
 		unsigned char* ticket = NULL;
 		unsigned int tsize = 0;
 		if (tss_response_get_ap_ticket(client->tss, &ticket, &tsize) < 0) {
