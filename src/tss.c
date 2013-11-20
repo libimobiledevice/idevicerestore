@@ -367,6 +367,7 @@ int tss_request_add_ap_tags_from_manifest(plist_t request, plist_t build_identit
 
 		free(key);
 	}
+	free(iter);
 
 	/* apply overrides */
 	if (overrides) {
@@ -704,6 +705,7 @@ int tss_response_get_blob_by_path(plist_t tss, const char* path, unsigned char**
 		path_node = plist_dict_get_item(tss_entry, "Path");
 		if (!path_node || plist_get_node_type(path_node) != PLIST_STRING) {
 			error("ERROR: Unable to find TSS path node in entry %s\n", entry_key);
+			free(iter);
 			return -1;
 		}
 
@@ -712,6 +714,7 @@ int tss_response_get_blob_by_path(plist_t tss, const char* path, unsigned char**
 			blob_node = plist_dict_get_item(tss_entry, "Blob");
 			if (!blob_node || plist_get_node_type(blob_node) != PLIST_DATA) {
 				error("ERROR: Unable to find TSS blob node in entry %s\n", entry_key);
+				free(iter);
 				return -1;
 			}
 			plist_get_data_val(blob_node, &blob_data, &blob_size);
@@ -720,6 +723,7 @@ int tss_response_get_blob_by_path(plist_t tss, const char* path, unsigned char**
 
 		free(entry_key);
 	}
+	free(iter);
 
 	if (blob_data == NULL || blob_size <= 0) {
 		return -1;
