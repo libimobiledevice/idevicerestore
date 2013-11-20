@@ -253,6 +253,25 @@ int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid) {
 	return 0;
 }
 
+int dfu_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
+	irecv_error_t recovery_error = IRECV_E_SUCCESS;
+
+	if(client->dfu == NULL) {
+		if (dfu_client_new(client) < 0) {
+			return -1;
+		}
+	}
+
+	const struct irecv_device_info *device_info = irecv_get_device_info(client->dfu->client);
+	if (!device_info) {
+		return -1;
+	}
+
+	*ecid = device_info->ecid;
+
+	return 0;
+}
+
 int dfu_is_image4_supported(struct idevicerestore_client_t* client)
 {
 	if(client->dfu == NULL) {

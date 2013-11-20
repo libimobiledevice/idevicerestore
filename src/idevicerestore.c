@@ -754,6 +754,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	// if the device is in DFU mode, place device into recovery mode
 	if (client->mode->index == MODE_DFU) {
+		dfu_client_free(client);
 		recovery_client_free(client);
 		if ((client->flags & FLAG_CUSTOM) && limera1n_is_supported(client->device)) {
 			info("connecting to DFU\n");
@@ -1225,6 +1226,11 @@ int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 		break;
 
 	case MODE_DFU:
+		if (dfu_get_ecid(client, ecid) < 0) {
+			*ecid = 0;
+			return -1;
+		}
+		break;
 	case MODE_RECOVERY:
 		if (recovery_get_ecid(client, ecid) < 0) {
 			*ecid = 0;
