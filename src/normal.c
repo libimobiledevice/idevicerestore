@@ -384,11 +384,11 @@ static int normal_get_nonce_by_key(struct idevicerestore_client_t* client, const
 }
 
 int normal_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
-	return normal_get_nonce_by_key(client, "ApNonce", nonce, nonce_size);
+	return normal_get_nonce_by_key(client, "SEPNonce", nonce, nonce_size);
 }
 
 int normal_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
-	return normal_get_nonce_by_key(client, "SEPNonce", nonce, nonce_size);
+	return normal_get_nonce_by_key(client, "ApNonce", nonce, nonce_size);
 }
 
 int normal_is_image4_supported(struct idevicerestore_client_t* client)
