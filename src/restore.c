@@ -1744,6 +1744,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	plist_dict_insert_item(opts, "SystemImage", plist_new_bool(1));
 	plist_t spp = plist_new_dict();
 	{
+		plist_dict_insert_item(spp, "128", plist_new_uint(1280));
 		plist_dict_insert_item(spp, "16", plist_new_uint(160));
 		plist_dict_insert_item(spp, "32", plist_new_uint(320));
 		plist_dict_insert_item(spp, "64", plist_new_uint(640));
