@@ -737,9 +737,16 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 		return -1;
 	}
 
-	if (!(client->flags & FLAG_CUSTOM) && (tss_response_get_ap_ticket(client->tss, &data, &len) < 0)) {
-		error("ERROR: Unable to get ticket from TSS\n");
-		return -1;
+	if (client->image4supported) {
+		if (!tss_response_get_ap_img4_ticket(client->tss, &data, &len) < 0) {
+			error("ERROR: Unable to get ApImg4Ticket from TSS\n");
+			return -1;
+		}
+	} else {
+		if (!(client->flags & FLAG_CUSTOM) && (tss_response_get_ap_ticket(client->tss, &data, &len) < 0)) {
+			error("ERROR: Unable to get ticket from TSS\n");
+			return -1;
+		}
 	}
 
 	dict = plist_new_dict();
