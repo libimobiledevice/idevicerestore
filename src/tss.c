@@ -358,6 +358,7 @@ int tss_request_add_ap_tags_from_manifest(plist_t request, plist_t build_identit
 		/* remove obsolete Info node */
 		plist_dict_remove_item(tss_entry, "Info");
 
+		/* FIXME: properly check RestoreRequestRules */
 		if (plist_access_path(manifest_entry, 2, "Info", "RestoreRequestRules")) {
 			plist_dict_insert_item(tss_entry, "EPRO", plist_new_bool(1));
 			plist_dict_insert_item(tss_entry, "ESEC", plist_new_bool(1));
