@@ -78,6 +78,7 @@ struct idevicerestore_client_t {
 	unsigned char* nonce;
 	int nonce_size;
 	int image4supported;
+	plist_t preflight_info;
 	char* udid;
 	char* srnm;
 	char* ipsw;

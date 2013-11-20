@@ -1708,10 +1708,30 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		plist_free(hwinfo);
 	}
 
+	if (plist_dict_get_item(client->tss, "BBTicket")) {
+		client->restore->bbtss = plist_copy(client->tss);
+	}
+
 	plist_t opts = plist_new_dict();
 	// FIXME: required?
 	//plist_dict_insert_item(opts, "AuthInstallRestoreBehavior", plist_new_string("Erase"));
 	plist_dict_insert_item(opts, "AutoBootDelay", plist_new_uint(0));
+
+	if (client->preflight_info) {
+		plist_t node;
+		plist_t bbus = plist_copy(client->preflight_info);	
+
+		plist_dict_remove_item(bbus, "FusingStatus");
+		plist_dict_remove_item(bbus, "PkHash");
+
+		plist_dict_insert_item(opts, "BBUpdaterState", bbus);
+
+		node = plist_dict_get_item(client->preflight_info, "Nonce");
+		if (node) {
+			plist_dict_insert_item(opts, "BasebandNonce", plist_copy(node));
+		}
+	}
+
 	// FIXME: new on iOS 5 ?
 	plist_dict_insert_item(opts, "BootImageType", plist_new_string("UserOrInternal"));
 	// FIXME: required?

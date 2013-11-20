@@ -1482,6 +1482,38 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		}
 	}
 
+	if (client->mode->index == MODE_NORMAL) {
+		/* normal mode; request baseband ticket aswell */
+		plist_free(parameters);
+		parameters = plist_new_dict();
+		plist_t pinfo = NULL;
+		normal_get_preflight_info(client, &pinfo);
+		if (pinfo) {
+			plist_t node;
+			node = plist_dict_get_item(pinfo, "Nonce");
+			if (node) {
+				plist_dict_insert_item(parameters, "BbNonce", plist_copy(node));
+			}
+			node = plist_dict_get_item(pinfo, "ChipID");
+			if (node) {
+				plist_dict_insert_item(parameters, "BbChipID", plist_copy(node));
+			}
+			node = plist_dict_get_item(pinfo, "CertID");
+			if (node) {
+				plist_dict_insert_item(parameters, "BbGoldCertId", plist_copy(node));
+			}
+			node = plist_dict_get_item(pinfo, "ChipSerialNo");
+			if (node) {
+				plist_dict_insert_item(parameters, "BbSNUM", plist_copy(node));
+			}
+		
+			/* add baseband parameters */
+			tss_request_add_baseband_tags_from_manifest(request, build_identity, NULL);
+			tss_request_add_baseband_tags(request, parameters);
+		}
+		client->preflight_info = pinfo;
+	}
+
 	/* send request and grab response */
 	response = tss_request_send(request, client->tss_url);
 	if (response == NULL) {
