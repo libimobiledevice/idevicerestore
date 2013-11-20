@@ -1764,6 +1764,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	// FIXME: not required for iOS 5?
 	//plist_dict_insert_item(opts, "UserLocale", plist_new_string("en_US"));
 
+	/* this is mandatory on iOS 7+ to allow restore from normal mode */
+	plist_dict_insert_item(opts, "PersonalizedDuringPreflight", plist_new_bool(1));
+
 	// start the restore process
 	restore_error = restored_start_restore(restore, opts, client->restore->protocol_version);
 	if (restore_error != RESTORE_E_SUCCESS) {
