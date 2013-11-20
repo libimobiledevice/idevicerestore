@@ -1577,6 +1577,11 @@ int personalize_component(const char *component_name, const unsigned char* compo
 				}
 			} else {
 				info("Not personalizing component %s...\n", component_name);
+				stitched_component = (unsigned char*)malloc(component_size);
+				if (stitched_component) {
+					stitched_component_size = component_size;
+					memcpy(stitched_component, component_data, component_size);
+				}
 			}
 
 			if (component_blob)
