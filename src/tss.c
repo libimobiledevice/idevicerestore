@@ -609,7 +609,7 @@ static int tss_response_get_data_by_key(plist_t response, const char* name, unsi
 }
 
 int tss_response_get_ap_img4_ticket(plist_t response, unsigned char** ticket, unsigned int* length) {
-	return tss_response_get_data_by_key(response, "APImg4Ticket", ticket, length);
+	return tss_response_get_data_by_key(response, "ApImg4Ticket", ticket, length);
 }
 
 int tss_response_get_ap_ticket(plist_t response, unsigned char** ticket, unsigned int* length) {
