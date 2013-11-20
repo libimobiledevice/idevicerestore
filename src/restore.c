@@ -1379,6 +1379,7 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		}
 
 		/* add baseband parameters */
+		tss_request_add_common_tags_from_manifest(request, build_identity, NULL);
 		tss_request_add_baseband_tags_from_manifest(request, build_identity, NULL);
 		tss_request_add_baseband_tags(request, parameters);
 
