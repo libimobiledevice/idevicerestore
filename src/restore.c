@@ -945,7 +945,13 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		component_data = NULL;
 		component_size = 0;
 
-		plist_array_append_item(norimage_array, plist_new_data((char*)nor_data, (uint64_t)nor_size));
+		/* make sure iBoot is the first entry in the array */
+		if (!strncmp("iBoot", filename, 4)) {
+			plist_array_insert_item(norimage_array, plist_new_data((char*)nor_data, (uint64_t)nor_size), 0);
+		} else {
+			plist_array_append_item(norimage_array, plist_new_data((char*)nor_data, (uint64_t)nor_size));
+		}
+
 		free(nor_data);
 		nor_data = NULL;
 		nor_size = 0;
