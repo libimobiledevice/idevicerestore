@@ -912,6 +912,8 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 
 	dict = plist_new_dict();
 	plist_dict_insert_item(dict, "LlbImageData", plist_new_data((char*)llb_data, (uint64_t) llb_size));
+	if (llb_data)
+		free(llb_data);
 
 	norimage_array = plist_new_array();
 
