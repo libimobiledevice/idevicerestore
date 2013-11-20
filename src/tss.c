@@ -121,6 +121,18 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters) {
 		node = NULL;
 	}
 
+	node = plist_dict_get_item(request, "ApProductionMode");
+	if (!node) {
+		/* ApProductionMode */
+		node = plist_dict_get_item(parameters, "ApProductionMode");
+		if (!node || plist_get_node_type(node) != PLIST_BOOLEAN) {
+			error("ERROR: Unable to find required ApProductionMode in parameters\n");
+			return -1;
+		}
+		plist_dict_insert_item(request, "ApProductionMode", plist_copy(node));
+		node = NULL;
+	}
+
 	/* ApSepNonce */
 	node = plist_dict_get_item(parameters, "ApSepNonce");
 	if (!node || plist_get_node_type(node) != PLIST_DATA) {
