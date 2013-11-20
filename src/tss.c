@@ -232,7 +232,7 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters) {
 	return 0;
 }
 
-int tss_request_add_ap_tags_from_manifest(plist_t request, plist_t build_identity, plist_t overrides) {
+int tss_request_add_common_tags_from_manifest(plist_t request, plist_t build_identity, plist_t overrides) {
 	plist_t node = NULL;
 	char* string = NULL;
 
@@ -291,6 +291,15 @@ int tss_request_add_ap_tags_from_manifest(plist_t request, plist_t build_identit
 	string = NULL;
 	node = NULL;
 
+	/* apply overrides */
+	if (overrides) {
+		plist_dict_merge(&request, overrides);
+	}
+
+	return 0;
+}
+
+int tss_request_add_ap_tags_from_manifest(plist_t request, plist_t build_identity, plist_t overrides) {
 	/* loop over components from build manifest */
 	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
 	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
