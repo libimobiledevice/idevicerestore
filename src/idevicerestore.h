@@ -88,7 +88,9 @@ int build_manifest_get_build_count(plist_t build_manifest);
 void build_identity_print_information(plist_t build_identity);
 int build_identity_get_component_path(plist_t build_identity, const char* component, char** path);
 int ipsw_extract_filesystem(const char* ipsw, plist_t build_identity, char** filesystem);
-int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* component, const char* path, unsigned char** data, unsigned int* size);
+int extract_component(const char* ipsw, const char* path, unsigned char** component_data, unsigned int* component_size);
+int personalize_component(const char *component, const unsigned char* component_data, unsigned int component_size, plist_t tss_response, unsigned char** personalized_component, unsigned int* personalized_component_size);
+
 const char* get_component_name(const char* filename);
 
 #ifdef __cplusplus

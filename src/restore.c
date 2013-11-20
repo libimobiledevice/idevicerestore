@@ -787,10 +787,24 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 		}
 	}
 
-	if (ipsw_get_component_by_path(client->ipsw, client->tss, "KernelCache", path, &data, &size) < 0) {
-		error("ERROR: Unable to get kernelcache file\n");
+	const char* component = "KernelCache";
+	unsigned char* component_data = NULL;
+	unsigned int component_size = 0;
+
+	if (extract_component(client->ipsw, path, &component_data, &component_size) < 0) {
+		error("ERROR: Unable to extract component: %s\n", component);
+		free(path);
 		return -1;
 	}
+
+	if (personalize_component(component, component_data, component_size, client->tss, &data, &size) < 0) {
+		error("ERROR: Unable to get personalized component: %s\n", component);
+		free(component_data);
+		free(path);
+		return -1;
+	}
+	free(component_data);
+	component_data = NULL;
 
 	dict = plist_new_dict();
 	blob = plist_new_data((char*)data, size);
@@ -864,10 +878,24 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		return -1;
 	}
 
-	if (ipsw_get_component_by_path(client->ipsw, client->tss, "LLB", llb_path, &llb_data, &llb_size) < 0) {
-		error("ERROR: Unable to get personalized LLB\n");
+	const char* component = "LLB";
+	unsigned char* component_data = NULL;
+	unsigned int component_size = 0;
+
+	if (extract_component(client->ipsw, llb_path, &component_data, &component_size) < 0) {
+		error("ERROR: Unable to extract component: %s\n", component);
+		free(llb_path);
 		return -1;
 	}
+
+	if (personalize_component(component, component_data, component_size, client->tss, &llb_data, &llb_size) < 0) {
+		error("ERROR: Unable to get personalized component: %s\n", component);
+		free(component_data);
+		free(llb_path);
+		return -1;
+	}
+	free(component_data);
+	component_data = NULL;
 
 	dict = plist_new_dict();
 	plist_dict_insert_item(dict, "LlbImageData", plist_new_data((char*)llb_data, (uint64_t) llb_size));
@@ -883,10 +911,25 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		}
 		memset(firmware_filename, '\0', sizeof(firmware_filename));
 		snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
-		if (ipsw_get_component_by_path(client->ipsw, client->tss, get_component_name(filename), firmware_filename, &nor_data, &nor_size) < 0) {
-			error("ERROR: Unable to get personalized firmware file %s\n", firmware_filename);
-			break;
+
+		component = get_component_name(filename);
+		component_data = NULL;
+		unsigned int component_size = 0;
+
+		if (extract_component(client->ipsw, firmware_filename, &component_data, &component_size) < 0) {
+			error("ERROR: Unable to extract component: %s\n", component);
+			free(llb_path);
+			return -1;
 		}
+
+		if (personalize_component(component, component_data, component_size, client->tss, &nor_data, &nor_size) < 0) {
+			error("ERROR: Unable to get personalized component: %s\n", component);
+			free(component_data);
+			free(llb_path);
+			return -1;
+		}
+		free(component_data);
+		component_data = NULL;
 
 		plist_array_append_item(norimage_array, plist_new_data((char*)nor_data, (uint64_t)nor_size));
 		free(nor_data);

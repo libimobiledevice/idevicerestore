@@ -158,10 +158,12 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 	}
 
 	if ((client->build_major > 8) && !(client->flags & FLAG_CUSTOM)) {
-		/* send ApTicket */
-		if (recovery_send_ticket(client) < 0) {
-			error("ERROR: Unable to send APTicket\n");
-			return -1;
+		if (!client->image4supported) {
+			/* send ApTicket */
+			if (recovery_send_ticket(client) < 0) {
+				error("ERROR: Unable to send APTicket\n");
+				return -1;
+			}
 		}
 	}
 
@@ -280,11 +282,23 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 		}
 	}
 
-	if (ipsw_get_component_by_path(client->ipsw, client->tss, component, path, &data, &size) < 0) {
-		error("ERROR: Unable to get component: %s\n", component);
+	unsigned char* component_data = NULL;
+	unsigned int component_size = 0;
+
+	if (extract_component(client->ipsw, path, &component_data, &component_size) < 0) {
+		error("ERROR: Unable to extract component: %s\n", component);
 		free(path);
 		return -1;
 	}
+
+	if (personalize_component(component, component_data, component_size, client->tss, &data, &size) < 0) {
+		error("ERROR: Unable to get personalized component: %s\n", component);
+		free(component_data);
+		free(path);
+		return -1;
+	}
+	free(component_data);
+	component_data = NULL;	
 
 	info("Sending %s (%d bytes)...\n", component, size);
 
@@ -342,7 +356,7 @@ int recovery_send_applelogo(struct idevicerestore_client_t* client, plist_t buil
 		return -1;
 	}
 
-	recovery_error = irecv_send_command(client->recovery->client, "setpicture 0");
+	recovery_error = irecv_send_command(client->recovery->client, "setpicture 2");
 	if (recovery_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to set %s\n", component);
 		return -1;
@@ -390,6 +404,9 @@ int recovery_send_ramdisk(struct idevicerestore_client_t* client, plist_t build_
 			return -1;
 		}
 	}
+
+	irecv_send_command(client->recovery->client, "getenv ramdisk-size");
+	irecv_receive(client->recovery->client);
 
 	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);

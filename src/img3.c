@@ -402,39 +402,41 @@ static int img3_get_data(img3_file* image, unsigned char** pdata, unsigned int* 
 	return 0;
 }
 
-int img3_stitch_component(const unsigned char* component, unsigned int component_size, const unsigned char* blob, unsigned int blob_size, unsigned char** img3_data, unsigned int *img3_size)
+int img3_stitch_component(const char* component_name, const unsigned char* component_data, unsigned int component_size, const unsigned char* blob, unsigned int blob_size, unsigned char** img3_data, unsigned int *img3_size)
 {
 	img3_file *img3 = NULL;
 	unsigned char* outbuf = NULL;
 	unsigned int outsize = 0;
 
-	if (!component || component_size == 0 || !blob || blob_size == 0 || !img3_data || !img3_size) {
+	if (!component_name || !component_data || component_size == 0 || !blob || blob_size == 0 || !img3_data || !img3_size) {
 		return -1;
 	}
+
+	info("Personalizing IMG3 component %s...\n", component_name);
 	
 	/* parse current component as img3 */
-	img3 = img3_parse_file(component, component_size);
+	img3 = img3_parse_file(component_data, component_size);
 	if (img3 == NULL) {
-		error("ERROR: Unable to parse IMG3 file\n");
+		error("ERROR: Unable to parse %s IMG3 file\n", component_name);
 		return -1;
 	}
 
 	if (((img3_element_header*)blob)->full_size != blob_size) {
-		error("ERROR: the size %d embedded in the blob does not match the passed size of %d\n", ((img3_element_header*)blob)->full_size, blob_size);
+		error("ERROR: Invalid blob passed for %s IMG3: The size %d embedded in the blob does not match the passed size of %d\n", component_name, ((img3_element_header*)blob)->full_size, blob_size, component_name);
 		img3_free(img3);
 		return -1;
 	}
 
 	/* personalize the component using the blob */
 	if (img3_replace_signature(img3, blob) < 0) {
-		error("ERROR: Unable to replace IMG3 signature\n");
+		error("ERROR: Unable to replace %s IMG3 signature\n", component_name);
 		img3_free(img3);
 		return -1;
 	}
 
 	/* get the img3 file as data */
 	if (img3_get_data(img3, &outbuf, &outsize) < 0) {
-		error("ERROR: Unable to reconstruct IMG3\n");
+		error("ERROR: Unable to reconstruct %s IMG3\n", component_name);
 		img3_free(img3);
 		return -1;
 	}

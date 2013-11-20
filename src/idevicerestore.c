@@ -34,6 +34,7 @@
 #include "dfu.h"
 #include "tss.h"
 #include "img3.h"
+#include "img4.h"
 #include "ipsw.h"
 #include "common.h"
 #include "normal.h"
@@ -788,9 +789,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		client->mode = &idevicerestore_modes[MODE_RECOVERY];
 	} else {
 		if ((client->build_major > 8) && !(client->flags & FLAG_CUSTOM)) {
-			/* send ApTicket */
-			if (recovery_send_ticket(client) < 0) {
-				error("WARNING: Unable to send APTicket\n");
+			if (!client->image4supported) {
+				/* send ApTicket */
+				if (recovery_send_ticket(client) < 0) {
+					error("WARNING: Unable to send APTicket\n");
+				}
 			}
 		}
 
@@ -1520,13 +1523,12 @@ int build_manifest_get_identity_count(plist_t build_manifest) {
 	return plist_array_get_size(build_identities_array);
 }
 
-int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* component, const char* path, unsigned char** data, unsigned int* size) {
-	unsigned int component_size = 0;
-	unsigned char* component_data = NULL;
-	unsigned char* component_blob = NULL;
+int extract_component(const char* ipsw, const char* path, unsigned char** component_data, unsigned int* component_size)
+{
 	char* component_name = NULL;
-	unsigned char* stitched_component = NULL;
-	unsigned int stitched_component_size = 0;
+	if (!ipsw || !path || !component_data || !component_size) {
+		return -1;
+	}
 
 	component_name = strrchr(path, '/');
 	if (component_name != NULL)
@@ -1535,50 +1537,51 @@ int ipsw_get_component_by_path(const char* ipsw, plist_t tss, const char* compon
 		component_name = (char*) path;
 
 	info("Extracting %s...\n", component_name);
-
-	if (ipsw_extract_to_memory(ipsw, path, &component_data, &component_size) < 0) {
+	if (ipsw_extract_to_memory(ipsw, path, component_data, component_size) < 0) {
 		error("ERROR: Unable to extract %s from %s\n", component_name, ipsw);
 		return -1;
 	}
 
-	if (tss) {
-		/* try to get blob for current component from tss response */
-		if (component) {
-			if (tss_response_get_blob_by_entry(tss, component, &component_blob) < 0) {
-				debug("NOTE: No SHSH blob found for TSS entry %s from component %s\n", component_name, component);
-			}
+	return 0;
+}
+
+int personalize_component(const char *component_name, const unsigned char* component_data, unsigned int component_size, plist_t tss_response, unsigned char** personalized_component, unsigned int* personalized_component_size) {
+	unsigned char* component_blob = NULL;
+	unsigned int component_blob_size = 0;
+	unsigned char* stitched_component = NULL;
+	unsigned int stitched_component_size = 0;
+
+	if (tss_response) {
+		if (tss_response_get_ap_img4_ticket(tss_response, &component_blob, &component_blob_size) == 0) {
+			/* stitch ApImg4Ticket into IMG4 file */
+			img4_stitch_component(component_name, component_data, component_size, component_blob, component_blob_size, &stitched_component, &stitched_component_size);
 		} else {
-			if (tss_response_get_blob_by_path(tss, path, &component_blob) < 0) {
-				debug("NOTE: No SHSH blob found for TSS entry %s from path %s\n", component_name, path);
+			/* try to get blob for current component from tss response */
+			if (tss_response_get_blob_by_entry(tss_response, component_name, &component_blob) < 0) {
+				debug("NOTE: No SHSH blob found for component %s\n", component_name);
 			}
-		}
 
-		if (component_blob != NULL) {
-			info("Personalizing component %s...\n", component_name);
+			if (component_blob != NULL) {
+				if (img3_stitch_component(component_name, component_data, component_size, component_blob, 64, &stitched_component, &stitched_component_size) < 0) {
+					error("ERROR: Unable to replace %s IMG3 signature\n", component_name);
+					free(component_blob);
+					return -1;
+				}
+			} else {
+				info("Not personalizing component %s...\n", component_name);
+			}
 
-			if (img3_stitch_component(component_data, component_size, component_blob, 64, &stitched_component, &stitched_component_size) < 0) {
-				error("ERROR: Unable to replace IMG3 signature\n");
+			if (component_blob)
 				free(component_blob);
-				return -1;
-			}
-
-			free(component_data);
-			component_data = stitched_component;
-			component_size = stitched_component_size;
-		} else {
-			info("Not personalizing component %s...\n", component_name);
 		}
-
-		if (component_blob)
-			free(component_blob);
 	}
 
 	if (idevicerestore_debug) {
-		write_file(component_name, component_data, component_size);
+		write_file(component_name, stitched_component, stitched_component_size);
 	}
 
-	*data = component_data;
-	*size = component_size;
+	*personalized_component = stitched_component;
+	*personalized_component_size = stitched_component_size;
 	return 0;
 }
 

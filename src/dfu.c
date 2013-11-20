@@ -179,11 +179,23 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 		}
 	}
 
-	if (ipsw_get_component_by_path(client->ipsw, client->tss, component, path, &data, &size) < 0) {
-		error("ERROR: Unable to get component: %s\n", component);
+	unsigned char* component_data = NULL;
+	unsigned int component_size = 0;
+
+	if (extract_component(client->ipsw, path, &component_data, &component_size) < 0) {
+		error("ERROR: Unable to extract component: %s\n", component);
 		free(path);
 		return -1;
 	}
+
+	if (personalize_component(component, component_data, component_size, client->tss, &data, &size) < 0) {
+		error("ERROR: Unable to get personalized component: %s\n", component);
+		free(component_data);
+		free(path);
+		return -1;
+	}
+	free(component_data);
+	component_data = NULL;
 
 	if (!(client->flags & FLAG_CUSTOM) && (strcmp(component, "iBEC") == 0)) {
 		unsigned char* ticket = NULL;
