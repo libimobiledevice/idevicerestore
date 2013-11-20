@@ -104,7 +104,7 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters) {
 	if (!node) {
 		/* copy from parameters if available */
 		node = plist_dict_get_item(parameters, "ApSecurityMode");
-		if (!node || plist_get_node_type(node) != PLIST_UINT) {
+		if (!node || plist_get_node_type(node) != PLIST_BOOLEAN) {
 			error("ERROR: Unable to find required ApSecurityMode in parameters\n");
 			return -1;
 		}
