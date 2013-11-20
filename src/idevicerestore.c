@@ -1622,6 +1622,7 @@ int build_manifest_check_compatibility(plist_t build_manifest, const char* produ
 			plist_get_string_val(prod, &val);
 			if (val && (strcmp(val, product) == 0)) {
 				res = 0;
+				free(val);
 				break;
 			}
 		}
