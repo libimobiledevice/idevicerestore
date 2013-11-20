@@ -813,7 +813,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.5);
 
-	if (client->build_major > 8) {
+	if (!client->image4supported && (client->build_major > 8)) {
 		// we need another tss request with nonce.
 		unsigned char* nonce = NULL;
 		int nonce_size = 0;
