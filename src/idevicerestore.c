@@ -1436,6 +1436,14 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		return -1;
 	}
 
+	/* add common tags from manifest */
+	if (tss_request_add_common_tags_from_manifest(request, build_identity, NULL) < 0) {
+		error("ERROR: Unable to add common tags to TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
 	/* add tags from manifest */
 	if (tss_request_add_ap_tags_from_manifest(request, build_identity, NULL) < 0) {
 		error("ERROR: Unable to create TSS request\n");
