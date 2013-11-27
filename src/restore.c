@@ -1410,6 +1410,8 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	uint64_t bb_nonce_size = 0;
 	uint64_t bb_chip_id = 0;
 	plist_t response = NULL;
+	char* buffer = NULL;
+	char* bbfwtmp = NULL;
 
 	info("About to send BasebandData...\n");
 
@@ -1447,6 +1449,8 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		plist_dict_insert_item(parameters, "BbGoldCertId", plist_new_uint(bb_cert_id));
 		plist_dict_insert_item(parameters, "BbSNUM", plist_new_data((const char*)bb_snum, bb_snum_size));
 
+		tss_parameters_add_from_manifest(parameters, build_identity);
+
 		/* create baseband request */
 		plist_t request = tss_request_new(NULL);
 		if (request == NULL) {
@@ -1456,9 +1460,8 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		}
 
 		/* add baseband parameters */
-		tss_request_add_common_tags_from_manifest(request, build_identity, NULL);
-		tss_request_add_baseband_tags_from_manifest(request, build_identity, NULL);
-		tss_request_add_baseband_tags(request, parameters);
+		tss_request_add_common_tags(request, parameters, NULL);
+		tss_request_add_baseband_tags(request, parameters, NULL);
 
 		if (idevicerestore_debug)
 			debug_plist(request);
@@ -1493,7 +1496,7 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	}
 
 	// extract baseband firmware to temp file
-	char* bbfwtmp = tempnam(NULL, "bbfw_");
+	bbfwtmp = tempnam(NULL, "bbfw_");
 	if (!bbfwtmp) {
 		error("WARNING: Could not generate temporary filename, using bbfw.tmp\n");
 		bbfwtmp = strdup("bbfw.tmp");
@@ -1517,7 +1520,6 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 
 	res = -1;
 	
-	char* buffer = NULL;
 	size_t sz = 0;
 	if (read_file(bbfwtmp, (void**)&buffer, &sz) < 0) {
 		error("ERROR: could not read updated bbfw archive\n");

@@ -1438,7 +1438,12 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 	plist_dict_insert_item(parameters, "ApProductionMode", plist_new_bool(1));
 	if (client->image4supported) {
 		plist_dict_insert_item(parameters, "ApSecurityMode", plist_new_bool(1));
+		plist_dict_insert_item(parameters, "ApSupportsImg4", plist_new_bool(1));
+	} else {
+		plist_dict_insert_item(parameters, "ApSupportsImg4", plist_new_bool(0));
 	}
+
+	tss_parameters_add_from_manifest(parameters, build_identity);
 
 	/* create basic request */
 	request = tss_request_new(NULL);
@@ -1449,7 +1454,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 	}
 
 	/* add common tags from manifest */
-	if (tss_request_add_common_tags_from_manifest(request, build_identity, NULL) < 0) {
+	if (tss_request_add_common_tags(request, parameters, NULL) < 0) {
 		error("ERROR: Unable to add common tags to TSS request\n");
 		plist_free(request);
 		plist_free(parameters);
@@ -1457,7 +1462,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 	}
 
 	/* add tags from manifest */
-	if (tss_request_add_ap_tags_from_manifest(request, build_identity, NULL) < 0) {
+	if (tss_request_add_ap_tags(request, parameters, NULL) < 0) {
 		error("ERROR: Unable to add common tags to TSS request\n");
 		plist_free(request);
 		plist_free(parameters);
@@ -1484,8 +1489,6 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 
 	if (client->mode->index == MODE_NORMAL) {
 		/* normal mode; request baseband ticket aswell */
-		plist_free(parameters);
-		parameters = plist_new_dict();
 		plist_t pinfo = NULL;
 		normal_get_preflight_info(client, &pinfo);
 		if (pinfo) {
@@ -1508,8 +1511,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 			}
 		
 			/* add baseband parameters */
-			tss_request_add_baseband_tags_from_manifest(request, build_identity, NULL);
-			tss_request_add_baseband_tags(request, parameters);
+			tss_request_add_baseband_tags(request, parameters, NULL);
 		}
 		client->preflight_info = pinfo;
 	}
