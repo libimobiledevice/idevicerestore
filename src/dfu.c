@@ -161,7 +161,6 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	uint32_t size = 0;
 	unsigned char* data = NULL;
 	char* path = NULL;
-	unsigned char* blob = NULL;
 	irecv_error_t err = 0;
 	int flag = 1;
 
@@ -235,8 +234,6 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 }
 
 int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid) {
-	irecv_error_t dfu_error = IRECV_E_SUCCESS;
-
 	if(client->dfu == NULL) {
 		if (dfu_client_new(client) < 0) {
 			return -1;
@@ -254,8 +251,6 @@ int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid) {
 }
 
 int dfu_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
-	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-
 	if(client->dfu == NULL) {
 		if (dfu_client_new(client) < 0) {
 			return -1;
@@ -289,8 +284,6 @@ int dfu_is_image4_supported(struct idevicerestore_client_t* client)
 }
 
 int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
-	irecv_error_t dfu_error = IRECV_E_SUCCESS;
-
 	if(client->dfu == NULL) {
 		if (dfu_client_new(client) < 0) {
 			return -1;
@@ -315,8 +308,6 @@ int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** non
 }
 
 int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
-	irecv_error_t dfu_error = IRECV_E_SUCCESS;
-
 	if(client->dfu == NULL) {
 		if (dfu_client_new(client) < 0) {
 			return -1;
