@@ -49,6 +49,7 @@
 
 #define VERSION_XML "version.xml"
 
+#ifndef IDEVICERESTORE_NOMAIN
 static struct option longopts[] = {
 	{ "ecid",    required_argument, NULL, 'i' },
 	{ "udid",    required_argument, NULL, 'u' },
@@ -65,6 +66,7 @@ static struct option longopts[] = {
 	{ "cache-path", required_argument, NULL, 'C' },
 	{ NULL, 0, NULL, 0 }
 };
+#endif
 
 void usage(int argc, char* argv[]) {
 	char* name = strrchr(argv[0], '/');
@@ -231,7 +233,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			// make a local file name
 			char* fnpart = strrchr(s_wtfurl, '/');
 			if (!fnpart) {
-				fnpart = "x12220000_5_Recovery.ipsw";
+				fnpart = (char*)"x12220000_5_Recovery.ipsw";
 			} else {
 				fnpart++;
 			}
@@ -1170,7 +1172,6 @@ int check_mode(struct idevicerestore_client_t* client) {
 
 const char* check_product_type(struct idevicerestore_client_t* client) {
 	const char* product_type = NULL;
-	irecv_device_t res = NULL;
 
 	switch (client->mode->index) {
 	case MODE_RESTORE:
