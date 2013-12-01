@@ -172,9 +172,6 @@ int normal_open_with_timeout(struct idevicerestore_client_t* client) {
 	int i = 0;
 	int attempts = 10;
 	idevice_t device = NULL;
-	lockdownd_client_t lockdownd = NULL;
-	idevice_error_t device_error = IDEVICE_E_SUCCESS;
-	lockdownd_error_t lockdownd_error = LOCKDOWN_E_SUCCESS;
 
 	// no context exists so bail
 	if(client == NULL) {
@@ -212,13 +209,11 @@ int normal_open_with_timeout(struct idevicerestore_client_t* client) {
 }
 
 const char* normal_check_product_type(struct idevicerestore_client_t* client) {
-	int i = 0;
 	idevice_t device = NULL;
 	char* product_type = NULL;
 	irecv_device_t irecv_device = NULL;
 	plist_t product_type_node = NULL;
 	lockdownd_client_t lockdown = NULL;
-	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	lockdownd_error_t lockdown_error = IDEVICE_E_SUCCESS;
 
 	normal_idevice_new(client, &device);
@@ -296,7 +291,6 @@ int normal_enter_recovery(struct idevicerestore_client_t* client) {
 	idevice_t device = NULL;
 	irecv_client_t recovery = NULL;
 	lockdownd_client_t lockdown = NULL;
-	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
