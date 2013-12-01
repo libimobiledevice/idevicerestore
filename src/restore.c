@@ -196,12 +196,10 @@ int restore_check_mode(struct idevicerestore_client_t* client) {
 }
 
 const char* restore_check_product_type(struct idevicerestore_client_t* client) {
-	int i = 0;
 	char* model = NULL;
 	plist_t node = NULL;
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
-	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 	char* product_type = NULL;
 	irecv_device_t irecv_device = NULL;
@@ -278,10 +276,6 @@ void restore_device_callback(const idevice_event_t* event, void* userdata) {
 }
 
 int restore_reboot(struct idevicerestore_client_t* client) {
-	idevice_t device = NULL;
-	restored_client_t restore = NULL;
-	restored_error_t restore_error = RESTORE_E_SUCCESS;
-
 	if(client->restore == NULL) {
 		if (restore_open_with_timeout(client) < 0) {
 			error("ERROR: Unable to open device in restore mode\n");
@@ -377,7 +371,6 @@ static void restore_device_event_cb(const idevice_event_t *event, void *user_dat
 
 int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 	int i = 0;
-	int j = 0;
 	int attempts = 180;
 	char *type = NULL;
 	uint64_t version = 0;
@@ -551,7 +544,7 @@ int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t 
 	plist_get_uint_val(node, &progress);
 
 	if ((progress > 0) && (progress <= 100)) {
-		if (operation != lastop) {
+		if ((int)operation != lastop) {
 			info("%s (%d)\n", restore_progress_string(operation), (int)operation);
 		}
 		switch ((int)operation) {
@@ -571,7 +564,7 @@ int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t 
 	} else {
 		info("%s (%d)\n", restore_progress_string(operation), (int)operation);
 	}
-	lastop = operation;
+	lastop = (int)operation;
 
 	return 0;
 }
@@ -686,11 +679,7 @@ void restore_asr_progress_cb(double progress, void* userdata)
 }
 
 int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t device, const char* filesystem) {
-	int i = 0;
-	FILE* file = NULL;
-	plist_t data = NULL;
 	asr_client_t asr = NULL;
-	idevice_error_t device_error = IDEVICE_E_UNKNOWN_ERROR;
 
 	info("About to send filesystem...\n");
 
@@ -1412,6 +1401,7 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	plist_t response = NULL;
 	char* buffer = NULL;
 	char* bbfwtmp = NULL;
+	plist_t dict = NULL;
 
 	info("About to send BasebandData...\n");
 
@@ -1527,7 +1517,7 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	}
 
 	// send file
-	plist_t dict = plist_new_dict();
+	dict = plist_new_dict();
 	plist_dict_insert_item(dict, "BasebandData", plist_new_data(buffer, (uint64_t)sz));
 	free(buffer);
 	buffer = NULL;
@@ -1626,13 +1616,11 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 int restore_device(struct idevicerestore_client_t* client, plist_t build_identity, const char* filesystem) {
 	int err = 0;
 	char* type = NULL;
-	char* kernel = NULL;
 	plist_t node = NULL;
 	plist_t message = NULL;
 	plist_t hwinfo = NULL;
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
-	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
 	restore_finished = 0;
