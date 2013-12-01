@@ -325,7 +325,6 @@ int asr_send_payload(asr_client_t asr, const char* filesystem) {
 	char data[ASR_PAYLOAD_PACKET_SIZE];
 	FILE* file = NULL;
 	uint32_t bytes = 0;
-	uint32_t count = 0;
 	uint32_t length = 0;
 	double progress = 0;
 
