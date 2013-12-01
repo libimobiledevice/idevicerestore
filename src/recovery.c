@@ -142,9 +142,6 @@ int recovery_set_autoboot(struct idevicerestore_client_t* client, int enable) {
 }
 
 int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build_identity) {
-	idevice_t device = NULL;
-	restored_client_t restore = NULL;
-
 	if (client->build_major >= 8) {
 		client->restore_boot_args = strdup("rd=md0 nand-enable-reformat=1 -progress");
 	}
@@ -265,7 +262,6 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 	unsigned int size = 0;
 	unsigned char* data = NULL;
 	char* path = NULL;
-	char* blob = NULL;
 	irecv_error_t err = 0;
 
 	if (client->tss) {
@@ -460,8 +456,6 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t bu
 }
 
 int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
-	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-
 	if(client->recovery == NULL) {
 		if (recovery_client_new(client) < 0) {
 			return -1;
@@ -495,8 +489,6 @@ int recovery_is_image4_supported(struct idevicerestore_client_t* client)
 }
 
 int recovery_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
-	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-
 	if(client->recovery == NULL) {
 		if (recovery_client_new(client) < 0) {
 			return -1;
@@ -521,8 +513,6 @@ int recovery_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char*
 }
 
 int recovery_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
-	irecv_error_t recovery_error = IRECV_E_SUCCESS;
-
 	if(client->recovery == NULL) {
 		if (recovery_client_new(client) < 0) {
 			return -1;
@@ -548,7 +538,7 @@ int recovery_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char
 
 int recovery_send_reset(struct idevicerestore_client_t* client)
 {
-	irecv_error_t recovery_error = irecv_send_command(client->recovery->client, "reset");
+	irecv_send_command(client->recovery->client, "reset");
 	return 0;
 }
 
