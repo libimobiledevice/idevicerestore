@@ -146,6 +146,7 @@ static int load_version_data(struct idevicerestore_client_t* client)
 	free(verbuf);
 
 	if (!client->version_data) {
+		remove(version_xml);
 		error("ERROR: Cannot parse plist data from '%s'.\n", version_xml);
 		return -1;
 	}
