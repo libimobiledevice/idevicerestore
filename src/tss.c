@@ -827,7 +827,7 @@ int tss_response_get_path_by_entry(plist_t response, const char* entry, char** p
 }
 
 int tss_response_get_blob_by_path(plist_t tss, const char* path, unsigned char** blob) {
-	int i = 0;
+	uint32_t i = 0;
 	uint32_t tss_size = 0;
 	uint64_t blob_size = 0;
 	char* entry_key = NULL;
