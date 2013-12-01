@@ -35,7 +35,6 @@ static void fls_parse_elements(fls_file* fls)
 		return;
 	}
 	uint32_t offset = 0;
-	uint32_t max = fls->size;
 	fls->max_elements = 32;
 	fls->elements = (fls_element**)malloc(sizeof(fls_element*) * fls->max_elements);
 
@@ -159,7 +158,7 @@ int fls_update_sig_blob(fls_file* fls, const unsigned char* sigdata, unsigned in
 	uint32_t oldsiglen = datasize - sigoffset;
 	uint32_t newsize = fls->size - oldsiglen + siglen;
 
-	int i;
+	unsigned int i;
 	uint32_t offset = 0;
 	void* newdata = malloc(newsize);
 	if (!newdata) {
@@ -257,7 +256,7 @@ int fls_insert_ticket(fls_file* fls, const unsigned char* data, unsigned int siz
 		padding = 4-(size%4);
 	}
 	uint32_t newsize = fls->size + size + padding;
-	int i;
+	unsigned int i;
 	uint32_t offset = 0;
 	void* newdata = malloc(newsize);
 	if (!newdata) {
