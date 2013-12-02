@@ -1607,34 +1607,32 @@ int personalize_component(const char *component_name, const unsigned char* compo
 	unsigned char* stitched_component = NULL;
 	unsigned int stitched_component_size = 0;
 
-	if (tss_response) {
-		if (tss_response_get_ap_img4_ticket(tss_response, &component_blob, &component_blob_size) == 0) {
-			/* stitch ApImg4Ticket into IMG4 file */
-			img4_stitch_component(component_name, component_data, component_size, component_blob, component_blob_size, &stitched_component, &stitched_component_size);
-		} else {
-			/* try to get blob for current component from tss response */
-			if (tss_response_get_blob_by_entry(tss_response, component_name, &component_blob) < 0) {
-				debug("NOTE: No SHSH blob found for component %s\n", component_name);
-			}
-
-			if (component_blob != NULL) {
-				if (img3_stitch_component(component_name, component_data, component_size, component_blob, 64, &stitched_component, &stitched_component_size) < 0) {
-					error("ERROR: Unable to replace %s IMG3 signature\n", component_name);
-					free(component_blob);
-					return -1;
-				}
-			} else {
-				info("Not personalizing component %s...\n", component_name);
-				stitched_component = (unsigned char*)malloc(component_size);
-				if (stitched_component) {
-					stitched_component_size = component_size;
-					memcpy(stitched_component, component_data, component_size);
-				}
-			}
-
-			if (component_blob)
-				free(component_blob);
+	if (tss_response && tss_response_get_ap_img4_ticket(tss_response, &component_blob, &component_blob_size) == 0) {
+		/* stitch ApImg4Ticket into IMG4 file */
+		img4_stitch_component(component_name, component_data, component_size, component_blob, component_blob_size, &stitched_component, &stitched_component_size);
+	} else {
+		/* try to get blob for current component from tss response */
+		if (tss_response && tss_response_get_blob_by_entry(tss_response, component_name, &component_blob) < 0) {
+			debug("NOTE: No SHSH blob found for component %s\n", component_name);
 		}
+
+		if (component_blob != NULL) {
+			if (img3_stitch_component(component_name, component_data, component_size, component_blob, 64, &stitched_component, &stitched_component_size) < 0) {
+				error("ERROR: Unable to replace %s IMG3 signature\n", component_name);
+				free(component_blob);
+				return -1;
+			}
+		} else {
+			info("Not personalizing component %s...\n", component_name);
+			stitched_component = (unsigned char*)malloc(component_size);
+			if (stitched_component) {
+				stitched_component_size = component_size;
+				memcpy(stitched_component, component_data, component_size);
+			}
+		}
+
+		if (component_blob)
+			free(component_blob);
 	}
 
 	if (idevicerestore_debug) {
