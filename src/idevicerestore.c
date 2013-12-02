@@ -307,7 +307,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	if (client->flags & FLAG_LATEST) {
 		char* ipsw = NULL;
-		int res = ipsw_download_latest_fw(client->version_data, client->device->product_type, "cache", &ipsw);
+		int res = ipsw_download_latest_fw(client->version_data, client->device->product_type, client->cache_dir, &ipsw);
 		if (res != 0) {
 			if (ipsw) {
 				free(ipsw);

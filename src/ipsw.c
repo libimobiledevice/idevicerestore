@@ -435,7 +435,11 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 	info("Latest firmware is %s\n", fwfn);
 
 	char fwlfn[256];
-	sprintf(fwlfn, "%s/%s", todir, fwfn);
+	if (todir) {
+		sprintf(fwlfn, "%s/%s", todir, fwfn);
+	} else {
+		sprintf(fwlfn, "%s", fwfn);
+	}
 
 	char fwlock[256];
 	sprintf(fwlock, "%s.lock", fwlfn);
