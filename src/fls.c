@@ -54,7 +54,7 @@ static void fls_parse_elements(fls_file* fls)
 			fls_0c_element* xe = (fls_0c_element*)malloc(sizeof(fls_0c_element));
 			memset(xe, '\0', sizeof(fls_0c_element));
 			memcpy((void*)xe, p, hdrsize);
-			xe->data = (xe->size > hdrsize) ? xe->data = p + hdrsize : NULL;
+			xe->data = (xe->size > hdrsize) ? p + hdrsize : NULL;
 			ne = (fls_element*)xe;
 			fls->c_element = xe;
 			}
@@ -65,7 +65,7 @@ static void fls_parse_elements(fls_file* fls)
 			fls_10_element* xe = (fls_10_element*)malloc(sizeof(fls_10_element));
 			memset(xe, '\0', sizeof(fls_10_element));
 			memcpy((void*)xe, p, hdrsize);
-			xe->data = (xe->size > hdrsize) ? xe->data = p + hdrsize : NULL;
+			xe->data = (xe->size > hdrsize) ? p + hdrsize : NULL;
 			ne = (fls_element*)xe;
 			}
 			break;
@@ -75,7 +75,7 @@ static void fls_parse_elements(fls_file* fls)
 			fls_14_element* xe = (fls_14_element*)malloc(sizeof(fls_14_element));
 			memset(xe, '\0', sizeof(fls_14_element));
 			memcpy((void*)xe, p, hdrsize);
-			xe->data = (xe->size > hdrsize) ? xe->data = p + hdrsize : NULL;
+			xe->data = (xe->size > hdrsize) ? p + hdrsize : NULL;
 			ne = (fls_element*)xe;
 			}
 			break;
@@ -85,7 +85,7 @@ static void fls_parse_elements(fls_file* fls)
 			memset(ne, '\0', sizeof(fls_element));
 			ne->type = cur->type;
 			ne->size = cur->size;
-			ne->data = (ne->size > hdrsize) ? ne->data = p + hdrsize : NULL;
+			ne->data = (ne->size > hdrsize) ? p + hdrsize : NULL;
 			break;
 		}
 		if ((fls->num_elements + 1) > fls->max_elements) {
