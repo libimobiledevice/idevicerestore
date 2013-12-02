@@ -140,13 +140,13 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	int bb_chip_id = 0;
 	char* bb_chip_id_string = NULL;
 	node = plist_dict_get_item(build_identity, "BbChipID");
-	if (!node || plist_get_node_type(node) != PLIST_STRING) {
-		error("ERROR: Unable to find BbChipID node\n");
-		return -1;
+	if (node && plist_get_node_type(node) == PLIST_STRING) {
+		plist_get_string_val(node, &bb_chip_id_string);
+		sscanf(bb_chip_id_string, "%x", &bb_chip_id);
+		plist_dict_insert_item(parameters, "BbChipID", plist_new_uint(bb_chip_id));
+	} else {
+		error("WARNING: Unable to find BbChipID node\n");
 	}
-	plist_get_string_val(node, &bb_chip_id_string);
-	sscanf(bb_chip_id_string, "%x", &bb_chip_id);
-	plist_dict_insert_item(parameters, "BbChipID", plist_new_uint(bb_chip_id));
 	node = NULL;
 
 	/* BbProvisioningManifestKeyHash */
