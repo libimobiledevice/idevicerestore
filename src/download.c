@@ -91,7 +91,7 @@ int download_to_buffer(const char* url, char** buf, uint32_t* length)
 
 static int lastprogress = 0;
 
-int download_progress(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow)
+static int download_progress(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow)
 {
 	double p = (dlnow / dltotal) * 100;
 
