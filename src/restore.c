@@ -670,7 +670,7 @@ int restore_handle_bb_update_status_msg(restored_client_t client, plist_t msg)
 	return result;
 }
 
-void restore_asr_progress_cb(double progress, void* userdata)
+static void restore_asr_progress_cb(double progress, void* userdata)
 {
 	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*)userdata;
 	if (client) {
