@@ -34,7 +34,7 @@
 
 static unsigned char* asn1_create_element_header(unsigned char type, unsigned int size, unsigned char** data, unsigned int *data_size)
 {
-	unsigned char buf[5];
+	unsigned char buf[6];
 	unsigned int off = 0;
 
 	if (!type || size == 0 || !data || !data_size) {
