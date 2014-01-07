@@ -289,7 +289,6 @@ const char* normal_check_product_type(struct idevicerestore_client_t* client) {
 
 int normal_enter_recovery(struct idevicerestore_client_t* client) {
 	idevice_t device = NULL;
-	irecv_client_t recovery = NULL;
 	lockdownd_client_t lockdown = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
@@ -326,7 +325,6 @@ int normal_enter_recovery(struct idevicerestore_client_t* client) {
 	}
 
 	client->mode = &idevicerestore_modes[MODE_RECOVERY];
-	recovery = NULL;
 	return 0;
 }
 
