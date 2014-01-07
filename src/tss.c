@@ -607,7 +607,7 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t o
 	return 0;
 }
 
-size_t tss_write_callback(char* data, size_t size, size_t nmemb, tss_response* response) {
+static size_t tss_write_callback(char* data, size_t size, size_t nmemb, tss_response* response) {
 	size_t total = size * nmemb;
 	if (total != 0) {
 		response->content = realloc(response->content, response->length + total + 1);
