@@ -647,18 +647,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.1);
 
-	// if the device is in normal mode, place device into recovery mode
-	if (client->mode->index == MODE_NORMAL) {
-		info("Entering recovery mode...\n");
-		if (normal_enter_recovery(client) < 0) {
-			error("ERROR: Unable to place device into recovery mode from %s mode\n", client->mode->string);
-			if (client->tss)
-				plist_free(client->tss);
-			plist_free(buildmanifest);
-			return -5;
-		}
-	}
-
 	// Get filesystem name from build identity
 	char* fsname = NULL;
 	if (build_identity_get_component_path(build_identity, "OS", &fsname) < 0) {
@@ -750,6 +738,18 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			rename(filesystem, tmpf);
 			free(filesystem);
 			filesystem = strdup(tmpf); 
+		}
+	}
+
+	// if the device is in normal mode, place device into recovery mode
+	if (client->mode->index == MODE_NORMAL) {
+		info("Entering recovery mode...\n");
+		if (normal_enter_recovery(client) < 0) {
+			error("ERROR: Unable to place device into recovery mode from %s mode\n", client->mode->string);
+			if (client->tss)
+				plist_free(client->tss);
+			plist_free(buildmanifest);
+			return -5;
 		}
 	}
 
