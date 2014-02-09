@@ -154,7 +154,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	if (node && plist_get_node_type(node) == PLIST_DATA) {
 		plist_dict_insert_item(parameters, "BbProvisioningManifestKeyHash", plist_copy(node));
 	} else {
-		error("WARNING: Unable to find BbProvisioningManifestKeyHash node\n");
+		debug("NOTE: Unable to find BbProvisioningManifestKeyHash node\n");
 	}
 	node = NULL;
 
@@ -163,7 +163,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	if (node && plist_get_node_type(node) == PLIST_DATA) {
 		plist_dict_insert_item(parameters, "BbActivationManifestKeyHash", plist_copy(node));
 	} else {
-		error("WARNING: Unable to find BbActivationManifestKeyHash node\n");
+		debug("NOTE: Unable to find BbActivationManifestKeyHash node\n");
 	}
 	node = NULL;
 
@@ -171,7 +171,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	if (node && plist_get_node_type(node) == PLIST_DATA) {
 		plist_dict_insert_item(parameters, "BbCalibrationManifestKeyHash", plist_copy(node));
 	} else {
-		error("WARNING: Unable to find BbCalibrationManifestKeyHash node\n");
+		debug("NOTE: Unable to find BbCalibrationManifestKeyHash node\n");
 	}
 	node = NULL;
 
@@ -180,7 +180,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	if (node && plist_get_node_type(node) == PLIST_DATA) {
 		plist_dict_insert_item(parameters, "BbFactoryActivationManifestKeyHash", plist_copy(node));
 	} else {
-		error("WARNING: Unable to find BbFactoryActivationManifestKeyHash node\n");
+		debug("NOTE: Unable to find BbFactoryActivationManifestKeyHash node\n");
 	}
 	node = NULL;
 
