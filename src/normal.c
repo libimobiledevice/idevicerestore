@@ -349,14 +349,14 @@ static int normal_get_nonce_by_key(struct idevicerestore_client_t* client, const
 
 	lockdown_error = lockdownd_get_value(lockdown, NULL, key, &nonce_node);
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-		error("ERROR: Unable to get %s from lockdownd\n", key);
+		error("Unable to get %s from lockdownd\n", key);
 		lockdownd_client_free(lockdown);
 		idevice_free(device);
 		return -1;
 	}
 
 	if (!nonce_node || plist_get_node_type(nonce_node) != PLIST_DATA) {
-		error("ERROR: Unable to get %s\n", key);
+		error("Unable to get %s\n", key);
 		lockdownd_client_free(lockdown);
 		idevice_free(device);
 		return -1;
