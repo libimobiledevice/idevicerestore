@@ -773,7 +773,7 @@ static int tss_response_get_data_by_key(plist_t response, const char* name, unsi
 
 	plist_t node = plist_dict_get_item(response, name);
 	if (!node || plist_get_node_type(node) != PLIST_DATA) {
-		error("ERROR: Unable to find %s entry in TSS response\n", name);
+		debug("DEBUG: %s: No entry '%s' in TSS response\n", __func__, name);
 		return -1;
 	}
 
@@ -811,7 +811,7 @@ int tss_response_get_path_by_entry(plist_t response, const char* entry, char** p
 
 	entry_node = plist_dict_get_item(response, entry);
 	if (!entry_node || plist_get_node_type(entry_node) != PLIST_DICT) {
-		error("ERROR: Unable to find %s entry in TSS response\n", entry);
+		debug("DEBUG: %s: No entry '%s' in TSS response\n", __func__, entry);
 		return -1;
 	}
 
@@ -892,7 +892,7 @@ int tss_response_get_blob_by_entry(plist_t response, const char* entry, unsigned
 
 	tss_entry = plist_dict_get_item(response, entry);
 	if (!tss_entry || plist_get_node_type(tss_entry) != PLIST_DICT) {
-		error("ERROR: Unable to find %s entry in TSS response\n", entry);
+		debug("DEBUG: %s: No entry '%s' in TSS response\n", __func__, entry);
 		return -1;
 	}
 
