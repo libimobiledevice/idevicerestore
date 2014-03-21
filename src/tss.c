@@ -620,7 +620,6 @@ static size_t tss_write_callback(char* data, size_t size, size_t nmemb, tss_resp
 }
 
 plist_t tss_request_send(plist_t tss_request, const char* server_url_string) {
-	curl_global_init(CURL_GLOBAL_ALL);
 
 	if (idevicerestore_debug) {
 		debug_plist(tss_request);
@@ -764,7 +763,6 @@ plist_t tss_request_send(plist_t tss_request, const char* server_url_string) {
 	}
 
 	free(request);
-	curl_global_cleanup();
 
 	return tss_response;
 }

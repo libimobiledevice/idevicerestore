@@ -31,6 +31,8 @@
 #include <zlib.h>
 #include <libgen.h>
 
+#include <curl/curl.h>
+
 #include "dfu.h"
 #include "tss.h"
 #include "img3.h"
@@ -1138,9 +1140,13 @@ int main(int argc, char* argv[]) {
 		client->ipsw = strdup(ipsw);
 	}
 
+	curl_global_init(CURL_GLOBAL_ALL);
+
 	result = idevicerestore_start(client);
 
 	idevicerestore_client_free(client);
+
+	curl_global_cleanup();
 
 	return result;
 }

@@ -50,7 +50,6 @@ static size_t download_write_buffer_callback(char* data, size_t size, size_t nme
 int download_to_buffer(const char* url, char** buf, uint32_t* length)
 {
 	int res = 0;
-	curl_global_init(CURL_GLOBAL_ALL);
 	CURL* handle = curl_easy_init();
 	if (handle == NULL) {
 		error("ERROR: could not initialize CURL\n");
@@ -84,8 +83,6 @@ int download_to_buffer(const char* url, char** buf, uint32_t* length)
 		res = -1;
 	}
 
-	curl_global_cleanup();
-
 	return res;
 }
 
@@ -108,7 +105,6 @@ static int download_progress(void *clientp, double dltotal, double dlnow, double
 int download_to_file(const char* url, const char* filename, int enable_progress)
 {
 	int res = 0;
-	curl_global_init(CURL_GLOBAL_ALL);
 	CURL* handle = curl_easy_init();
 	if (handle == NULL) {
 		error("ERROR: could not initialize CURL\n");
@@ -150,8 +146,6 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 		res = -1;
 		remove(filename);
 	}
-
-	curl_global_cleanup();
 
 	return res;
 }
