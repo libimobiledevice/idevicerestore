@@ -432,14 +432,14 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				strcpy(tmpstr, p_all_flash);
 				strcat(tmpstr, "/");
 				strcat(tmpstr, files[x]);
-				plist_dict_insert_item(inf, "Path", plist_new_string(tmpstr));
+				plist_dict_set_item(inf, "Path", plist_new_string(tmpstr));
 				comp = plist_new_dict();
-				plist_dict_insert_item(comp, "Info", inf);
+				plist_dict_set_item(comp, "Info", inf);
 				const char* compname = get_component_name(files[x]);
 				if (compname) {
-					plist_dict_insert_item(manifest, compname, comp);
+					plist_dict_set_item(manifest, compname, comp);
 					if (!strncmp(files[x], "DeviceTree", 10)) {
-						plist_dict_insert_item(manifest, "RestoreDeviceTree", plist_copy(comp));
+						plist_dict_set_item(manifest, "RestoreDeviceTree", plist_copy(comp));
 					}
 				} else {
 					error("WARNING: unhandled component %s\n", files[x]);
@@ -452,18 +452,18 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			// add iBSS
 			sprintf(tmpstr, "Firmware/dfu/iBSS.%s.%s.dfu", lcmodel, "RELEASE");
 			inf = plist_new_dict();
-			plist_dict_insert_item(inf, "Path", plist_new_string(tmpstr));
+			plist_dict_set_item(inf, "Path", plist_new_string(tmpstr));
 			comp = plist_new_dict();
-			plist_dict_insert_item(comp, "Info", inf);
-			plist_dict_insert_item(manifest, "iBSS", comp);
+			plist_dict_set_item(comp, "Info", inf);
+			plist_dict_set_item(manifest, "iBSS", comp);
 
 			// add iBEC
 			sprintf(tmpstr, "Firmware/dfu/iBEC.%s.%s.dfu", lcmodel, "RELEASE");
 			inf = plist_new_dict();
-			plist_dict_insert_item(inf, "Path", plist_new_string(tmpstr));
+			plist_dict_set_item(inf, "Path", plist_new_string(tmpstr));
 			comp = plist_new_dict();
-			plist_dict_insert_item(comp, "Info", inf);
-			plist_dict_insert_item(manifest, "iBEC", comp);
+			plist_dict_set_item(comp, "Info", inf);
+			plist_dict_set_item(manifest, "iBEC", comp);
 
 			// add kernel cache
 			plist_t kdict = NULL;
@@ -482,11 +482,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				plist_t kc = plist_dict_get_item(kdict, "Release");
 				if (kc && (plist_get_node_type(kc) == PLIST_STRING)) {
 					inf = plist_new_dict();
-					plist_dict_insert_item(inf, "Path", plist_copy(kc));
+					plist_dict_set_item(inf, "Path", plist_copy(kc));
 					comp = plist_new_dict();
-					plist_dict_insert_item(comp, "Info", inf);
-					plist_dict_insert_item(manifest, "KernelCache", comp);
-					plist_dict_insert_item(manifest, "RestoreKernelCache", plist_copy(comp));
+					plist_dict_set_item(comp, "Info", inf);
+					plist_dict_set_item(manifest, "KernelCache", comp);
+					plist_dict_set_item(manifest, "RestoreKernelCache", plist_copy(comp));
 				}
 			}
 
@@ -502,10 +502,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				}
 				if (rd && (plist_get_node_type(rd) == PLIST_STRING)) {
 					inf = plist_new_dict();
-					plist_dict_insert_item(inf, "Path", plist_copy(rd));
+					plist_dict_set_item(inf, "Path", plist_copy(rd));
 					comp = plist_new_dict();
-					plist_dict_insert_item(comp, "Info", inf);
-					plist_dict_insert_item(manifest, "RestoreRamDisk", comp);
+					plist_dict_set_item(comp, "Info", inf);
+					plist_dict_set_item(manifest, "RestoreRamDisk", comp);
 				}
 			}
 
@@ -519,20 +519,20 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				error("ERROR: missing filesystem in Restore.plist\n");
 			} else {
 				inf = plist_new_dict();
-				plist_dict_insert_item(inf, "Path", plist_copy(os));
+				plist_dict_set_item(inf, "Path", plist_copy(os));
 				comp = plist_new_dict();
-				plist_dict_insert_item(comp, "Info", inf);
-				plist_dict_insert_item(manifest, "OS", comp);
+				plist_dict_set_item(comp, "Info", inf);
+				plist_dict_set_item(manifest, "OS", comp);
 			}
 
 			// add info
 			inf = plist_new_dict();
-			plist_dict_insert_item(inf, "RestoreBehavior", plist_new_string((client->flags & FLAG_ERASE) ? "Erase" : "Update"));
-			plist_dict_insert_item(inf, "Variant", plist_new_string((client->flags & FLAG_ERASE) ? "Customer Erase Install (IPSW)" : "Customer Upgrade Install (IPSW)"));
-			plist_dict_insert_item(build_identity, "Info", inf);
+			plist_dict_set_item(inf, "RestoreBehavior", plist_new_string((client->flags & FLAG_ERASE) ? "Erase" : "Update"));
+			plist_dict_set_item(inf, "Variant", plist_new_string((client->flags & FLAG_ERASE) ? "Customer Erase Install (IPSW)" : "Customer Upgrade Install (IPSW)"));
+			plist_dict_set_item(build_identity, "Info", inf);
 
 			// finally add manifest
-			plist_dict_insert_item(build_identity, "Manifest", manifest);
+			plist_dict_set_item(build_identity, "Manifest", manifest);
 		}
 	} else if (client->flags & FLAG_ERASE) {
 		build_identity = build_manifest_get_build_identity(buildmanifest, 0);
@@ -1431,24 +1431,24 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 
 	/* populate parameters */
 	plist_t parameters = plist_new_dict();
-	plist_dict_insert_item(parameters, "ApECID", plist_new_uint(client->ecid));
+	plist_dict_set_item(parameters, "ApECID", plist_new_uint(client->ecid));
 	if (client->nonce) {
-		plist_dict_insert_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
+		plist_dict_set_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
 	}
 	unsigned char* sep_nonce = NULL;
 	int sep_nonce_size = 0;
 	get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
 
 	if (sep_nonce) {
-		plist_dict_insert_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
+		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
 	}
 
-	plist_dict_insert_item(parameters, "ApProductionMode", plist_new_bool(1));
+	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
 	if (client->image4supported) {
-		plist_dict_insert_item(parameters, "ApSecurityMode", plist_new_bool(1));
-		plist_dict_insert_item(parameters, "ApSupportsImg4", plist_new_bool(1));
+		plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(1));
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(1));
 	} else {
-		plist_dict_insert_item(parameters, "ApSupportsImg4", plist_new_bool(0));
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
 	}
 
 	tss_parameters_add_from_manifest(parameters, build_identity);
@@ -1503,19 +1503,19 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 			plist_t node;
 			node = plist_dict_get_item(pinfo, "Nonce");
 			if (node) {
-				plist_dict_insert_item(parameters, "BbNonce", plist_copy(node));
+				plist_dict_set_item(parameters, "BbNonce", plist_copy(node));
 			}
 			node = plist_dict_get_item(pinfo, "ChipID");
 			if (node) {
-				plist_dict_insert_item(parameters, "BbChipID", plist_copy(node));
+				plist_dict_set_item(parameters, "BbChipID", plist_copy(node));
 			}
 			node = plist_dict_get_item(pinfo, "CertID");
 			if (node) {
-				plist_dict_insert_item(parameters, "BbGoldCertId", plist_copy(node));
+				plist_dict_set_item(parameters, "BbGoldCertId", plist_copy(node));
 			}
 			node = plist_dict_get_item(pinfo, "ChipSerialNo");
 			if (node) {
-				plist_dict_insert_item(parameters, "BbSNUM", plist_copy(node));
+				plist_dict_set_item(parameters, "BbSNUM", plist_copy(node));
 			}
 		
 			/* add baseband parameters */
@@ -1552,7 +1552,7 @@ void fixup_tss(plist_t tss)
 		node2 = plist_dict_get_item(tss, "AppleLogo");
 		if (node2 && (plist_get_node_type(node2) == PLIST_DICT)) {
 			plist_dict_remove_item(tss, "RestoreLogo");
-			plist_dict_insert_item(tss, "RestoreLogo", plist_copy(node2));
+			plist_dict_set_item(tss, "RestoreLogo", plist_copy(node2));
 		}
 	}
 	node = plist_dict_get_item(tss, "RestoreDeviceTree");
@@ -1560,7 +1560,7 @@ void fixup_tss(plist_t tss)
 		node2 = plist_dict_get_item(tss, "DeviceTree");
 		if (node2 && (plist_get_node_type(node2) == PLIST_DICT)) {
 			plist_dict_remove_item(tss, "RestoreDeviceTree");
-			plist_dict_insert_item(tss, "RestoreDeviceTree", plist_copy(node2));
+			plist_dict_set_item(tss, "RestoreDeviceTree", plist_copy(node2));
 		}
 	}
 	node = plist_dict_get_item(tss, "RestoreKernelCache");
@@ -1568,7 +1568,7 @@ void fixup_tss(plist_t tss)
 		node2 = plist_dict_get_item(tss, "KernelCache");
 		if (node2 && (plist_get_node_type(node2) == PLIST_DICT)) {
 			plist_dict_remove_item(tss, "RestoreKernelCache");
-			plist_dict_insert_item(tss, "RestoreKernelCache", plist_copy(node2));
+			plist_dict_set_item(tss, "RestoreKernelCache", plist_copy(node2));
 		}
 	}
 }

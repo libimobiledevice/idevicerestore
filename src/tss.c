@@ -56,8 +56,8 @@ plist_t tss_request_new(plist_t overrides) {
 
 	plist_t request = plist_new_dict();
 
-	plist_dict_insert_item(request, "@Locality", plist_new_string("en_US"));
-	plist_dict_insert_item(request, "@HostPlatformInfo",
+	plist_dict_set_item(request, "@Locality", plist_new_string("en_US"));
+	plist_dict_set_item(request, "@HostPlatformInfo",
 #ifdef WIN32
 		plist_new_string("windows")
 #else
@@ -65,10 +65,10 @@ plist_t tss_request_new(plist_t overrides) {
 #endif
 	);
 
-	plist_dict_insert_item(request, "@VersionInfo", plist_new_string(TSS_CLIENT_VERSION_STRING));
+	plist_dict_set_item(request, "@VersionInfo", plist_new_string(TSS_CLIENT_VERSION_STRING));
 	char* guid = generate_guid();
 	if (guid) {
-		plist_dict_insert_item(request, "@UUID", plist_new_string(guid));
+		plist_dict_set_item(request, "@UUID", plist_new_string(guid));
 		free(guid);
 	}
 
@@ -91,7 +91,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 		error("ERROR: Unable to find UniqueBuildID node\n");
 		return -1;
 	}
-	plist_dict_insert_item(parameters, "UniqueBuildID", plist_copy(node));
+	plist_dict_set_item(parameters, "UniqueBuildID", plist_copy(node));
 	node = NULL;
 
 	/* ApChipID */
@@ -103,7 +103,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	}
 	plist_get_string_val(node, &string);
 	sscanf(string, "%x", &chip_id);
-	plist_dict_insert_item(parameters, "ApChipID", plist_new_uint(chip_id));
+	plist_dict_set_item(parameters, "ApChipID", plist_new_uint(chip_id));
 	free(string);
 	string = NULL;
 	node = NULL;
@@ -117,7 +117,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	}
 	plist_get_string_val(node, &string);
 	sscanf(string, "%x", &board_id);
-	plist_dict_insert_item(parameters, "ApBoardID", plist_new_uint(board_id));
+	plist_dict_set_item(parameters, "ApBoardID", plist_new_uint(board_id));
 	free(string);
 	string = NULL;
 	node = NULL;
@@ -131,7 +131,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	}
 	plist_get_string_val(node, &string);
 	sscanf(string, "%x", &security_domain);
-	plist_dict_insert_item(parameters, "ApSecurityDomain", plist_new_uint(security_domain));
+	plist_dict_set_item(parameters, "ApSecurityDomain", plist_new_uint(security_domain));
 	free(string);
 	string = NULL;
 	node = NULL;
@@ -143,7 +143,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	if (node && plist_get_node_type(node) == PLIST_STRING) {
 		plist_get_string_val(node, &bb_chip_id_string);
 		sscanf(bb_chip_id_string, "%x", &bb_chip_id);
-		plist_dict_insert_item(parameters, "BbChipID", plist_new_uint(bb_chip_id));
+		plist_dict_set_item(parameters, "BbChipID", plist_new_uint(bb_chip_id));
 	} else {
 		error("WARNING: Unable to find BbChipID node\n");
 	}
@@ -152,7 +152,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	/* BbProvisioningManifestKeyHash */
 	node = plist_dict_get_item(build_identity, "BbProvisioningManifestKeyHash");
 	if (node && plist_get_node_type(node) == PLIST_DATA) {
-		plist_dict_insert_item(parameters, "BbProvisioningManifestKeyHash", plist_copy(node));
+		plist_dict_set_item(parameters, "BbProvisioningManifestKeyHash", plist_copy(node));
 	} else {
 		debug("NOTE: Unable to find BbProvisioningManifestKeyHash node\n");
 	}
@@ -161,7 +161,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	/* BbActivationManifestKeyHash - Used by Qualcomm MDM6610 */
 	node = plist_dict_get_item(build_identity, "BbActivationManifestKeyHash");
 	if (node && plist_get_node_type(node) == PLIST_DATA) {
-		plist_dict_insert_item(parameters, "BbActivationManifestKeyHash", plist_copy(node));
+		plist_dict_set_item(parameters, "BbActivationManifestKeyHash", plist_copy(node));
 	} else {
 		debug("NOTE: Unable to find BbActivationManifestKeyHash node\n");
 	}
@@ -169,7 +169,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 
 	node = plist_dict_get_item(build_identity, "BbCalibrationManifestKeyHash");
 	if (node && plist_get_node_type(node) == PLIST_DATA) {
-		plist_dict_insert_item(parameters, "BbCalibrationManifestKeyHash", plist_copy(node));
+		plist_dict_set_item(parameters, "BbCalibrationManifestKeyHash", plist_copy(node));
 	} else {
 		debug("NOTE: Unable to find BbCalibrationManifestKeyHash node\n");
 	}
@@ -178,7 +178,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	/* BbFactoryActivationManifestKeyHash */
 	node = plist_dict_get_item(build_identity, "BbFactoryActivationManifestKeyHash");
 	if (node && plist_get_node_type(node) == PLIST_DATA) {
-		plist_dict_insert_item(parameters, "BbFactoryActivationManifestKeyHash", plist_copy(node));
+		plist_dict_set_item(parameters, "BbFactoryActivationManifestKeyHash", plist_copy(node));
 	} else {
 		debug("NOTE: Unable to find BbFactoryActivationManifestKeyHash node\n");
 	}
@@ -187,7 +187,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	/* BbSkeyId - Used by XMM 6180/GSM */
 	node = plist_dict_get_item(build_identity, "BbSkeyId");
 	if (node && plist_get_node_type(node) == PLIST_DATA) {
-		plist_dict_insert_item(parameters, "BbSkeyId", plist_copy(node));
+		plist_dict_set_item(parameters, "BbSkeyId", plist_copy(node));
 	} else {
 		error("WARNING: Unable to find BbSkeyId node\n");
 	}
@@ -199,7 +199,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 		error("ERROR: Unable to find Manifest node\n");
 		return -1;
 	}
-	plist_dict_insert_item(parameters, "Manifest", plist_copy(node));
+	plist_dict_set_item(parameters, "Manifest", plist_copy(node));
 
 	return 0;
 }
@@ -218,7 +218,7 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters) {
 		error("ERROR: Unable to find required ApECID in parameters\n");
 		return -1;
 	}
-	plist_dict_insert_item(request, "ApECID", plist_copy(node));
+	plist_dict_set_item(request, "ApECID", plist_copy(node));
 	node = NULL;
 
 	/* ApNonce */
@@ -227,10 +227,10 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters) {
 		error("ERROR: Unable to find required ApNonce in parameters\n");
 		return -1;
 	}
-	plist_dict_insert_item(request, "ApNonce", plist_copy(node));
+	plist_dict_set_item(request, "ApNonce", plist_copy(node));
 	node = NULL;
 
-	plist_dict_insert_item(request, "@ApImg4Ticket", plist_new_bool(1));
+	plist_dict_set_item(request, "@ApImg4Ticket", plist_new_bool(1));
 
 	/* ApSecurityMode */
 	node = plist_dict_get_item(request, "ApSecurityMode");
@@ -241,7 +241,7 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters) {
 			error("ERROR: Unable to find required ApSecurityMode in parameters\n");
 			return -1;
 		}
-		plist_dict_insert_item(request, "ApSecurityMode", plist_copy(node));
+		plist_dict_set_item(request, "ApSecurityMode", plist_copy(node));
 		node = NULL;
 	}
 
@@ -253,7 +253,7 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters) {
 			error("ERROR: Unable to find required ApProductionMode in parameters\n");
 			return -1;
 		}
-		plist_dict_insert_item(request, "ApProductionMode", plist_copy(node));
+		plist_dict_set_item(request, "ApProductionMode", plist_copy(node));
 		node = NULL;
 	}
 
@@ -263,7 +263,7 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters) {
 		error("ERROR: Unable to find required ApSepNonce in parameters\n");
 		return -1;
 	}
-	plist_dict_insert_item(request, "SepNonce", plist_copy(node));
+	plist_dict_set_item(request, "SepNonce", plist_copy(node));
 	node = NULL;
 
 	return 0;
@@ -284,12 +284,12 @@ int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters) {
 			error("ERROR: Unable to find required ApNonce in parameters\n");
 			return -1;
 		}
-		plist_dict_insert_item(request, "ApNonce", plist_copy(node));
+		plist_dict_set_item(request, "ApNonce", plist_copy(node));
 		node = NULL;
 	}
 
 	/* @APTicket */
-	plist_dict_insert_item(request, "@APTicket", plist_new_bool(1));
+	plist_dict_set_item(request, "@APTicket", plist_new_bool(1));
 
 	/* ApECID */
 	node = plist_dict_get_item(parameters, "ApECID");
@@ -297,7 +297,7 @@ int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters) {
 		error("ERROR: Unable to find required ApECID in parameters\n");
 		return -1;
 	}
-	plist_dict_insert_item(request, "ApECID", plist_copy(node));
+	plist_dict_set_item(request, "ApECID", plist_copy(node));
 	node = NULL;
 
 	/* ApBoardID */
@@ -330,7 +330,7 @@ int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters) {
 		error("ERROR: Unable to find required ApProductionMode in parameters\n");
 		return -1;
 	}
-	plist_dict_insert_item(request, "ApProductionMode", plist_copy(node));
+	plist_dict_set_item(request, "ApProductionMode", plist_copy(node));
 	node = NULL;
 
 	return 0;
@@ -342,28 +342,28 @@ int tss_request_add_common_tags(plist_t request, plist_t parameters, plist_t ove
 	/* UniqueBuildID */
 	node = plist_dict_get_item(parameters, "UniqueBuildID");
 	if (node) {
-		plist_dict_insert_item(request, "UniqueBuildID", plist_copy(node));
+		plist_dict_set_item(request, "UniqueBuildID", plist_copy(node));
 	}
 	node = NULL;
 
 	/* ApChipID */
 	node = plist_dict_get_item(parameters, "ApChipID");
 	if (node) {
-		plist_dict_insert_item(request, "ApChipID", plist_copy(node));
+		plist_dict_set_item(request, "ApChipID", plist_copy(node));
 	}
 	node = NULL;
 
 	/* ApBoardID */
 	node = plist_dict_get_item(parameters, "ApBoardID");
 	if (node) {
-		plist_dict_insert_item(request, "ApBoardID", plist_copy(node));
+		plist_dict_set_item(request, "ApBoardID", plist_copy(node));
 	}
 	node = NULL;
 
 	/* ApSecurityDomain */
 	node = plist_dict_get_item(parameters, "ApSecurityDomain");
 	if (node) {
-		plist_dict_insert_item(request, "ApSecurityDomain", plist_copy(node));
+		plist_dict_set_item(request, "ApSecurityDomain", plist_copy(node));
 	}
 	node = NULL;
 
@@ -445,7 +445,7 @@ static void tss_entry_apply_restore_request_rules(plist_t tss_entry, plist_t par
 					plist_dict_remove_item(tss_entry, key);
 				}
 				debug("DEBUG: Adding action %s to TSS entry\n", key);
-				plist_dict_insert_item(tss_entry, key, plist_new_bool(1));
+				plist_dict_set_item(tss_entry, key, plist_new_bool(1));
 			}
 			free(key);
 		}
@@ -500,7 +500,7 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 		}
 
 		/* finally add entry to request */
-		plist_dict_insert_item(request, key, tss_entry);
+		plist_dict_set_item(request, key, tss_entry);
 
 		free(key);
 	}
@@ -520,53 +520,53 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t o
 	/* BbChipID */
 	node = plist_dict_get_item(parameters, "BbChipID");
 	if (node) {
-		plist_dict_insert_item(request, "BbChipID", plist_copy(node));
+		plist_dict_set_item(request, "BbChipID", plist_copy(node));
 	}
 	node = NULL;
 
 	/* BbProvisioningManifestKeyHash */
 	node = plist_dict_get_item(parameters, "BbProvisioningManifestKeyHash");
 	if (node) {
-		plist_dict_insert_item(request, "BbProvisioningManifestKeyHash", plist_copy(node));
+		plist_dict_set_item(request, "BbProvisioningManifestKeyHash", plist_copy(node));
 	}
 	node = NULL;
 
 	/* BbActivationManifestKeyHash - Used by Qualcomm MDM6610 */
 	node = plist_dict_get_item(parameters, "BbActivationManifestKeyHash");
 	if (node) {
-		plist_dict_insert_item(request, "BbActivationManifestKeyHash", plist_copy(node));
+		plist_dict_set_item(request, "BbActivationManifestKeyHash", plist_copy(node));
 	}
 	node = NULL;
 
 	node = plist_dict_get_item(parameters, "BbCalibrationManifestKeyHash");
 	if (node) {
-		plist_dict_insert_item(request, "BbCalibrationManifestKeyHash", plist_copy(node));
+		plist_dict_set_item(request, "BbCalibrationManifestKeyHash", plist_copy(node));
 	}
 	node = NULL;
 
 	/* BbFactoryActivationManifestKeyHash */
 	node = plist_dict_get_item(parameters, "BbFactoryActivationManifestKeyHash");
 	if (node) {
-		plist_dict_insert_item(request, "BbFactoryActivationManifestKeyHash", plist_copy(node));
+		plist_dict_set_item(request, "BbFactoryActivationManifestKeyHash", plist_copy(node));
 	}
 	node = NULL;
 
 	/* BbSkeyId - Used by XMM 6180/GSM */
 	node = plist_dict_get_item(parameters, "BbSkeyId");
 	if (node) {
-		plist_dict_insert_item(request, "BbSkeyId", plist_copy(node));
+		plist_dict_set_item(request, "BbSkeyId", plist_copy(node));
 	}
 	node = NULL;
 
 	/* BbNonce */
 	node = plist_dict_get_item(parameters, "BbNonce");
 	if (node) {
-		plist_dict_insert_item(request, "BbNonce", plist_copy(node));
+		plist_dict_set_item(request, "BbNonce", plist_copy(node));
 	}
 	node = NULL;
 
 	/* @BBTicket */
-	plist_dict_insert_item(request, "@BBTicket", plist_new_bool(1));
+	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
 
 	/* BbGoldCertId */
 	node = plist_dict_get_item(parameters, "BbGoldCertId");
@@ -574,7 +574,7 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t o
 		error("ERROR: Unable to find required BbGoldCertId in parameters\n");
 		return -1;
 	}
-	plist_dict_insert_item(request, "BbGoldCertId", plist_copy(node));
+	plist_dict_set_item(request, "BbGoldCertId", plist_copy(node));
 	node = NULL;
 
 	/* BbSNUM */
@@ -583,7 +583,7 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t o
 		error("ERROR: Unable to find required BbSNUM in parameters\n");
 		return -1;
 	}
-	plist_dict_insert_item(request, "BbSNUM", plist_copy(node));
+	plist_dict_set_item(request, "BbSNUM", plist_copy(node));
 	node = NULL;
 
 	/* BasebandFirmware */
@@ -597,7 +597,7 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t o
 	if (plist_dict_get_item(bbfwdict, "Info")) {
 		plist_dict_remove_item(bbfwdict, "Info");
 	}
-	plist_dict_insert_item(request, "BasebandFirmware", bbfwdict);
+	plist_dict_set_item(request, "BasebandFirmware", bbfwdict);
 
 	/* apply overrides */
 	if (overrides) {

@@ -212,19 +212,19 @@ int asr_perform_validation(asr_client_t asr, const char* filesystem) {
 	fseek(file, 0, SEEK_SET);
 
 	payload_info = plist_new_dict();
-	plist_dict_insert_item(payload_info, "Port", plist_new_uint(1));
-	plist_dict_insert_item(payload_info, "Size", plist_new_uint(length));
+	plist_dict_set_item(payload_info, "Port", plist_new_uint(1));
+	plist_dict_set_item(payload_info, "Size", plist_new_uint(length));
 
 	packet_info = plist_new_dict();
 	if (asr->checksum_chunks) {
-		plist_dict_insert_item(packet_info, "Checksum Chunk Size", plist_new_uint(ASR_CHECKSUM_CHUNK_SIZE));
+		plist_dict_set_item(packet_info, "Checksum Chunk Size", plist_new_uint(ASR_CHECKSUM_CHUNK_SIZE));
 	}
-	plist_dict_insert_item(packet_info, "FEC Slice Stride", plist_new_uint(ASR_FEC_SLICE_STRIDE));
-	plist_dict_insert_item(packet_info, "Packet Payload Size", plist_new_uint(ASR_PAYLOAD_PACKET_SIZE));
-	plist_dict_insert_item(packet_info, "Packets Per FEC", plist_new_uint(ASR_PACKETS_PER_FEC));
-	plist_dict_insert_item(packet_info, "Payload", payload_info);
-	plist_dict_insert_item(packet_info, "Stream ID", plist_new_uint(ASR_STREAM_ID));
-	plist_dict_insert_item(packet_info, "Version", plist_new_uint(ASR_VERSION));
+	plist_dict_set_item(packet_info, "FEC Slice Stride", plist_new_uint(ASR_FEC_SLICE_STRIDE));
+	plist_dict_set_item(packet_info, "Packet Payload Size", plist_new_uint(ASR_PAYLOAD_PACKET_SIZE));
+	plist_dict_set_item(packet_info, "Packets Per FEC", plist_new_uint(ASR_PACKETS_PER_FEC));
+	plist_dict_set_item(packet_info, "Payload", payload_info);
+	plist_dict_set_item(packet_info, "Stream ID", plist_new_uint(ASR_STREAM_ID));
+	plist_dict_set_item(packet_info, "Version", plist_new_uint(ASR_VERSION));
 
 	if (asr_send(asr, packet_info)) {
 		error("ERROR: Unable to sent packet information to ASR\n");

@@ -743,7 +743,7 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 
 	dict = plist_new_dict();
 	if (data && (len > 0)) {
-		plist_dict_insert_item(dict, "RootTicketData", plist_new_data((char*)data, len));
+		plist_dict_set_item(dict, "RootTicketData", plist_new_data((char*)data, len));
 	} else {
 		info("NOTE: not sending RootTicketData (no data present)\n");
 	}
@@ -807,7 +807,7 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 
 	dict = plist_new_dict();
 	blob = plist_new_data((char*)data, size);
-	plist_dict_insert_item(dict, "KernelCacheFile", blob);
+	plist_dict_set_item(dict, "KernelCacheFile", blob);
 
 	info("Sending KernelCache now...\n");
 	restore_error = restored_send(restore, dict);
@@ -900,7 +900,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	component_size = 0;
 
 	dict = plist_new_dict();
-	plist_dict_insert_item(dict, "LlbImageData", plist_new_data((char*)llb_data, (uint64_t) llb_size));
+	plist_dict_set_item(dict, "LlbImageData", plist_new_data((char*)llb_data, (uint64_t) llb_size));
 	if (llb_data)
 		free(llb_data);
 
@@ -948,7 +948,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		nor_size = 0;
 		filename = strtok(NULL, "\r\n");
 	}
-	plist_dict_insert_item(dict, "NorImageData", norimage_array);
+	plist_dict_set_item(dict, "NorImageData", norimage_array);
 
 	unsigned char* personalized_data = NULL;
 	unsigned int personalized_size = 0;
@@ -972,7 +972,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		component_data = NULL;
 		component_size = 0;
 
-		plist_dict_insert_item(dict, "RestoreSEPImageData", plist_new_data((char*)personalized_data, (uint64_t) personalized_size));
+		plist_dict_set_item(dict, "RestoreSEPImageData", plist_new_data((char*)personalized_data, (uint64_t) personalized_size));
 		free(personalized_data);
 		personalized_data = NULL;
 		personalized_size = 0;
@@ -997,7 +997,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		component_data = NULL;
 		component_size = 0;
 
-		plist_dict_insert_item(dict, "SEPImageData", plist_new_data((char*)personalized_data, (uint64_t) personalized_size));
+		plist_dict_set_item(dict, "SEPImageData", plist_new_data((char*)personalized_data, (uint64_t) personalized_size));
 		free(personalized_data);
 		personalized_data = NULL;
 		personalized_size = 0;
@@ -1431,13 +1431,13 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	if ((bb_nonce == NULL) || (client->restore->bbtss == NULL)) {
 		/* populate parameters */
 		plist_t parameters = plist_new_dict();
-		plist_dict_insert_item(parameters, "ApECID", plist_new_uint(client->ecid));
+		plist_dict_set_item(parameters, "ApECID", plist_new_uint(client->ecid));
 		if (bb_nonce) {
-			plist_dict_insert_item(parameters, "BbNonce", plist_new_data((const char*)bb_nonce, bb_nonce_size));
+			plist_dict_set_item(parameters, "BbNonce", plist_new_data((const char*)bb_nonce, bb_nonce_size));
 		}
-		plist_dict_insert_item(parameters, "BbChipID", plist_new_uint(bb_chip_id));
-		plist_dict_insert_item(parameters, "BbGoldCertId", plist_new_uint(bb_cert_id));
-		plist_dict_insert_item(parameters, "BbSNUM", plist_new_data((const char*)bb_snum, bb_snum_size));
+		plist_dict_set_item(parameters, "BbChipID", plist_new_uint(bb_chip_id));
+		plist_dict_set_item(parameters, "BbGoldCertId", plist_new_uint(bb_cert_id));
+		plist_dict_set_item(parameters, "BbSNUM", plist_new_data((const char*)bb_snum, bb_snum_size));
 
 		tss_parameters_add_from_manifest(parameters, build_identity);
 
@@ -1518,7 +1518,7 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 
 	// send file
 	dict = plist_new_dict();
-	plist_dict_insert_item(dict, "BasebandData", plist_new_data(buffer, (uint64_t)sz));
+	plist_dict_set_item(dict, "BasebandData", plist_new_data(buffer, (uint64_t)sz));
 	free(buffer);
 	buffer = NULL;
 
@@ -1704,8 +1704,8 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 	plist_t opts = plist_new_dict();
 	// FIXME: required?
-	//plist_dict_insert_item(opts, "AuthInstallRestoreBehavior", plist_new_string("Erase"));
-	plist_dict_insert_item(opts, "AutoBootDelay", plist_new_uint(0));
+	//plist_dict_set_item(opts, "AuthInstallRestoreBehavior", plist_new_string("Erase"));
+	plist_dict_set_item(opts, "AutoBootDelay", plist_new_uint(0));
 
 	if (client->preflight_info) {
 		plist_t node;
@@ -1714,68 +1714,68 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		plist_dict_remove_item(bbus, "FusingStatus");
 		plist_dict_remove_item(bbus, "PkHash");
 
-		plist_dict_insert_item(opts, "BBUpdaterState", bbus);
+		plist_dict_set_item(opts, "BBUpdaterState", bbus);
 
 		node = plist_dict_get_item(client->preflight_info, "Nonce");
 		if (node) {
-			plist_dict_insert_item(opts, "BasebandNonce", plist_copy(node));
+			plist_dict_set_item(opts, "BasebandNonce", plist_copy(node));
 		}
 	}
 
 	// FIXME: new on iOS 5 ?
-	plist_dict_insert_item(opts, "BootImageType", plist_new_string("UserOrInternal"));
+	plist_dict_set_item(opts, "BootImageType", plist_new_string("UserOrInternal"));
 	// FIXME: required?
-	//plist_dict_insert_item(opts, "BootImageFile", plist_new_string("018-7923-347.dmg"));
-	plist_dict_insert_item(opts, "CreateFilesystemPartitions", plist_new_bool(1));
-	plist_dict_insert_item(opts, "DFUFileType", plist_new_string("RELEASE"));
-	plist_dict_insert_item(opts, "DataImage", plist_new_bool(0));
+	//plist_dict_set_item(opts, "BootImageFile", plist_new_string("018-7923-347.dmg"));
+	plist_dict_set_item(opts, "CreateFilesystemPartitions", plist_new_bool(1));
+	plist_dict_set_item(opts, "DFUFileType", plist_new_string("RELEASE"));
+	plist_dict_set_item(opts, "DataImage", plist_new_bool(0));
 	// FIXME: not required for iOS 5?
-	//plist_dict_insert_item(opts, "DeviceTreeFile", plist_new_string("DeviceTree.k48ap.img3"));
-	plist_dict_insert_item(opts, "FirmwareDirectory", plist_new_string("."));
+	//plist_dict_set_item(opts, "DeviceTreeFile", plist_new_string("DeviceTree.k48ap.img3"));
+	plist_dict_set_item(opts, "FirmwareDirectory", plist_new_string("."));
 	// FIXME: usable if false? (-x parameter)
-	plist_dict_insert_item(opts, "FlashNOR", plist_new_bool(1));
+	plist_dict_set_item(opts, "FlashNOR", plist_new_bool(1));
 	// FIXME: not required for iOS 5?
-	//plist_dict_insert_item(opts, "KernelCacheFile", plist_new_string("kernelcache.release.k48"));
+	//plist_dict_set_item(opts, "KernelCacheFile", plist_new_string("kernelcache.release.k48"));
 	// FIXME: new on iOS 5 ?
-	plist_dict_insert_item(opts, "KernelCacheType", plist_new_string("Release"));
+	plist_dict_set_item(opts, "KernelCacheType", plist_new_string("Release"));
 	// FIXME: not required for iOS 5?
-	//plist_dict_insert_item(opts, "NORImagePath", plist_new_string("."));
+	//plist_dict_set_item(opts, "NORImagePath", plist_new_string("."));
 	// FIXME: new on iOS 5 ?
-	plist_dict_insert_item(opts, "NORImageType", plist_new_string("production"));
+	plist_dict_set_item(opts, "NORImageType", plist_new_string("production"));
 	// FIXME: not required for iOS 5?
-	//plist_dict_insert_item(opts, "PersonalizedRestoreBundlePath", plist_new_string("/tmp/Per2.tmp"));
+	//plist_dict_set_item(opts, "PersonalizedRestoreBundlePath", plist_new_string("/tmp/Per2.tmp"));
 	if (client->restore_boot_args) {
-		plist_dict_insert_item(opts, "RestoreBootArgs", plist_new_string(client->restore_boot_args));
+		plist_dict_set_item(opts, "RestoreBootArgs", plist_new_string(client->restore_boot_args));
 	}
-	plist_dict_insert_item(opts, "RestoreBundlePath", plist_new_string("/tmp/Per2.tmp"));
-	plist_dict_insert_item(opts, "RootToInstall", plist_new_bool(0));
+	plist_dict_set_item(opts, "RestoreBundlePath", plist_new_string("/tmp/Per2.tmp"));
+	plist_dict_set_item(opts, "RootToInstall", plist_new_bool(0));
 	// FIXME: not required for iOS 5?
-	//plist_dict_insert_item(opts, "SourceRestoreBundlePath", plist_new_string("/tmp"));
-	plist_dict_insert_item(opts, "SystemImage", plist_new_bool(1));
+	//plist_dict_set_item(opts, "SourceRestoreBundlePath", plist_new_string("/tmp"));
+	plist_dict_set_item(opts, "SystemImage", plist_new_bool(1));
 	plist_t spp = plist_new_dict();
 	{
-		plist_dict_insert_item(spp, "128", plist_new_uint(1280));
-		plist_dict_insert_item(spp, "16", plist_new_uint(160));
-		plist_dict_insert_item(spp, "32", plist_new_uint(320));
-		plist_dict_insert_item(spp, "64", plist_new_uint(640));
-		plist_dict_insert_item(spp, "8", plist_new_uint(80));
+		plist_dict_set_item(spp, "128", plist_new_uint(1280));
+		plist_dict_set_item(spp, "16", plist_new_uint(160));
+		plist_dict_set_item(spp, "32", plist_new_uint(320));
+		plist_dict_set_item(spp, "64", plist_new_uint(640));
+		plist_dict_set_item(spp, "8", plist_new_uint(80));
 	}
 	// FIXME: new on iOS 5 ?
-	plist_dict_insert_item(opts, "SystemImageType", plist_new_string("User"));
+	plist_dict_set_item(opts, "SystemImageType", plist_new_string("User"));
 
-	plist_dict_insert_item(opts, "SystemPartitionPadding", spp);
+	plist_dict_set_item(opts, "SystemPartitionPadding", spp);
 	char* guid = generate_guid();
 	if (guid) {
-		plist_dict_insert_item(opts, "UUID", plist_new_string(guid));
+		plist_dict_set_item(opts, "UUID", plist_new_string(guid));
 		free(guid);
 	}
 	// FIXME: does this have any effect actually?
-	plist_dict_insert_item(opts, "UpdateBaseband", plist_new_bool(0));
+	plist_dict_set_item(opts, "UpdateBaseband", plist_new_bool(0));
 	// FIXME: not required for iOS 5?
-	//plist_dict_insert_item(opts, "UserLocale", plist_new_string("en_US"));
+	//plist_dict_set_item(opts, "UserLocale", plist_new_string("en_US"));
 
 	/* this is mandatory on iOS 7+ to allow restore from normal mode */
-	plist_dict_insert_item(opts, "PersonalizedDuringPreflight", plist_new_bool(1));
+	plist_dict_set_item(opts, "PersonalizedDuringPreflight", plist_new_bool(1));
 
 	// start the restore process
 	restore_error = restored_start_restore(restore, opts, client->restore->protocol_version);
