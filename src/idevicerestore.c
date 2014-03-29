@@ -596,11 +596,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	if (client->flags & FLAG_SHSHONLY) {
 		if (!tss_enabled) {
-			info("This device does not require a TSS record");
+			info("This device does not require a TSS record\n");
 			return 0;
 		}
 		if (!client->tss) {
-			error("ERROR: could not fetch TSS record");
+			error("ERROR: could not fetch TSS record\n");
 			plist_free(buildmanifest);
 			return -1;
 		} else {

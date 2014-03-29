@@ -105,12 +105,12 @@ static int normal_idevice_new(struct idevicerestore_client_t* client, idevice_t*
 		}
 		device_error = idevice_new(&dev, devices[j]);
 		if (device_error != IDEVICE_E_SUCCESS) {
-			error("ERROR: %s: can't open device with UDID %s", __func__, devices[j]);
+			error("ERROR: %s: can't open device with UDID %s\n", __func__, devices[j]);
 			continue;
 		}
 
 		if (lockdownd_client_new(dev, &lockdown, "idevicerestore") != LOCKDOWN_E_SUCCESS) {
-			error("ERROR: %s: can't connect to lockdownd on device with UDID %s", __func__, devices[j]);
+			error("ERROR: %s: can't connect to lockdownd on device with UDID %s\n", __func__, devices[j]);
 			continue;
 
 		}
