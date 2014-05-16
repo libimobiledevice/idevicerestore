@@ -1441,6 +1441,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 
 	if (sep_nonce) {
 		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
+		free(sep_nonce);
 	}
 
 	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
