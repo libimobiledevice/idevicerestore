@@ -86,6 +86,7 @@ void build_manifest_get_version_information(plist_t build_manifest, struct idevi
 plist_t build_manifest_get_build_identity(plist_t build_manifest, uint32_t identity);
 int build_manifest_get_build_count(plist_t build_manifest);
 void build_identity_print_information(plist_t build_identity);
+int build_identity_has_component(plist_t build_identity, const char* component);
 int build_identity_get_component_path(plist_t build_identity, const char* component, char** path);
 int ipsw_extract_filesystem(const char* ipsw, plist_t build_identity, char** filesystem);
 int extract_component(const char* ipsw, const char* path, unsigned char** component_data, unsigned int* component_size);
