@@ -1793,8 +1793,7 @@ int build_identity_get_component_path(plist_t build_identity, const char* compon
 	return 0;
 }
 
-const char* get_component_name(const char* filename)
-{
+const char* get_component_name(const char* filename) {
 	if (!strncmp(filename, "LLB", 3)) {
 		return "LLB";
 	} else if (!strncmp(filename, "iBoot", 5)) {
