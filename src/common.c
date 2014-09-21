@@ -234,13 +234,19 @@ int mkdir_with_parents(const char *dir, int mode)
 	if (__mkdir(dir, mode) == 0) {
 		return 0;
 	} else {
-		if (errno == EEXIST) return 0;	
+		if (errno == EEXIST) {
+			return 0;
+		} else if (errno == ENOENT) {
+			// ignore
+		} else {
+			return -1;
+		}
 	}
 	int res;
 	char *parent = strdup(dir);
-	parent = dirname(parent);
-	if (parent && (strcmp(parent, ".") != 0) && (strcmp(parent, dir) != 0)) {
-		res = mkdir_with_parents(parent, mode);
+	char *parentdir = dirname(parent);
+	if (parentdir && (strcmp(parentdir, ".") != 0) && (strcmp(parentdir, dir) != 0)) {
+		res = mkdir_with_parents(parentdir, mode);
 	} else {
 		res = -1;	
 	}
