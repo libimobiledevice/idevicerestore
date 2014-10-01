@@ -718,7 +718,7 @@ plist_t tss_request_send(plist_t tss_request, const char* server_url_string) {
 		} else if (status_code == 49) {
 			// server error (invalid bb data, e.g. BbSNUM?)
 			break;
-		} else if (status_code == 94) {
+		} else if (status_code == 69 || status_code == 94) {
 			// This device isn't eligible for the requested build.
 			break;
 		} else if (status_code == 100) {
