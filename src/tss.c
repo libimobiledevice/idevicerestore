@@ -184,6 +184,15 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	}
 	node = NULL;
 
+	/* BbFDRSecurityKeyHash */
+	node = plist_dict_get_item(build_identity, "BbFDRSecurityKeyHash");
+	if (node && plist_get_node_type(node) == PLIST_DATA) {
+		plist_dict_set_item(parameters, "BbFDRSecurityKeyHash", plist_copy(node));
+	} else {
+		debug("NOTE: Unable to find BbFDRSecurityKeyHash node\n");
+	}
+	node = NULL;
+
 	/* BbSkeyId - Used by XMM 6180/GSM */
 	node = plist_dict_get_item(build_identity, "BbSkeyId");
 	if (node && plist_get_node_type(node) == PLIST_DATA) {
@@ -499,6 +508,13 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 			tss_entry_apply_restore_request_rules(tss_entry, parameters, rules);
 		}
 
+		/* Make sure we have a Digest key even if empty */
+		plist_t node = plist_access_path(manifest_entry, 1, "Digest");
+		if (!node) {
+			debug("DEBUG: No Digest data, using empty value for entry %s\n", key);
+			plist_dict_set_item(tss_entry, "Digest", plist_new_data(NULL, 0));
+		}
+
 		/* finally add entry to request */
 		plist_dict_set_item(request, key, tss_entry);
 
@@ -551,6 +567,13 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t o
 	}
 	node = NULL;
 
+	/* BbFDRSecurityKeyHash */
+	node = plist_dict_get_item(parameters, "BbFDRSecurityKeyHash");
+	if (node) {
+		plist_dict_set_item(request, "BbFDRSecurityKeyHash", plist_copy(node));
+	}
+	node = NULL;
+
 	/* BbSkeyId - Used by XMM 6180/GSM */
 	node = plist_dict_get_item(parameters, "BbSkeyId");
 	if (node) {
@@ -574,7 +597,11 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t o
 		error("ERROR: Unable to find required BbGoldCertId in parameters\n");
 		return -1;
 	}
-	plist_dict_set_item(request, "BbGoldCertId", plist_copy(node));
+	node = plist_copy(node);
+	uint64_t val;
+	plist_get_uint_val(node, &val);
+	plist_set_uint_val(node, (int32_t)val);
+	plist_dict_set_item(request, "BbGoldCertId", node);
 	node = NULL;
 
 	/* BbSNUM */
