@@ -30,6 +30,8 @@
 
 #include "common.h"
 
+#define MAX_PRINT_LEN 64*1024
+
 int idevicerestore_debug = 0;
 
 #define idevicerestore_err_buff_size 256
@@ -186,7 +188,10 @@ void debug_plist(plist_t plist) {
 	uint32_t size = 0;
 	char* data = NULL;
 	plist_to_xml(plist, &data, &size);
-	info("%s", data);
+	if (size <= MAX_PRINT_LEN)
+		info("%s:printing %i bytes plist:\n%s", __FILE__, size, data);
+	else
+		info("%s:supressed printing %i bytes plist...\n", __FILE__, size);
 	free(data);
 }
 

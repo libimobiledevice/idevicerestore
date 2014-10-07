@@ -176,7 +176,7 @@ int asr_send_buffer(asr_client_t asr, const char* data, uint32_t size) {
 		return -1;
 	}
 
-	debug("Sent %d bytes buffer\n", bytes);
+	//debug("Sent %d bytes buffer\n", bytes);
 
 	return 0;
 }
