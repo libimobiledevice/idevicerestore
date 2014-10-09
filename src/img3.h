@@ -98,7 +98,7 @@ typedef struct {
 int img3_stitch_component(const char* component_name, const unsigned char* component_data, unsigned int component_size, const unsigned char* blob, unsigned int blob_size, unsigned char** img3_data, unsigned int *img3_size);
 
 #ifdef __cplusplus
-}s
+}
 #endif
 
 #endif

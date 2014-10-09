@@ -29,7 +29,7 @@ extern "C" {
 int img4_stitch_component(const char* component_name, const unsigned char* component_data, unsigned int component_size, const unsigned char* blob, unsigned int blob_size, unsigned char** img4_data, unsigned int *img4_size);
 
 #ifdef __cplusplus
-}s
+}
 #endif
 
 #endif
