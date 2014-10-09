@@ -1,5 +1,6 @@
 AM_CFLAGS =	                   \
 	$(GLOBAL_CFLAGS)           \
+	$(LFS_CFLAGS)              \
 	$(libirecovery_CFLAGS)     \
 	$(libimobiledevice_CFLAGS) \
 	$(libplist_CFLAGS)         \
