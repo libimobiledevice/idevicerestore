@@ -737,6 +737,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 		if (strstr(filesystem, ".extract")) {
 			// rename <fsname>.extract to <fsname>
+			remove(tmpf);
 			rename(filesystem, tmpf);
 			free(filesystem);
 			filesystem = strdup(tmpf); 
