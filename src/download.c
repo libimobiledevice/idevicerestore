@@ -27,10 +27,6 @@
 #include "download.h"
 #include "common.h"
 
-#ifdef WIN32
-#define ftello(x) ftell(x)
-#endif
-
 typedef struct {
 	int length;
 	char* content;

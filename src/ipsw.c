@@ -87,6 +87,7 @@ int ipsw_get_file_size(const char* ipsw, const char* infile, off_t* size) {
 }
 
 int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfile) {
+	int ret = 0;
 	ipsw_archive* archive = ipsw_open(ipsw);
 	if (archive == NULL || archive->zip == NULL) {
 		error("ERROR: Invalid archive\n");
@@ -125,27 +126,26 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 		return -1;
 	}
 
-	int i = 0;
-	int size = 0;
-	int bytes = 0;
-	int count = 0;
-	double progress = 0;
+	off_t i, bytes = 0;
+	int count, size = BUFSIZE;
+	double progress;
 	for(i = zstat.size; i > 0; i -= count) {
 		if (i < BUFSIZE)
 			size = i;
-		else
-			size = BUFSIZE;
 		count = zip_fread(zfile, buffer, size);
 		if (count < 0) {
 			error("ERROR: zip_fread: %s\n", infile);
-			zip_fclose(zfile);
-			free(buffer);
-			return -1;
+			ret = -1;
+			break;
 		}
-		fwrite(buffer, 1, count, fd);
+		if (fwrite(buffer, 1, count, fd) != count) {
+			error("ERROR: frite: %s\n", outfile);
+			ret = -1;
+			break;
+		}
 
 		bytes += size;
-		progress = ((double) bytes/ (double) zstat.size) * 100.0;
+		progress = ((double)bytes / (double)zstat.size) * 100.0;
 		print_progress_bar(progress);
 	}
 
@@ -153,7 +153,7 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 	zip_fclose(zfile);
 	ipsw_close(archive);
 	free(buffer);
-	return 0;
+	return ret;
 }
 
 int ipsw_file_exists(const char* ipsw, const char* infile)

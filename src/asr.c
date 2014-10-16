@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #include <libimobiledevice/libimobiledevice.h>
 #include <openssl/sha.h>
 
@@ -207,9 +208,9 @@ int asr_perform_validation(asr_client_t asr, const char* filesystem) {
 		return -1;
 	}
 
-	fseek(file, 0, SEEK_END);
-	length = ftell(file);
-	fseek(file, 0, SEEK_SET);
+	fseeko(file, 0, SEEK_END);
+	length = ftello(file);
+	fseeko(file, 0, SEEK_SET);
 
 	payload_info = plist_new_dict();
 	plist_dict_set_item(payload_info, "Port", plist_new_uint(1));
@@ -258,8 +259,10 @@ int asr_perform_validation(asr_client_t asr, const char* filesystem) {
 		plist_get_string_val(node, &command);
 
 		if (!strcmp(command, "OOBData")) {
-			asr_handle_oob_data_request(asr, packet, file);
+			int ret = asr_handle_oob_data_request(asr, packet, file);
 			plist_free(packet);
+			if (ret < 0)
+				return ret;
 		} else if(!strcmp(command, "Payload")) {
 			plist_free(packet);
 			break;
@@ -298,21 +301,19 @@ int asr_handle_oob_data_request(asr_client_t asr, plist_t packet, FILE* file) {
 	oob_data = (char*) malloc(oob_length);
 	if (oob_data == NULL) {
 		error("ERROR: Out of memory\n");
-		plist_free(packet);
 		return -1;
 	}
 
-	fseek(file, oob_offset, SEEK_SET);
+	fseeko(file, oob_offset, SEEK_SET);
 	if (fread(oob_data, 1, oob_length, file) != oob_length) {
-		error("ERROR: Unable to read OOB data from filesystem offset\n");
-		plist_free(packet);
+		error("ERROR: Unable to read OOB data from filesystem offset: %s\n",
+		      strerror(errno));
 		free(oob_data);
 		return -1;
 	}
 
 	if (asr_send_buffer(asr, oob_data, oob_length) < 0) {
 		error("ERROR: Unable to send OOB data to ASR\n");
-		plist_free(packet);
 		free(oob_data);
 		return -1;
 	}
@@ -321,21 +322,21 @@ int asr_handle_oob_data_request(asr_client_t asr, plist_t packet, FILE* file) {
 }
 
 int asr_send_payload(asr_client_t asr, const char* filesystem) {
-	int i = 0;
 	char data[ASR_PAYLOAD_PACKET_SIZE];
 	FILE* file = NULL;
-	uint32_t bytes = 0;
-	uint32_t length = 0;
+	off_t i, length, bytes = 0;
 	double progress = 0;
 
 	file = fopen(filesystem, "rb");
 	if (file == NULL) {
+		error("ERROR: Unable to open filesystem image %s: %s\n",
+		      filesystem, strerror(errno));
 		return -1;
 	}
 
-	fseek(file, 0, SEEK_END);
-	length = ftell(file);
-	fseek(file, 0, SEEK_SET);
+	fseeko(file, 0, SEEK_END);
+	length = ftello(file);
+	fseeko(file, 0, SEEK_SET);
 
 	int chunk = 0;
 	int add_checksum = 0;
@@ -399,7 +400,7 @@ int asr_send_payload(asr_client_t asr, const char* filesystem) {
 		}
 
 		bytes += size;
-		progress = ((double) bytes/ (double) length);
+		progress = ((double)bytes / (double)length);
 		if (asr->progress_cb && ((int)(progress*100) > asr->lastprogress)) {
 			asr->progress_cb(progress, asr->progress_cb_data);
 			asr->lastprogress = (int)(progress*100);
