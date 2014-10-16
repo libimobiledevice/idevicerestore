@@ -129,7 +129,7 @@ int write_file(const char* filename, const void* data, size_t size) {
 	debug("Writing data to %s\n", filename);
 	file = fopen(filename, "wb");
 	if (file == NULL) {
-		error("read_file: Unable to open file %s\n", filename);
+		error("write_file: Unable to open file %s\n", filename);
 		return -1;
 	}
 
