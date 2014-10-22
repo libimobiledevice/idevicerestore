@@ -1550,7 +1550,33 @@ leave:
 	return res;
 }
 
-int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t build_identity, const char* filesystem) {
+int restore_send_fdr_trust_data(restored_client_t restore, idevice_t device)
+{
+	restored_error_t restore_error;
+	plist_t dict;
+
+	info("About to send FDR Trust data...\n");
+
+	// FIXME: What should we send here?
+	/* Sending an empty dict makes it continue with FDR
+	 * and this is what iTunes seems to be doing too */
+	dict = plist_new_dict();
+
+	info("Sending FDR Trust data now...\n");
+	restore_error = restored_send(restore, dict);
+	plist_free(dict);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: During sending FDR Trust data (%d)\n", restore_error);
+		return -1;
+	}
+
+	info("Done sending FDR Trust Data\n");
+
+	return 0;
+}
+
+int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t build_identity, const char* filesystem)
+{
 	char* type = NULL;
 	plist_t node = NULL;
 
@@ -1600,8 +1626,16 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 				error("ERROR: Unable to send baseband data\n");
 				return -1;
 			}
+		}
 
-		} else {
+		else if (!strcmp(type, "FDRTrustData")) {
+			if(restore_send_fdr_trust_data(restore, device) < 0) {
+				error("ERROR: Unable to send FDR Trust data\n");
+				return -1;
+			}
+		}
+
+		else {
 			// Unknown DataType!!
 			error("Unknown data request '%s' received\n", type);
 			if (idevicerestore_debug)
