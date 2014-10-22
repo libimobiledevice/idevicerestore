@@ -160,8 +160,8 @@ int read_file(const char* filename, void** data, size_t* size) {
 		return -1;
 	}
 
-	fseek(file, 0, SEEK_END);
-	length = ftell(file);
+	fseeko(file, 0, SEEK_END);
+	length = ftello(file);
 	rewind(file);
 
 	buffer = (char*) malloc(length);
