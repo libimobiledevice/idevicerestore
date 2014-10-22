@@ -160,8 +160,6 @@ int asr_send(asr_client_t asr, plist_t data) {
 		return -1;
 	}
 
-	debug("Sent %d bytes:\n", size);
-
 	if (buffer)
 		free(buffer);
 	return 0;
@@ -176,8 +174,6 @@ int asr_send_buffer(asr_client_t asr, const char* data, uint32_t size) {
 		error("ERROR: Unable to send data to ASR. Sent %u of %u bytes.\n", bytes, size);
 		return -1;
 	}
-
-	//debug("Sent %d bytes buffer\n", bytes);
 
 	return 0;
 }
