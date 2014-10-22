@@ -1451,6 +1451,15 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		tss_request_add_common_tags(request, parameters, NULL);
 		tss_request_add_baseband_tags(request, parameters, NULL);
 
+		plist_t node = plist_access_path(build_identity, 2, "Info", "FDRSupport");
+		if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
+			uint8_t b = 0;
+			plist_get_bool_val(node, &b);
+			if (b) {
+				plist_dict_set_item(request, "ApProductionMode", plist_new_bool(1));
+				plist_dict_set_item(request, "ApSecurityMode", plist_new_bool(1));
+			}
+		}
 		if (idevicerestore_debug)
 			debug_plist(request);
 

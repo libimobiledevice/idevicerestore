@@ -221,15 +221,6 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters) {
 		return -1;
 	}
 
-	/* ApECID */
-	node = plist_dict_get_item(parameters, "ApECID");
-	if (!node || plist_get_node_type(node) != PLIST_UINT) {
-		error("ERROR: Unable to find required ApECID in parameters\n");
-		return -1;
-	}
-	plist_dict_set_item(request, "ApECID", plist_copy(node));
-	node = NULL;
-
 	/* ApNonce */
 	node = plist_dict_get_item(parameters, "ApNonce");
 	if (!node || plist_get_node_type(node) != PLIST_DATA) {
@@ -300,15 +291,6 @@ int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters) {
 	/* @APTicket */
 	plist_dict_set_item(request, "@APTicket", plist_new_bool(1));
 
-	/* ApECID */
-	node = plist_dict_get_item(parameters, "ApECID");
-	if (!node || plist_get_node_type(node) != PLIST_UINT) {
-		error("ERROR: Unable to find required ApECID in parameters\n");
-		return -1;
-	}
-	plist_dict_set_item(request, "ApECID", plist_copy(node));
-	node = NULL;
-
 	/* ApBoardID */
 	node = plist_dict_get_item(request, "ApBoardID");
 	if (!node || plist_get_node_type(node) != PLIST_UINT) {
@@ -347,6 +329,15 @@ int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters) {
 
 int tss_request_add_common_tags(plist_t request, plist_t parameters, plist_t overrides) {
 	plist_t node = NULL;
+
+	/* ApECID */
+	node = plist_dict_get_item(parameters, "ApECID");
+	if (!node || plist_get_node_type(node) != PLIST_UINT) {
+		error("ERROR: Unable to find required ApECID in parameters\n");
+		return -1;
+	}
+	plist_dict_set_item(request, "ApECID", plist_copy(node));
+	node = NULL;
 
 	/* UniqueBuildID */
 	node = plist_dict_get_item(parameters, "UniqueBuildID");
@@ -750,6 +741,9 @@ plist_t tss_request_send(plist_t tss_request, const char* server_url_string) {
 			break;
 		} else if (status_code == 100) {
 			// server error, most likely the request was malformed
+			break;
+		} else if (status_code == 126) {
+			// An internal error occured, most likely the request was malformed
 			break;
 		} else {
 			error("ERROR: tss_send_request: Unhandled status code %d\n", status_code);
