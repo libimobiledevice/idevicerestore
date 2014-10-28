@@ -751,6 +751,9 @@ plist_t tss_request_send(plist_t tss_request, const char* server_url_string) {
 		} else if (status_code == 100) {
 			// server error, most likely the request was malformed
 			break;
+		} else if (status_code == 126) {
+			// An internal error occured, most likely the request was malformed
+			break;
 		} else {
 			error("ERROR: tss_send_request: Unhandled status code %d\n", status_code);
 		}
