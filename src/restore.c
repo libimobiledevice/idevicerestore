@@ -552,7 +552,7 @@ int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t 
 			idevicerestore_progress(client, RESTORE_STEP_FLASH_FS, progress / 100.0);
 			break;
 		case 18:
-			idevicerestore_progress(client, RESTORE_STEP_FLASH_NOR, progress / 100.0);
+			idevicerestore_progress(client, RESTORE_STEP_FLASH_FW, progress / 100.0);
 			break;
 		case 19:
 			idevicerestore_progress(client, RESTORE_STEP_FLASH_BB, progress / 100.0);
