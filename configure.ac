@@ -28,12 +28,10 @@ AC_LDADD=""
 AC_LDFLAGS=""
 case "$host_os" in
 	darwin*)
-		AC_LDADD="-lusb-1.0"
 	;;
 	linux*)
-		AC_LDADD="-lusb-1.0"
 	;;
-	mingw32)
+	mingw*)
 		GLOBAL_CFLAGS+="-DWIN32 -D__LITTLE_ENDIAN__=1"
 		AC_LDFLAGS+="-static-libgcc"
 		AC_LDADD="-lsetupapi"
