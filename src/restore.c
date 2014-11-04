@@ -31,6 +31,7 @@
 
 #include "idevicerestore.h"
 #include "asr.h"
+#include "fdr.h"
 #include "fls.h"
 #include "mbn.h"
 #include "tss.h"
@@ -1663,6 +1664,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
+	thread_t fdr_thread = 0;
 
 	restore_finished = 0;
 
@@ -1741,6 +1743,25 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 	if (plist_dict_get_item(client->tss, "BBTicket")) {
 		client->restore->bbtss = plist_copy(client->tss);
+	}
+
+	node = plist_access_path(build_identity, 2, "Info", "FDRSupport");
+	if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
+		uint8_t b = 0;
+		plist_get_bool_val(node, &b);
+		if (b) {
+			fdr_client_t fdr_control_channel = NULL;
+			info("FDRSupport indicated, starting FDR listener thread\n");
+			if (!fdr_connect(device, FDR_CTRL, &fdr_control_channel)) {
+				if(thread_create(&fdr_thread, fdr_listener_thread, fdr_control_channel)) {
+					error("ERROR: Failed to start FDR listener thread\n");
+					fdr_thread = 0; /* undefined after failure */
+				}
+			} else {
+				error("ERROR: Failed to start FDR Ctrl channel\n");
+				// FIXME: We might want to return failure here as it will likely fail
+			}
+		}
 	}
 
 	plist_t opts = plist_new_dict();
