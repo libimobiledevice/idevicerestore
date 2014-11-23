@@ -154,14 +154,14 @@ int read_file(const char* filename, void** data, size_t* size) {
 	*size = 0;
 	*data = NULL;
 
-	file = fopen(filename, "rb");
+	file = fopen64(filename, "rb");
 	if (file == NULL) {
 		error("read_file: File %s not found\n", filename);
 		return -1;
 	}
 
-	fseeko(file, 0, SEEK_END);
-	length = ftello(file);
+	fseeko64(file, 0, SEEK_END);
+	length = ftello64(file);
 	rewind(file);
 
 	buffer = (char*) malloc(length);
