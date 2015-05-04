@@ -55,7 +55,6 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 	//unsigned int load_address = 0x84000000;
 	unsigned int stack_address = 0;
 	unsigned int shellcode_address = 0;
-	unsigned int shellcode_length = 0;
 
 	irecv_device_t iphone4 = NULL;
 	irecv_device_t iphone3gs = NULL;
@@ -84,7 +83,6 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 	}
 
 	memset(shellcode, 0x0, 0x800);
-	shellcode_length = sizeof(limera1n_payload);
 	memcpy(shellcode, limera1n_payload, sizeof(limera1n_payload));
 
 	irecv_client_t client = *pclient;

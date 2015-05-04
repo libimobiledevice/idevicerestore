@@ -99,14 +99,7 @@ struct idevicerestore_client_t {
 	void* progress_cb_data;
 };
 
-static struct idevicerestore_mode_t idevicerestore_modes[] = {
-	{  0, "WTF"      },
-	{  1, "DFU"      },
-	{  2, "Recovery" },
-	{  3, "Restore"  },
-	{  4, "Normal"   },
-	{ -1,  NULL      }
-};
+extern struct idevicerestore_mode_t idevicerestore_modes[];
 
 extern int idevicerestore_debug;
 
