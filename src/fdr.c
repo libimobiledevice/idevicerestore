@@ -21,7 +21,6 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +32,7 @@
 #include "common.h"
 #include "idevicerestore.h"
 #include "fdr.h"
+#include <endianness.h> /* from libimobiledevice */
 
 #define CTRL_PROTO_VERSION 2
 #define CTRL_PORT 0x43a /*14852*/
@@ -313,7 +313,7 @@ static int fdr_handle_sync_cmd(fdr_client_t fdr_ctrl)
 {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	fdr_client_t fdr;
-	thread_t fdr_thread = 0;
+	thread_t fdr_thread = NULL;
 	int res = 0;
 	uint32_t bytes = 0;
 	char buf[4096];
@@ -329,7 +329,7 @@ static int fdr_handle_sync_cmd(fdr_client_t fdr_ctrl)
 		return -1;
 	}
 	debug("FDR connected in reply to sync message, starting command thread\n");
-	res = thread_create(&fdr_thread, fdr_listener_thread, fdr);
+	res = thread_new(&fdr_thread, fdr_listener_thread, fdr);
 	if(res) {
 		error("ERROR: Failed to start FDR command thread\n");
 		fdr_free(fdr);

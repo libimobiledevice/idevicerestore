@@ -1655,7 +1655,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
-	thread_t fdr_thread = 0;
+	thread_t fdr_thread = NULL;
 
 	restore_finished = 0;
 
@@ -1744,9 +1744,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			fdr_client_t fdr_control_channel = NULL;
 			info("FDRSupport indicated, starting FDR listener thread\n");
 			if (!fdr_connect(device, FDR_CTRL, &fdr_control_channel)) {
-				if(thread_create(&fdr_thread, fdr_listener_thread, fdr_control_channel)) {
+				if(thread_new(&fdr_thread, fdr_listener_thread, fdr_control_channel)) {
 					error("ERROR: Failed to start FDR listener thread\n");
-					fdr_thread = 0; /* undefined after failure */
+					fdr_thread = NULL; /* undefined after failure */
 				}
 			} else {
 				error("ERROR: Failed to start FDR Ctrl channel\n");
