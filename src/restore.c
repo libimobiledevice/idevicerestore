@@ -1805,17 +1805,19 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	// FIXME: not required for iOS 5?
 	//plist_dict_set_item(opts, "SourceRestoreBundlePath", plist_new_string("/tmp"));
 	plist_dict_set_item(opts, "SystemImage", plist_new_bool(1));
-	plist_t spp = plist_new_dict();
-	{
+	// FIXME: new on iOS 5 ?
+	plist_dict_set_item(opts, "SystemImageType", plist_new_string("User"));
+	plist_t spp = plist_access_path(build_identity, 2, "Info", "SystemPartitionPadding");
+	if (spp) {
+		spp = plist_copy(spp);
+	} else {
+		spp = plist_new_dict();
 		plist_dict_set_item(spp, "128", plist_new_uint(1280));
 		plist_dict_set_item(spp, "16", plist_new_uint(160));
 		plist_dict_set_item(spp, "32", plist_new_uint(320));
 		plist_dict_set_item(spp, "64", plist_new_uint(640));
 		plist_dict_set_item(spp, "8", plist_new_uint(80));
 	}
-	// FIXME: new on iOS 5 ?
-	plist_dict_set_item(opts, "SystemImageType", plist_new_string("User"));
-
 	plist_dict_set_item(opts, "SystemPartitionPadding", spp);
 	char* guid = generate_guid();
 	if (guid) {

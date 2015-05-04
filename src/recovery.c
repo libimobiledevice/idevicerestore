@@ -164,10 +164,6 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 		}
 	}
 
-	if (recovery_set_autoboot(client, 0) < 0) {
-		return -1;
-	}
-
 	info("Recovery Mode Environment:\n");
 	char* value = NULL;
 	irecv_getenv(client->recovery->client, "build-version", &value);
@@ -195,6 +191,10 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 			free(value);
 			value = NULL;
 		}
+	}
+
+	if (recovery_set_autoboot(client, 0) < 0) {
+		return -1;
 	}
 
 	/* send logo and show it */
@@ -393,8 +393,11 @@ int recovery_send_ramdisk(struct idevicerestore_client_t* client, plist_t build_
 		}
 	}
 
-	irecv_send_command(client->recovery->client, "getenv ramdisk-size");
-	irecv_receive(client->recovery->client);
+	char* value = NULL;
+	irecv_getenv(client->recovery->client, "ramdisk-size", &value);
+	info("ramdisk-size=%s\n", (value ? value : "(unknown)"));
+	free(value);
+	value = NULL;
 
 	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
