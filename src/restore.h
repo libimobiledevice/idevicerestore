@@ -58,7 +58,7 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 int restore_device(struct idevicerestore_client_t* client, plist_t build_identity, const char* filesystem);
 int restore_open_with_timeout(struct idevicerestore_client_t* client);
 int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t device, const char* filesystem);
-
+int restore_send_fdr_trust_data(restored_client_t restore, idevice_t device);
 
 #ifdef __cplusplus
 }

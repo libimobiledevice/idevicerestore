@@ -570,14 +570,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		if (client->build_major > 8) {
 			unsigned char* nonce = NULL;
 			int nonce_size = 0;
-			int nonce_changed = 0;
 			if (get_ap_nonce(client, &nonce, &nonce_size) < 0) {
 				/* the first nonce request with older firmware releases can fail and it's OK */
 				info("NOTE: Unable to get nonce from device\n");
 			}
 
 			if (!client->nonce || (nonce_size != client->nonce_size) || (memcmp(nonce, client->nonce, nonce_size) != 0)) {
-				nonce_changed = 1;
 				if (client->nonce) {
 					free(client->nonce);
 				}

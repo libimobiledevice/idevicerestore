@@ -499,11 +499,15 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 			tss_entry_apply_restore_request_rules(tss_entry, parameters, rules);
 		}
 
-		/* Make sure we have a Digest key even if empty */
-		plist_t node = plist_access_path(manifest_entry, 1, "Digest");
-		if (!node) {
-			debug("DEBUG: No Digest data, using empty value for entry %s\n", key);
-			plist_dict_set_item(tss_entry, "Digest", plist_new_data(NULL, 0));
+		/* Make sure we have a Digest key for Trusted items even if empty */
+		plist_t node = plist_dict_get_item(manifest_entry, "Trusted");
+		if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
+			uint8_t trusted;
+			plist_get_bool_val(node, &trusted);
+			if (trusted && !plist_access_path(manifest_entry, 1, "Digest")) {
+				debug("DEBUG: No Digest data, using empty value for entry %s\n", key);
+				plist_dict_set_item(tss_entry, "Digest", plist_new_data(NULL, 0));
+			}
 		}
 
 		/* finally add entry to request */

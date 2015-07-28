@@ -32,6 +32,15 @@
 
 #define MAX_PRINT_LEN 64*1024
 
+struct idevicerestore_mode_t idevicerestore_modes[] = {
+	{  0, "WTF"      },
+	{  1, "DFU"      },
+	{  2, "Recovery" },
+	{  3, "Restore"  },
+	{  4, "Normal"   },
+	{ -1,  NULL      }
+};
+
 int idevicerestore_debug = 0;
 
 #define idevicerestore_err_buff_size 256

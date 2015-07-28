@@ -31,6 +31,7 @@
 
 #include "idevicerestore.h"
 #include "asr.h"
+#include "fdr.h"
 #include "fls.h"
 #include "mbn.h"
 #include "tss.h"
@@ -79,23 +80,21 @@ int restore_client_new(struct idevicerestore_client_t* client) {
 }
 
 void restore_client_free(struct idevicerestore_client_t* client) {
-	if (client) {
-		if(client->restore) {
-			if(client->restore->client) {
-				restored_client_free(client->restore->client);
-				client->restore->client = NULL;
-			}
-			if(client->restore->device) {
-				idevice_free(client->restore->device);
-				client->restore->device = NULL;
-			}
-			if(client->restore->bbtss) {
-				plist_free(client->restore->bbtss);
-				client->restore->bbtss = NULL;
-			}
-			free(client->restore);
-			client->restore = NULL;
+	if (client && client->restore) {
+		if(client->restore->client) {
+			restored_client_free(client->restore->client);
+			client->restore->client = NULL;
 		}
+		if(client->restore->device) {
+			idevice_free(client->restore->device);
+			client->restore->device = NULL;
+		}
+		if(client->restore->bbtss) {
+			plist_free(client->restore->bbtss);
+			client->restore->bbtss = NULL;
+		}
+		free(client->restore);
+		client->restore = NULL;
 	}
 }
 
@@ -780,8 +779,7 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 	if (!path) {
 		if (build_identity_get_component_path(build_identity, "KernelCache", &path) < 0) {
 			error("ERROR: Unable to find kernelcache path\n");
-			if (path)
-				free(path);
+			free(path);
 			return -1;
 		}
 	}
@@ -789,37 +787,36 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 	const char* component = "KernelCache";
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
-
-	if (extract_component(client->ipsw, path, &component_data, &component_size) < 0) {
+	int ret = extract_component(client->ipsw, path, &component_data, &component_size);
+	free(path);
+	path = NULL;
+	if (ret < 0) {
 		error("ERROR: Unable to extract component: %s\n", component);
-		free(path);
 		return -1;
 	}
 
-	if (personalize_component(component, component_data, component_size, client->tss, &data, &size) < 0) {
-		error("ERROR: Unable to get personalized component: %s\n", component);
-		free(component_data);
-		free(path);
-		return -1;
-	}
+	ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
 	free(component_data);
 	component_data = NULL;
+	if (ret < 0) {
+		error("ERROR: Unable to get personalized component: %s\n", component);
+		return -1;
+	}
 
 	dict = plist_new_dict();
 	blob = plist_new_data((char*)data, size);
 	plist_dict_set_item(dict, "KernelCacheFile", blob);
+	free(data);
 
 	info("Sending KernelCache now...\n");
 	restore_error = restored_send(restore, dict);
+	plist_free(dict);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send kernelcache data\n");
-		plist_free(dict);
 		return -1;
 	}
 
 	info("Done sending KernelCache\n");
-	plist_free(dict);
-	free(data);
 	return 0;
 }
 
@@ -840,7 +837,6 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	unsigned int nor_size = 0;
 	unsigned char* nor_data = NULL;
 	plist_t norimage_array = NULL;
-	restored_error_t ret = RESTORE_E_SUCCESS;
 
 	info("About to send NORData...\n");
 
@@ -852,8 +848,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	if (llb_path == NULL) {
 		if (build_identity_get_component_path(build_identity, "LLB", &llb_path) < 0) {
 			error("ERROR: Unable to get component path for LLB\n");
-			if (llb_path)
-				free(llb_path);
+			free(llb_path);
 			return -1;
 		}
 	}
@@ -882,27 +877,25 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	const char* component = "LLB";
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
-
-	if (extract_component(client->ipsw, llb_path, &component_data, &component_size) < 0) {
+	int ret = extract_component(client->ipsw, llb_path, &component_data, &component_size);
+	free(llb_path);
+	if (ret < 0) {
 		error("ERROR: Unable to extract component: %s\n", component);
-		free(llb_path);
 		return -1;
 	}
 
-	if (personalize_component(component, component_data, component_size, client->tss, &llb_data, &llb_size) < 0) {
-		error("ERROR: Unable to get personalized component: %s\n", component);
-		free(component_data);
-		free(llb_path);
-		return -1;
-	}
+	ret = personalize_component(component, component_data, component_size, client->tss, &llb_data, &llb_size);
 	free(component_data);
 	component_data = NULL;
 	component_size = 0;
+	if (ret < 0) {
+		error("ERROR: Unable to get personalized component: %s\n", component);
+		return -1;
+	}
 
 	dict = plist_new_dict();
 	plist_dict_set_item(dict, "LlbImageData", plist_new_data((char*)llb_data, (uint64_t) llb_size));
-	if (llb_data)
-		free(llb_data);
+	free(llb_data);
 
 	norimage_array = plist_new_array();
 
@@ -922,14 +915,12 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 
 		if (extract_component(client->ipsw, firmware_filename, &component_data, &component_size) < 0) {
 			error("ERROR: Unable to extract component: %s\n", component);
-			free(llb_path);
 			return -1;
 		}
 
 		if (personalize_component(component, component_data, component_size, client->tss, &nor_data, &nor_size) < 0) {
 			error("ERROR: Unable to get personalized component: %s\n", component);
 			free(component_data);
-			free(llb_path);
 			return -1;
 		}
 		free(component_data);
@@ -953,23 +944,24 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	unsigned char* personalized_data = NULL;
 	unsigned int personalized_size = 0;
 
-	if (!build_identity_has_component(build_identity, "RestoreSEP") && build_identity_get_component_path(build_identity, "RestoreSEP", &restore_sep_path) == 0) {
+	if (!build_identity_has_component(build_identity, "RestoreSEP") &&
+	    build_identity_get_component_path(build_identity, "RestoreSEP", &restore_sep_path) == 0) {
 		component = "RestoreSEP";
-		if (extract_component(client->ipsw, restore_sep_path, &component_data, &component_size) < 0) {
+		ret = extract_component(client->ipsw, restore_sep_path, &component_data, &component_size);
+		free(restore_sep_path);
+		if (ret < 0) {
 			error("ERROR: Unable to extract component: %s\n", component);
-			free(restore_sep_path);
 			return -1;
 		}
 
-		if (personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size) < 0) {
-			error("ERROR: Unable to get personalized component: %s\n", component);
-			free(component_data);
-			free(restore_sep_path);
-			return -1;
-		}
+		ret = personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
 		free(component_data);
 		component_data = NULL;
 		component_size = 0;
+		if (ret < 0) {
+			error("ERROR: Unable to get personalized component: %s\n", component);
+			return -1;
+		}
 
 		plist_dict_set_item(dict, "RestoreSEPImageData", plist_new_data((char*)personalized_data, (uint64_t) personalized_size));
 		free(personalized_data);
@@ -977,23 +969,24 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		personalized_size = 0;
 	}
 
-	if (!build_identity_has_component(build_identity, "SEP") && build_identity_get_component_path(build_identity, "SEP", &sep_path) == 0) {
+	if (!build_identity_has_component(build_identity, "SEP") &&
+	    build_identity_get_component_path(build_identity, "SEP", &sep_path) == 0) {
 		component = "SEP";
-		if (extract_component(client->ipsw, sep_path, &component_data, &component_size) < 0) {
+		ret = extract_component(client->ipsw, sep_path, &component_data, &component_size);
+		free(sep_path);
+		if (ret < 0) {
 			error("ERROR: Unable to extract component: %s\n", component);
-			free(sep_path);
 			return -1;
 		}
 
-		if (personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size) < 0) {
-			error("ERROR: Unable to get personalized component: %s\n", component);
-			free(component_data);
-			free(sep_path);
-			return -1;
-		}
+		ret = personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
 		free(component_data);
 		component_data = NULL;
 		component_size = 0;
+		if (ret < 0) {
+			error("ERROR: Unable to get personalized component: %s\n", component);
+			return -1;
+		}
 
 		plist_dict_set_item(dict, "SEPImageData", plist_new_data((char*)personalized_data, (uint64_t) personalized_size));
 		free(personalized_data);
@@ -1005,8 +998,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		debug_plist(dict);
 
 	info("Sending NORData now...\n");
-	ret = restored_send(restore, dict);
-	if (ret != RESTORE_E_SUCCESS) {
+	if (restored_send(restore, dict) != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send NORImageData data\n");
 		plist_free(dict);
 		return -1;
@@ -1451,6 +1443,15 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		tss_request_add_common_tags(request, parameters, NULL);
 		tss_request_add_baseband_tags(request, parameters, NULL);
 
+		plist_t node = plist_access_path(build_identity, 2, "Info", "FDRSupport");
+		if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
+			uint8_t b = 0;
+			plist_get_bool_val(node, &b);
+			if (b) {
+				plist_dict_set_item(request, "ApProductionMode", plist_new_bool(1));
+				plist_dict_set_item(request, "ApSecurityMode", plist_new_bool(1));
+			}
+		}
 		if (idevicerestore_debug)
 			debug_plist(request);
 
@@ -1654,6 +1655,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
+	thread_t fdr_thread = NULL;
 
 	restore_finished = 0;
 
@@ -1734,6 +1736,25 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		client->restore->bbtss = plist_copy(client->tss);
 	}
 
+	node = plist_access_path(build_identity, 2, "Info", "FDRSupport");
+	if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
+		uint8_t b = 0;
+		plist_get_bool_val(node, &b);
+		if (b) {
+			fdr_client_t fdr_control_channel = NULL;
+			info("FDRSupport indicated, starting FDR listener thread\n");
+			if (!fdr_connect(device, FDR_CTRL, &fdr_control_channel)) {
+				if(thread_new(&fdr_thread, fdr_listener_thread, fdr_control_channel)) {
+					error("ERROR: Failed to start FDR listener thread\n");
+					fdr_thread = NULL; /* undefined after failure */
+				}
+			} else {
+				error("ERROR: Failed to start FDR Ctrl channel\n");
+				// FIXME: We might want to return failure here as it will likely fail
+			}
+		}
+	}
+
 	plist_t opts = plist_new_dict();
 	// FIXME: required?
 	//plist_dict_set_item(opts, "AuthInstallRestoreBehavior", plist_new_string("Erase"));
@@ -1784,17 +1805,19 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	// FIXME: not required for iOS 5?
 	//plist_dict_set_item(opts, "SourceRestoreBundlePath", plist_new_string("/tmp"));
 	plist_dict_set_item(opts, "SystemImage", plist_new_bool(1));
-	plist_t spp = plist_new_dict();
-	{
+	// FIXME: new on iOS 5 ?
+	plist_dict_set_item(opts, "SystemImageType", plist_new_string("User"));
+	plist_t spp = plist_access_path(build_identity, 2, "Info", "SystemPartitionPadding");
+	if (spp) {
+		spp = plist_copy(spp);
+	} else {
+		spp = plist_new_dict();
 		plist_dict_set_item(spp, "128", plist_new_uint(1280));
 		plist_dict_set_item(spp, "16", plist_new_uint(160));
 		plist_dict_set_item(spp, "32", plist_new_uint(320));
 		plist_dict_set_item(spp, "64", plist_new_uint(640));
 		plist_dict_set_item(spp, "8", plist_new_uint(80));
 	}
-	// FIXME: new on iOS 5 ?
-	plist_dict_set_item(opts, "SystemImageType", plist_new_string("User"));
-
 	plist_dict_set_item(opts, "SystemPartitionPadding", spp);
 	char* guid = generate_guid();
 	if (guid) {
@@ -1889,11 +1912,11 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 				debug_plist(message);
 		}
 
-		if (type)
-			free(type);
-
-		plist_free(message);
-		message = NULL;
+		free(type);
+		if (message) {
+			plist_free(message);
+			message = NULL;
+		}
 	}
 
 	restore_client_free(client);

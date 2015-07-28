@@ -164,24 +164,18 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 		}
 	}
 
-	if (recovery_set_autoboot(client, 0) < 0) {
-		return -1;
-	}
-
 	info("Recovery Mode Environment:\n");
 	char* value = NULL;
 	irecv_getenv(client->recovery->client, "build-version", &value);
 	info("iBoot build-version=%s\n", (value) ? value : "(unknown)");
-	if (value) {
-		free(value);
-		value = NULL;
-	}
+	free(value);
+	value = NULL;
+
 	irecv_getenv(client->recovery->client, "build-style", &value);
 	info("iBoot build-style=%s\n", (value) ? value : "(unknown)");
-	if (value) {
-		free(value);
-		value = NULL;
-	}
+	free(value);
+	value = NULL;
+
 	unsigned long radio_error = 0;
 	irecv_getenv(client->recovery->client, "radio-error", &value);
 	if (value) {
@@ -197,6 +191,10 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 			free(value);
 			value = NULL;
 		}
+	}
+
+	if (recovery_set_autoboot(client, 0) < 0) {
+		return -1;
 	}
 
 	/* send logo and show it */
@@ -242,12 +240,11 @@ int recovery_send_ticket(struct idevicerestore_client_t* client)
 
 	info("Sending APTicket (%d bytes)\n", size);
 	irecv_error_t err = irecv_send_buffer(client->recovery->client, data, size, 0);
+	free(data);
 	if (err != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send APTicket: %s\n", irecv_strerror(err));
-		free(data);
 		return -1;
 	}
-	free(data);
 
 	err = irecv_send_command(client->recovery->client, "ticket");
 	if (err != IRECV_E_SUCCESS) {
@@ -272,42 +269,37 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 	if (!path) {
 		if (build_identity_get_component_path(build_identity, component, &path) < 0) {
 			error("ERROR: Unable to get path for component '%s'\n", component);
-			if (path)
-				free(path);
+			free(path);
 			return -1;
 		}
 	}
 
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
-
-	if (extract_component(client->ipsw, path, &component_data, &component_size) < 0) {
+	int ret = extract_component(client->ipsw, path, &component_data, &component_size);
+	free(path);
+	if (ret < 0) {
 		error("ERROR: Unable to extract component: %s\n", component);
-		free(path);
 		return -1;
 	}
 
-	if (personalize_component(component, component_data, component_size, client->tss, &data, &size) < 0) {
+	ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
+	free(component_data);
+	if (ret < 0) {
 		error("ERROR: Unable to get personalized component: %s\n", component);
-		free(component_data);
-		free(path);
 		return -1;
 	}
-	free(component_data);
-	component_data = NULL;	
 
 	info("Sending %s (%d bytes)...\n", component, size);
 
 	// FIXME: Did I do this right????
 	err = irecv_send_buffer(client->recovery->client, data, size, 0);
-	free(path);
+	free(data);
 	if (err != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(err));
-		free(data);
 		return -1;
 	}
 
-	free(data);
 	return 0;
 }
 
@@ -401,8 +393,11 @@ int recovery_send_ramdisk(struct idevicerestore_client_t* client, plist_t build_
 		}
 	}
 
-	irecv_send_command(client->recovery->client, "getenv ramdisk-size");
-	irecv_receive(client->recovery->client);
+	char* value = NULL;
+	irecv_getenv(client->recovery->client, "ramdisk-size", &value);
+	info("ramdisk-size=%s\n", (value ? value : "(unknown)"));
+	free(value);
+	value = NULL;
 
 	if (recovery_send_component(client, build_identity, component) < 0) {
 		error("ERROR: Unable to send %s to device.\n", component);
