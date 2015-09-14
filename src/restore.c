@@ -1566,7 +1566,7 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	}
 
 	// extract baseband firmware to temp file
-	bbfwtmp = tempnam(NULL, "bbfw_");
+	bbfwtmp = tempnam(NULL, client->udid);
 	if (!bbfwtmp) {
 		error("WARNING: Could not generate temporary filename, using bbfw.tmp\n");
 		bbfwtmp = strdup("bbfw.tmp");
