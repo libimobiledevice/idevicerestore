@@ -926,7 +926,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	return result;
 }
 
-struct idevicerestore_client_t* idevicerestore_client_new()
+struct idevicerestore_client_t* idevicerestore_client_new(void)
 {
 	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) malloc(sizeof(struct idevicerestore_client_t));
 	if (client == NULL) {

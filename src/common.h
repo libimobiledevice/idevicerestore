@@ -112,7 +112,7 @@ void print_progress_bar(double progress);
 int read_file(const char* filename, void** data, size_t* size);
 int write_file(const char* filename, const void* data, size_t size);
 
-char *generate_guid();
+char *generate_guid(void);
 
 #ifdef WIN32
 #include <windows.h>

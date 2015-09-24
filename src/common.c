@@ -118,7 +118,7 @@ void idevicerestore_set_debug_stream(FILE* strm)
 	}
 }
 
-const char* idevicerestore_get_error()
+const char* idevicerestore_get_error(void)
 {
 	if (idevicerestore_err_buff[0] == 0) {
 		return NULL;
@@ -223,7 +223,7 @@ void print_progress_bar(double progress) {
 
 #define GET_RAND(min, max) ((rand() % (max - min)) + min)
 
-char *generate_guid()
+char *generate_guid(void)
 {
 	char *guid = (char *) malloc(sizeof(char) * 37);
 	const char *chars = "ABCDEF0123456789";

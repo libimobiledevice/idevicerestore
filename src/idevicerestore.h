@@ -55,7 +55,7 @@ enum {
 
 typedef void (*idevicerestore_progress_cb_t)(int step, double step_progress, void* userdata);
 
-struct idevicerestore_client_t* idevicerestore_client_new();
+struct idevicerestore_client_t* idevicerestore_client_new(void);
 void idevicerestore_client_free(struct idevicerestore_client_t* client);
 
 void idevicerestore_set_ecid(struct idevicerestore_client_t* client, unsigned long long ecid);
@@ -69,7 +69,7 @@ void idevicerestore_set_error_stream(FILE* strm);
 void idevicerestore_set_debug_stream(FILE* strm);
 
 int idevicerestore_start(struct idevicerestore_client_t* client);
-const char* idevicerestore_get_error();
+const char* idevicerestore_get_error(void);
 
 void usage(int argc, char* argv[]);
 int check_mode(struct idevicerestore_client_t* client);
