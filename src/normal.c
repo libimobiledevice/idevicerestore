@@ -85,13 +85,25 @@ static int normal_idevice_new(struct idevicerestore_client_t* client, idevice_t*
 {
 	int num_devices = 0;
 	char **devices = NULL;
+	idevice_t dev = NULL;
+	idevice_error_t device_error;
+
+	*device = NULL;
+
+	if (client->udid) {
+		device_error = idevice_new(&dev, client->udid);
+		if (device_error != IDEVICE_E_SUCCESS) {
+			error("ERROR: %s: can't open device with UDID %s\n", __func__, client->udid);
+			return -1;
+		}
+		*device = dev;
+		return 0;
+	}
+
 	idevice_get_device_list(&devices, &num_devices);
 	if (num_devices == 0) {
 		return -1;
 	}
-	*device = NULL;
-	idevice_t dev = NULL;
-	idevice_error_t device_error;
 	lockdownd_client_t lockdown = NULL;
 	int j;
 	for (j = 0; j < num_devices; j++) {
@@ -124,28 +136,26 @@ static int normal_idevice_new(struct idevicerestore_client_t* client, idevice_t*
 		}
 		free(type);
 
-		if (client->ecid != 0) {
-			plist_t node = NULL;
-			if ((lockdownd_get_value(lockdown, NULL, "UniqueChipID", &node) != LOCKDOWN_E_SUCCESS) || !node || (plist_get_node_type(node) != PLIST_UINT)){
-				if (node) {
-					plist_free(node);
-				}
-				continue;
+		plist_t node = NULL;
+		if ((lockdownd_get_value(lockdown, NULL, "UniqueChipID", &node) != LOCKDOWN_E_SUCCESS) || !node || (plist_get_node_type(node) != PLIST_UINT)){
+			if (node) {
+				plist_free(node);
 			}
-			lockdownd_client_free(lockdown);
-			lockdown = NULL;
+			continue;
+		}
+		lockdownd_client_free(lockdown);
+		lockdown = NULL;
 
-			uint64_t this_ecid = 0;
-			plist_get_uint_val(node, &this_ecid);
-			plist_free(node);
+		uint64_t this_ecid = 0;
+		plist_get_uint_val(node, &this_ecid);
+		plist_free(node);
 
+		if (client->ecid != 0) {
 			if (this_ecid != client->ecid) {
 				continue;
 			}
-		}
-		if (lockdown) {
-			lockdownd_client_free(lockdown);
-			lockdown = NULL;
+		} else {
+			client->ecid = this_ecid;
 		}
 		client->udid = strdup(devices[j]);
 		*device = dev;
