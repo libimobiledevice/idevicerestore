@@ -729,7 +729,7 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 	}
 
 	if (client->image4supported) {
-		if (!tss_response_get_ap_img4_ticket(client->tss, &data, &len) < 0) {
+		if (tss_response_get_ap_img4_ticket(client->tss, &data, &len) < 0) {
 			error("ERROR: Unable to get ApImg4Ticket from TSS\n");
 			return -1;
 		}
