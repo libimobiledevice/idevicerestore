@@ -779,7 +779,6 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 	if (!path) {
 		if (build_identity_get_component_path(build_identity, "KernelCache", &path) < 0) {
 			error("ERROR: Unable to find kernelcache path\n");
-			free(path);
 			return -1;
 		}
 	}
@@ -848,7 +847,6 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	if (llb_path == NULL) {
 		if (build_identity_get_component_path(build_identity, "LLB", &llb_path) < 0) {
 			error("ERROR: Unable to get component path for LLB\n");
-			free(llb_path);
 			return -1;
 		}
 	}
@@ -1913,10 +1911,8 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		}
 
 		free(type);
-		if (message) {
-			plist_free(message);
-			message = NULL;
-		}
+		plist_free(message);
+		message = NULL;
 	}
 
 	restore_client_free(client);
