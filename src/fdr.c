@@ -35,9 +35,9 @@
 #include "fdr.h"
 #include <endianness.h> /* from libimobiledevice */
 
-#define CTRL_PROTO_VERSION 2
-#define CTRL_PORT 0x43a /*14852*/
+#define CTRL_PORT 0x43a /*1082*/
 #define CTRLCMD  "BeginCtrl"
+#define HELLOCTRLCMD "HelloCtrl"
 #define HELLOCMD "HelloConn"
 
 #define FDR_SYNC_MSG  0x1
@@ -45,6 +45,7 @@
 #define FDR_PLIST_MSG 0xbbaa
 
 static uint64_t conn_port;
+static int ctrlprotoversion = 2;
 static int serial;
 
 static int fdr_receive_plist(fdr_client_t fdr, plist_t* data);
@@ -254,37 +255,73 @@ static int fdr_ctrl_handshake(fdr_client_t fdr)
 
 	debug("About to do ctrl handshake\n");
 
+	ctrlprotoversion = 2;
+
 	device_error = idevice_connection_send(fdr->connection, CTRLCMD, len, &bytes);
 	if (device_error != IDEVICE_E_SUCCESS || bytes != len) {
-		error("ERROR: FDR unable to send BeginCtrl. Sent %u of %u bytes.\n", bytes, len);
-		return -1;
+		debug("Hmm... lookes like the device doesn't like the newer protocol, using the old one\n");
+		ctrlprotoversion = 1;
+		len = sizeof(HELLOCTRLCMD);
+		device_error = idevice_connection_send(fdr->connection, HELLOCTRLCMD, len, &bytes);
+		if (device_error != IDEVICE_E_SUCCESS || bytes != len) {
+			error("ERROR: FDR unable to send BeginCtrl. Sent %u of %u bytes.\n", bytes, len);
+			return -1;
+		}
 	}
 
-	dict = plist_new_dict();
-	plist_dict_set_item(dict, "Command", plist_new_string(CTRLCMD));
-	plist_dict_set_item(dict, "CtrlProtoVersion", plist_new_uint(CTRL_PROTO_VERSION));
-	res = fdr_send_plist(fdr, dict);
-	plist_free(dict);
-	if (res) {
-		error("ERROR: FDR could not send Begin command.\n");
-		return -1;
-	}
+	if (ctrlprotoversion == 2) {
+		dict = plist_new_dict();
+		plist_dict_set_item(dict, "Command", plist_new_string(CTRLCMD));
+		plist_dict_set_item(dict, "CtrlProtoVersion", plist_new_uint(ctrlprotoversion));
+		res = fdr_send_plist(fdr, dict);
+		plist_free(dict);
+		if (res) {
+			error("ERROR: FDR could not send Begin command.\n");
+			return -1;
+		}
 
-	if (fdr_receive_plist(fdr, &dict)) {
-		error("ERROR: FDR did not get Begin command reply.\n");
-		return -1;
-	}
-	if (idevicerestore_debug)
-		debug_plist(dict);
-	node = plist_dict_get_item(dict, "ConnPort");
-	if (node && plist_get_node_type(node) == PLIST_UINT)
-		plist_get_uint_val(node, &conn_port);
-	else {
-		error("ERROR: Could not get FDR ConnPort value\n");
-		return -1;
-	}
+		if (fdr_receive_plist(fdr, &dict)) {
+			error("ERROR: FDR did not get Begin command reply.\n");
+			return -1;
+		}
+		if (idevicerestore_debug)
+			debug_plist(dict);
+		node = plist_dict_get_item(dict, "ConnPort");
+		if (node && plist_get_node_type(node) == PLIST_UINT) {
+			plist_get_uint_val(node, &conn_port);
+		} else {
+			error("ERROR: Could not get FDR ConnPort value\n");
+			return -1;
+		}
 
-	plist_free(dict);
+		plist_free(dict);
+	} else {
+		char buf[16];
+		uint16_t cport = 0;
+
+		memset(buf, '\0', sizeof(buf));
+
+		bytes = 0;
+		device_error = idevice_connection_receive(fdr->connection, buf, 10, &bytes);
+		if (device_error != IDEVICE_E_SUCCESS) {
+			error("ERROR: Could not receive reply to HelloCtrl command\n");
+			return -1;
+		}
+		if (memcmp(buf, "HelloCtrl", 10) != 0) {
+			buf[9] = '\0';
+			error("ERROR: Did not receive HelloCtrl as reply, but %s\n", buf);
+			return -1;
+		}
+
+		bytes = 0;
+		device_error = idevice_connection_receive(fdr->connection, (char*)&cport, 2, &bytes);
+		if (device_error != IDEVICE_E_SUCCESS) {
+			error("ERROR: Failed to receive conn port\n");
+			return -1;
+		}
+
+		conn_port = le16toh(cport);
+	}
 
 	debug("Ctrl handshake done (ConnPort = %u)\n", conn_port);
 
@@ -302,9 +339,56 @@ static int fdr_sync_handshake(fdr_client_t fdr)
 		error("ERROR: FDR unable to send Hello. Sent %u of %u bytes.\n", bytes, len);
 		return -1;
 	}
-	if (fdr_receive_plist(fdr, &reply)) {
-		error("ERROR: FDR did not get Hello reply.\n");
-		return -1;
+
+	if (ctrlprotoversion == 2) {
+		if (fdr_receive_plist(fdr, &reply)) {
+			error("ERROR: FDR did not get HelloConn reply.\n");
+			return -1;
+		}
+		char* identifier = NULL;
+		char* cmd = NULL;
+		plist_t node = NULL;
+		node = plist_dict_get_item(reply, "Command");
+		if (node) {
+			plist_get_string_val(node, &cmd);
+		}
+		node = plist_dict_get_item(reply, "Identifier");
+		if (node) {
+			plist_get_string_val(node, &identifier);
+		}
+		plist_free(reply);
+
+		if (!cmd || (strcmp(cmd, "HelloConn") != 0)) {
+			if (cmd) {
+				free(cmd);
+			}
+			if (identifier) {
+				free(identifier);
+			}
+			error("ERROR: Did not receive HelloConn reply...\n");
+			return -1;
+		}
+		free(cmd);
+
+		if (identifier) {
+			debug("Got device identifier %s\n", identifier);
+			free(identifier);
+		}
+
+	} else {
+		char buf[16];
+		memset(buf, '\0', sizeof(buf));
+		bytes = 0;
+		device_error = idevice_connection_receive(fdr->connection, buf, 10, &bytes);
+		if (device_error != IDEVICE_E_SUCCESS) {
+			error("ERROR: Could not receive reply to HelloConn command\n");
+			return -1;
+		}
+		if (memcmp(buf, "HelloConn", 10) != 0) {
+			buf[9] = '\0';
+			error("ERROR: Did not receive HelloConn as reply, but %s\n", buf);
+			return -1;
+		}
 	}
 
 	return 0;
@@ -314,7 +398,7 @@ static int fdr_handle_sync_cmd(fdr_client_t fdr_ctrl)
 {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	fdr_client_t fdr;
-	thread_t fdr_thread = NULL;
+	thread_t fdr_thread = (thread_t)NULL;
 	int res = 0;
 	uint32_t bytes = 0;
 	char buf[4096];
