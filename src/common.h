@@ -131,8 +131,6 @@ int mkdir_with_parents(const char *dir, int mode);
 
 void idevicerestore_progress(struct idevicerestore_client_t* client, int step, double progress);
 
-void plist_dict_merge(plist_t* dictionary, plist_t node);
-
 #ifdef __cplusplus
 }
 #endif

@@ -282,29 +282,3 @@ void idevicerestore_progress(struct idevicerestore_client_t* client, int step, d
 		}
 	}
 }
-
-void plist_dict_merge(plist_t* dictionary, plist_t node)
-{
-	if (dictionary == NULL || (plist_get_node_type(*dictionary) != PLIST_DICT))
-		return;
-
-	char* key = NULL;
-	plist_dict_iter it = NULL;
-	plist_t subnode = NULL;
-	plist_dict_new_iter(node, &it);
-	plist_dict_next_item(node, it, &key, &subnode);
-
-	while (subnode)
-	{
-		if (plist_dict_get_item(*dictionary, key) != NULL)
-			plist_dict_remove_item(*dictionary, key);
-
-		plist_dict_set_item(*dictionary, key, plist_copy(subnode));
-		if (key) {
-			free(key);
-			key = NULL;
-		}
-		plist_dict_next_item(node, it, &key, &subnode);
-	}
-	free(it);
-}
