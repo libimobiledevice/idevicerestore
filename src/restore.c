@@ -598,6 +598,9 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 		case 51:
 			info("Status: Failed to load SEP Firmware.\n");
 			break;
+		case 53:
+			info("Status: Failed to recover FDR data.\n");
+			break;
 		case 1015:
 			info("Status: X-Gold Baseband Update Failed. Defective Unit?\n");
 			break;
