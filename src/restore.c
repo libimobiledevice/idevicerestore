@@ -406,7 +406,7 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 	while (i++ < attempts) {
 		debug("Attempt %d to connect to restore mode device...\n", i);
 		if (restore_device_connected) {
-			info("Device is now connected in restore mode...\n");
+			info("Device %s is now connected in restore mode...\n", client->udid);
 			break;
 		}
 		sleep(1);
@@ -1663,7 +1663,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		error("ERROR: Unable to open device in restore mode\n");
 		return (err == -2) ? -1: -2;
 	}
-	info("Device has successfully entered restore mode\n");
+	info("Device %s has successfully entered restore mode\n", client->udid);
 
 	restore = client->restore->client;
 	device = client->restore->device;
