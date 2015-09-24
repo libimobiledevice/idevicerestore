@@ -1,5 +1,5 @@
 /*
- * asr.h
+ * asr.c
  * Functions for handling asr connections
  *
  * Copyright (c) 2010-2012 Martin Szulecki. All Rights Reserved.

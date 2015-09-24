@@ -1,6 +1,6 @@
 /*
  * dfu.h
- * Functions for handling idevices in normal mode
+ * Functions for handling idevices in DFU mode
  *
  * Copyright (c) 2010-2013 Martin Szulecki. All Rights Reserved.
  * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
