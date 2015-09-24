@@ -214,7 +214,7 @@ const char* normal_check_product_type(struct idevicerestore_client_t* client) {
 	irecv_device_t irecv_device = NULL;
 	plist_t product_type_node = NULL;
 	lockdownd_client_t lockdown = NULL;
-	lockdownd_error_t lockdown_error = IDEVICE_E_SUCCESS;
+	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
 	normal_idevice_new(client, &device);
 	if (!device) {
@@ -333,7 +333,7 @@ static int normal_get_nonce_by_key(struct idevicerestore_client_t* client, const
 	plist_t nonce_node = NULL;
 	lockdownd_client_t lockdown = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
-	lockdownd_error_t lockdown_error = IDEVICE_E_SUCCESS;
+	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
 	device_error = idevice_new(&device, client->udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
@@ -389,7 +389,7 @@ int normal_is_image4_supported(struct idevicerestore_client_t* client)
 	plist_t node = NULL;
 	lockdownd_client_t lockdown = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
-	lockdownd_error_t lockdown_error = IDEVICE_E_SUCCESS;
+	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
 	device_error = idevice_new(&device, client->udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
@@ -433,7 +433,7 @@ int normal_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	plist_t unique_chip_node = NULL;
 	lockdownd_client_t lockdown = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
-	lockdownd_error_t lockdown_error = IDEVICE_E_SUCCESS;
+	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
 	device_error = idevice_new(&device, client->udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
@@ -476,7 +476,7 @@ int normal_get_preflight_info(struct idevicerestore_client_t* client, plist_t *p
 	plist_t node = NULL;
 	lockdownd_client_t lockdown = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
-	lockdownd_error_t lockdown_error = IDEVICE_E_SUCCESS;
+	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
 	device_error = idevice_new(&device, client->udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
