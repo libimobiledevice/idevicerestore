@@ -175,7 +175,7 @@ void *fdr_listener_thread(void *cdata)
 	}
 	debug("FDR %p terminating...\n", fdr);
 	fdr_free(fdr);
-	return (void *)res;
+	return (void *)(intptr_t)res;
 }
 
 static int fdr_receive_plist(fdr_client_t fdr, plist_t* data)
