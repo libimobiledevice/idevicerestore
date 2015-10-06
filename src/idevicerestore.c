@@ -2,7 +2,7 @@
  * idevicerestore.c
  * Restore device firmware and filesystem
  *
- * Copyright (c) 2010-2013 Martin Szulecki. All Rights Reserved.
+ * Copyright (c) 2010-2015 Martin Szulecki. All Rights Reserved.
  * Copyright (c) 2012-2013 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
@@ -20,6 +20,10 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -95,6 +99,7 @@ void usage(int argc, char* argv[]) {
 	printf("  -C, --cache-path DIR\tUse specified directory for caching extracted\n");
 	printf("                      \tor other reused files.\n");
 	printf("\n");
+	printf("Homepage: <" PACKAGE_URL ">\n");
 }
 
 static int load_version_data(struct idevicerestore_client_t* client)
