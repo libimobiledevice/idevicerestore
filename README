@@ -18,52 +18,51 @@ Requirements
 ============
 
 Development Packages of:
-  libimobiledevice
-  libirecovery
-  libusbmuxd
-  libplist
-  libzip
-  openssl
+	libimobiledevice
+	libirecovery
+	libusbmuxd
+	libplist
+	libzip
+	openssl
 
 Software:
-  usbmuxd
-  make
-  autoheader
-  automake
-  autoconf
-  libtool
-  pkg-config
-  gcc
+	usbmuxd
+	make
+	autoheader
+	automake
+	autoconf
+	libtool
+	pkg-config
+	gcc
 
 Installation
 ============
 
 To compile run:
-  ./configure
-  make
-  sudo make install
+	./autogen.sh
+	make
+	sudo make install
 
 Who/What/Where?
 ===============
 
 Home:
-  http://www.libimobiledevice.org/
-  http://www.openjailbreak.org/
+	http://www.libimobiledevice.org/
 
 Code:
-  git clone http://git.sukimashita.com/idevicerestore.git
+	git clone http://git.libimobiledevice.org/idevicerestore.git
 
 Code (Mirror):
-  git clone https://github.com/libimobiledevice/idevicerestore
+	git clone https://github.com/libimobiledevice/idevicerestore.git
 
 Tickets:
-  http://github.com/libimobiledevice/idevicerestore/issues
+	http://github.com/libimobiledevice/idevicerestore/issues
 
 Mailing List:
-  http://lists.libimobiledevice.org/mailman/listinfo/libimobiledevice-devel
+	http://lists.libimobiledevice.org/mailman/listinfo/libimobiledevice-devel
 
 IRC:
-  irc://irc.freenode.net#libimobiledevice
+	irc://irc.freenode.net#libimobiledevice
 
 Credits
 =======
@@ -73,4 +72,4 @@ idevicerestore is an independent software tool and has not been
 authorized, sponsored, or otherwise approved by Apple Inc.
 
 README Updated on:
-  2013-09-23
+	2015-10-06
