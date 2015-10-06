@@ -1,7 +1,11 @@
-dnl Process this file with autoconf to produce a configure script.
+#                                               -*- Autoconf -*-
+# Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.61)
-AC_INIT(idevicerestore, 1.0)
+AC_PREREQ(2.64)
+AC_INIT([idevicerestore], [1.0], [https://github.com/libimobiledevice/idevicerestore/issues],, [http://libimobiledevice.org])
+
+AC_CANONICAL_SYSTEM
+AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip])
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
 
@@ -9,8 +13,6 @@ AC_CONFIG_SRCDIR([src/])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
-AC_CANONICAL_SYSTEM
-AM_INIT_AUTOMAKE()
 
 AC_PROG_CC
 AM_PROG_CC_C_O
