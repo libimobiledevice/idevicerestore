@@ -2,7 +2,7 @@
  * normal.h
  * Functions for handling idevices in normal mode
  *
- * Copyright (c) 2012-2013 Nikias Bassen. All Rights Reserved.
+ * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2012 Martin Szulecki. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
@@ -218,7 +218,7 @@ int normal_open_with_timeout(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-const char* normal_check_product_type(struct idevicerestore_client_t* client) {
+const char* normal_check_hardware_model(struct idevicerestore_client_t* client) {
 	idevice_t device = NULL;
 	char* product_type = NULL;
 	irecv_device_t irecv_device = NULL;
@@ -247,9 +247,6 @@ const char* normal_check_product_type(struct idevicerestore_client_t* client) {
 		plist_get_string_val(pval, &strval);
 		if (strval) {
 			irecv_devices_get_device_by_hardware_model(strval, &irecv_device);
-			if (irecv_device) {
-				product_type = strdup(irecv_device->product_type);
-			}
 			free(strval);
 		}
 	}
@@ -257,44 +254,7 @@ const char* normal_check_product_type(struct idevicerestore_client_t* client) {
 		plist_free(pval);
 	}
 
-	if (product_type == NULL) {
-		lockdown_error = lockdownd_get_value(lockdown, NULL, "ProductType", &product_type_node);
-		if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-			lockdownd_client_free(lockdown);
-			idevice_free(device);
-			return product_type;
-		}
-	}
-
-	lockdownd_client_free(lockdown);
-	idevice_free(device);
-	lockdown = NULL;
-	device = NULL;
-
-	if (irecv_device) {
-		if (product_type)
-			free(product_type);
-
-		return irecv_device->product_type;
-	}
-
-	if (product_type_node != NULL) {
-		if (!product_type_node || plist_get_node_type(product_type_node) != PLIST_STRING) {
-			if (product_type_node)
-				plist_free(product_type_node);
-			return product_type;
-		}
-		plist_get_string_val(product_type_node, &product_type);
-		plist_free(product_type_node);
-
-		irecv_devices_get_device_by_product_type(product_type, &irecv_device);
-		if (irecv_device && irecv_device->product_type) {
-			free(product_type);
-			return irecv_device->product_type;
-		}
-	}
-
-	return product_type;
+	return (irecv_device) ? irecv_device->hardware_model : NULL;
 }
 
 int normal_enter_recovery(struct idevicerestore_client_t* client) {

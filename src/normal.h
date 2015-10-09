@@ -3,7 +3,7 @@
  * Functions for handling idevices in normal mode
  *
  * Copyright (c) 2012 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
+ * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -41,7 +41,7 @@ struct normal_client_t {
 
 
 int normal_check_mode(struct idevicerestore_client_t* client);
-const char* normal_check_product_type(struct idevicerestore_client_t* client);
+const char* normal_check_hardware_model(struct idevicerestore_client_t* client);
 int normal_client_new(struct idevicerestore_client_t* client);
 void normal_client_free(struct idevicerestore_client_t* client);
 int normal_open_with_timeout(struct idevicerestore_client_t* client);

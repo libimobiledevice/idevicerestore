@@ -3,7 +3,7 @@
  * Restore device firmware and filesystem
  *
  * Copyright (c) 2010-2012 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
+ * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -73,7 +73,7 @@ const char* idevicerestore_get_error(void);
 
 void usage(int argc, char* argv[]);
 int check_mode(struct idevicerestore_client_t* client);
-const char* check_product_type(struct idevicerestore_client_t* client);
+const char* check_hardware_model(struct idevicerestore_client_t* client);
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
 int is_image4_supported(struct idevicerestore_client_t* client);
 int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);

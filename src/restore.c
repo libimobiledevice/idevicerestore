@@ -3,7 +3,7 @@
  * Functions for handling idevices in restore mode
  *
  * Copyright (c) 2010-2013 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012-2013 Nikias Bassen. All Rights Reserved.
+ * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -194,7 +194,7 @@ int restore_check_mode(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-const char* restore_check_product_type(struct idevicerestore_client_t* client) {
+const char* restore_check_hardware_model(struct idevicerestore_client_t* client) {
 	char* model = NULL;
 	plist_t node = NULL;
 	idevice_t device = NULL;
@@ -257,7 +257,7 @@ const char* restore_check_product_type(struct idevicerestore_client_t* client) {
 
 	irecv_devices_get_device_by_hardware_model(model, &irecv_device);
 	if (irecv_device && irecv_device->product_type) {
-		return irecv_device->product_type;
+		return irecv_device->hardware_model;
 	}
 
 	return product_type;

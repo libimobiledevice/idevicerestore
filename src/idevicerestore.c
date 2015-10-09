@@ -3,7 +3,7 @@
  * Restore device firmware and filesystem
  *
  * Copyright (c) 2010-2015 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012-2013 Nikias Bassen. All Rights Reserved.
+ * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -280,12 +280,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	// discover the device type
-	if (check_product_type(client) == NULL || client->device == NULL) {
-		error("ERROR: Unable to discover device type\n");
+	if (check_hardware_model(client) == NULL || client->device == NULL) {
+		error("ERROR: Unable to discover device model\n");
 		return -1;
 	}
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.2);
-	info("Identified device as %s\n", client->device->product_type);
+	info("Identified device as %s, %s\n", client->device->hardware_model, client->device->product_type);
 
 	if ((client->flags & FLAG_PWN) && (client->mode->index != MODE_DFU)) {
 		error("ERROR: you need to put your device into DFU mode to pwn it.\n");
@@ -1180,31 +1180,31 @@ int check_mode(struct idevicerestore_client_t* client) {
 	return mode;
 }
 
-const char* check_product_type(struct idevicerestore_client_t* client) {
-	const char* product_type = NULL;
+const char* check_hardware_model(struct idevicerestore_client_t* client) {
+	const char* hw_model = NULL;
 
 	switch (client->mode->index) {
 	case MODE_RESTORE:
-		product_type = restore_check_product_type(client);
+		hw_model = restore_check_hardware_model(client);
 		break;
 
 	case MODE_NORMAL:
-		product_type = normal_check_product_type(client);
+		hw_model = normal_check_hardware_model(client);
 		break;
 
 	case MODE_DFU:
 	case MODE_RECOVERY:
-		product_type = dfu_check_product_type(client);
+		hw_model = dfu_check_hardware_model(client);
 		break;
 	default:
 		break;
 	}
 
-	if (product_type != NULL) {
-		irecv_devices_get_device_by_product_type(product_type, &client->device);
+	if (hw_model != NULL) {
+		irecv_devices_get_device_by_hardware_model(hw_model, &client->device);
 	}
 
-	return product_type;
+	return hw_model;
 }
 
 int is_image4_supported(struct idevicerestore_client_t* client)

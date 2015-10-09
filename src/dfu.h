@@ -3,7 +3,7 @@
  * Functions for handling idevices in DFU mode
  *
  * Copyright (c) 2010-2013 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
+ * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -40,7 +40,7 @@ struct dfu_client_t {
 int dfu_client_new(struct idevicerestore_client_t* client);
 void dfu_client_free(struct idevicerestore_client_t* client);
 int dfu_check_mode(struct idevicerestore_client_t* client, int* mode);
-const char* dfu_check_product_type(struct idevicerestore_client_t* client);
+const char* dfu_check_hardware_model(struct idevicerestore_client_t* client);
 int dfu_send_buffer(struct idevicerestore_client_t* client, unsigned char* buffer, unsigned int size);
 int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component);
 int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid);

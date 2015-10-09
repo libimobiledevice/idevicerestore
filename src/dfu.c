@@ -3,7 +3,7 @@
  * Functions for handling idevices in DFU mode
  *
  * Copyright (c) 2010-2013 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
+ * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -113,7 +113,7 @@ int dfu_check_mode(struct idevicerestore_client_t* client, int* mode) {
 	return 0;
 }
 
-const char* dfu_check_product_type(struct idevicerestore_client_t* client) {
+const char* dfu_check_hardware_model(struct idevicerestore_client_t* client) {
 	irecv_client_t dfu = NULL;
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 	irecv_device_t device = NULL;
@@ -131,7 +131,7 @@ const char* dfu_check_product_type(struct idevicerestore_client_t* client) {
 
 	irecv_close(dfu);
 
-	return device->product_type;
+	return device->hardware_model;
 }
 
 int dfu_send_buffer(struct idevicerestore_client_t* client, unsigned char* buffer, unsigned int size)
