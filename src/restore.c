@@ -1737,23 +1737,16 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		client->restore->bbtss = plist_copy(client->tss);
 	}
 
-	node = plist_access_path(build_identity, 2, "Info", "FDRSupport");
-	if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
-		uint8_t b = 0;
-		plist_get_bool_val(node, &b);
-		if (b) {
-			fdr_client_t fdr_control_channel = NULL;
-			info("FDRSupport indicated, starting FDR listener thread\n");
-			if (!fdr_connect(device, FDR_CTRL, &fdr_control_channel)) {
-				if(thread_new(&fdr_thread, fdr_listener_thread, fdr_control_channel)) {
-					error("ERROR: Failed to start FDR listener thread\n");
-					fdr_thread = (thread_t)NULL; /* undefined after failure */
-				}
-			} else {
-				error("ERROR: Failed to start FDR Ctrl channel\n");
-				// FIXME: We might want to return failure here as it will likely fail
-			}
+	fdr_client_t fdr_control_channel = NULL;
+	info("Starting FDR listener thread\n");
+	if (!fdr_connect(device, FDR_CTRL, &fdr_control_channel)) {
+		if(thread_new(&fdr_thread, fdr_listener_thread, fdr_control_channel)) {
+			error("ERROR: Failed to start FDR listener thread\n");
+			fdr_thread = (thread_t)NULL; /* undefined after failure */
 		}
+	} else {
+		error("ERROR: Failed to start FDR Ctrl channel\n");
+		// FIXME: We might want to return failure here as it will likely fail
 	}
 
 	plist_t opts = plist_new_dict();
