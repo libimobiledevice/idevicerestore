@@ -1232,7 +1232,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 			const char* fn = zip_get_name(za, i, 0);
 			if (fn) {
 				char* ext = strrchr(fn, '.');
-				if (strcmp(ext, ".fls") == 0 || strcmp(ext, ".mbn") == 0) {
+				if (ext && (strcmp(ext, ".fls") == 0 || strcmp(ext, ".mbn") == 0)) {
 					skip = 1;
 				}
 			}
