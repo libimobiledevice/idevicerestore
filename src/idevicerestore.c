@@ -540,21 +540,16 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			plist_dict_set_item(build_identity, "Manifest", manifest);
 		}
 	} else if (client->flags & FLAG_ERASE) {
-		build_identity = build_manifest_get_build_identity(buildmanifest, 0);
+		build_identity = build_manifest_get_build_identity_for_model_with_restore_behavior(buildmanifest, client->device->hardware_model, "Erase");
 		if (build_identity == NULL) {
 			error("ERROR: Unable to find any build identities\n");
 			plist_free(buildmanifest);
 			return -1;
 		}
 	} else {
-		// loop through all build identities in the build manifest
-		// and list the valid ones
-		int i = 0;
-		int valid_builds = 0;
-		int build_count = build_manifest_get_identity_count(buildmanifest);
-		for (i = 0; i < build_count; i++) {
-			build_identity = build_manifest_get_build_identity(buildmanifest, i);
-			valid_builds++;
+		build_identity = build_manifest_get_build_identity_for_model_with_restore_behavior(buildmanifest, client->device->hardware_model, "Update");
+		if (!build_identity) {
+			build_identity = build_manifest_get_build_identity_for_model(buildmanifest, client->device->hardware_model);
 		}
 	}
 
@@ -1364,6 +1359,63 @@ plist_t build_manifest_get_build_identity(plist_t build_manifest, uint32_t ident
 	}
 
 	return plist_copy(build_identity);
+}
+
+plist_t build_manifest_get_build_identity_for_model_with_restore_behavior(plist_t build_manifest, const char *hardware_model, const char *behavior)
+{
+	plist_t build_identities_array = plist_dict_get_item(build_manifest, "BuildIdentities");
+	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
+		error("ERROR: Unable to find build identities node\n");
+		return NULL;
+	}
+
+	uint32_t i;
+	for (i = 0; i < plist_array_get_size(build_identities_array); i++) {
+		plist_t ident = plist_array_get_item(build_identities_array, i);
+		if (!ident || plist_get_node_type(ident) != PLIST_DICT) {
+			continue;
+		}
+		plist_t info_dict = plist_dict_get_item(ident, "Info");
+		if (!info_dict || plist_get_node_type(ident) != PLIST_DICT) {
+			continue;
+		}
+		plist_t devclass = plist_dict_get_item(info_dict, "DeviceClass");
+		if (!devclass || plist_get_node_type(devclass) != PLIST_STRING) {
+			continue;
+		}
+		char *str = NULL;
+		plist_get_string_val(devclass, &str);
+		if (strcasecmp(str, hardware_model) != 0) {
+			free(str);
+			continue;
+		}
+		free(str);
+		str = NULL;
+		if (behavior) {
+			plist_t rbehavior = plist_dict_get_item(info_dict, "RestoreBehavior");
+			if (!rbehavior || plist_get_node_type(rbehavior) != PLIST_STRING) {
+				continue;
+			}
+			plist_get_string_val(rbehavior, &str);
+			if (strcasecmp(str, behavior) != 0) {
+				free(str);
+				continue;
+			} else {
+				free(str);
+				return plist_copy(ident);
+			}
+			free(str);
+		} else {
+			return plist_copy(ident);
+		}
+	}
+
+	return NULL;
+}
+
+plist_t build_manifest_get_build_identity_for_model(plist_t build_manifest, const char *hardware_model)
+{
+	return build_manifest_get_build_identity_for_model_with_restore_behavior(build_manifest, hardware_model, NULL);
 }
 
 int get_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss) {
