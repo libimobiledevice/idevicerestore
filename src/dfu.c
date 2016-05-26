@@ -196,7 +196,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	free(component_data);
 	component_data = NULL;
 
-	if ((client->build_major > 8) && (client->build_major < 11) && !(client->flags & FLAG_CUSTOM) && (strcmp(component, "iBEC") == 0)) {
+	if (!client->image4supported && (client->build_major > 8) && !(client->flags & FLAG_CUSTOM) && (strcmp(component, "iBEC") == 0)) {
 		unsigned char* ticket = NULL;
 		unsigned int tsize = 0;
 		if (tss_response_get_ap_ticket(client->tss, &ticket, &tsize) < 0) {
@@ -204,16 +204,17 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 			return -1;
 		}
 		uint32_t fillsize = 0;
-		if ((tsize % 0x100) != 0) {
-			fillsize = ((tsize / 0x100) + 1) * 0x100;
+		if ((tsize % 0x40) != 0) {
+			fillsize = 0x40 - (tsize % 0x40);
 		}
 		debug("ticket size = %d\nfillsize = %d\n", tsize, fillsize);
-		unsigned char* newdata = (unsigned char*)malloc(size + fillsize);
+		unsigned char* newdata = (unsigned char*)malloc(tsize + fillsize + size);
 		memcpy(newdata, ticket, tsize);
-		memset(newdata+tsize, '\xFF', fillsize - tsize);
-		memcpy(newdata+fillsize, data, size);
+		memset(newdata+tsize, '\xFF', fillsize);
+		memcpy(newdata+tsize+fillsize, data, size);
 		free(data);
 		data = newdata;
+		size += tsize;
 		size += fillsize;
 		flag = 1;
 	}
