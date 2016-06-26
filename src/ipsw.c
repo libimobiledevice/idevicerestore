@@ -86,7 +86,8 @@ int ipsw_get_file_size(const char* ipsw, const char* infile, off_t* size) {
 	return 0;
 }
 
-int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfile) {
+int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, const char* outfile, int print_progress)
+{
 	int ret = 0;
 	ipsw_archive* archive = ipsw_open(ipsw);
 	if (archive == NULL || archive->zip == NULL) {
@@ -145,8 +146,10 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 		}
 
 		bytes += size;
-		progress = ((double)bytes / (double)zstat.size) * 100.0;
-		print_progress_bar(progress);
+		if (print_progress) {
+			progress = ((double)bytes / (double)zstat.size) * 100.0;
+			print_progress_bar(progress);
+		}
 	}
 
 	fclose(fd);
@@ -154,6 +157,11 @@ int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfi
 	ipsw_close(archive);
 	free(buffer);
 	return ret;
+}
+
+int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfile)
+{
+	return ipsw_extract_to_file_with_progress(ipsw, infile, outfile, 0);
 }
 
 int ipsw_file_exists(const char* ipsw, const char* infile)
