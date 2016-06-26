@@ -1577,6 +1577,88 @@ int restore_send_fdr_trust_data(restored_client_t restore, idevice_t device)
 	return 0;
 }
 
+int restore_send_fud_data(restored_client_t restore, struct idevicerestore_client_t *client, plist_t build_identity)
+{
+	restored_error_t restore_error;
+	plist_t dict;
+	plist_t fud_dict;
+	plist_t build_id_manifest;
+	plist_dict_iter iter = NULL;
+
+	info("About to send FUD data...\n");
+
+	fud_dict = plist_new_dict();
+
+	build_id_manifest = plist_dict_get_item(build_identity, "Manifest");
+	if (build_id_manifest) {
+		plist_dict_new_iter(build_id_manifest, &iter);
+	}
+	if (iter) {
+		char *component;
+		plist_t manifest_entry;
+		do {
+			component = NULL;
+			manifest_entry = NULL;
+			plist_dict_next_item(build_id_manifest, iter, &component, &manifest_entry);
+			if (component && manifest_entry && plist_get_node_type(manifest_entry) == PLIST_DICT) {
+				uint8_t is_fud = 0;
+				plist_t is_fud_node = plist_access_path(manifest_entry, 2, "Info", "IsFUDFirmware");
+				if (is_fud_node && plist_get_node_type(is_fud_node) == PLIST_BOOLEAN) {
+					plist_get_bool_val(is_fud_node, &is_fud);
+				}
+				if (is_fud) {
+					char *path = NULL;
+					unsigned char* data = NULL;
+					unsigned int size = 0;
+					unsigned char* component_data = NULL;
+					unsigned int component_size = 0;
+					int ret = -1;
+
+					info("Found FUD component '%s'\n", component);
+
+					build_identity_get_component_path(build_identity, component, &path);
+					if (path) {
+						ret = extract_component(client->ipsw, path, &component_data, &component_size);
+					}
+					free(path);
+					path = NULL;
+					if (ret < 0) {
+						error("ERROR: Unable to extract component: %s\n", component);
+					}
+
+					ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
+					free(component_data);
+					component_data = NULL;
+					if (ret < 0) {
+						error("ERROR: Unable to get personalized component: %s\n", component);
+						return -1;
+					}
+
+					plist_dict_set_item(fud_dict, component, plist_new_data((const char*)data, size));
+					free(data);
+				}
+				free(component);
+			}
+		} while (manifest_entry);
+		free(iter);
+	}
+
+	dict = plist_new_dict();
+	plist_dict_set_item(dict, "FUDImageData", fud_dict);
+
+	info("Sending FUD data now...\n");
+	restore_error = restored_send(restore, dict);
+	plist_free(dict);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: During sending FUD data (%d)\n", restore_error);
+		return -1;
+	}
+
+	info("Done sending FUD data\n");
+
+	return 0;
+}
+
 int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t build_identity, const char* filesystem)
 {
 	char* type = NULL;
@@ -1633,6 +1715,13 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		else if (!strcmp(type, "FDRTrustData")) {
 			if(restore_send_fdr_trust_data(restore, device) < 0) {
 				error("ERROR: Unable to send FDR Trust data\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "FUDData")) {
+			if(restore_send_fud_data(restore, client, build_identity) < 0) {
+				error("ERROR: Unable to send FUD data\n");
 				return -1;
 			}
 		}
