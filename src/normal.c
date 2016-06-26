@@ -222,7 +222,6 @@ const char* normal_check_hardware_model(struct idevicerestore_client_t* client) 
 	idevice_t device = NULL;
 	char* product_type = NULL;
 	irecv_device_t irecv_device = NULL;
-	plist_t product_type_node = NULL;
 	lockdownd_client_t lockdown = NULL;
 	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
 
