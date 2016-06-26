@@ -481,7 +481,7 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 		}
 
 		/* FIXME: only used with diagnostics firmware */
-		if ((strcmp(key, "Diags") == 0) || (strcmp(key, "OS") == 0)) {
+		if (strcmp(key, "Diags") == 0) {
 			free(key);
 			continue;
 		}
