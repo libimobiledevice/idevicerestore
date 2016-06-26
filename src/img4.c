@@ -94,6 +94,8 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 		return -1;
 	}
 
+	info("Personalizing IMG4 component %s...\n", component_name);
+
 	/* first we need check if we have to change the tag for the given component */
 	// FIXME: write proper ASN1 handling code for this
 	if (strcmp(component_name, "RestoreKernelCache") == 0) {
@@ -126,6 +128,7 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 		if (img4header) {
 			free(img4header);
 		}
+		error("ERROR: out of memory when personalizing IMG4 component %s\n", component_name);
 		return -1;
 	}
 	p = outbuf;
