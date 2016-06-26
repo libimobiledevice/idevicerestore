@@ -277,7 +277,7 @@ void idevicerestore_progress(struct idevicerestore_client_t* client, int step, d
 		client->progress_cb(step, progress, client->progress_cb_data);
 	} else {
 		// we don't want to be too verbose in regular idevicerestore.
-		if ((step == RESTORE_STEP_UPLOAD_FS) || (step == RESTORE_STEP_FLASH_FS) || (step == RESTORE_STEP_FLASH_FW)) {
+		if ((step == RESTORE_STEP_UPLOAD_FS) || (step == RESTORE_STEP_VERIFY_FS) || (step == RESTORE_STEP_FLASH_FW)) {
 			print_progress_bar(100.0f * progress);
 		}
 	}
