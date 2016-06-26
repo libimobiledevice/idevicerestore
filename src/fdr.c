@@ -108,15 +108,25 @@ int fdr_connect(idevice_t device, fdr_type_t type, fdr_client_t* fdr)
 	return 0;
 }
 
-void fdr_free(fdr_client_t fdr)
+void fdr_disconnect(fdr_client_t fdr)
 {
 	if (!fdr)
 		return;
 
 	if (fdr->connection) {
-		idevice_disconnect(fdr->connection);
+		idevice_connection_t conn = fdr->connection;
 		fdr->connection = NULL;
+		idevice_disconnect(conn);
 	}
+}
+
+void fdr_free(fdr_client_t fdr)
+{
+	if (!fdr)
+		return;
+
+	fdr_disconnect(fdr);
+
 	free(fdr);
 	fdr = NULL;
 }
@@ -134,8 +144,9 @@ int fdr_poll_and_handle_message(fdr_client_t fdr)
 
 	device_error = idevice_connection_receive_timeout(fdr->connection, (char *)&cmd, sizeof(cmd), &bytes, 20000);
 	if (device_error != IDEVICE_E_SUCCESS) {
-		error("ERROR: Unable to receive message from FDR %p (%d). %u/%d bytes\n",
-		      fdr, device_error, bytes, sizeof(cmd));
+		if (fdr->connection) {
+			error("ERROR: Unable to receive message from FDR %p (%d). %u/%d bytes\n", fdr, device_error, bytes, sizeof(cmd));
+		}
 		return -1;
 	} else if (bytes != sizeof(cmd)) {
 		debug("FDR %p timeout waiting for command\n", fdr);
@@ -166,7 +177,7 @@ void *fdr_listener_thread(void *cdata)
 	fdr_client_t fdr = cdata;
 	int res;
 
-	while (1) {
+	while (fdr && fdr->connection) {
 		debug("FDR %p waiting for message...\n", fdr);
 		res = fdr_poll_and_handle_message(fdr);
 		if (fdr->type == FDR_CTRL && res >= 0)

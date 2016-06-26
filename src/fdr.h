@@ -42,6 +42,7 @@ struct fdr_client {
 typedef struct fdr_client *fdr_client_t;
 
 int fdr_connect(idevice_t device, fdr_type_t type, fdr_client_t *fdr);
+void fdr_disconnect(fdr_client_t fdr);
 void fdr_free(fdr_client_t fdr);
 int fdr_poll_and_handle_message(fdr_client_t fdr);
 void *fdr_listener_thread(void *cdata);
