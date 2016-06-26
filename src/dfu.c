@@ -146,14 +146,6 @@ int dfu_send_buffer(struct idevicerestore_client_t* client, unsigned char* buffe
 		return -1;
 	}
 
-	err = irecv_reset(client->dfu->client);
-	if (err != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to reset device\n");
-		irecv_close(client->dfu->client);
-		client->dfu->client = NULL;
-		return -1;
-	}
-
 	return 0;
 }
 
@@ -356,16 +348,6 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		return -1;
 	}
 
-	irecv_usb_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
-
-	dfu_error = irecv_reset(client->dfu->client);
-	if (dfu_error != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to reset device\n");
-		irecv_close(client->dfu->client);
-		client->dfu->client = NULL;
-		return -1;
-	}
-
 	if (client->build_major > 8) {
 		/* reconnect */
 		dfu_client_free(client);
@@ -420,16 +402,6 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		/* send iBEC */
 		if (dfu_send_component(client, build_identity, "iBEC") < 0) {
 			error("ERROR: Unable to send iBEC to device\n");
-			irecv_close(client->dfu->client);
-			client->dfu->client = NULL;
-			return -1;
-		}
-
-		irecv_usb_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
-
-		dfu_error = irecv_reset(client->dfu->client);
-		if (dfu_error != IRECV_E_SUCCESS) {
-			error("ERROR: Unable to reset device\n");
 			irecv_close(client->dfu->client);
 			client->dfu->client = NULL;
 			return -1;
