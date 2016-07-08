@@ -1236,12 +1236,12 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 
 			if (is_fls) {
 				if (fls_update_sig_blob(fls, blob, (unsigned int)blob_size) != 0) {
-					error("ERROR: could not sign psi_ram.fls\n");
+					error("ERROR: could not sign %s\n", signfn);
 					goto leave;
 				}
 			} else {
 				if (mbn_update_sig_blob(mbn, blob, (unsigned int)blob_size) != 0) {
-					error("ERROR: could not sign dbl.mbn\n");
+					error("ERROR: could not sign %s\n", signfn);
 					goto leave;
 				}
 			}
