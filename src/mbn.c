@@ -36,10 +36,17 @@ mbn_file* mbn_parse(unsigned char* data, unsigned int size)
 	mbn->size = size;
 	memcpy(mbn->data, data, size);
 	/* FIXME: header parsing is not big endian safe */
-	memcpy(&mbn->header, data, sizeof(mbn_header));
-	mbn->parsed_size = mbn->header.data_size + sizeof(mbn_header);
+	if (memcmp(data, MBN_V2_MAGIC, MBN_V2_MAGIC_SIZE) == 0) {
+		mbn->version = 2;
+		memcpy(&mbn->header.v2, data, sizeof(mbn_header_v2));
+		mbn->parsed_size = mbn->header.v2.data_size + sizeof(mbn_header_v2);
+	} else if (memcmp(data, MBN_V1_MAGIC, MBN_V1_MAGIC_SIZE) == 0) {
+		mbn->version = 1;
+		memcpy(&mbn->header.v1, data, sizeof(mbn_header_v1));
+		mbn->parsed_size = mbn->header.v1.data_size + sizeof(mbn_header_v1);
+	}
 	if (mbn->parsed_size != mbn->size) {
-		debug("WARNING: size mismatch when parsing MBN file.\n");
+		info("WARNING: size mismatch when parsing MBN file. Continuing anyway.\n");
 	}
 	return mbn;
 }

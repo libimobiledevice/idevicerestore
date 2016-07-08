@@ -23,7 +23,10 @@
 
 #include <stdint.h>
 
-struct _mbn_header {
+#define MBN_V1_MAGIC "\x0A\x00\x00\x00"
+#define MBN_V1_MAGIC_SIZE 4
+
+struct _mbn_header_v1 {
 	uint32_t type;           // the signed .mbn files have 0xA as value.
 	uint32_t unk_0x04;
 	uint32_t unk_0x08;
@@ -35,10 +38,40 @@ struct _mbn_header {
 	uint32_t unk_0x20;
 	uint32_t unk_0x24;
 } __attribute__((packed));
-typedef struct _mbn_header mbn_header;
+typedef struct _mbn_header_v1 mbn_header_v1;
+
+#define MBN_V2_MAGIC "\xD1\xDC\x4B\x84\x34\x10\xD7\x73"
+#define MBN_V2_MAGIC_SIZE 8
+
+struct _mbn_header_v2 {
+	unsigned char magic1[8];
+	uint32_t unk_0x08;
+	uint32_t unk_0x0c; // 0xFFFFFFFF
+	uint32_t unk_0x10; // 0xFFFFFFFF
+	uint32_t header_size;
+	uint32_t unk_0x18;
+	uint32_t data_size;  // data_size = total_size - sizeof(mbn_header_v2)
+	uint32_t sig_offset;
+	uint32_t unk_0x24;
+	uint32_t unk_0x28;
+	uint32_t unk_0x2c;
+	uint32_t unk_0x30;
+	uint32_t unk_0x34; // 0x1
+	uint32_t unk_0x38; // 0x1
+	uint32_t unk_0x3c; // 0xFFFFFFFF
+	uint32_t unk_0x40; // 0xFFFFFFFF
+	uint32_t unk_0x44; // 0xFFFFFFFF
+	uint32_t unk_0x48; // 0xFFFFFFFF
+	uint32_t unk_0x4c; // 0xFFFFFFFF
+} __attribute__((packed));
+typedef struct _mbn_header_v2 mbn_header_v2;
 
 typedef struct {
-	mbn_header header;
+	uint32_t version;
+	union {
+		mbn_header_v1 v1;
+		mbn_header_v2 v2;
+	} header;
 	uint32_t parsed_size;
 	uint32_t parsed_sig_offset;
 	void* data;
