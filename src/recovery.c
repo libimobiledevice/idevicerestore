@@ -347,7 +347,7 @@ int recovery_send_applelogo(struct idevicerestore_client_t* client, plist_t buil
 		return -1;
 	}
 
-	recovery_error = irecv_send_command(client->recovery->client, "setpicture 2");
+	recovery_error = irecv_send_command(client->recovery->client, "setpicture 4");
 	if (recovery_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to set %s\n", component);
 		return -1;
