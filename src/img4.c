@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "common.h"
 #include "img4.h"
 
 #define ASN1_CONSTRUCTED 0x20
