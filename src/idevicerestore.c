@@ -1740,10 +1740,8 @@ int personalize_component(const char *component_name, const unsigned char* compo
 				memcpy(stitched_component, component_data, component_size);
 			}
 		}
-
-		if (component_blob)
-			free(component_blob);
 	}
+	free(component_blob);
 
 	if (idevicerestore_keep_pers) {
 		write_file(component_name, stitched_component, stitched_component_size);

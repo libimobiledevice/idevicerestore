@@ -168,17 +168,13 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 	char* value = NULL;
 	irecv_getenv(client->recovery->client, "build-version", &value);
 	info("iBoot build-version=%s\n", (value) ? value : "(unknown)");
-	if (value) {
-		free(value);
-		value = NULL;
-	}
+	free(value);
+	value = NULL;
 
 	irecv_getenv(client->recovery->client, "build-style", &value);
 	info("iBoot build-style=%s\n", (value) ? value : "(unknown)");
-	if (value) {
-		free(value);
-		value = NULL;
-	}
+	free(value);
+	value = NULL;
 
 	unsigned long radio_error = 0;
 	irecv_getenv(client->recovery->client, "radio-error", &value);
@@ -273,6 +269,7 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 	if (!path) {
 		if (build_identity_get_component_path(build_identity, component, &path) < 0) {
 			error("ERROR: Unable to get path for component '%s'\n", component);
+			free(path);
 			return -1;
 		}
 	}

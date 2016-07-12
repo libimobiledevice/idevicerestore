@@ -225,24 +225,23 @@ const char* restore_check_hardware_model(struct idevicerestore_client_t* client)
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
-	char* product_type = NULL;
 	irecv_device_t irecv_device = NULL;
 
 	restore_idevice_new(client, &device);
 	if (!device) {
-		return product_type;
+		return NULL;
 	}
 
 	restore_error = restored_client_new(device, &restore, "idevicerestore");
 	if (restore_error != RESTORE_E_SUCCESS) {
 		idevice_free(device);
-		return product_type;
+		return NULL;
 	}
 
 	if (restored_query_type(restore, NULL, NULL) != RESTORE_E_SUCCESS) {
 		restored_client_free(restore);
 		idevice_free(device);
-		return product_type;
+		return NULL;
 	}
 
 	if (client->srnm == NULL) {
@@ -251,41 +250,32 @@ const char* restore_check_hardware_model(struct idevicerestore_client_t* client)
 			error("ERROR: Unable to get SerialNumber from restored\n");
 			restored_client_free(restore);
 			idevice_free(device);
-			return product_type;
+			return NULL;
 		}
 
 		plist_get_string_val(node, &client->srnm);
 		info("INFO: device serial number is %s\n", client->srnm);
+		plist_free(node);
 		node = NULL;
 	}
 
 	restore_error = restored_get_value(restore, "HardwareModel", &node);
-	if (restore_error != RESTORE_E_SUCCESS) {
-		error("ERROR: Unable to get HardwareModel from restored\n");
-		restored_client_free(restore);
-		idevice_free(device);
-		return product_type;
-	}
-
 	restored_client_free(restore);
 	idevice_free(device);
-	restore = NULL;
-	device = NULL;
-
-	if (!node || plist_get_node_type(node) != PLIST_STRING) {
-		error("ERROR: Unable to get HardwareModel information\n");
-		if (node)
-			plist_free(node);
-		return product_type;
+	if (restore_error != RESTORE_E_SUCCESS || !node || plist_get_node_type(node) != PLIST_STRING) {
+		error("ERROR: Unable to get HardwareModel from restored\n");
+		plist_free(node);
+		return NULL;
 	}
-	plist_get_string_val(node, &model);
 
+	plist_get_string_val(node, &model);
 	irecv_devices_get_device_by_hardware_model(model, &irecv_device);
+	free(model);
 	if (irecv_device && irecv_device->product_type) {
 		return irecv_device->hardware_model;
 	}
 
-	return product_type;
+	return NULL;
 }
 
 void restore_device_callback(const idevice_event_t* event, void* userdata) {
@@ -1141,7 +1131,6 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 	uint64_t blob_size = 0;
 	int zerr = 0;
 	int zindex = -1;
-	int size = 0;
 	struct zip_stat zstat;
 	struct zip_file* zfile = NULL;
 	struct zip* za = NULL;
@@ -1180,7 +1169,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 				goto leave;
 			}
 			char* ext = strrchr(signfn, '.');
-			if (strcmp(ext, ".fls") == 0) {
+			if (!strcmp(ext, ".fls")) {
 				is_fls = 1;
 			}
 
@@ -1202,30 +1191,29 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 				goto leave;
 			}
 
-			size = zstat.size;
-			buffer = (unsigned char*) malloc(size+1);
+			buffer = (unsigned char*) malloc(zstat.size + 1);
 			if (buffer == NULL) {
 				error("ERROR: Out of memory\n");
 				goto leave;
 			}
 
-			if (zip_fread(zfile, buffer, size) != size) {
+			if (zip_fread(zfile, buffer, zstat.size) != zstat.size) {
 				error("ERROR: zip_fread: failed\n");
 				goto leave;
 			}
-			buffer[size] = '\0';
+			buffer[zstat.size] = '\0';
 
 			zip_fclose(zfile);
 			zfile = NULL;
 
 			if (is_fls) {
-				fls = fls_parse(buffer, size);
+				fls = fls_parse(buffer, zstat.size);
 				if (!fls) {
 					error("ERROR: could not parse fls file\n");
 					goto leave;
 				}
 			} else {
-				mbn = mbn_parse(buffer, size);
+				mbn = mbn_parse(buffer, zstat.size);
 				if (!mbn) {
 					error("ERROR: could not parse mbn file\n");
 					goto leave;
@@ -1256,15 +1244,17 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 			free(blob);
 			blob = NULL;
 
+			fsize = (is_fls ? fls->size : mbn->size);
+			fdata = (unsigned char*)malloc(fsize);
+			if (fdata == NULL)  {
+				error("ERROR: out of memory\n");
+				goto leave;
+			}
 			if (is_fls) {
-				fsize = fls->size;
-				fdata = (unsigned char*)malloc(fsize);
 				memcpy(fdata, fls->data, fsize);
 				fls_free(fls);
 				fls = NULL;
 			} else {
-				fsize = mbn->size;
-				fdata = (unsigned char*)malloc(fsize);
 				memcpy(fdata, mbn->data, fsize);
 				mbn_free(mbn);
 				mbn = NULL;
@@ -1273,6 +1263,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 			zs = zip_source_buffer(za, fdata, fsize, 1);
 			if (!zs) {
 				error("ERROR: out of memory\n");
+				free(fdata);
 				goto leave;
 			}
 
@@ -1294,33 +1285,29 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 	free(iter);
 
 	// remove everything but required files
-	int i;
-	int j;
-	int skip = 0;
-	int numf = zip_get_num_files(za);
+	int i, j, keep, numf = zip_get_num_files(za);
 	for (i = 0; i < numf; i++) {
-		skip = 0;
+		keep = 0;
 		// check for signed file index
 		for (j = 0; j < signed_file_count; j++) {
 			if (i == signed_file_idxs[j]) {
-				skip = 1;
+				keep = 1;
 				break;
 			}
 		}
 		// check for anything but .mbn and .fls if bb_nonce is set
-		if (bb_nonce && !skip) {
+		if (bb_nonce && !keep) {
 			const char* fn = zip_get_name(za, i, 0);
 			if (fn) {
 				char* ext = strrchr(fn, '.');
 				if (ext && (!strcmp(ext, ".fls") || !strcmp(ext, ".mbn") || !strcmp(ext, ".elf") || !strcmp(ext, ".bin"))) {
-					skip = 1;
+					keep = 1;
 				}
 			}
 		}
-		if (skip) {
-			continue;
+		if (!keep) {
+			zip_delete(za, i);
 		}
-		zip_delete(za, i);
 	}
 
 	if (bb_nonce) {
@@ -1344,23 +1331,22 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 				goto leave;
 			}
 
-			size = zstat.size;
-			buffer = (unsigned char*) malloc(size+1);
+			buffer = (unsigned char*) malloc(zstat.size + 1);
 			if (buffer == NULL) {
 				error("ERROR: Out of memory\n");
 				goto leave;
 			}
 
-			if (zip_fread(zfile, buffer, size) != size) {
+			if (zip_fread(zfile, buffer, zstat.size) != zstat.size) {
 				error("ERROR: zip_fread: failed\n");
 				goto leave;
 			}
-			buffer[size] = '\0';
+			buffer[zstat.size] = '\0';
 
 			zip_fclose(zfile);
 			zfile = NULL;
 
-			fls = fls_parse(buffer, size);
+			fls = fls_parse(buffer, zstat.size);
 			free(buffer);
 			buffer = NULL;
 			if (!fls) {
@@ -1385,6 +1371,10 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 
 			fsize = fls->size;
 			fdata = (unsigned char*)malloc(fsize);
+			if (!fdata) {
+				error("ERROR: out of memory\n");
+				goto leave;
+			}
 			memcpy(fdata, fls->data, fsize);
 			fls_free(fls);
 			fls = NULL;
@@ -1392,6 +1382,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 			zs = zip_source_buffer(za, fdata, fsize, 1);
 			if (!zs) {
 				error("ERROR: out of memory\n");
+				free(fdata);
 				goto leave;
 			}
 
@@ -1434,12 +1425,6 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 	zs = NULL;
 
 leave:
-	if (mbn) {
-		mbn_free(mbn);
-	}
-	if (fls) {
-		fls_free(fls);
-	}
 	if (zfile) {
 		zip_fclose(zfile);
 	}
@@ -1450,12 +1435,10 @@ leave:
 		zip_unchange_all(za);
 		zip_close(za);
 	}
-	if (buffer) {
-		free(buffer);
-	}
-	if (blob) {
-		free(blob);
-	}
+	mbn_free(mbn);
+	fls_free(fls);
+	free(buffer);
+	free(blob);
 
 	return res;
 }
@@ -1609,25 +1592,16 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	}
 
 	info("Done sending BasebandData\n");
-	plist_free(dict);
-	dict = NULL;
-
 	res = 0;
 
 leave:
-	if (dict) {
-		plist_free(dict);
-	}
-	if (buffer) {
-		free(buffer);
-	}
+	plist_free(dict);
+	free(buffer);
 	if (bbfwtmp) {
 		remove(bbfwtmp);
 		free(bbfwtmp);
 	}
-	if (response) {
-		plist_free(response);
-	}
+	plist_free(response);
 
 	return res;
 }

@@ -44,7 +44,6 @@ int dfu_client_new(struct idevicerestore_client_t* client) {
 	int i = 0;
 	int attempts = 10;
 	irecv_client_t dfu = NULL;
-	irecv_error_t dfu_error = IRECV_E_UNKNOWN_ERROR;
 
 	if (client->dfu == NULL) {
 		client->dfu = (struct dfu_client_t*)malloc(sizeof(struct dfu_client_t));
@@ -56,8 +55,7 @@ int dfu_client_new(struct idevicerestore_client_t* client) {
 	}
 
 	for (i = 1; i <= attempts; i++) {
-		dfu_error = irecv_open_with_ecid(&dfu, client->ecid);
-		if (dfu_error == IRECV_E_SUCCESS) {
+		if (irecv_open_with_ecid(&dfu, client->ecid) == IRECV_E_SUCCESS) {
 			break;
 		}
 
@@ -90,12 +88,10 @@ void dfu_client_free(struct idevicerestore_client_t* client) {
 
 int dfu_check_mode(struct idevicerestore_client_t* client, int* mode) {
 	irecv_client_t dfu = NULL;
-	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 	int probe_mode = -1;
 
 	irecv_init();
-	dfu_error = irecv_open_with_ecid(&dfu, client->ecid);
-	if (dfu_error != IRECV_E_SUCCESS) {
+	if (irecv_open_with_ecid(&dfu, client->ecid) != IRECV_E_SUCCESS) {
 		return -1;
 	}
 
@@ -119,17 +115,15 @@ const char* dfu_check_hardware_model(struct idevicerestore_client_t* client) {
 	irecv_device_t device = NULL;
 
 	irecv_init();
-	dfu_error = irecv_open_with_ecid(&dfu, client->ecid);
-	if (dfu_error != IRECV_E_SUCCESS) {
+	if (irecv_open_with_ecid(&dfu, client->ecid) != IRECV_E_SUCCESS) {
 		return NULL;
 	}
 
 	dfu_error = irecv_devices_get_device_by_client(dfu, &device);
+	irecv_close(dfu);
 	if (dfu_error != IRECV_E_SUCCESS) {
 		return NULL;
 	}
-
-	irecv_close(dfu);
 
 	return device->hardware_model;
 }
@@ -150,11 +144,7 @@ int dfu_send_buffer(struct idevicerestore_client_t* client, unsigned char* buffe
 }
 
 int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component) {
-	uint32_t size = 0;
-	unsigned char* data = NULL;
 	char* path = NULL;
-	irecv_error_t err = 0;
-	int flag = 1;
 
 	if (client->tss) {
 		if (tss_response_get_path_by_entry(client->tss, component, &path) < 0) {
@@ -164,8 +154,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	if (!path) {
 		if (build_identity_get_component_path(build_identity, component, &path) < 0) {
 			error("ERROR: Unable to get path for component '%s'\n", component);
-			if (path)
-				free(path);
+			free(path);
 			return -1;
 		}
 	}
@@ -178,17 +167,21 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 		free(path);
 		return -1;
 	}
+	free(path);
+	path = NULL;
+
+	unsigned char* data = NULL;
+	uint32_t size = 0;
 
 	if (personalize_component(component, component_data, component_size, client->tss, &data, &size) < 0) {
 		error("ERROR: Unable to get personalized component: %s\n", component);
 		free(component_data);
-		free(path);
 		return -1;
 	}
 	free(component_data);
 	component_data = NULL;
 
-	if (!client->image4supported && (client->build_major > 8) && !(client->flags & FLAG_CUSTOM) && (strcmp(component, "iBEC") == 0)) {
+	if (!client->image4supported && client->build_major > 8 && !(client->flags & FLAG_CUSTOM) && !strcmp(component, "iBEC")) {
 		unsigned char* ticket = NULL;
 		unsigned int tsize = 0;
 		if (tss_response_get_ap_ticket(client->tss, &ticket, &tsize) < 0) {
@@ -196,26 +189,23 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 			return -1;
 		}
 		uint32_t fillsize = 0;
-		if ((tsize % 0x40) != 0) {
-			fillsize = 0x40 - (tsize % 0x40);
+		if (tsize % 64 != 0) {
+			fillsize = ((tsize / 64) + 1) * 64;
 		}
 		debug("ticket size = %d\nfillsize = %d\n", tsize, fillsize);
-		unsigned char* newdata = (unsigned char*)malloc(tsize + fillsize + size);
+		unsigned char* newdata = (unsigned char*)malloc(size + fillsize);
 		memcpy(newdata, ticket, tsize);
-		memset(newdata+tsize, '\xFF', fillsize);
-		memcpy(newdata+tsize+fillsize, data, size);
+		memset(newdata + tsize, '\xFF', fillsize - tsize);
+		memcpy(newdata + fillsize, data, size);
 		free(data);
 		data = newdata;
-		size += tsize;
 		size += fillsize;
-		flag = 1;
 	}
 
 	info("Sending %s (%d bytes)...\n", component, size);
 
 	// FIXME: Did I do this right????
-	err = irecv_send_buffer(client->dfu->client, data, size, flag);
-	free(path);
+	irecv_error_t err = irecv_send_buffer(client->dfu->client, data, size, 1);
 	if (err != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(err));
 		free(data);
@@ -325,7 +315,6 @@ int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** no
 }
 
 int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_identity) {
-	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 	int mode = 0;
 
 	if (dfu_client_new(client) < 0) {

@@ -220,14 +220,13 @@ int normal_open_with_timeout(struct idevicerestore_client_t* client) {
 
 const char* normal_check_hardware_model(struct idevicerestore_client_t* client) {
 	idevice_t device = NULL;
-	char* product_type = NULL;
-	irecv_device_t irecv_device = NULL;
 	lockdownd_client_t lockdown = NULL;
 	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
+	irecv_device_t irecv_device = NULL;
 
 	normal_idevice_new(client, &device);
 	if (!device) {
-		return product_type;
+		return NULL;
 	}
 
 	lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
@@ -236,22 +235,23 @@ const char* normal_check_hardware_model(struct idevicerestore_client_t* client) 
 	}
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
 		idevice_free(device);
-		return product_type;
+		return NULL;
 	}
 
 	plist_t pval = NULL;
 	lockdownd_get_value(lockdown, NULL, "HardwareModel", &pval);
 	if (pval && (plist_get_node_type(pval) == PLIST_STRING)) {
-		char* strval = NULL;
+		char *strval = NULL;
 		plist_get_string_val(pval, &strval);
 		if (strval) {
 			irecv_devices_get_device_by_hardware_model(strval, &irecv_device);
 			free(strval);
 		}
 	}
-	if (pval) {
-		plist_free(pval);
-	}
+	plist_free(pval);
+
+	lockdownd_client_free(lockdown);
+	idevice_free(device);
 
 	return (irecv_device) ? irecv_device->hardware_model : NULL;
 }
