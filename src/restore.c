@@ -1102,6 +1102,9 @@ static const char* restore_get_bbfw_fn_for_element(const char* elem)
 		// Mav5 firmware files
 		{ "RestoreSBL1", "restoresbl1.mbn" },
 		{ "SBL1", "sbl1.mbn" },
+		// ICE16 firmware files
+		{ "RestorePSI", "restorepsi.bin", },
+		{ "PSI", "psi_ram.bin" },
 		{ NULL, NULL }
 	};
 
@@ -1171,6 +1174,10 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 		if (node && (strcmp(key + (strlen(key) - 5), "-Blob") == 0) && (plist_get_node_type(node) == PLIST_DATA)) {
 			key[strlen(key)-5] = 0;
 			const char* signfn = restore_get_bbfw_fn_for_element(key);
+			if (!signfn) {
+				error("ERROR: can't match element name '%s' to baseband firmware file name.\n", key);
+				goto leave;
+			}
 			char* ext = strrchr(signfn, '.');
 			if (strcmp(ext, ".fls") == 0) {
 				is_fls = 1;
@@ -1304,7 +1311,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 			const char* fn = zip_get_name(za, i, 0);
 			if (fn) {
 				char* ext = strrchr(fn, '.');
-				if (ext && (strcmp(ext, ".fls") == 0 || strcmp(ext, ".mbn") == 0)) {
+				if (ext && (!strcmp(ext, ".fls") || !strcmp(ext, ".mbn") || !strcmp(ext, ".elf") || !strcmp(ext, ".bin"))) {
 					skip = 1;
 				}
 			}

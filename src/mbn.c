@@ -44,6 +44,17 @@ mbn_file* mbn_parse(unsigned char* data, unsigned int size)
 		mbn->version = 1;
 		memcpy(&mbn->header.v1, data, sizeof(mbn_header_v1));
 		mbn->parsed_size = mbn->header.v1.data_size + sizeof(mbn_header_v1);
+	} else if (memcmp(data, BIN_MAGIC, BIN_MAGIC_SIZE) == 0) {
+		mbn->version = 3;
+		memcpy(&mbn->header.bin, data, sizeof(bin_header));
+		mbn->parsed_size = mbn->header.bin.total_size;
+	} else if (memcmp(data, ELF_MAGIC, ELF_MAGIC_SIZE) == 0) {
+		mbn->version = 4;
+		memcpy(&mbn->header.elf, data, sizeof(elf_header));
+		// we cheat here since we don't parse the actual ELF file
+		mbn->parsed_size = mbn->size;
+	} else {
+		debug("DEBUG: Unknown file format passed to %s\n", __func__);
 	}
 	if (mbn->parsed_size != mbn->size) {
 		info("WARNING: size mismatch when parsing MBN file. Continuing anyway.\n");

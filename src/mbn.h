@@ -66,11 +66,33 @@ struct _mbn_header_v2 {
 } __attribute__((packed));
 typedef struct _mbn_header_v2 mbn_header_v2;
 
+#define BIN_MAGIC "\x7D\x04\x00\xEA\x6C\x69\x48\x55"
+#define BIN_MAGIC_SIZE 8
+
+struct _bin_header {
+	unsigned char magic[8];
+	uint32_t unk_0x08;
+	uint32_t version;
+	uint32_t total_size; // size including header
+	uint32_t unk_0x14; // some offset
+} __attribute__((packed));
+typedef struct _bin_header bin_header;
+
+#define ELF_MAGIC "\x7F\x45\x4C\x46\x01\x01\x01\x00" // ELF magic, 32bit, little endian, SYSV
+#define ELF_MAGIC_SIZE 8
+
+struct _elf_header {
+	unsigned char magic[8];
+} __attribute__((packed));
+typedef struct _elf_header elf_header;
+
 typedef struct {
 	uint32_t version;
 	union {
 		mbn_header_v1 v1;
 		mbn_header_v2 v2;
+		bin_header bin;
+		elf_header elf;
 	} header;
 	uint32_t parsed_size;
 	uint32_t parsed_sig_offset;
