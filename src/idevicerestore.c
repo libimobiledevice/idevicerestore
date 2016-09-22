@@ -1897,6 +1897,8 @@ const char* get_component_name(const char* filename) {
 		return "DeviceTree";
 	} else if (!strncmp(filename, "applelogo", 9)) {
 		return "AppleLogo";
+	} else if (!strncmp(filename, "liquiddetect", 12)) {
+		return "Liquid";
 	} else if (!strncmp(filename, "recoverymode", 12)) {
 		return "RecoveryMode";
 	} else if (!strncmp(filename, "batterylow0", 11)) {
