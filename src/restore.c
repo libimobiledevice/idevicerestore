@@ -1172,7 +1172,8 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 		if (key == NULL)
 			break;
 		if (node && (strcmp(key + (strlen(key) - 5), "-Blob") == 0) && (plist_get_node_type(node) == PLIST_DATA)) {
-			key[strlen(key)-5] = 0;
+			char *ptr = strchr(key, '-');
+			*ptr = '\0';
 			const char* signfn = restore_get_bbfw_fn_for_element(key);
 			if (!signfn) {
 				error("ERROR: can't match element name '%s' to baseband firmware file name.\n", key);
