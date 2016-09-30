@@ -629,6 +629,112 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t o
 	return 0;
 }
 
+int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrides)
+{
+	plist_t node = NULL;
+
+	plist_t manifest_node = plist_dict_get_item(parameters, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: %s: Unable to get restore manifest from parameters\n", __func__);
+		return -1;
+	}
+
+	/* add tags indicating we want to get the SE,Ticket */
+	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
+	plist_dict_set_item(request, "@SE,Ticket", plist_new_bool(1));
+
+	/* add SE,ChipID */
+	node = plist_dict_get_item(parameters, "SE,ChipID");
+	if (!node) {
+		error("ERROR: %s: Unable to find required SE,ChipID in parameters\n", __func__);
+		return -1;
+	}
+	plist_dict_set_item(request, "SE,ChipID", plist_copy(node));
+	node = NULL;
+
+	/* add SE,ID */
+	node = plist_dict_get_item(parameters, "SE,ID");
+	if (!node) {
+		error("ERROR: %s: Unable to find required SE,ID in parameters\n", __func__);
+		return -1;
+	}
+	plist_dict_set_item(request, "SE,ID", plist_copy(node));
+	node = NULL;
+
+	/* add SE,Nonce */
+	node = plist_dict_get_item(parameters, "SE,Nonce");
+	if (!node) {
+		error("ERROR: %s: Unable to find required SE,Nonce in parameters\n", __func__);
+		return -1;
+	}
+	plist_dict_set_item(request, "SE,Nonce", plist_copy(node));
+	node = NULL;
+
+	/* add SE,RootKeyIdentifier */
+	node = plist_dict_get_item(parameters, "SE,RootKeyIdentifier");
+	if (!node) {
+		error("ERROR: %s: Unable to find required SE,RootKeyIdentifier in parameters\n", __func__);
+		return -1;
+	}
+	plist_dict_set_item(request, "SE,RootKeyIdentifier", plist_copy(node));
+	node = NULL;
+
+	/* 'IsDev' determines whether we have Production or Development */
+	const char *removing_cmac_key = "DevelopmentCMAC";
+	node = plist_dict_get_item(parameters, "SE,IsDev");
+	if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
+		uint8_t is_dev = 0;
+		plist_get_bool_val(node, &is_dev);
+		removing_cmac_key = (is_dev) ? "ProductionCMAC" : "DevelopmentCMAC";
+	}
+
+	/* add SE,* components from build manifest to request */
+	char* key = NULL;
+	plist_t manifest_entry = NULL;
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(manifest_node, &iter);
+	while (1) {
+		key = NULL;
+		plist_dict_next_item(manifest_node, iter, &key, &manifest_entry);
+		if (key == NULL)
+			break;
+		if (!manifest_entry || plist_get_node_type(manifest_entry) != PLIST_DICT) {
+			free(key);
+			error("ERROR: Unable to fetch BuildManifest entry\n");
+			return -1;
+		}
+
+		if (strncmp(key, "SE,", 3)) {
+			free(key);
+			continue;
+		}
+
+		/* copy this entry */
+		plist_t tss_entry = plist_copy(manifest_entry);
+
+		/* remove Info node */
+		plist_dict_remove_item(tss_entry, "Info");
+
+		/* remove 'DevelopmentCMAC' (or 'ProductionCMAC') node */
+		if (plist_dict_get_item(tss_entry, removing_cmac_key)) {
+			plist_dict_remove_item(tss_entry, removing_cmac_key);
+		}
+
+		/* add entry to request */
+		plist_dict_set_item(request, key, tss_entry);
+
+		free(key);
+	}
+	free(iter);
+
+	/* apply overrides */
+	if (overrides) {
+		plist_dict_merge(&request, overrides);
+	}
+
+	return 0;
+}
+
 static size_t tss_write_callback(char* data, size_t size, size_t nmemb, tss_response* response) {
 	size_t total = size * nmemb;
 	if (total != 0) {
