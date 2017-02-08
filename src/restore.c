@@ -1159,7 +1159,7 @@ static const char* restore_get_bbfw_fn_for_element(const char* elem)
 		{ "RestoreSBL1", "restoresbl1.mbn" },
 		{ "SBL1", "sbl1.mbn" },
 		// ICE16 firmware files
-		{ "RestorePSI", "restorepsi.bin", },
+		{ "RestorePSI", "restorepsi.bin" },
 		{ "PSI", "psi_ram.bin" },
 		{ NULL, NULL }
 	};
