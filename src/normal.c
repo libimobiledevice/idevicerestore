@@ -218,7 +218,7 @@ int normal_open_with_timeout(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-const char* normal_check_hardware_model(struct idevicerestore_client_t* client) {
+irecv_device_t normal_get_irecv_device(struct idevicerestore_client_t* client) {
 	idevice_t device = NULL;
 	lockdownd_client_t lockdown = NULL;
 	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
@@ -253,7 +253,7 @@ const char* normal_check_hardware_model(struct idevicerestore_client_t* client) 
 	lockdownd_client_free(lockdown);
 	idevice_free(device);
 
-	return (irecv_device) ? irecv_device->hardware_model : NULL;
+	return irecv_device;
 }
 
 int normal_enter_recovery(struct idevicerestore_client_t* client) {

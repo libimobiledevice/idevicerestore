@@ -284,8 +284,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	// discover the device type
-	if (check_hardware_model(client) == NULL || client->device == NULL) {
-		error("ERROR: Unable to discover device model\n");
+	client->device = get_irecv_device(client);
+	if (client->device == NULL) {
+		error("ERROR: Unable to discover device type\n");
 		return -1;
 	}
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.2);
@@ -1193,8 +1194,7 @@ int check_mode(struct idevicerestore_client_t* client) {
 	return mode;
 }
 
-const char* check_hardware_model(struct idevicerestore_client_t* client) {
-	const char* hw_model = NULL;
+irecv_device_t get_irecv_device(struct idevicerestore_client_t *client) {
 	int mode = MODE_UNKNOWN;
 
 	if (client->mode) {
@@ -1203,26 +1203,18 @@ const char* check_hardware_model(struct idevicerestore_client_t* client) {
 
 	switch (mode) {
 	case MODE_RESTORE:
-		hw_model = restore_check_hardware_model(client);
-		break;
+		return restore_get_irecv_device(client);
 
 	case MODE_NORMAL:
-		hw_model = normal_check_hardware_model(client);
-		break;
+		return normal_get_irecv_device(client);
 
 	case MODE_DFU:
 	case MODE_RECOVERY:
-		hw_model = dfu_check_hardware_model(client);
-		break;
+		return dfu_get_irecv_device(client);
+
 	default:
-		break;
+		return NULL;
 	}
-
-	if (hw_model != NULL) {
-		irecv_devices_get_device_by_hardware_model(hw_model, &client->device);
-	}
-
-	return hw_model;
 }
 
 int is_image4_supported(struct idevicerestore_client_t* client)

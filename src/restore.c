@@ -222,7 +222,7 @@ int restore_check_mode(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-const char* restore_check_hardware_model(struct idevicerestore_client_t* client) {
+irecv_device_t restore_get_irecv_device(struct idevicerestore_client_t* client) {
 	char* model = NULL;
 	plist_t node = NULL;
 	idevice_t device = NULL;
@@ -274,11 +274,8 @@ const char* restore_check_hardware_model(struct idevicerestore_client_t* client)
 	plist_get_string_val(node, &model);
 	irecv_devices_get_device_by_hardware_model(model, &irecv_device);
 	free(model);
-	if (irecv_device && irecv_device->product_type) {
-		return irecv_device->hardware_model;
-	}
 
-	return NULL;
+	return irecv_device;
 }
 
 void restore_device_callback(const idevice_event_t* event, void* userdata) {

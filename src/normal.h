@@ -41,7 +41,7 @@ struct normal_client_t {
 
 
 int normal_check_mode(struct idevicerestore_client_t* client);
-const char* normal_check_hardware_model(struct idevicerestore_client_t* client);
+irecv_device_t normal_get_irecv_device(struct idevicerestore_client_t* client);
 int normal_client_new(struct idevicerestore_client_t* client);
 void normal_client_free(struct idevicerestore_client_t* client);
 int normal_open_with_timeout(struct idevicerestore_client_t* client);

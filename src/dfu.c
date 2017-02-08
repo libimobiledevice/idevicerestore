@@ -109,7 +109,7 @@ int dfu_check_mode(struct idevicerestore_client_t* client, int* mode) {
 	return 0;
 }
 
-const char* dfu_check_hardware_model(struct idevicerestore_client_t* client) {
+irecv_device_t dfu_get_irecv_device(struct idevicerestore_client_t* client) {
 	irecv_client_t dfu = NULL;
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 	irecv_device_t device = NULL;
@@ -125,7 +125,7 @@ const char* dfu_check_hardware_model(struct idevicerestore_client_t* client) {
 		return NULL;
 	}
 
-	return device->hardware_model;
+	return device;
 }
 
 int dfu_send_buffer(struct idevicerestore_client_t* client, unsigned char* buffer, unsigned int size)

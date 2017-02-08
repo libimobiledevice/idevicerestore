@@ -31,6 +31,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdint.h>
 #include <plist/plist.h>
+#include <libirecovery.h>
 
 // the flag with value 1 is reserved for internal use only. don't use it.
 #define FLAG_DEBUG           1 << 1
@@ -74,7 +75,7 @@ const char* idevicerestore_get_error(void);
 
 void usage(int argc, char* argv[]);
 int check_mode(struct idevicerestore_client_t* client);
-const char* check_hardware_model(struct idevicerestore_client_t* client);
+irecv_device_t get_irecv_device(struct idevicerestore_client_t* client);
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
 int is_image4_supported(struct idevicerestore_client_t* client);
 int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
