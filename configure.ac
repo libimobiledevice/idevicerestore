@@ -59,6 +59,13 @@ case "$host_os" in
 	;;
 esac
 
+AC_CHECK_FUNCS([strsep strcspn])
+if test x$ac_cv_func_strsep != xyes; then
+  if test x$ac_cv_func_strcspn != xyes; then
+    AC_MSG_ERROR([You need either strsep or strcspn to build $PACKAGE])
+  fi
+fi
+
 AC_SUBST(GLOBAL_CFLAGS)
 AC_SUBST(AC_LDFLAGS)
 AC_SUBST(AC_LDADD)

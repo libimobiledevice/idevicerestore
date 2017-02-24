@@ -21,6 +21,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -282,3 +286,16 @@ void idevicerestore_progress(struct idevicerestore_client_t* client, int step, d
 		}
 	}
 }
+
+#ifndef HAVE_STRSEP
+char* strsep(char** strp, const char* delim)
+{
+        char *p, *s;
+        if (strp == NULL || *strp == NULL || **strp == '\0') return NULL;
+        s = *strp;
+        p = s + strcspn(s, delim);
+        if (*p != '\0') *p++ = '\0';
+        *strp = p;
+        return s;
+}
+#endif

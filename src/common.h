@@ -28,6 +28,10 @@
 extern "C" {
 #endif
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <plist/plist.h>
 #include <libirecovery.h>
 
@@ -130,6 +134,10 @@ char *generate_guid(void);
 int mkdir_with_parents(const char *dir, int mode);
 
 void idevicerestore_progress(struct idevicerestore_client_t* client, int step, double progress);
+
+#ifndef HAVE_STRSEP
+char* strsep(char** strp, const char* delim);
+#endif
 
 #ifdef __cplusplus
 }
