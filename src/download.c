@@ -107,7 +107,7 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 		return -1;
 	}
 
-	FILE* f = fopen(filename, "wb");
+	FILE* f = fopen64(filename, "wb");
 	if (!f) {
 		error("ERROR: cannot open '%s' for writing\n", filename);
 		return -1;
@@ -135,7 +135,7 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 	curl_easy_perform(handle);
 	curl_easy_cleanup(handle);
 
-	off_t sz = ftello(f);
+	off_t sz = ftello64(f);
 	fclose(f);
 
 	if ((sz == 0) || (sz == (off_t)-1)) {

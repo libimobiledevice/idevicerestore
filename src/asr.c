@@ -199,14 +199,14 @@ int asr_perform_validation(asr_client_t asr, const char* filesystem) {
 	plist_t payload_info = NULL;
 	int attempts = 0;
 
-	file = fopen(filesystem, "rb");
+	file = fopen64(filesystem, "rb");
 	if (file == NULL) {
 		return -1;
 	}
 
-	fseeko(file, 0, SEEK_END);
-	length = ftello(file);
-	fseeko(file, 0, SEEK_SET);
+	fseeko64(file, 0, SEEK_END);
+	length = ftello64(file);
+	fseeko64(file, 0, SEEK_SET);
 
 	payload_info = plist_new_dict();
 	plist_dict_set_item(payload_info, "Port", plist_new_uint(1));
@@ -300,7 +300,7 @@ int asr_handle_oob_data_request(asr_client_t asr, plist_t packet, FILE* file) {
 		return -1;
 	}
 
-	fseeko(file, oob_offset, SEEK_SET);
+	fseeko64(file, oob_offset, SEEK_SET);
 	if (fread(oob_data, 1, oob_length, file) != oob_length) {
 		error("ERROR: Unable to read OOB data from filesystem offset: %s\n",
 		      strerror(errno));
@@ -323,16 +323,16 @@ int asr_send_payload(asr_client_t asr, const char* filesystem) {
 	off_t i, length, bytes = 0;
 	double progress = 0;
 
-	file = fopen(filesystem, "rb");
+	file = fopen64(filesystem, "rb");
 	if (file == NULL) {
 		error("ERROR: Unable to open filesystem image %s: %s\n",
 		      filesystem, strerror(errno));
 		return -1;
 	}
 
-	fseeko(file, 0, SEEK_END);
-	length = ftello(file);
-	fseeko(file, 0, SEEK_SET);
+	fseeko64(file, 0, SEEK_END);
+	length = ftello64(file);
+	fseeko64(file, 0, SEEK_SET);
 
 	int chunk = 0;
 	int add_checksum = 0;
