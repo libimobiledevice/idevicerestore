@@ -1037,9 +1037,9 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 			error("ERROR: Unable to extract component: %s\n", component);
 			return -1;
 		}
-		free(comppath);
 
 		if (personalize_component(component, component_data, component_size, client->tss, &nor_data, &nor_size) < 0) {
+			free(comppath);
 			free(component_data);
 			plist_free(firmware_files);
 			error("ERROR: Unable to get personalized component: %s\n", component);
@@ -1050,12 +1050,13 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		component_size = 0;
 
 		/* make sure iBoot is the first entry in the array */
-		if (!strncmp("iBoot", filename, 4)) {
+		if (!strncmp("iBoot", filename, 5)) {
 			plist_array_insert_item(norimage_array, plist_new_data((char*)nor_data, (uint64_t)nor_size), 0);
 		} else {
 			plist_array_append_item(norimage_array, plist_new_data((char*)nor_data, (uint64_t)nor_size));
 		}
 
+		free(comppath);
 		free(nor_data);
 		nor_data = NULL;
 		nor_size = 0;
