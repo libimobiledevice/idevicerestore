@@ -191,7 +191,7 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 
 	int zindex = zip_name_locate(archive->zip, infile, 0);
 	if (zindex < 0) {
-		error("ERROR: zip_name_locate: %s\n", infile);
+		debug("NOTE: zip_name_locate: '%s' not found in archive.\n", infile);
 		return -1;
 	}
 
