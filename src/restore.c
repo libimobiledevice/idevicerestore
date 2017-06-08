@@ -826,7 +826,8 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 	return 0;
 }
 
-int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity) {
+int restore_send_component(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, const char *component)
+{
 	unsigned int size = 0;
 	unsigned char* data = NULL;
 	char* path = NULL;
@@ -834,28 +835,27 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 	plist_t dict = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
-	info("About to send KernelCache...\n");
+	info("About to send %s...\n", component);
 
 	if (client->tss) {
-		if (tss_response_get_path_by_entry(client->tss, "KernelCache", &path) < 0) {
-			debug("NOTE: No path for component KernelCache in TSS, will fetch from build_identity\n");
+		if (tss_response_get_path_by_entry(client->tss, component, &path) < 0) {
+			debug("NOTE: No path for component %s in TSS, will fetch from build identity\n", component);
 		}
 	}
 	if (!path) {
-		if (build_identity_get_component_path(build_identity, "KernelCache", &path) < 0) {
-			error("ERROR: Unable to find kernelcache path\n");
+		if (build_identity_get_component_path(build_identity, component, &path) < 0) {
+			error("ERROR: Unable to find %s path from build identity\n", component);
 			return -1;
 		}
 	}
 
-	const char* component = "KernelCache";
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
 	int ret = extract_component(client->ipsw, path, &component_data, &component_size);
 	free(path);
 	path = NULL;
 	if (ret < 0) {
-		error("ERROR: Unable to extract component: %s\n", component);
+		error("ERROR: Unable to extract component %s\n", component);
 		return -1;
 	}
 
@@ -863,16 +863,18 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 	free(component_data);
 	component_data = NULL;
 	if (ret < 0) {
-		error("ERROR: Unable to get personalized component: %s\n", component);
+		error("ERROR: Unable to get personalized component %s\n", component);
 		return -1;
 	}
 
 	dict = plist_new_dict();
 	blob = plist_new_data((char*)data, size);
-	plist_dict_set_item(dict, "KernelCacheFile", blob);
+	char compkeyname[256];
+	sprintf(compkeyname, "%sFile", component);
+	plist_dict_set_item(dict, compkeyname, blob);
 	free(data);
 
-	info("Sending KernelCache now...\n");
+	info("Sending %s now...\n", component);
 	restore_error = restored_send(restore, dict);
 	plist_free(dict);
 	if (restore_error != RESTORE_E_SUCCESS) {
@@ -880,7 +882,7 @@ int restore_send_kernelcache(restored_client_t restore, struct idevicerestore_cl
 		return -1;
 	}
 
-	info("Done sending KernelCache\n");
+	info("Done sending %s\n", component);
 	return 0;
 }
 
@@ -1961,7 +1963,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 		// send KernelCache
 		else if (!strcmp(type, "KernelCache")) {
-			if(restore_send_kernelcache(restore, client, build_identity) < 0) {
+			if (restore_send_component(restore, client, build_identity, "KernelCache") < 0) {
 				error("ERROR: Unable to send kernelcache\n");
 				return -1;
 			}
