@@ -1069,7 +1069,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	unsigned char* personalized_data = NULL;
 	unsigned int personalized_size = 0;
 
-	if (!build_identity_has_component(build_identity, "RestoreSEP") &&
+	if (build_identity_has_component(build_identity, "RestoreSEP") &&
 	    build_identity_get_component_path(build_identity, "RestoreSEP", &restore_sep_path) == 0) {
 		component = "RestoreSEP";
 		ret = extract_component(client->ipsw, restore_sep_path, &component_data, &component_size);
@@ -1094,7 +1094,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		personalized_size = 0;
 	}
 
-	if (!build_identity_has_component(build_identity, "SEP") &&
+	if (build_identity_has_component(build_identity, "SEP") &&
 	    build_identity_get_component_path(build_identity, "SEP", &sep_path) == 0) {
 		component = "SEP";
 		ret = extract_component(client->ipsw, sep_path, &component_data, &component_size);

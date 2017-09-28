@@ -1843,15 +1843,15 @@ void build_identity_print_information(plist_t build_identity) {
 int build_identity_has_component(plist_t build_identity, const char* component) {
 	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
 	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
-		return -1;
+		return 0;
 	}
 
 	plist_t component_node = plist_dict_get_item(manifest_node, component);
 	if (!component_node || plist_get_node_type(component_node) != PLIST_DICT) {
-		return -1;
+		return 0;
 	}
 
-	return 0;
+	return 1;
 }
 
 int build_identity_get_component_path(plist_t build_identity, const char* component, char** path) {
