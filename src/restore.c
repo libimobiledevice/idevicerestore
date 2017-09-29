@@ -1777,7 +1777,7 @@ int restore_send_fud_data(restored_client_t restore, struct idevicerestore_clien
 
 plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
 {
-	const char *comp_name = "SE,Firmware";
+	const char *comp_name = NULL;
 	char *comp_path = NULL;
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
@@ -1786,6 +1786,15 @@ plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicere
 	plist_t request = NULL;
 	plist_t response = NULL;
 	int ret;
+
+	if (build_identity_has_component(build_identity, "SE,Firmware")) {
+		comp_name = "SE,Firmware";
+	} else if (build_identity_has_component(build_identity, "SE,UpdatePayload")) {
+		comp_name = "SE,UpdatePayload";
+	} else {
+		error("ERROR: Neither 'SE,Firmware' nor 'SE,UpdatePayload' found in build identity.\n");
+		return NULL;
+	}
 
 	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
 		error("ERROR: Unable get path for '%s' component\n", comp_name);
