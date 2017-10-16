@@ -564,6 +564,104 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	build_identity_print_information(build_identity);
 
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.0);
+
+	// Get filesystem name from build identity
+	char* fsname = NULL;
+	if (build_identity_get_component_path(build_identity, "OS", &fsname) < 0) {
+		error("ERROR: Unable get path for filesystem component\n");
+		return -1;
+	}
+
+	// check if we already have an extracted filesystem
+	int delete_fs = 0;
+	char* filesystem = NULL;
+	struct stat st;
+	memset(&st, '\0', sizeof(struct stat));
+	char tmpf[1024];
+	if (client->cache_dir) {
+		if (stat(client->cache_dir, &st) < 0) {
+			mkdir_with_parents(client->cache_dir, 0755);
+		}
+		strcpy(tmpf, client->cache_dir);
+		strcat(tmpf, "/");
+		char *ipswtmp = strdup(client->ipsw);
+		strcat(tmpf, basename(ipswtmp));
+		free(ipswtmp);
+	} else {
+		strcpy(tmpf, client->ipsw);
+	}
+	char* p = strrchr((const char*)tmpf, '.');
+	if (p) {
+		*p = '\0';
+	}
+
+	if (stat(tmpf, &st) < 0) {
+		__mkdir(tmpf, 0755);
+	}
+	strcat(tmpf, "/");
+	strcat(tmpf, fsname);
+
+	memset(&st, '\0', sizeof(struct stat));
+	if (stat(tmpf, &st) == 0) {
+		off_t fssize = 0;
+		ipsw_get_file_size(client->ipsw, fsname, &fssize);
+		if ((fssize > 0) && (st.st_size == fssize)) {
+			info("Using cached filesystem from '%s'\n", tmpf);
+			filesystem = strdup(tmpf);
+		}
+	}
+
+	if (!filesystem && !(client->flags & FLAG_SHSHONLY)) {
+		char extfn[1024];
+		strcpy(extfn, tmpf);
+		strcat(extfn, ".extract");
+		char lockfn[1024];
+		strcpy(lockfn, tmpf);
+		strcat(lockfn, ".lock");
+		lock_info_t li;
+
+		lock_file(lockfn, &li);
+		FILE* extf = NULL;
+		if (access(extfn, F_OK) != 0) {
+			extf = fopen(extfn, "w");
+		}
+		unlock_file(&li);
+		if (!extf) {
+			// use temp filename
+			filesystem = tempnam(NULL, "ipsw_");
+			if (!filesystem) {
+				error("WARNING: Could not get temporary filename, using '%s' in current directory\n", fsname);
+				filesystem = strdup(fsname);
+			}
+			delete_fs = 1;
+		} else {
+			// use <fsname>.extract as filename
+			filesystem = strdup(extfn);
+			fclose(extf);
+		}
+		remove(lockfn);
+
+		// Extract filesystem from IPSW
+		info("Extracting filesystem from IPSW\n");
+		if (ipsw_extract_to_file_with_progress(client->ipsw, fsname, filesystem, 1) < 0) {
+			error("ERROR: Unable to extract filesystem from IPSW\n");
+			if (client->tss)
+				plist_free(client->tss);
+			plist_free(buildmanifest);
+			return -1;
+		}
+
+		if (strstr(filesystem, ".extract")) {
+			// rename <fsname>.extract to <fsname>
+			remove(tmpf);
+			rename(filesystem, tmpf);
+			free(filesystem);
+			filesystem = strdup(tmpf); 
+		}
+	}
+
+	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.2);
+
 	/* retrieve shsh blobs if required */
 	if (tss_enabled) {
 		debug("Getting device's ECID for TSS request\n");
@@ -652,102 +750,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		/* fix empty dicts */
 		fixup_tss(client->tss);
 	}
-	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.1);
-
-	// Get filesystem name from build identity
-	char* fsname = NULL;
-	if (build_identity_get_component_path(build_identity, "OS", &fsname) < 0) {
-		error("ERROR: Unable get path for filesystem component\n");
-		return -1;
-	}
-
-	// check if we already have an extracted filesystem
-	int delete_fs = 0;
-	char* filesystem = NULL;
-	struct stat st;
-	memset(&st, '\0', sizeof(struct stat));
-	char tmpf[1024];
-	if (client->cache_dir) {
-		if (stat(client->cache_dir, &st) < 0) {
-			mkdir_with_parents(client->cache_dir, 0755);
-		}
-		strcpy(tmpf, client->cache_dir);
-		strcat(tmpf, "/");
-		char *ipswtmp = strdup(client->ipsw);
-		strcat(tmpf, basename(ipswtmp));
-		free(ipswtmp);
-	} else {
-		strcpy(tmpf, client->ipsw);
-	}
-	char* p = strrchr((const char*)tmpf, '.');
-	if (p) {
-		*p = '\0';
-	}
-
-	if (stat(tmpf, &st) < 0) {
-		__mkdir(tmpf, 0755);
-	}
-	strcat(tmpf, "/");
-	strcat(tmpf, fsname);
-
-	memset(&st, '\0', sizeof(struct stat));
-	if (stat(tmpf, &st) == 0) {
-		off_t fssize = 0;
-		ipsw_get_file_size(client->ipsw, fsname, &fssize);
-		if ((fssize > 0) && (st.st_size == fssize)) {
-			info("Using cached filesystem from '%s'\n", tmpf);
-			filesystem = strdup(tmpf);
-		}
-	}
-
-	if (!filesystem) {
-		char extfn[1024];
-		strcpy(extfn, tmpf);
-		strcat(extfn, ".extract");
-		char lockfn[1024];
-		strcpy(lockfn, tmpf);
-		strcat(lockfn, ".lock");
-		lock_info_t li;
-
-		lock_file(lockfn, &li);
-		FILE* extf = NULL;
-		if (access(extfn, F_OK) != 0) {
-			extf = fopen(extfn, "w");
-		}
-		unlock_file(&li);
-		if (!extf) {
-			// use temp filename
-			filesystem = tempnam(NULL, "ipsw_");
-			if (!filesystem) {
-				error("WARNING: Could not get temporary filename, using '%s' in current directory\n", fsname);
-				filesystem = strdup(fsname);
-			}
-			delete_fs = 1;
-		} else {
-			// use <fsname>.extract as filename
-			filesystem = strdup(extfn);
-			fclose(extf);
-		}
-		remove(lockfn);
-
-		// Extract filesystem from IPSW
-		info("Extracting filesystem from IPSW\n");
-		if (ipsw_extract_to_file_with_progress(client->ipsw, fsname, filesystem, 1) < 0) {
-			error("ERROR: Unable to extract filesystem from IPSW\n");
-			if (client->tss)
-				plist_free(client->tss);
-			plist_free(buildmanifest);
-			return -1;
-		}
-
-		if (strstr(filesystem, ".extract")) {
-			// rename <fsname>.extract to <fsname>
-			remove(tmpf);
-			rename(filesystem, tmpf);
-			free(filesystem);
-			filesystem = strdup(tmpf); 
-		}
-	}
+	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.25);
 
 	// if the device is in normal mode, place device into recovery mode
 	if (client->mode->index == MODE_NORMAL) {
