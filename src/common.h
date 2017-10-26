@@ -103,6 +103,8 @@ struct idevicerestore_client_t {
 	int build_major;
 	char* restore_boot_args;
 	char* cache_dir;
+	unsigned char* root_ticket;
+	int root_ticket_len;
 	idevicerestore_progress_cb_t progress_cb;
 	void* progress_cb_data;
 	irecv_device_event_context_t irecv_e_ctx;

@@ -47,6 +47,7 @@ int restore_check_mode(struct idevicerestore_client_t* client);
 irecv_device_t restore_get_irecv_device(struct idevicerestore_client_t* client);
 int restore_client_new(struct idevicerestore_client_t* client);
 void restore_client_free(struct idevicerestore_client_t* client);
+int restore_is_image4_supported(struct idevicerestore_client_t* client);
 int restore_reboot(struct idevicerestore_client_t* client);
 const char* restore_progress_string(unsigned int operation);
 int restore_handle_status_msg(restored_client_t client, plist_t msg);
