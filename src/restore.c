@@ -2299,12 +2299,12 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		message = NULL;
 	}
 
-	if (fdr_control_channel) {
-		fdr_disconnect(fdr_control_channel);
-		if (fdr_thread) {
+	if (thread_alive(fdr_thread)) {
+		if (fdr_control_channel) {
+			fdr_disconnect(fdr_control_channel);
 			thread_join(fdr_thread);
+			fdr_control_channel = NULL;
 		}
-		fdr_control_channel = NULL;
 	}
 
 	restore_client_free(client);
