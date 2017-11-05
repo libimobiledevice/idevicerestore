@@ -46,6 +46,7 @@ typedef void* (*thread_func_t)(void* data);
 int thread_new(thread_t* thread, thread_func_t thread_func, void* data);
 void thread_free(thread_t thread);
 void thread_join(thread_t thread);
+int thread_alive(thread_t thread);
 
 void mutex_init(mutex_t* mutex);
 void mutex_destroy(mutex_t* mutex);

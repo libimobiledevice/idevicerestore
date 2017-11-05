@@ -53,6 +53,17 @@ void thread_join(thread_t thread)
 #endif
 }
 
+int thread_alive(thread_t thread)
+{
+	if (!thread)
+		return 0;
+#ifdef WIN32
+	return WaitForSingleObject(thread, 0) == WAIT_TIMEOUT;
+#else
+	return pthread_kill(thread, 0) == 0;
+#endif
+}
+
 void mutex_init(mutex_t* mutex)
 {
 #ifdef WIN32
