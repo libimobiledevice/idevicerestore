@@ -83,6 +83,8 @@
 #define UPDATE_SWDHID                 56
 #define UPDATE_S3E_FIRMWARE           58
 #define UPDATE_SE_FIRMWARE            59
+#define UPDATE_SAVAGE                 60
+#define CERTIFY_SAVAGE                61
 
 static int restore_finished = 0;
 
@@ -552,6 +554,10 @@ const char* restore_progress_string(unsigned int operation)
 		return "Updating S3E Firmware";
 	case UPDATE_SE_FIRMWARE:
 		return "Updating SE Firmware";
+	case UPDATE_SAVAGE:
+		return "Updating Savage";
+	case CERTIFY_SAVAGE:
+		return "Certifying Savage";
 	default:
 		return "Unknown operation";
 	}
@@ -1853,6 +1859,88 @@ plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicere
 	return response;
 }
 
+plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+{
+	const char *comp_name = NULL;
+	char *comp_path = NULL;
+	unsigned char* component_data = NULL;
+	unsigned int component_size = 0;
+	plist_t fwdict = NULL;
+	plist_t parameters = NULL;
+	plist_t request = NULL;
+	plist_t response = NULL;
+	plist_t node = NULL;
+	uint8_t isprod = 0;
+	int ret;
+
+	node = plist_dict_get_item(p_info, "Savage,ProductionMode");
+	if (node && (plist_get_node_type(node) == PLIST_BOOLEAN)) {
+		plist_get_bool_val(node, &isprod);
+	}
+	node = NULL;
+	if (isprod) {
+		comp_name = "Savage,B2-Prod-Patch";
+	} else {
+		comp_name = "Savage,B2-Dev-Patch";
+	}
+
+	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+		error("ERROR: Unable get path for '%s' component\n", comp_name);
+		return NULL;
+	}
+
+	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	free(comp_path);
+	comp_path = NULL;
+	if (ret < 0) {
+		error("ERROR: Unable to extract '%s' component\n", comp_name);
+		return NULL;
+	}
+
+	/* create Savage request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create Savage TSS request\n");
+		free(component_data);
+		return NULL;
+	}
+
+	parameters = plist_new_dict();
+
+	/* add manifest for current build_identity to parameters */
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	/* add Savage,* tags from info dictionary to parameters */
+	plist_dict_merge(&parameters, p_info);
+
+	/* add required tags for Savage TSS request */
+	tss_request_add_savage_tags(request, parameters, NULL);
+
+	plist_free(parameters);
+
+	info("Sending Savage TSS request...\n");
+	response = tss_request_send(request, client->tss_url);
+	plist_free(request);
+	if (response == NULL) {
+		error("ERROR: Unable to fetch Savage ticket\n");
+		free(component_data);
+		return NULL;
+	}
+
+	if (plist_dict_get_item(response, "Savage,Ticket")) {
+		info("Received Savage ticket\n");
+	} else {
+		error("ERROR: No 'Savage,Ticket' in TSS response, this might not work\n");
+	}
+
+	plist_dict_set_item(response, "FirmwareData", plist_new_data((char*)component_data, (uint64_t) component_size));
+	free(component_data);
+	component_data = NULL;
+	component_size = 0;
+
+	return response;
+}
+
 int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
 {
 	plist_t arguments;
@@ -1909,18 +1997,24 @@ int restore_send_firmware_updater_data(restored_client_t restore, struct idevice
 
 	plist_get_string_val(p_updater_name, &s_updater_name);
 
-	if (strcmp(s_updater_name, "SE")) {
+	if (strcmp(s_updater_name, "SE") == 0) {
+		fwdict = restore_get_se_firmware_data(restore, client, build_identity, p_info);
+		if (fwdict == NULL) {
+			error("ERROR: %s: Couldn't get SE firmware data\n", __func__);
+			goto error_out;
+		}
+	} else if (strcmp(s_updater_name, "Savage") == 0) {
+		fwdict = restore_get_savage_firmware_data(restore, client, build_identity, p_info);
+		if (fwdict == NULL) {
+			error("ERROR: %s: Couldn't get Savage firmware data\n", __func__);
+			goto error_out;
+		}
+	} else {
 		error("ERROR: %s: Got unknown updater name '%s'.", __func__, s_updater_name);
 		goto error_out;
 	}
 	free(s_updater_name);
 	s_updater_name = NULL;
-
-	fwdict = restore_get_se_firmware_data(restore, client, build_identity, p_info);
-	if (fwdict == NULL) {
-		error("ERROR: %s: Couldn't get SE firmware data\n", __func__);
-		goto error_out;
-	}
 
 	dict = plist_new_dict();
 	plist_dict_set_item(dict, "FirmwareResponseData", fwdict);

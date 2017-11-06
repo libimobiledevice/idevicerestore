@@ -202,6 +202,51 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	}
 	node = NULL;
 
+	/* SE,ChipID - Used for SE firmware request */
+	node = plist_dict_get_item(build_identity, "SE,ChipID");
+	if (node) {
+		if (plist_get_node_type(node) == PLIST_STRING) {
+			char *strval = NULL;
+			int intval = 0;
+			plist_get_string_val(node, &strval);
+			sscanf(strval, "%x", &intval);
+			plist_dict_set_item(parameters, "SE,ChipID", plist_new_uint(intval));
+		} else {
+			plist_dict_set_item(parameters, "SE,ChipID", plist_copy(node));
+		}
+	}
+	node = NULL;
+
+	/* Savage,ChipID - Used for Savage firmware request */
+	node = plist_dict_get_item(build_identity, "Savage,ChipID");
+	if (node) {
+		if (plist_get_node_type(node) == PLIST_STRING) {
+			char *strval = NULL;
+			int intval = 0;
+			plist_get_string_val(node, &strval);
+			sscanf(strval, "%x", &intval);
+			plist_dict_set_item(parameters, "Savage,ChipID", plist_new_uint(intval));
+		} else {
+			plist_dict_set_item(parameters, "Savage,ChipID", plist_copy(node));
+		}
+	}
+	node = NULL;
+
+	/* add Savage,PatchEpoch - Used for Savage firmware request */
+	node = plist_dict_get_item(build_identity, "Savage,PatchEpoch");
+	if (node) {
+		if (plist_get_node_type(node) == PLIST_STRING) {
+			char *strval = NULL;
+			int intval = 0;
+			plist_get_string_val(node, &strval);
+			sscanf(strval, "%x", &intval);
+			plist_dict_set_item(parameters, "Savage,PatchEpoch", plist_new_uint(intval));
+		} else {
+			plist_dict_set_item(parameters, "Savage,PatchEpoch", plist_copy(node));
+		}
+	}
+	node = NULL;
+
 	/* add build identity manifest dictionary */
 	node = plist_dict_get_item(build_identity, "Manifest");
 	if (!node || plist_get_node_type(node) != PLIST_DICT) {
@@ -726,6 +771,128 @@ int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrid
 		free(key);
 	}
 	free(iter);
+
+	/* apply overrides */
+	if (overrides) {
+		plist_dict_merge(&request, overrides);
+	}
+
+	return 0;
+}
+
+int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t overrides)
+{
+	plist_t node = NULL;
+
+	plist_t manifest_node = plist_dict_get_item(parameters, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: %s: Unable to get restore manifest from parameters\n", __func__);
+		return -1;
+	}
+
+	/* add tags indicating we want to get the Savage,Ticket */
+	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
+	plist_dict_set_item(request, "@Savage,Ticket", plist_new_bool(1));
+
+	/* add Savage,UID */
+	node = plist_dict_get_item(parameters, "Savage,UID");
+	if (!node) {
+		error("ERROR: %s: Unable to find required Savage,UID in parameters\n", __func__);
+		return -1;
+	}
+	plist_dict_set_item(request, "Savage,UID", plist_copy(node));
+	node = NULL;
+
+	/* add SEP */
+	node = plist_access_path(manifest_node, 2, "SEP", "Digest");
+	if (!node) {
+		error("ERROR: Unable to get SEP digest from manifest\n");
+		return -1;
+	}
+	plist_t dict = plist_new_dict();
+	plist_dict_set_item(dict, "Digest", plist_copy(node));
+	plist_dict_set_item(request, "SEP", dict);
+
+	/* add Savage,PatchEpoch */
+	node = plist_dict_get_item(parameters, "Savage,PatchEpoch");
+	if (!node) {
+		error("ERROR: %s: Unable to find required Savage,PatchEpoch in parameters\n", __func__);
+		return -1;
+	}
+	plist_dict_set_item(request, "Savage,PatchEpoch", plist_copy(node));
+	node = NULL;
+
+	/* add Savage,ChipID */
+	node = plist_dict_get_item(parameters, "Savage,ChipID");
+	if (!node) {
+		error("ERROR: %s: Unable to find required Savage,ChipID in parameters\n", __func__);
+		return -1;
+	}
+	plist_dict_set_item(request, "Savage,ChipID", plist_copy(node));
+	node = NULL;
+
+	/* add Savage,AllowOfflineBoot */
+	node = plist_dict_get_item(parameters, "Savage,AllowOfflineBoot");
+	if (!node) {
+		error("ERROR: %s: Unable to find required Savage,AllowOfflineBoot in parameters\n", __func__);
+		return -1;
+	}
+	plist_dict_set_item(request, "Savage,AllowOfflineBoot", plist_copy(node));
+	node = NULL;
+
+	/* add Savage,ReadFWKey */
+	node = plist_dict_get_item(parameters, "Savage,ReadFWKey");
+	if (!node) {
+		error("ERROR: %s: Unable to find required Savage,ReadFWKey in parameters\n", __func__);
+		return -1;
+	}
+	plist_dict_set_item(request, "Savage,ReadFWKey", plist_copy(node));
+	node = NULL;
+
+	/* add Savage,ProductionMode */
+	node = plist_dict_get_item(parameters, "Savage,ProductionMode");
+	if (!node) {
+		error("ERROR: %s: Unable to find required Savage,ProductionMode in parameters\n", __func__);
+		return -1;
+	}
+	plist_dict_set_item(request, "Savage,ProductionMode", plist_copy(node));
+	const char *comp_name = NULL;
+	uint8_t isprod = 0;
+	plist_get_bool_val(node, &isprod);
+	node = NULL;
+
+	/* add Savage,B2-*-Patch */
+	if (isprod) {
+		comp_name = "Savage,B2-Prod-Patch";
+	} else {
+		comp_name = "Savage,B2-Dev-Patch";
+	}
+	node = plist_access_path(manifest_node, 2, comp_name, "Digest");
+	if (!node) {
+		error("ERROR: Unable to get %s digest from manifest\n", comp_name);
+		return -1;
+	}
+	dict = plist_new_dict();
+	plist_dict_set_item(dict, "Digest", plist_copy(node));
+	plist_dict_set_item(request, comp_name, dict);
+
+	/* add Savage,Nonce */
+	node = plist_dict_get_item(parameters, "Savage,Nonce");
+	if (!node) {
+		error("ERROR: %s: Unable to find required Savage,Nonce in parameters\n", __func__);
+		return -1;
+	}
+	plist_dict_set_item(request, "Savage,Nonce", plist_copy(node));
+	node = NULL;
+
+	/* add Savage,ReadECKey */
+	node = plist_dict_get_item(parameters, "Savage,ReadECKey");
+	if (!node) {
+		error("ERROR: %s: Unable to find required Savage,ReadECKey in parameters\n", __func__);
+		return -1;
+	}
+	plist_dict_set_item(request, "Savage,ReadECKey", plist_copy(node));
+	node = NULL;
 
 	/* apply overrides */
 	if (overrides) {
