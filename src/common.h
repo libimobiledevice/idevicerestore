@@ -53,6 +53,8 @@ extern "C" {
 #define IBOOT_FLAG_EFFECTIVE_SECURITY_MODE 1 << 3
 #define IBOOT_FLAG_EFFECTIVE_PRODUCTION_MODE 1 << 4
 
+#define USER_AGENT_STRING "InetURL/1.0"
+
 struct dfu_client_t;
 struct normal_client_t;
 struct restore_client_t;
