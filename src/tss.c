@@ -690,11 +690,13 @@ int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrid
 
 	/* add SE,ChipID */
 	node = plist_dict_get_item(parameters, "SE,ChipID");
-	if (!node) {
+	if (!node || plist_get_node_type(node) != PLIST_UINT) {
 		error("ERROR: %s: Unable to find required SE,ChipID in parameters\n", __func__);
 		return -1;
 	}
 	plist_dict_set_item(request, "SE,ChipID", plist_copy(node));
+	uint64_t chip_id = 0;
+	plist_get_uint_val(node, &chip_id);
 	node = NULL;
 
 	/* add SE,ID */
@@ -724,13 +726,22 @@ int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrid
 	plist_dict_set_item(request, "SE,RootKeyIdentifier", plist_copy(node));
 	node = NULL;
 
+	const char *development_key = NULL;
+	const char *production_key = NULL;
+	if (chip_id == 0x20211) {
+		development_key = "DevelopmentCMAC";
+		production_key = "ProductionCMAC";
+	} else if (chip_id == 0x73) {
+		development_key = "DevelopmentUpdatePayloadHash";
+		production_key = "ProductionUpdatePayloadHash";
+	}
+	const char *key_to_remove = development_key;
 	/* 'IsDev' determines whether we have Production or Development */
-	const char *removing_cmac_key = "DevelopmentCMAC";
 	node = plist_dict_get_item(parameters, "SE,IsDev");
 	if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
 		uint8_t is_dev = 0;
 		plist_get_bool_val(node, &is_dev);
-		removing_cmac_key = (is_dev) ? "ProductionCMAC" : "DevelopmentCMAC";
+		key_to_remove = (is_dev) ? production_key : development_key;
 	}
 
 	/* add SE,* components from build manifest to request */
@@ -760,9 +771,9 @@ int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrid
 		/* remove Info node */
 		plist_dict_remove_item(tss_entry, "Info");
 
-		/* remove 'DevelopmentCMAC' (or 'ProductionCMAC') node */
-		if (plist_dict_get_item(tss_entry, removing_cmac_key)) {
-			plist_dict_remove_item(tss_entry, removing_cmac_key);
+		/* remove Development or Production key/hash node */
+		if (plist_dict_get_item(tss_entry, key_to_remove)) {
+			plist_dict_remove_item(tss_entry, key_to_remove);
 		}
 
 		/* add entry to request */
