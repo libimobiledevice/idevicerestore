@@ -38,6 +38,7 @@
 #include "ipsw.h"
 #include "restore.h"
 #include "common.h"
+#include "endianness.h"
 
 #define CREATE_PARTITION_MAP          11
 #define CREATE_FILESYSTEM             12
@@ -1865,6 +1866,7 @@ plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevi
 	char *comp_path = NULL;
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
+	unsigned char* component_data_tmp = NULL;
 	plist_t fwdict = NULL;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
@@ -1932,6 +1934,17 @@ plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevi
 	} else {
 		error("ERROR: No 'Savage,Ticket' in TSS response, this might not work\n");
 	}
+
+	component_data_tmp = realloc(component_data, (size_t)component_size+16);
+	if (!component_data_tmp) {
+		free(component_data);
+		return NULL;
+	}
+	component_data = component_data_tmp;
+	memmove(component_data + 16, component_data, (size_t)component_size);
+	memset(component_data, '\0', 16);
+	*(uint32_t*)(component_data + 4) = htole32((uint32_t)component_size);
+	component_size += 16;
 
 	plist_dict_set_item(response, "FirmwareData", plist_new_data((char*)component_data, (uint64_t) component_size));
 	free(component_data);
