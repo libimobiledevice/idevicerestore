@@ -103,6 +103,7 @@ struct idevicerestore_client_t {
 	char* cache_dir;
 	idevicerestore_progress_cb_t progress_cb;
 	void* progress_cb_data;
+	plist_t message;
 };
 
 extern struct idevicerestore_mode_t idevicerestore_modes[];
