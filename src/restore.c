@@ -1789,10 +1789,14 @@ plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicere
 	plist_t request = NULL;
 	plist_t response = NULL;
 	int ret;
-
-	if (build_identity_has_component(build_identity, "SE,Firmware")) {
+	uint64_t chip_id = 0;
+	plist_t node = plist_dict_get_item(p_info, "SE,ChipID");
+	if (node && plist_get_node_type(node) == PLIST_UINT) {
+		plist_get_uint_val(node, &chip_id);
+	}
+	if (chip_id == 0x20211) {
 		comp_name = "SE,Firmware";
-	} else if (build_identity_has_component(build_identity, "SE,UpdatePayload")) {
+	} else if (chip_id == 0x73) {
 		comp_name = "SE,UpdatePayload";
 	} else {
 		error("ERROR: Neither 'SE,Firmware' nor 'SE,UpdatePayload' found in build identity.\n");
