@@ -341,7 +341,7 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 	if ((restore_error == RESTORE_E_SUCCESS) && type && (strcmp(type, "com.apple.mobile.restored") == 0)) {
 		debug("%s: Connected to %s, version %d\n", __func__, type, (int)version);
 	} else {
-		info("%s: device %s is not in restore mode\n", __func__, udid);
+		debug("%s: device %s is not in restore mode\n", __func__, udid);
 		restored_client_free(restored);
 		idevice_free(device);
 		return 0;
