@@ -909,8 +909,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	if (delete_fs && filesystem)
 		unlink(filesystem);
 
-	/* special handling of AppleTVs */
-	if (strncmp(client->device->product_type, "AppleTV", 7) == 0) {
+	/* special handling of older AppleTVs as they enter Recovery mode on boot when plugged in to USB */
+	if ((strncmp(client->device->product_type, "AppleTV", 7) == 0) && (client->device->product_type[7] < '5')) {
 		if (recovery_client_new(client) == 0) {
 			if (recovery_set_autoboot(client, 1) == 0) {
 				recovery_send_reset(client);
