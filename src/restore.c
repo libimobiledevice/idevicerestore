@@ -563,11 +563,11 @@ const char* restore_progress_string(unsigned int operation)
 
 static int lastop = 0;
 
-int restore_handle_previous_restore_log_msg(restored_client_t client, plist_t msg) {
+int restore_handle_previous_restore_log_msg(struct idevicerestore_client_t* client) {
 	plist_t node = NULL;
 	char* restorelog = NULL;
 
-	node = plist_dict_get_item(msg, "PreviousRestoreLog");
+	node = plist_dict_get_item(client->message, "PreviousRestoreLog");
 	if (!node || plist_get_node_type(node) != PLIST_STRING) {
 		debug("Failed to parse restore log from PreviousRestoreLog plist\n");
 		return -1;
@@ -580,19 +580,19 @@ int restore_handle_previous_restore_log_msg(restored_client_t client, plist_t ms
 	return 0;
 }
 
-int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t msg) {
+int restore_handle_progress_msg(struct idevicerestore_client_t* client) {
 	plist_t node = NULL;
 	uint64_t progress = 0;
 	uint64_t operation = 0;
 
-	node = plist_dict_get_item(msg, "Operation");
+	node = plist_dict_get_item(client->message, "Operation");
 	if (!node || plist_get_node_type(node) != PLIST_UINT) {
 		debug("Failed to parse operation from ProgressMsg plist\n");
 		return -1;
 	}
 	plist_get_uint_val(node, &operation);
 
-	node = plist_dict_get_item(msg, "Progress");
+	node = plist_dict_get_item(client->message, "Progress");
 	if (!node || plist_get_node_type(node) != PLIST_UINT) {
 		debug("Failed to parse progress from ProgressMsg plist \n");
 		return -1;
@@ -634,14 +634,14 @@ int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t 
 	return 0;
 }
 
-int restore_handle_status_msg(restored_client_t client, plist_t msg) {
+int restore_handle_status_msg(struct idevicerestore_client_t* client) {
 	int result = 0;
 	uint64_t value = 0;
 	char* log = NULL;
 	info("Got status message\n");
 
 	// read status code
-	plist_t node = plist_dict_get_item(msg, "Status");
+	plist_t node = plist_dict_get_item(client->message, "Status");
 	plist_get_uint_val(node, &value);
 
 	switch(value) {
@@ -672,12 +672,12 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 			break;
 		default:
 			info("Unhandled status message (" FMT_qu ")\n", (long long unsigned int)value);
-			debug_plist(msg);
+			debug_plist(client->message);
 			break;
 	}
 
 	// read error code
-	node = plist_dict_get_item(msg, "AMRError");
+	node = plist_dict_get_item(client->message, "AMRError");
 	if (node && plist_get_node_type(node) == PLIST_UINT) {
 		plist_get_uint_val(node, &value);
 		result = -value;
@@ -687,7 +687,7 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 	}
 
 	// check if log is available
-	node = plist_dict_get_item(msg, "Log");
+	node = plist_dict_get_item(client->message, "Log");
 	if (node && plist_get_node_type(node) == PLIST_STRING) {
 		plist_get_string_val(node, &log);
 		info("Log is available:\n%s\n", log);
@@ -698,10 +698,10 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg) {
 	return result;
 }
 
-int restore_handle_bb_update_status_msg(restored_client_t client, plist_t msg)
+int restore_handle_bb_update_status_msg(struct idevicerestore_client_t* client)
 {
 	int result = -1;
-	plist_t node = plist_dict_get_item(msg, "Accepted");
+	plist_t node = plist_dict_get_item(client->message, "Accepted");
 	uint8_t accepted = 0;
 	plist_get_bool_val(node, &accepted);
 
@@ -711,14 +711,14 @@ int restore_handle_bb_update_status_msg(restored_client_t client, plist_t msg)
 	}
 
 	uint8_t done = 0;
-	node = plist_access_path(msg, 2, "Output", "done");
+	node = plist_access_path(client->message, 2, "Output", "done");
 	if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
 		plist_get_bool_val(node, &done);
 	}
 
 	if (done) {
 		info("Updating Baseband completed.\n");
-		plist_t provisioning = plist_access_path(msg, 2, "Output", "provisioning");
+		plist_t provisioning = plist_access_path(client->message, 2, "Output", "provisioning");
 		if (provisioning && plist_get_node_type(provisioning) == PLIST_DICT) {
 			char* sval = NULL;
 			node = plist_dict_get_item(provisioning, "IMEI");
@@ -746,12 +746,12 @@ static void restore_asr_progress_cb(double progress, void* userdata)
 	}
 }
 
-int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t device, const char* filesystem) {
+int restore_send_filesystem(struct idevicerestore_client_t* client) {
 	asr_client_t asr = NULL;
 
 	info("About to send filesystem...\n");
 
-	if (asr_open_with_timeout(device, &asr) < 0) {
+	if (asr_open_with_timeout(client->restore->device, &asr) < 0) {
 		error("ERROR: Unable to connect to ASR\n");
 		return -1;
 	}
@@ -762,7 +762,7 @@ int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t de
 	// this step sends requested chunks of data from various offsets to asr so
 	// it can validate the filesystem before installing it
 	info("Validating the filesystem\n");
-	if (asr_perform_validation(asr, filesystem) < 0) {
+	if (asr_perform_validation(asr, client->filesystem) < 0) {
 		error("ERROR: ASR was unable to validate the filesystem\n");
 		asr_free(asr);
 		return -1;
@@ -772,7 +772,7 @@ int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t de
 	// once the target filesystem has been validated, ASR then requests the
 	// entire filesystem to be sent.
 	info("Sending filesystem now...\n");
-	if (asr_send_payload(asr, filesystem) < 0) {
+	if (asr_send_payload(asr, client->filesystem) < 0) {
 		error("ERROR: Unable to send payload to ASR\n");
 		asr_free(asr);
 		return -1;
@@ -1672,7 +1672,7 @@ leave:
 	return res;
 }
 
-int restore_send_fdr_trust_data(restored_client_t restore, idevice_t device)
+int restore_send_fdr_trust_data(restored_client_t restore)
 {
 	restored_error_t restore_error;
 	plist_t dict;
@@ -1785,15 +1785,18 @@ plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicere
 	char *comp_path = NULL;
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
-	plist_t fwdict = NULL;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
 	int ret;
-
-	if (build_identity_has_component(build_identity, "SE,Firmware")) {
+	uint64_t chip_id = 0;
+	plist_t node = plist_dict_get_item(p_info, "SE,ChipID");
+	if (node && plist_get_node_type(node) == PLIST_UINT) {
+		plist_get_uint_val(node, &chip_id);
+	}
+	if (chip_id == 0x20211) {
 		comp_name = "SE,Firmware";
-	} else if (build_identity_has_component(build_identity, "SE,UpdatePayload")) {
+	} else if (chip_id == 0x73) {
 		comp_name = "SE,UpdatePayload";
 	} else {
 		error("ERROR: Neither 'SE,Firmware' nor 'SE,UpdatePayload' found in build identity.\n");
@@ -1864,7 +1867,6 @@ plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevi
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
 	unsigned char* component_data_tmp = NULL;
-	plist_t fwdict = NULL;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
@@ -2048,20 +2050,20 @@ error_out:
 	return -1;
 }
 
-int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t build_identity, const char* filesystem)
+int restore_handle_data_request_msg(struct idevicerestore_client_t* client, plist_t build_identity)
 {
 	char* type = NULL;
 	plist_t node = NULL;
 
 	// checks and see what kind of data restored is requests and pass
 	// the request to its own handler
-	node = plist_dict_get_item(message, "DataType");
+	node = plist_dict_get_item(client->message, "DataType");
 	if (node && PLIST_STRING == plist_get_node_type(node)) {
 		plist_get_string_val(node, &type);
 
 		// this request is sent when restored is ready to receive the filesystem
 		if (!strcmp(type, "SystemImageData")) {
-			if(restore_send_filesystem(client, device, filesystem) < 0) {
+			if(restore_send_filesystem(client) < 0) {
 				error("ERROR: Unable to send filesystem\n");
 				return -2;
 			}
@@ -2069,21 +2071,21 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		// send RootTicket (== APTicket from the TSS request)
 		else if (!strcmp(type, "RootTicket")) {
-			if (restore_send_root_ticket(restore, client) < 0) {
+			if (restore_send_root_ticket(client->restore->client, client) < 0) {
 				error("ERROR: Unable to send RootTicket\n");
 				return -1;
 			}
 		}
 		// send KernelCache
 		else if (!strcmp(type, "KernelCache")) {
-			if (restore_send_component(restore, client, build_identity, "KernelCache") < 0) {
+			if (restore_send_component(client->restore->client, client, build_identity, "KernelCache") < 0) {
 				error("ERROR: Unable to send kernelcache\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "DeviceTree")) {
-			if (restore_send_component(restore, client, build_identity, "DeviceTree") < 0) {
+			if (restore_send_component(client->restore->client, client, build_identity, "DeviceTree") < 0) {
 				error("ERROR: Unable to send DeviceTree\n");
 				return -1;
 			}
@@ -2091,7 +2093,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		else if (!strcmp(type, "NORData")) {
 			if((client->flags & FLAG_EXCLUDE) == 0) {
-				if(restore_send_nor(restore, client, build_identity) < 0) {
+				if(restore_send_nor(client->restore->client, client, build_identity) < 0) {
 					error("ERROR: Unable to send NOR data\n");
 					return -1;
 				}
@@ -2102,28 +2104,28 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 
 		else if (!strcmp(type, "BasebandData")) {
-			if(restore_send_baseband_data(restore, client, build_identity, message) < 0) {
+			if(restore_send_baseband_data(client->restore->client, client, build_identity, client->message) < 0) {
 				error("ERROR: Unable to send baseband data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "FDRTrustData")) {
-			if(restore_send_fdr_trust_data(restore, device) < 0) {
+			if(restore_send_fdr_trust_data(client->restore->client) < 0) {
 				error("ERROR: Unable to send FDR Trust data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "FUDData")) {
-			if(restore_send_fud_data(restore, client, build_identity) < 0) {
+			if(restore_send_fud_data(client->restore->client, client, build_identity) < 0) {
 				error("ERROR: Unable to send FUD data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "FirmwareUpdaterData")) {
-			if(restore_send_firmware_updater_data(restore, client, build_identity, message) < 0) {
+			if(restore_send_firmware_updater_data(client->restore->client, client, build_identity, client->message) < 0) {
 				error("ERROR: Unable to send FirmwareUpdater data\n");
 				return -1;
 			}
@@ -2133,19 +2135,17 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 			// Unknown DataType!!
 			error("Unknown data request '%s' received\n", type);
 			if (idevicerestore_debug)
-				debug_plist(message);
+				debug_plist(client->message);
 		}
 	}
 	return 0;
 }
 
-int restore_device(struct idevicerestore_client_t* client, plist_t build_identity, const char* filesystem) {
+int restore_device(struct idevicerestore_client_t* client, plist_t build_identity) {
 	int err = 0;
 	char* type = NULL;
 	plist_t node = NULL;
-	plist_t message = NULL;
 	plist_t hwinfo = NULL;
-	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 	thread_t fdr_thread = NULL;
@@ -2161,8 +2161,6 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	info("Device %s has successfully entered restore mode\n", client->udid);
 
 	restore = client->restore->client;
-	device = client->restore->device;
-
 	restore_error = restored_query_value(restore, "HardwareInfo", &hwinfo);
 	if (restore_error == RESTORE_E_SUCCESS) {
 		uint64_t i = 0;
@@ -2339,21 +2337,20 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			client->flags |= FLAG_QUIT;
 		}
 
-		restore_error = restored_receive(restore, &message);
+		plist_free(client->message);
+		client->message = NULL;
+		restore_error = restored_receive(restore, &client->message);
 		if (restore_error != RESTORE_E_SUCCESS) {
 			debug("No data to read\n");
-			message = NULL;
 			continue;
 		}
 
 		// discover what kind of message has been received
-		node = plist_dict_get_item(message, "MsgType");
+		node = plist_dict_get_item(client->message, "MsgType");
 		if (!node || plist_get_node_type(node) != PLIST_STRING) {
 			debug("Unknown message received:\n");
 			//if (idevicerestore_debug)
-				debug_plist(message);
-			plist_free(message);
-			message = NULL;
+				debug_plist(client->message);
 			continue;
 		}
 		plist_get_string_val(node, &type);
@@ -2362,24 +2359,24 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// files sent to the server by the client. these data requests include
 		// SystemImageData, RootTicket, KernelCache, NORData and BasebandData requests
 		if (!strcmp(type, "DataRequestMsg")) {
-			err = restore_handle_data_request_msg(client, device, restore, message, build_identity, filesystem);
+			err = restore_handle_data_request_msg(client, build_identity);
 		}
 
 		// restore logs are available if a previous restore failed
 		else if (!strcmp(type, "PreviousRestoreLogMsg")) {
-			err = restore_handle_previous_restore_log_msg(restore, message);
+			err = restore_handle_previous_restore_log_msg(client);
 		}
 
 		// progress notification messages sent by the restored inform the client
 		// of it's current operation and sometimes percent of progress is complete
 		else if (!strcmp(type, "ProgressMsg")) {
-			err = restore_handle_progress_msg(client, message);
+			err = restore_handle_progress_msg(client);
 		}
 
 		// status messages usually indicate the current state of the restored
 		// process or often to signal an error has been encountered
 		else if (!strcmp(type, "StatusMsg")) {
-			err = restore_handle_status_msg(restore, message);
+			err = restore_handle_status_msg(client);
 			if (restore_finished) {
 				client->flags |= FLAG_QUIT;
 			}
@@ -2387,7 +2384,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 		// baseband update message
 		else if (!strcmp(type, "BBUpdateStatusMsg")) {
-			err = restore_handle_bb_update_status_msg(restore, message);
+			err = restore_handle_bb_update_status_msg(client);
 		}
 
 		// there might be some other message types i'm not aware of, but I think
@@ -2395,12 +2392,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		else {
 			debug("Unknown message type received\n");
 			//if (idevicerestore_debug)
-				debug_plist(message);
+				debug_plist(client->message);
 		}
-
 		free(type);
-		plist_free(message);
-		message = NULL;
 	}
 
 	if (thread_alive(fdr_thread)) {
