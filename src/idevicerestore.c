@@ -73,6 +73,7 @@ static struct option longopts[] = {
 	{ "no-action", no_argument,     NULL, 'n' },
 	{ "cache-path", required_argument, NULL, 'C' },
 	{ "no-input", no_argument,      NULL, 'y' },
+	{ "plain-progress", no_argument, NULL, 'P' },
 	{ "restore-mode", no_argument,  NULL, 'R' },
 	{ "ticket", required_argument,  NULL, 'T' },
 	{ NULL, 0, NULL, 0 }
@@ -119,6 +120,7 @@ static void usage(int argc, char* argv[], int err)
 	" -t, --shsh       Fetch TSS record and save to .shsh file, then exit\n" \
 	" -k, --keep-pers  Write personalized components to files for debugging\n" \
 	" -p, --pwn        Put device in pwned DFU mode and exit (limera1n devices only)\n" \
+	" -P, --plain-progress  Print progress as plain step and progress\n" \
 	" -R, --restore-mode  Allow restoring from Restore mode\n" \
 	" -T, --ticket PATH   Use file at PATH to send as AP ticket\n" \
 	"\n" \
@@ -1510,6 +1512,12 @@ static void handle_signal(int sig)
 	}
 }
 
+void plain_progress_cb(int step, double step_progress, void* userdata)
+{
+	printf("progress: %u %f\n", step, step_progress);
+	fflush(stdout);
+}
+
 int main(int argc, char* argv[]) {
 	int opt = 0;
 	int optindex = 0;
@@ -1545,7 +1553,7 @@ int main(int argc, char* argv[]) {
 		client->flags |= FLAG_INTERACTIVE;
 	}
 
-	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:kyRT:", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:kyPRT:", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv, 0);
@@ -1620,6 +1628,10 @@ int main(int argc, char* argv[]) {
 
 		case 'y':
 			client->flags &= ~FLAG_INTERACTIVE;
+			break;
+
+		case 'P':
+			idevicerestore_set_progress_callback(client, plain_progress_cb, NULL);
 			break;
 
 		case 'R':
