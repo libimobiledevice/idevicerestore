@@ -1785,7 +1785,6 @@ plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicere
 	char *comp_path = NULL;
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
-	plist_t fwdict = NULL;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
@@ -1864,7 +1863,6 @@ plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevi
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
 	unsigned char* component_data_tmp = NULL;
-	plist_t fwdict = NULL;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
