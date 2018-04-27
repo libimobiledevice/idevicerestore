@@ -734,6 +734,8 @@ int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrid
 	} else if (chip_id == 0x73) {
 		development_key = "DevelopmentUpdatePayloadHash";
 		production_key = "ProductionUpdatePayloadHash";
+	} else {
+		error("WARNING: Unsupported SE,ChipID 0x%lx. Restore will likely fail.\n", (unsigned long)chip_id);
 	}
 	const char *key_to_remove = development_key;
 	/* 'IsDev' determines whether we have Production or Development */
@@ -772,7 +774,7 @@ int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrid
 		plist_dict_remove_item(tss_entry, "Info");
 
 		/* remove Development or Production key/hash node */
-		if (plist_dict_get_item(tss_entry, key_to_remove)) {
+		if (key_to_remove && plist_dict_get_item(tss_entry, key_to_remove)) {
 			plist_dict_remove_item(tss_entry, key_to_remove);
 		}
 
