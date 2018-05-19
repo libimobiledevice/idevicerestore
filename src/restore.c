@@ -2383,6 +2383,10 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		else if (!strcmp(type, "StatusMsg")) {
 			err = restore_handle_status_msg(restore, message);
 			if (restore_finished) {
+				plist_t dict = plist_new_dict();
+				plist_dict_set_item(dict, "MsgType", plist_new_string("ReceivedFinalStatusMsg"));
+				restored_send(restore, dict);
+				plist_free(dict);
 				client->flags |= FLAG_QUIT;
 			}
 		}
