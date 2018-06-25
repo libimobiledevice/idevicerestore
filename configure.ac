@@ -42,6 +42,7 @@ PKG_CHECK_MODULES(libzip, libzip >= $LIBZIP_VERSION)
 PKG_CHECK_MODULES(libcurl, libcurl >= $LIBCURL_VERSION)
 PKG_CHECK_MODULES(openssl, openssl >= $OPENSSL_VERSION)
 PKG_CHECK_MODULES(zlib, zlib)
+AC_CHECK_LIB(pthread,pthread_once)
 
 GLOBAL_CFLAGS=""
 AC_LDADD=""
