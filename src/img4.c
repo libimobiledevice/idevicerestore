@@ -77,7 +77,65 @@ static unsigned char* asn1_create_element_header(unsigned char type, unsigned in
 	*data_size = off;
 
 	return *data;
-}	
+}
+
+static unsigned int asn1_get_element(const unsigned char* data, unsigned char* type, unsigned char* size)
+{
+	unsigned int off = 0;
+
+	if (!data)
+		return 0;
+
+	if (type)
+		*type = data[off++];
+	if (size)
+		*size = data[off++];
+
+	return off;
+}
+
+static const unsigned char *asn1_find_element(unsigned int index, unsigned char type, const unsigned char* data)
+{
+	unsigned char el_type = 0;
+	unsigned char el_size = 0;
+	unsigned int off = 0;
+
+	// verify data integrity
+	if (data[off++] != (ASN1_CONSTRUCTED | ASN1_SEQUENCE))
+		return NULL;
+
+	// check data size
+	switch (data[off++]) {
+	case 0x84:
+		off += 4;
+		break;
+	case 0x83:
+		off += 3;
+		break;
+	case 0x82:
+		off += 2;
+		break;
+	case 0x81:
+		off += 1;
+		break;
+	default:
+		break;
+	}
+
+	// find the element we are searching
+	for (int i = 0; i <= index; i++) {
+		off += asn1_get_element(&data[off], &el_type, &el_size);
+		if (i == index)
+			break;
+		off += el_size;
+	}
+
+	// check element type
+	if (el_type != type)
+		return NULL;
+
+	return &data[off];
+}
 
 int img4_stitch_component(const char* component_name, const unsigned char* component_data, unsigned int component_size, const unsigned char* blob, unsigned int blob_size, unsigned char** img4_data, unsigned int *img4_size)
 {
@@ -96,15 +154,17 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 	}
 
 	info("Personalizing IMG4 component %s...\n", component_name);
-
 	/* first we need check if we have to change the tag for the given component */
-	// FIXME: write proper ASN1 handling code for this
-	if (strcmp(component_name, "RestoreKernelCache") == 0) {
-		memcpy((char*)component_data+0xD, "rkrn", 4);
-	} else if (strcmp(component_name, "RestoreDeviceTree") == 0) {
-		memcpy((char*)component_data+0xD, "rdtr", 4);
-	} else if (strcmp(component_name, "RestoreSEP") == 0) {
-		memcpy((char*)component_data+0xD, "rsep", 4);
+	const void *tag = asn1_find_element(1, ASN1_IA5_STRING, component_data);
+	if (tag) {
+		debug("Tag found\n");
+		if (strcmp(component_name, "RestoreKernelCache") == 0) {
+			memcpy((void*)tag, "rkrn", 4);
+		} else if (strcmp(component_name, "RestoreDeviceTree") == 0) {
+			memcpy((void*)tag, "rdtr", 4);
+		} else if (strcmp(component_name, "RestoreSEP") == 0) {
+			memcpy((void*)tag, "rsep", 4);
+		}
 	}
 
 	// create element header for the "IMG4" magic
