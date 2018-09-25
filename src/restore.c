@@ -2314,6 +2314,46 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	}
 	// FIXME: does this have any effect actually?
 	plist_dict_set_item(opts, "UpdateBaseband", plist_new_bool(0));
+
+	plist_t smt = plist_new_dict();
+	plist_dict_set_item(smt, "BBUpdateStatusMsg",		plist_new_bool(0));
+
+	plist_dict_set_item(smt, "CheckpointMsg",			plist_new_bool(1));
+	plist_dict_set_item(smt, "DataRequestMsg",			plist_new_bool(0));
+	plist_dict_set_item(smt, "MsgType",					plist_new_bool(0));
+	plist_dict_set_item(smt, "PreviousRestoreLogMsg",	plist_new_bool(1));
+	plist_dict_set_item(smt, "ProgressMsg",				plist_new_bool(0));
+
+	plist_dict_set_item(smt, "ProvisioningAck",			plist_new_bool(0));
+	plist_dict_set_item(smt, "ProvisioningInfo",		plist_new_bool(0));
+	plist_dict_set_item(smt, "ProvisioningStatusMsg",	plist_new_bool(0));
+	plist_dict_set_item(smt, "ReceivedFinalStatusMsg",	plist_new_bool(0));
+	plist_dict_set_item(smt, "StatusMsg",				plist_new_bool(0));
+
+	plist_dict_set_item(opts, "SupportedMessageTypes",	smt);
+
+	plist_t sep = plist_access_path(build_identity, 3, "Manifest", "SEP", "Info");
+	if (sep) {
+		node = plist_dict_get_item(sep, "RequiredCapacity");
+		if (node && plist_get_node_type(node) == PLIST_STRING) {
+			char* sval = NULL;
+			plist_get_string_val(node, &sval);
+			info("RequiredCapacity: %s\n", sval);
+
+			plist_dict_set_item(opts, "TZ0RequiredCapacity", plist_copy(node));
+			free(sval);
+			sval = NULL;
+		}
+	}
+
+	plist_dict_set_item(opts, "WaitForDeviceConnectionToFinishStateMachine", plist_new_bool(0));
+	plist_dict_set_item(opts, "iTunesVersion",			plist_new_string("iTunes 12.9.0.167"));
+
+	plist_dict_set_item(opts, "FormatForAPFS",	plist_new_bool(1));
+	plist_dict_set_item(opts, "FormatForLwVM",	plist_new_bool(0));
+	plist_dict_set_item(opts, "InstallDiags",	plist_new_bool(0));
+	plist_dict_set_item(opts, "SkipPreflightPersonalization", plist_new_bool(0));
+
 	// FIXME: not required for iOS 5?
 	//plist_dict_set_item(opts, "UserLocale", plist_new_string("en_US"));
 
