@@ -2436,6 +2436,11 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			err = restore_handle_bb_update_status_msg(restore, message);
 		}
 
+		// hide checkpoint message
+		else if (!strcmp(type, "CheckpointMsg")) {
+			// empty
+		}
+
 		// there might be some other message types i'm not aware of, but I think
 		// at least the "previous error logs" messages usually end up here
 		else {
