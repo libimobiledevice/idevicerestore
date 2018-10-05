@@ -448,7 +448,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				plist_dict_set_item(inf, "Path", plist_new_string(tmpstr));
 				comp = plist_new_dict();
 				plist_dict_set_item(comp, "Info", inf);
-				const char* compname = get_component_name(files[x]);
+				const char* compname = get_component_name(files[x], NULL, NULL);
 				if (compname) {
 					plist_dict_set_item(manifest, compname, comp);
 					if (!strncmp(files[x], "DeviceTree", 10)) {
@@ -1889,7 +1889,41 @@ int build_identity_get_component_path(plist_t build_identity, const char* compon
 	return 0;
 }
 
-const char* get_component_name(const char* filename) {
+const char* get_component_name(const char* filename, plist_t build_identity, char **ret_value) {
+	if (build_identity != NULL && ret_value != NULL) {
+		plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
+		if (manifest_node && plist_get_node_type(manifest_node) == PLIST_DICT) {
+			plist_dict_iter iter = NULL;
+			plist_dict_new_iter(manifest_node, &iter);
+			while (1) {
+				char *key = NULL;
+				plist_t node = NULL;
+				plist_dict_next_item(manifest_node, iter, &key, &node);
+				if (key == NULL)
+					break;
+				plist_t path_node = plist_access_path(node, 2, "Info", "Path");
+				if (path_node && plist_get_node_type(path_node) == PLIST_STRING) {
+					char *path = NULL;
+					plist_get_string_val(path_node, &path);
+					if (path != NULL) {
+						const char *pathname = strrchr(path, '/');
+						pathname = (pathname != NULL) ? pathname + 1 : path;
+						if (strcmp(pathname, filename) == 0) {
+							free(path);
+							free(iter);
+							*ret_value = key;
+							debug("DEBUG: Component name for %s is %s (by build_identity).\n", filename, key);
+							return key;
+						}
+						free(path);
+					}
+				}
+				free(key);
+			}
+			free(iter);
+		}
+	}
+
 	if (!strncmp(filename, "LLB", 3)) {
 		return "LLB";
 	} else if (!strncmp(filename, "iBoot", 5)) {

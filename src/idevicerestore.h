@@ -96,7 +96,7 @@ int ipsw_extract_filesystem(const char* ipsw, plist_t build_identity, char** fil
 int extract_component(const char* ipsw, const char* path, unsigned char** component_data, unsigned int* component_size);
 int personalize_component(const char *component, const unsigned char* component_data, unsigned int component_size, plist_t tss_response, unsigned char** personalized_component, unsigned int* personalized_component_size);
 
-const char* get_component_name(const char* filename);
+const char* get_component_name(const char* filename, plist_t build_identity, char **ret_value);
 
 #ifdef __cplusplus
 }

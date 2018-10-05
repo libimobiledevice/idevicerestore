@@ -1026,11 +1026,13 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		}
 		filename++;
 
-		component = get_component_name(filename);
+		char *componentbuf = NULL;
+		component = get_component_name(filename, build_identity, &componentbuf);
 		if (!strcmp(component, "LLB") || !strcmp(component, "RestoreSEP")) {
 			// skip LLB, it's already passed in LlbImageData
 			// skip RestoreSEP, it's passed in RestoreSEPImageData
 			free(comppath);
+			free(componentbuf);
 			continue;
 		}
 
@@ -1039,6 +1041,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 
 		if (extract_component(client->ipsw, comppath, &component_data, &component_size) < 0) {
 			free(comppath);
+			free(componentbuf);
 			plist_free(firmware_files);
 			error("ERROR: Unable to extract component: %s\n", component);
 			return -1;
@@ -1046,6 +1049,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 
 		if (personalize_component(component, component_data, component_size, client->tss, &nor_data, &nor_size) < 0) {
 			free(comppath);
+			free(componentbuf);
 			free(component_data);
 			plist_free(firmware_files);
 			error("ERROR: Unable to get personalized component: %s\n", component);
@@ -1054,6 +1058,9 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		free(component_data);
 		component_data = NULL;
 		component_size = 0;
+
+		free(componentbuf);
+		component = NULL;
 
 		/* make sure iBoot is the first entry in the array */
 		if (!strncmp("iBoot", filename, 5)) {
@@ -1799,8 +1806,17 @@ plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicere
 	} else if (chip_id == 0x73) {
 		comp_name = "SE,UpdatePayload";
 	} else {
-		error("ERROR: Neither 'SE,Firmware' nor 'SE,UpdatePayload' found in build identity.\n");
-		return NULL;
+		char *tmppath = NULL;
+		if (build_identity_get_component_path(build_identity, "SE,UpdatePayload", &tmppath) >= 0)
+			comp_name = "SE,UpdatePayload";
+		else if (build_identity_get_component_path(build_identity, "SE,Firmware", &tmppath) >= 0)
+			comp_name = "SE,Firmware";
+		else {
+			error("ERROR: Neither 'SE,Firmware' nor 'SE,UpdatePayload' found in build identity.\n");
+			return NULL;
+		}
+		free(tmppath);
+		debug("DEBUG: %s: using %s\n", __func__, comp_name);
 	}
 
 	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
@@ -1953,6 +1969,146 @@ plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevi
 	return response;
 }
 
+plist_t restore_get_yonkers_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+{
+	char *comp_name = NULL;
+	char *comp_path = NULL;
+	plist_t comp_node = NULL;
+	unsigned char* component_data = NULL;
+	unsigned int component_size = 0;
+	plist_t parameters = NULL;
+	plist_t request = NULL;
+	plist_t response = NULL;
+	plist_t node = NULL;
+	uint8_t isprod = 1;
+	uint64_t fabrevision = (uint64_t)-1;
+	int ret;
+
+	node = plist_dict_get_item(p_info, "Yonkers,ProductionMode");
+	if (node && (plist_get_node_type(node) == PLIST_BOOLEAN)) {
+		plist_get_bool_val(node, &isprod);
+	}
+
+	node = plist_dict_get_item(p_info, "Yonkers,FabRevision");
+	if (node && (plist_get_node_type(node) == PLIST_UINT)) {
+		plist_get_uint_val(node, &fabrevision);
+	}
+
+	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: Unable to find manifest node\n");
+		return NULL;
+	}
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(manifest_node, &iter);
+	while (1) {
+		plist_dict_next_item(manifest_node, iter, &comp_name, &node);
+		if (comp_name == NULL) {
+			node = NULL;
+			break;
+		}
+		if (strncmp(comp_name, "Yonkers,", 8) == 0) {
+			int target_node = 1;
+			plist_t sub_node;
+			if ((sub_node = plist_dict_get_item(node, "EPRO")) != NULL && plist_get_node_type(sub_node) == PLIST_BOOLEAN) {
+				uint8_t b = 0;
+				plist_get_bool_val(sub_node, &b);
+				target_node &= ((isprod) ? b : !b);
+			}
+			if ((sub_node = plist_dict_get_item(node, "FabRevision")) != NULL && plist_get_node_type(sub_node) == PLIST_UINT) {
+				uint64_t v = 0;
+				plist_get_uint_val(sub_node, &v);
+				target_node &= (v == fabrevision);
+			}
+			if (target_node) {
+				comp_node = node;
+				break;
+			}
+		}
+		free(comp_name);
+		comp_name = NULL;
+	}
+	free(iter);
+	node = NULL;
+
+	if (comp_name == NULL) {
+		error("ERROR: No Yonkers node for %s/%lu\n", (isprod) ? "Production" : "Development", (unsigned long)fabrevision);
+		return NULL;
+	}
+	debug("DEBUG: %s: using %s\n", __func__, comp_name);
+
+	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+		error("ERROR: Unable get path for '%s' component\n", comp_name);
+		free(comp_name);
+		return NULL;
+	}
+
+	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	free(comp_path);
+	comp_path = NULL;
+	if (ret < 0) {
+		error("ERROR: Unable to extract '%s' component\n", comp_name);
+		free(comp_name);
+		return NULL;
+	}
+
+	/* create Yonkers request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create Yonkers TSS request\n");
+		free(component_data);
+		free(comp_name);
+		return NULL;
+	}
+
+	parameters = plist_new_dict();
+
+	/* add manifest for current build_identity to parameters */
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	/* add Yonkers,* tags from info dictionary to parameters */
+	plist_dict_merge(&parameters, p_info);
+
+	/* add required tags for Yonkers TSS request */
+	tss_request_add_yonkers_tags(request, parameters, NULL);
+
+	plist_free(parameters);
+
+	if (comp_node != NULL) {
+		plist_t comp_dict = plist_copy(comp_node);
+		plist_dict_remove_item(comp_dict, "Info");
+		plist_dict_set_item(request, comp_name, comp_dict);
+	}
+
+	free(comp_name);
+	comp_name = NULL;
+
+	info("Sending Yonkers TSS request...\n");
+	response = tss_request_send(request, client->tss_url);
+	plist_free(request);
+	if (response == NULL) {
+		error("ERROR: Unable to fetch Yonkers ticket\n");
+		free(component_data);
+		return NULL;
+	}
+
+	if (plist_dict_get_item(response, "Yonkers,Ticket")) {
+		info("Received Yonkers ticket\n");
+	} else {
+		error("ERROR: No 'Yonkers,Ticket' in TSS response, this might not work\n");
+	}
+
+	plist_t firmware_data = plist_new_dict();
+	plist_dict_set_item(firmware_data, "YonkersFirmware", plist_new_data((char *)component_data, (uint64_t)component_size));
+	plist_dict_set_item(response, "FirmwareData", firmware_data);
+
+	free(component_data);
+	component_data = NULL;
+	component_size = 0;
+
+	return response;
+}
+
 int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
 {
 	plist_t arguments;
@@ -2016,7 +2172,12 @@ int restore_send_firmware_updater_data(restored_client_t restore, struct idevice
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "Savage") == 0) {
-		fwdict = restore_get_savage_firmware_data(restore, client, build_identity, p_info);
+		plist_t p_info2 = plist_dict_get_item(p_info, "YonkersDeviceInfo");
+		if (p_info2 && plist_get_node_type(p_info2) == PLIST_DICT) {
+			fwdict = restore_get_yonkers_firmware_data(restore, client, build_identity, p_info2);
+		}
+		else
+			fwdict = restore_get_savage_firmware_data(restore, client, build_identity, p_info);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get Savage firmware data\n", __func__);
 			goto error_out;

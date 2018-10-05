@@ -35,6 +35,8 @@
 #include "restore.h"
 #include "recovery.h"
 
+static int recovery_send_loaded_by_iboot(struct idevicerestore_client_t* client, plist_t build_identity);
+
 int recovery_progress_callback(irecv_client_t client, const irecv_event_t* event) {
 	if (event->type == IRECV_PROGRESS) {
 		//print_progress_bar(event->progress);
@@ -201,6 +203,10 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 	if (recovery_send_applelogo(client, build_identity) < 0) {
 		error("ERROR: Unable to send AppleLogo\n");
 		return -1;
+	}
+
+	if (recovery_send_loaded_by_iboot(client, build_identity) < 0) {
+		error("ERROR: Unable to send item for LoadedByiBoot\n");
 	}
 
 	/* send ramdisk and run it */
@@ -446,6 +452,56 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t bu
 		error("ERROR: Unable to execute %s\n", component);
 		return -1;
 	}
+
+	return 0;
+}
+
+static int recovery_send_loaded_by_iboot(struct idevicerestore_client_t* client, plist_t build_identity) {
+	if (client->recovery == NULL) {
+		if (recovery_client_new(client) < 0) {
+			return -1;
+		}
+	}
+
+	//TODO: shold we try client->tss?
+	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: Unable to find manifest node\n");
+		return -1;
+	}
+
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(manifest_node, &iter);
+	while (1) {
+		char *key = NULL;
+		plist_t node = NULL;
+		plist_dict_next_item(manifest_node, iter, &key, &node);
+		if (key == NULL)
+			break;
+		plist_t iboot_node = plist_access_path(node, 2, "Info", "IsLoadedByiBoot");
+		if (iboot_node && plist_get_node_type(iboot_node) == PLIST_BOOLEAN) {
+			uint8_t b = 0;
+			plist_get_bool_val(iboot_node, &b);
+			if (b) {
+				debug("DEBUG: %s is loaded by iBoot.\n", key);
+				{
+					char* value = NULL;
+					irecv_getenv(client->recovery->client, "ramdisk-size", &value);
+					free(value);
+				}
+				if (recovery_send_component(client, build_identity, key) < 0) {
+					error("ERROR: Unable to send %s to device.\n", key);
+				}
+				else {
+					if (irecv_send_command(client->recovery->client, "firmware") != IRECV_E_SUCCESS) {
+						error("ERROR: firmware failed %s\n", key);
+					}
+				}
+			}
+		}
+		free(key);
+	}
+	free(iter);
 
 	return 0;
 }
