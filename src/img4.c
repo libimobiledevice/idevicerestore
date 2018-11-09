@@ -166,6 +166,8 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 			memcpy((void*)tag, "rsep", 4);
 		} else if (strcmp(component_name, "RestoreLogo") == 0) {
 			memcpy((void*)tag, "rlgo", 4);
+		} else if (strcmp(component_name, "RestoreTrustCache") == 0) {
+			memcpy((void*)tag, "rtsc", 4);
 		}
 	}
 
