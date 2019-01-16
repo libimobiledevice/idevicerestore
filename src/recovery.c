@@ -203,6 +203,12 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 		return -1;
 	}
 
+	/* send components loaded by iBoot */
+	if (recovery_send_loaded_by_iboot(client, build_identity) < 0) {
+		error("ERROR: Unable to send components supposed to be loaded by iBoot\n");
+		return -1;
+	}
+
 	/* send ramdisk and run it */
 	if (recovery_send_ramdisk(client, build_identity) < 0) {
 		error("ERROR: Unable to send Ramdisk\n");
@@ -381,6 +387,52 @@ int recovery_send_devicetree(struct idevicerestore_client_t* client, plist_t bui
 	}
 
 	return 0;
+}
+
+int recovery_send_loaded_by_iboot(struct idevicerestore_client_t* client, plist_t build_identity) {
+	if (client->recovery == NULL) {
+		if (recovery_client_new(client) < 0) {
+			return -1;
+		}
+	}
+
+	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: Unable to find manifest node\n");
+		return -1;
+	}
+
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(manifest_node, &iter);
+	int err = 0;
+	while (iter) {
+		char *key = NULL;
+		plist_t node = NULL;
+		plist_dict_next_item(manifest_node, iter, &key, &node);
+		if (key == NULL)
+			break;
+		plist_t iboot_node = plist_access_path(node, 2, "Info", "IsLoadedByiBoot");
+		if (iboot_node && plist_get_node_type(iboot_node) == PLIST_BOOLEAN) {
+			uint8_t b = 0;
+			plist_get_bool_val(iboot_node, &b);
+			if (b) {
+				debug("DEBUG: %s is loaded by iBoot.\n", key);
+				if (recovery_send_component(client, build_identity, key) < 0) {
+					error("ERROR: Unable to send component '%s' to device.\n", key);
+					err++;
+				} else {
+					if (irecv_send_command(client->recovery->client, "firmware") != IRECV_E_SUCCESS) {
+						error("ERROR: iBoot command 'firmware' failed for component '%s'\n", key);
+						err++;
+					}
+				}
+			}
+		}
+		free(key);
+	}
+	free(iter);
+
+	return (err) ? -1 : 0;
 }
 
 int recovery_send_ramdisk(struct idevicerestore_client_t* client, plist_t build_identity) {
