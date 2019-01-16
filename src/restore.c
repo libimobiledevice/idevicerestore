@@ -155,7 +155,7 @@ static int restore_idevice_new(struct idevicerestore_client_t* client, idevice_t
 		}
 
 		if (restored_client_new(dev, &restore, "idevicerestore") != RESTORE_E_SUCCESS) {
-			error("ERROR: %s: can't connect to restored on device with UDID %s", __func__, devices[j]);
+			error("ERROR: %s: can't connect to restored on device with UDID %s\n", __func__, devices[j]);
 			continue;
 
 		}
@@ -903,7 +903,6 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	unsigned int llb_size = 0;
 	unsigned char* llb_data = NULL;
 	plist_t dict = NULL;
-	char* filename = NULL;
 	unsigned int nor_size = 0;
 	unsigned char* nor_data = NULL;
 	plist_t norimage_array = NULL;
@@ -938,16 +937,19 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	memset(manifest_file, '\0', sizeof(manifest_file));
 	snprintf(manifest_file, sizeof(manifest_file), "%s/manifest", firmware_path);
 
-	firmware_files = plist_new_array();
+	firmware_files = plist_new_dict();
 	ipsw_extract_to_memory(client->ipsw, manifest_file, &manifest_data, &manifest_size);
 	if (manifest_data && manifest_size > 0) {
 		info("Getting firmware manifest from %s\n", manifest_file);
 		char *manifest_p = (char*)manifest_data;
+		char *filename = NULL;
 		while ((filename = strsep(&manifest_p, "\r\n")) != NULL) {
 			if (*filename == '\0') continue;
+			const char *compname = get_component_name(filename);
+			if (!compname) continue;
 			memset(firmware_filename, '\0', sizeof(firmware_filename));
 			snprintf(firmware_filename, sizeof(firmware_filename), "%s/%s", firmware_path, filename);
-			plist_array_append_item(firmware_files, plist_new_string(firmware_filename));
+			plist_dict_set_item(firmware_files, compname, plist_new_string(firmware_filename));
 		}
 		free(manifest_data);
 	} else {
@@ -958,7 +960,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 			plist_dict_new_iter(build_id_manifest, &iter);
 		}
 		if (iter) {
-			char *component;
+			char *component = NULL;
 			plist_t manifest_entry;
 			do {
 				component = NULL;
@@ -973,16 +975,17 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 					if (is_fw) {
 						plist_t comp_path = plist_access_path(manifest_entry, 2, "Info", "Path");
 						if (comp_path) {
-							plist_array_append_item(firmware_files, plist_copy(comp_path));
+							plist_dict_set_item(firmware_files, component, plist_copy(comp_path));
 						}
 					}
 				}
+				free(component);
 			} while (manifest_entry);
 			free(iter);
 		}
 	}
 
-	if (plist_array_get_size(firmware_files) == 0) {
+	if (plist_dict_get_size(firmware_files) == 0) {
 		error("ERROR: Unable to get list of firmware files.\n");
 		return -1;
 	}
@@ -1012,24 +1015,27 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 
 	norimage_array = plist_new_array();
 
-	for (i = 0; i < plist_array_get_size(firmware_files); i++) {
-		plist_t pcomp = plist_array_get_item(firmware_files, i);
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(firmware_files, &iter);
+	while (iter) {
+		char *comp = NULL;
+		plist_t pcomp = NULL;
+		plist_dict_next_item(firmware_files, iter, &comp, &pcomp);
+		if (!comp) {
+			break;
+		}
 		char *comppath = NULL;
-
 		plist_get_string_val(pcomp, &comppath);
-		if (!comppath) continue;
-
-		filename = strrchr(comppath, '/');
-		if (!filename) {
-			free(comppath);
+		if (!comppath) {
+			free(comp);
 			continue;
 		}
-		filename++;
 
-		component = get_component_name(filename);
+		component = (const char*)comp;
 		if (!strcmp(component, "LLB") || !strcmp(component, "RestoreSEP")) {
 			// skip LLB, it's already passed in LlbImageData
 			// skip RestoreSEP, it's passed in RestoreSEPImageData
+			free(comp);
 			free(comppath);
 			continue;
 		}
@@ -1038,6 +1044,8 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		unsigned int component_size = 0;
 
 		if (extract_component(client->ipsw, comppath, &component_data, &component_size) < 0) {
+			free(iter);
+			free(comp);
 			free(comppath);
 			plist_free(firmware_files);
 			error("ERROR: Unable to extract component: %s\n", component);
@@ -1045,6 +1053,8 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		}
 
 		if (personalize_component(component, component_data, component_size, client->tss, &nor_data, &nor_size) < 0) {
+			free(iter);
+			free(comp);
 			free(comppath);
 			free(component_data);
 			plist_free(firmware_files);
@@ -1056,17 +1066,19 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		component_size = 0;
 
 		/* make sure iBoot is the first entry in the array */
-		if (!strncmp("iBoot", filename, 5)) {
+		if (!strncmp("iBoot", component, 5)) {
 			plist_array_insert_item(norimage_array, plist_new_data((char*)nor_data, (uint64_t)nor_size), 0);
 		} else {
 			plist_array_append_item(norimage_array, plist_new_data((char*)nor_data, (uint64_t)nor_size));
 		}
 
+		free(comp);
 		free(comppath);
 		free(nor_data);
 		nor_data = NULL;
 		nor_size = 0;
 	}
+	free(iter);
 	plist_free(firmware_files);
 	plist_dict_set_item(dict, "NorImageData", norimage_array);
 
