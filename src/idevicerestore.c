@@ -1900,6 +1900,8 @@ const char* get_component_name(const char* filename) {
 		return "AppleLogo";
 	} else if (!strncmp(filename, "liquiddetect", 12)) {
 		return "Liquid";
+	} else if (!strncmp(filename, "lowpowermode", 12)) {
+		return "LowPowerWallet0";
 	} else if (!strncmp(filename, "recoverymode", 12)) {
 		return "RecoveryMode";
 	} else if (!strncmp(filename, "batterylow0", 11)) {
