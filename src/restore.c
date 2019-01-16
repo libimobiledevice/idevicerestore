@@ -2479,6 +2479,20 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	}
 	// FIXME: does this have any effect actually?
 	plist_dict_set_item(opts, "UpdateBaseband", plist_new_bool(0));
+
+	plist_t sep = plist_access_path(build_identity, 3, "Manifest", "SEP", "Info");
+	if (sep) {
+		node = plist_dict_get_item(sep, "RequiredCapacity");
+		if (node && plist_get_node_type(node) == PLIST_STRING) {
+			char* sval = NULL;
+			plist_get_string_val(node, &sval);
+			debug("TZ0RequiredCapacity: %s\n", sval);
+			plist_dict_set_item(opts, "TZ0RequiredCapacity", plist_copy(node));
+			free(sval);
+			sval = NULL;
+		}
+	}
+
 	// FIXME: not required for iOS 5?
 	//plist_dict_set_item(opts, "UserLocale", plist_new_string("en_US"));
 
