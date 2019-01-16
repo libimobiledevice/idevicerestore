@@ -329,7 +329,7 @@ int recovery_send_ibec(struct idevicerestore_client_t* client, plist_t build_ide
 }
 
 int recovery_send_applelogo(struct idevicerestore_client_t* client, plist_t build_identity) {
-	const char* component = "AppleLogo";
+	const char* component = "RestoreLogo";
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	info("Sending %s...\n", component);

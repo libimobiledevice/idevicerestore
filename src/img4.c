@@ -164,7 +164,7 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 			memcpy((void*)tag, "rdtr", 4);
 		} else if (strcmp(component_name, "RestoreSEP") == 0) {
 			memcpy((void*)tag, "rsep", 4);
-		} else if (strcmp(component_name, "AppleLogo") == 0) {
+		} else if (strcmp(component_name, "RestoreLogo") == 0) {
 			memcpy((void*)tag, "rlgo", 4);
 		}
 	}
