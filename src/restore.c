@@ -1811,8 +1811,16 @@ plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicere
 	} else if (chip_id == 0x73 || chip_id == 0x64) {
 		comp_name = "SE,UpdatePayload";
 	} else {
-		error("ERROR: Neither 'SE,Firmware' nor 'SE,UpdatePayload' found in build identity.\n");
-		return NULL;
+		info("WARNING: Unknown SE,ChipID 0x%x detected. Restore might fail.\n", chip_id);
+		if (build_identity_has_component(build_identity, "SE,UpdatePayload"))
+			comp_name = "SE,UpdatePayload";
+		else if (build_identity_has_component(build_identity, "SE,Firmware"))
+			comp_name = "SE,Firmware";
+		else {
+			error("ERROR: Neither 'SE,Firmware' nor 'SE,UpdatePayload' found in build identity.\n");
+			return NULL;
+		}
+		debug("DEBUG: %s: using %s\n", __func__, comp_name);
 	}
 
 	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
