@@ -1808,7 +1808,7 @@ plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicere
 	}
 	if (chip_id == 0x20211) {
 		comp_name = "SE,Firmware";
-	} else if (chip_id == 0x73) {
+	} else if (chip_id == 0x73 || chip_id == 0x64) {
 		comp_name = "SE,UpdatePayload";
 	} else {
 		error("ERROR: Neither 'SE,Firmware' nor 'SE,UpdatePayload' found in build identity.\n");

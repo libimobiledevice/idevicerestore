@@ -695,8 +695,6 @@ int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrid
 		return -1;
 	}
 	plist_dict_set_item(request, "SE,ChipID", plist_copy(node));
-	uint64_t chip_id = 0;
-	plist_get_uint_val(node, &chip_id);
 	node = NULL;
 
 	/* add SE,ID */
@@ -726,24 +724,11 @@ int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrid
 	plist_dict_set_item(request, "SE,RootKeyIdentifier", plist_copy(node));
 	node = NULL;
 
-	const char *development_key = NULL;
-	const char *production_key = NULL;
-	if (chip_id == 0x20211) {
-		development_key = "DevelopmentCMAC";
-		production_key = "ProductionCMAC";
-	} else if (chip_id == 0x73) {
-		development_key = "DevelopmentUpdatePayloadHash";
-		production_key = "ProductionUpdatePayloadHash";
-	} else {
-		error("WARNING: Unsupported SE,ChipID 0x%lx. Restore will likely fail.\n", (unsigned long)chip_id);
-	}
-	const char *key_to_remove = development_key;
 	/* 'IsDev' determines whether we have Production or Development */
+	uint8_t is_dev = 0;
 	node = plist_dict_get_item(parameters, "SE,IsDev");
 	if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
-		uint8_t is_dev = 0;
 		plist_get_bool_val(node, &is_dev);
-		key_to_remove = (is_dev) ? production_key : development_key;
 	}
 
 	/* add SE,* components from build manifest to request */
@@ -774,8 +759,16 @@ int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrid
 		plist_dict_remove_item(tss_entry, "Info");
 
 		/* remove Development or Production key/hash node */
-		if (key_to_remove && plist_dict_get_item(tss_entry, key_to_remove)) {
-			plist_dict_remove_item(tss_entry, key_to_remove);
+		if (is_dev) {
+			if (plist_dict_get_item(tss_entry, "ProductionCMAC"))
+				plist_dict_remove_item(tss_entry, "ProductionCMAC");
+			if (plist_dict_get_item(tss_entry, "ProductionUpdatePayloadHash"))
+				plist_dict_remove_item(tss_entry, "ProductionUpdatePayloadHash");
+		} else {
+			if (plist_dict_get_item(tss_entry, "DevelopmentCMAC"))
+				plist_dict_remove_item(tss_entry, "DevelopmentCMAC");
+			if (plist_dict_get_item(tss_entry, "DevelopmentUpdatePayloadHash"))
+				plist_dict_remove_item(tss_entry, "DevelopmentUpdatePayloadHash");
 		}
 
 		/* add entry to request */
