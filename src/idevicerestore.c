@@ -624,7 +624,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		lock_file(lockfn, &li);
 		FILE* extf = NULL;
 		if (access(extfn, F_OK) != 0) {
-			extf = fopen(extfn, "w");
+			extf = fopen(extfn, "wb");
 		}
 		unlock_file(&li);
 		if (!extf) {
