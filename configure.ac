@@ -53,8 +53,7 @@ case "$host_os" in
 	;;
 	mingw*)
 		GLOBAL_CFLAGS+="-DWIN32 -D__LITTLE_ENDIAN__=1"
-		AC_LDFLAGS+="-static-libgcc"
-		AC_LDADD="-lsetupapi"
+		AC_LDFLAGS+="-static-libgcc -lmsvcr100"
 	;;
 	*)
 	;;

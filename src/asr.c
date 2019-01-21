@@ -204,9 +204,15 @@ int asr_perform_validation(asr_client_t asr, const char* filesystem) {
 		return -1;
 	}
 
+#ifdef WIN32
+	_fseeki64(file, 0, SEEK_END);
+	length = _ftelli64(file);
+	_fseeki64(file, 0, SEEK_SET);
+#else
 	fseeko(file, 0, SEEK_END);
 	length = ftello(file);
 	fseeko(file, 0, SEEK_SET);
+#endif
 
 	payload_info = plist_new_dict();
 	plist_dict_set_item(payload_info, "Port", plist_new_uint(1));
@@ -300,7 +306,11 @@ int asr_handle_oob_data_request(asr_client_t asr, plist_t packet, FILE* file) {
 		return -1;
 	}
 
+#ifdef WIN32
+	_fseeki64(file, oob_offset, SEEK_SET);
+#else
 	fseeko(file, oob_offset, SEEK_SET);
+#endif
 	if (fread(oob_data, 1, oob_length, file) != oob_length) {
 		error("ERROR: Unable to read OOB data from filesystem offset: %s\n",
 		      strerror(errno));
@@ -320,7 +330,7 @@ int asr_handle_oob_data_request(asr_client_t asr, plist_t packet, FILE* file) {
 int asr_send_payload(asr_client_t asr, const char* filesystem) {
 	char data[ASR_PAYLOAD_PACKET_SIZE];
 	FILE* file = NULL;
-	off_t i, length, bytes = 0;
+	uint64_t i, length, bytes = 0;
 	double progress = 0;
 
 	file = fopen(filesystem, "rb");
@@ -330,9 +340,15 @@ int asr_send_payload(asr_client_t asr, const char* filesystem) {
 		return -1;
 	}
 
+#ifdef WIN32
+	_fseeki64(file, 0, SEEK_END);
+	length = _ftelli64(file);
+	_fseeki64(file, 0, SEEK_SET);
+#else
 	fseeko(file, 0, SEEK_END);
 	length = ftello(file);
 	fseeko(file, 0, SEEK_SET);
+#endif
 
 	int chunk = 0;
 	int add_checksum = 0;
