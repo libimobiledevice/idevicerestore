@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <libgen.h>
 #include <time.h>
+#include <sys/stat.h>
 
 #include "common.h"
 
@@ -162,6 +163,8 @@ int read_file(const char* filename, void** data, size_t* size) {
 	size_t length = 0;
 	FILE* file = NULL;
 	char* buffer = NULL;
+	struct stat fst;
+
 	debug("Reading data from %s\n", filename);
 
 	*size = 0;
@@ -169,13 +172,15 @@ int read_file(const char* filename, void** data, size_t* size) {
 
 	file = fopen(filename, "rb");
 	if (file == NULL) {
-		error("read_file: File %s not found\n", filename);
+		error("read_file: cannot open %s: %s\n", filename, strerror(errno));
 		return -1;
 	}
 
-	fseeko(file, 0, SEEK_END);
-	length = ftello(file);
-	rewind(file);
+	if (fstat(fileno(file), &fst) < 0) {
+		error("read_file: fstat: %s\n", strerror(errno));
+		return -1;
+	}
+	length = fst.st_size;
 
 	buffer = (char*) malloc(length);
 	if (buffer == NULL) {
