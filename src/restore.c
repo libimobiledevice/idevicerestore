@@ -1627,15 +1627,18 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 	}
 
 	// extract baseband firmware to temp file
-	bbfwtmp = tempnam(NULL, client->udid);
+	bbfwtmp = get_temp_filename("bbfw_");
 	if (!bbfwtmp) {
-		error("WARNING: Could not generate temporary filename, using bbfw.tmp\n");
-		bbfwtmp = strdup("bbfw.tmp");
+		size_t l = strlen(client->udid);
+		bbfwtmp = malloc(l + 10);
+		strcpy(bbfwtmp, "bbfw_");
+		strncpy(bbfwtmp + 5, client->udid, l);
+		strcpy(bbfwtmp + 5 + l, ".tmp");
+		error("WARNING: Could not generate temporary filename, using %s in current directory\n", bbfwtmp);
 	}
 	if (ipsw_extract_to_file(client->ipsw, bbfwpath, bbfwtmp) != 0) {
 		error("ERROR: Unable to extract baseband firmware from ipsw\n");
-		plist_free(response);
-		return -1;
+		goto leave;
 	}
 
 	if (bb_nonce && !client->restore->bbtss) {
