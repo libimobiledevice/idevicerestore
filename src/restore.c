@@ -2318,7 +2318,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
-	thread_t fdr_thread = NULL;
+	thread_t fdr_thread = (thread_t)NULL;
 
 	restore_finished = 0;
 

@@ -34,6 +34,7 @@ typedef volatile struct {
 #define THREAD_ID GetCurrentThreadId()
 #else
 #include <pthread.h>
+#include <signal.h>
 typedef pthread_t thread_t;
 typedef pthread_mutex_t mutex_t;
 typedef pthread_once_t thread_once_t;
