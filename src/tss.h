@@ -40,7 +40,7 @@ int tss_request_add_common_tags(plist_t request, plist_t parameters, plist_t ove
 int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrides);
 int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t overrides);
 int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrides);
-int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t overrides);
+int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t overrides, char **component_name);
 int tss_request_add_yonkers_tags(plist_t request, plist_t parameters, plist_t overrides);
 
 int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters);

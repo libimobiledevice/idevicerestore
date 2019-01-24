@@ -1885,7 +1885,7 @@ plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicere
 
 plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
 {
-	const char *comp_name = NULL;
+	char *comp_name = NULL;
 	char *comp_path = NULL;
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
@@ -1894,38 +1894,12 @@ plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevi
 	plist_t request = NULL;
 	plist_t response = NULL;
 	plist_t node = NULL;
-	uint8_t isprod = 0;
 	int ret;
-
-	node = plist_dict_get_item(p_info, "Savage,ProductionMode");
-	if (node && (plist_get_node_type(node) == PLIST_BOOLEAN)) {
-		plist_get_bool_val(node, &isprod);
-	}
-	node = NULL;
-	if (isprod) {
-		comp_name = "Savage,B2-Prod-Patch";
-	} else {
-		comp_name = "Savage,B2-Dev-Patch";
-	}
-
-	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
-		error("ERROR: Unable get path for '%s' component\n", comp_name);
-		return NULL;
-	}
-
-	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
-	free(comp_path);
-	comp_path = NULL;
-	if (ret < 0) {
-		error("ERROR: Unable to extract '%s' component\n", comp_name);
-		return NULL;
-	}
 
 	/* create Savage request */
 	request = tss_request_new(NULL);
 	if (request == NULL) {
 		error("ERROR: Unable to create Savage TSS request\n");
-		free(component_data);
 		return NULL;
 	}
 
@@ -1938,16 +1912,22 @@ plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevi
 	plist_dict_merge(&parameters, p_info);
 
 	/* add required tags for Savage TSS request */
-	tss_request_add_savage_tags(request, parameters, NULL);
+	tss_request_add_savage_tags(request, parameters, NULL, &comp_name);
 
 	plist_free(parameters);
+
+	if (!comp_name) {
+		error("ERROR: Could not determine Savage firmware component\n");
+		plist_free(request);
+		return NULL;
+	}
 
 	info("Sending Savage TSS request...\n");
 	response = tss_request_send(request, client->tss_url);
 	plist_free(request);
 	if (response == NULL) {
 		error("ERROR: Unable to fetch Savage ticket\n");
-		free(component_data);
+		free(comp_name);
 		return NULL;
 	}
 
@@ -1956,6 +1936,24 @@ plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevi
 	} else {
 		error("ERROR: No 'Savage,Ticket' in TSS response, this might not work\n");
 	}
+
+	/* now get actual component data */
+	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+		error("ERROR: Unable get path for '%s' component\n", comp_name);
+		free(comp_name);
+		return NULL;
+	}
+
+	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	free(comp_path);
+	comp_path = NULL;
+	if (ret < 0) {
+		error("ERROR: Unable to extract '%s' component\n", comp_name);
+		free(comp_name);
+		return NULL;
+	}
+	free(comp_name);
+	comp_name = NULL;
 
 	component_data_tmp = realloc(component_data, (size_t)component_size+16);
 	if (!component_data_tmp) {
@@ -2179,14 +2177,16 @@ int restore_send_firmware_updater_data(restored_client_t restore, struct idevice
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "Savage") == 0) {
+		const char *fwtype = "Savage";
 		plist_t p_info2 = plist_dict_get_item(p_info, "YonkersDeviceInfo");
 		if (p_info2 && plist_get_node_type(p_info2) == PLIST_DICT) {
+			fwtype = "Yonkers";
 			fwdict = restore_get_yonkers_firmware_data(restore, client, build_identity, p_info2);
 		} else {
 			fwdict = restore_get_savage_firmware_data(restore, client, build_identity, p_info);
 		}
 		if (fwdict == NULL) {
-			error("ERROR: %s: Couldn't get Savage firmware data\n", __func__);
+			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, fwtype);
 			goto error_out;
 		}
 	} else {

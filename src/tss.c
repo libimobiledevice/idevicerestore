@@ -831,7 +831,7 @@ int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrid
 	return 0;
 }
 
-int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t overrides)
+int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t overrides, char **component_name)
 {
 	plist_t node = NULL;
 
@@ -912,20 +912,36 @@ int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t ove
 	plist_get_bool_val(node, &isprod);
 	node = NULL;
 
-	/* add Savage,B2-*-Patch */
-	if (isprod) {
-		comp_name = "Savage,B2-Prod-Patch";
-	} else {
-		comp_name = "Savage,B2-Dev-Patch";
+	/* get the right component name */
+	comp_name = (isprod) ?  "Savage,B0-Prod-Patch" : "Savage,B0-Dev-Patch";
+	node = plist_dict_get_item(parameters, "Savage,Revision");
+	if (node && (plist_get_node_type(node) == PLIST_DATA)) {
+		unsigned char *savage_rev = NULL;
+		uint64_t savage_rev_len = 0;
+		plist_get_data_val(node, (char**)&savage_rev, &savage_rev_len);
+		if (savage_rev_len > 0) {
+			if (((savage_rev[0] | 0x10) & 0xF0) == 0x30) {
+				comp_name = (isprod) ? "Savage,B2-Prod-Patch" : "Savage,B2-Dev-Patch";
+			} else if ((savage_rev[0] & 0xF0) == 0xA0) {
+				comp_name = (isprod) ? "Savage,BA-Prod-Patch" : "Savage,BA-Dev-Patch";
+			}
+		}
+		free(savage_rev);
 	}
-	node = plist_access_path(manifest_node, 2, comp_name, "Digest");
+
+	/* add Savage,B?-*-Patch */
+	node = plist_dict_get_item(manifest_node, comp_name);
 	if (!node) {
-		error("ERROR: Unable to get %s digest from manifest\n", comp_name);
+		error("ERROR: Unable to get %s entry from manifest\n", comp_name);
 		return -1;
 	}
-	dict = plist_new_dict();
-	plist_dict_set_item(dict, "Digest", plist_copy(node));
+	dict = plist_copy(node);
+	plist_dict_remove_item(dict, "Info");
 	plist_dict_set_item(request, comp_name, dict);
+
+	if (component_name) {
+		*component_name = strdup(comp_name);
+	}
 
 	/* add Savage,Nonce */
 	node = plist_dict_get_item(parameters, "Savage,Nonce");
