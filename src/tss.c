@@ -969,7 +969,7 @@ int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t ove
 	return 0;
 }
 
-int tss_request_add_yonkers_tags(plist_t request, plist_t parameters, plist_t overrides)
+int tss_request_add_yonkers_tags(plist_t request, plist_t parameters, plist_t overrides, char **component_name)
 {
 	plist_t node = NULL;
 
@@ -1004,6 +1004,71 @@ int tss_request_add_yonkers_tags(plist_t request, plist_t parameters, plist_t ov
 			plist_dict_set_item(request, keys[i], plist_copy(node));
 			node = NULL;
 		}
+	}
+
+	char *comp_name = NULL;
+	plist_t comp_node = NULL;
+	uint8_t isprod = 1;
+	uint64_t fabrevision = (uint64_t)-1;
+
+	node = plist_dict_get_item(parameters, "Yonkers,ProductionMode");
+	if (node && (plist_get_node_type(node) == PLIST_BOOLEAN)) {
+		plist_get_bool_val(node, &isprod);
+	}
+
+	node = plist_dict_get_item(parameters, "Yonkers,FabRevision");
+	if (node && (plist_get_node_type(node) == PLIST_UINT)) {
+		plist_get_uint_val(node, &fabrevision);
+	}
+
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(manifest_node, &iter);
+	while (iter) {
+		node = NULL;
+		comp_name = NULL;
+		plist_dict_next_item(manifest_node, iter, &comp_name, &node);
+		if (comp_name == NULL) {
+			node = NULL;
+			break;
+		}
+		if (strncmp(comp_name, "Yonkers,", 8) == 0) {
+			int target_node = 1;
+			plist_t sub_node;
+			if ((sub_node = plist_dict_get_item(node, "EPRO")) != NULL && plist_get_node_type(sub_node) == PLIST_BOOLEAN) {
+				uint8_t b = 0;
+				plist_get_bool_val(sub_node, &b);
+				target_node &= ((isprod) ? b : !b);
+			}
+			if ((sub_node = plist_dict_get_item(node, "FabRevision")) != NULL && plist_get_node_type(sub_node) == PLIST_UINT) {
+				uint64_t v = 0;
+				plist_get_uint_val(sub_node, &v);
+				target_node &= (v == fabrevision);
+			}
+			if (target_node) {
+				comp_node = node;
+				break;
+			}
+		}
+		free(comp_name);
+	}
+	free(iter);
+
+	if (comp_name == NULL) {
+		error("ERROR: No Yonkers node for %s/%lu\n", (isprod) ? "Production" : "Development", (unsigned long)fabrevision);
+		return -1;
+	}
+
+	/* add Yonkers,SysTopPatch* */
+	if (comp_node != NULL) {
+		plist_t comp_dict = plist_copy(comp_node);
+		plist_dict_remove_item(comp_dict, "Info");
+		plist_dict_set_item(request, comp_name, comp_dict);
+	}
+
+	if (component_name) {
+		*component_name = comp_name;
+	} else {
+		free(comp_name);
 	}
 
 	/* apply overrides */
