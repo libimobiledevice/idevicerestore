@@ -198,9 +198,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.0);
 
-	// update version data (from cache, or apple if too old)
-	load_version_data(client);
-
 	// check which mode the device is currently in so we know where to start
 	if (check_mode(client) < 0) {
 		error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
@@ -230,6 +227,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		// Prefer to get WTF file from the restore IPSW
 		ipsw_extract_to_memory(client->ipsw, wtfname, &wtftmp, &wtfsize);
 		if (!wtftmp) {
+			// update version data (from cache, or apple if too old)
+			load_version_data(client);
+
 			// Download WTF IPSW
 			char* s_wtfurl = NULL;
 			plist_t wtfurl = plist_access_path(client->version_data, 7, "MobileDeviceSoftwareVersionsByVersion", "5", "RecoverySoftwareVersions", "WTF", "304218112", "5", "FirmwareURL");
@@ -318,6 +318,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	if (client->flags & FLAG_LATEST) {
+		// update version data (from cache, or apple if too old)
+		load_version_data(client);
 		char* ipsw = NULL;
 		int res = ipsw_download_latest_fw(client->version_data, client->device->product_type, client->cache_dir, &ipsw);
 		if (res != 0) {
