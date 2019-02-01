@@ -32,6 +32,7 @@
 #include "download.h"
 #include "common.h"
 #include "idevicerestore.h"
+#include "json_plist.h"
 
 #define BUFSIZE 0x100000
 
@@ -283,6 +284,67 @@ void ipsw_close(ipsw_archive* archive) {
 	}
 }
 
+int ipsw_get_signed_firmwares(const char* product, plist_t* firmwares)
+{
+	char url[256];
+	char *jdata = NULL;
+	uint32_t jsize = 0;
+	plist_t dict = NULL;
+	plist_t node = NULL;
+	plist_t fws = NULL;
+	uint32_t count = 0;
+	uint32_t i = 0;
+
+	if (!product || !firmwares) {
+		return -1;
+	}
+
+	*firmwares = NULL;
+	snprintf(url, sizeof(url), "https://api.ipsw.me/v3/device/%s", product);
+
+	if (download_to_buffer(url, &jdata, &jsize) < 0) {
+		error("ERROR: Download from %s failed.\n", url);
+		return -1;
+	}
+	dict = json_to_plist(jdata);
+	free(jdata);
+	if (!dict || plist_get_node_type(dict) != PLIST_DICT) {
+		error("ERROR: Failed to parse json data.\n");
+		plist_free(dict);
+		return -1;
+	}
+
+	node = plist_dict_get_item(dict, product);
+	if (!node || plist_get_node_type(node) != PLIST_DICT) {
+		error("ERROR: Unexpected json data returned?!\n");
+		plist_free(dict);
+		return -1;
+	}
+	fws = plist_dict_get_item(node, "firmwares");
+	if (!fws || plist_get_node_type(fws) != PLIST_ARRAY) {
+		error("ERROR: Unexpected json data returned?!\n");
+		plist_free(dict);
+		return -1;
+	}
+
+	*firmwares = plist_new_array();
+	count = plist_array_get_size(fws);
+	for (i = 0; i < count; i++) {
+		plist_t fw = plist_array_get_item(fws, i);
+		node = plist_dict_get_item(fw, "signed");
+		if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
+			uint8_t bv = 0;
+			plist_get_bool_val(node, &bv);
+			if (bv) {
+				plist_array_append_item(*firmwares, plist_copy(fw));
+			}
+		}
+	}
+	plist_free(dict);
+
+	return 0;
+}
+
 int ipsw_get_latest_fw(plist_t version_data, const char* product, char** fwurl, unsigned char* sha1buf)
 {
 	*fwurl = NULL;
@@ -422,25 +484,14 @@ static int sha1_verify_fp(FILE* f, unsigned char* expected_sha1)
 	return (memcmp(expected_sha1, tsha1, 20) == 0) ? 1 : 0;
 }
 
-int ipsw_download_latest_fw(plist_t version_data, const char* product, const char* todir, char** ipswfile)
+int ipsw_download_fw(const char *fwurl, unsigned char* isha1, const char* todir, char** ipswfile)
 {
-	char* fwurl = NULL;
-	unsigned char isha1[20];
-
-	*ipswfile = NULL;
-
-	if ((ipsw_get_latest_fw(version_data, product, &fwurl, isha1) < 0) || !fwurl) {
-		error("ERROR: can't get URL for latest firmware\n");
-		return -1;
-	}
 	char* fwfn = strrchr(fwurl, '/');
 	if (!fwfn) {
 		error("ERROR: can't get local filename for firmware ipsw\n");
 		return -2;
 	}
 	fwfn++;
-
-	info("Latest firmware is %s\n", fwfn);
 
 	char fwlfn[256];
 	if (todir) {
@@ -483,7 +534,7 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 			res = -3;
 		} else {
 			remove(fwlfn);
-			info("Downloading latest firmware (%s)\n", fwurl);
+			info("Downloading firmware (%s)\n", fwurl);
 			download_to_file(fwurl, fwlfn, 1);
 			if (memcmp(isha1, zsha1, 20) != 0) {
 				info("\nVerifying '%s'...\n", fwlfn);
@@ -507,7 +558,6 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 			}
 		}
 	}
-	free(fwurl);
 	if (res == 0) {
 		*ipswfile = strdup(fwlfn);
 	}
@@ -515,6 +565,33 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 	if (unlock_file(&lockinfo) != 0) {
 		error("WARNING: Could not unlock file '%s'\n", fwlock);
 	}
+
+	return res;
+}
+
+int ipsw_download_latest_fw(plist_t version_data, const char* product, const char* todir, char** ipswfile)
+{
+	char* fwurl = NULL;
+	unsigned char isha1[20];
+
+	*ipswfile = NULL;
+
+	if ((ipsw_get_latest_fw(version_data, product, &fwurl, isha1) < 0) || !fwurl) {
+		error("ERROR: can't get URL for latest firmware\n");
+		return -1;
+	}
+	char* fwfn = strrchr(fwurl, '/');
+	if (!fwfn) {
+		error("ERROR: can't get local filename for firmware ipsw\n");
+		return -2;
+	}
+	fwfn++;
+
+	info("Latest firmware is %s\n", fwfn);
+
+	int res = ipsw_download_fw(fwurl, isha1, todir, ipswfile);
+
+	free(fwurl);
 
 	return res;
 }

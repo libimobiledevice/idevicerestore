@@ -144,6 +144,8 @@ void idevicerestore_progress(struct idevicerestore_client_t* client, int step, d
 char* strsep(char** strp, const char* delim);
 #endif
 
+void get_user_input(char *buf, int maxlen, int secure);
+
 #ifdef __cplusplus
 }
 #endif

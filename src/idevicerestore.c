@@ -71,6 +71,7 @@ static struct option longopts[] = {
 	{ "pwn",     no_argument,       NULL, 'p' },
 	{ "no-action", no_argument,     NULL, 'n' },
 	{ "cache-path", required_argument, NULL, 'C' },
+	{ "no-input", no_argument,      NULL, 'y' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -99,6 +100,7 @@ void usage(int argc, char* argv[]) {
 	printf("                 \tthe on demand ipsw download is performed before exiting.\n");
 	printf("  -C, --cache-path DIR\tUse specified directory for caching extracted\n");
 	printf("                      \tor other reused files.\n");
+	printf("  -y, --no-input\t\tNon-interactive mode, do not ask for any input\n");
 	printf("\n");
 	printf("Homepage: <" PACKAGE_URL ">\n");
 }
@@ -318,10 +320,96 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	if (client->flags & FLAG_LATEST) {
-		// update version data (from cache, or apple if too old)
-		load_version_data(client);
+		char *fwurl = NULL;
+		unsigned char fwsha1[20];
+		unsigned char *p_fwsha1 = NULL;
+		plist_t signed_fws = NULL;
+		int res = ipsw_get_signed_firmwares(client->device->product_type, &signed_fws);
+		if (res < 0) {
+			error("ERROR: Could not fetch list of signed firmwares.\n");
+			return res;
+		}
+		uint32_t count = plist_array_get_size(signed_fws);
+		if (count == 0) {
+			plist_free(signed_fws);
+			error("ERROR: No firmwares are currently being signed for %s (REALLY?!)\n", client->device->product_type);
+			return -1;
+		}
+		plist_t selected_fw = NULL;
+		if (client->flags & FLAG_INTERACTIVE) {
+			uint32_t i = 0;
+			info("The following firmwares are currently being signed for %s:\n", client->device->product_type);
+			for (i = 0; i < count; i++) {
+				plist_t fw = plist_array_get_item(signed_fws, i);
+				plist_t p_version = plist_dict_get_item(fw, "version");
+				plist_t p_build = plist_dict_get_item(fw, "buildid");
+				char *s_version = NULL;
+				char *s_build = NULL;
+				plist_get_string_val(p_version, &s_version);
+				plist_get_string_val(p_build, &s_build);
+				info("  [%d] %s (build %s)\n", i+1, s_version, s_build);
+				free(s_version);
+				free(s_build);
+			}
+			while (1) {
+				char input[64];
+				printf("Select the firmware you want to restore: ");
+				fflush(stdout);
+				fflush(stdin);
+				get_user_input(input, 63, 0);
+				unsigned long selected = strtoul(input, NULL, 10);
+				if (selected == 0 || selected > count) {
+					printf("Invalid input value. Must be in range: 1..%d\n", count);
+					continue;
+				}
+				selected_fw = plist_array_get_item(signed_fws, (uint32_t)selected-1);
+				break;
+			}
+		} else {
+			info("NOTE: Running non-interactively, automatically selecting latest available version\n");
+			selected_fw = plist_array_get_item(signed_fws, 0);
+		}
+		if (!selected_fw) {
+			error("ERROR: failed to select latest firmware?!\n");
+			plist_free(signed_fws);
+			return -1;
+		} else {
+			plist_t p_version = plist_dict_get_item(selected_fw, "version");
+			plist_t p_build = plist_dict_get_item(selected_fw, "buildid");
+			char *s_version = NULL;
+			char *s_build = NULL;
+			plist_get_string_val(p_version, &s_version);
+			plist_get_string_val(p_build, &s_build);
+			info("Selected firmware %s (build %s)\n", s_version, s_build);
+			free(s_version);
+			free(s_build);
+			plist_t p_url = plist_dict_get_item(selected_fw, "url");
+			plist_t p_sha1 = plist_dict_get_item(selected_fw, "sha1sum");
+			char *s_sha1 = NULL;
+			plist_get_string_val(p_url, &fwurl);
+			plist_get_string_val(p_sha1, &s_sha1);
+			if (strlen(s_sha1) == 40) {
+				int i;
+				int v;
+				for (i = 0; i < 40; i+=2) {
+					v = 0;
+					sscanf(s_sha1+i, "%02x", &v);
+					fwsha1[i/2] = (unsigned char)v;
+				}
+				p_fwsha1 = &fwsha1[0];
+			} else {
+				error("ERROR: unexpected size of sha1sum\n");
+			}
+		}
+		plist_free(signed_fws);
+
+		if (!fwurl || !p_fwsha1) {
+			error("ERROR: Missing firmware URL or SHA1\n");
+			return -1;
+		}
+
 		char* ipsw = NULL;
-		int res = ipsw_download_latest_fw(client->version_data, client->device->product_type, client->cache_dir, &ipsw);
+		res = ipsw_download_fw(fwurl, p_fwsha1, client->cache_dir, &ipsw);
 		if (res != 0) {
 			if (ipsw) {
 				free(ipsw);
@@ -1063,7 +1151,13 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:k", longopts, &optindex)) > 0) {
+	if (!isatty(fileno(stdin)) || !isatty(fileno(stdout))) {
+		client->flags &= ~FLAG_INTERACTIVE;
+	} else {
+		client->flags |= FLAG_INTERACTIVE;
+	}
+
+	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:ky", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv);
@@ -1129,6 +1223,10 @@ int main(int argc, char* argv[]) {
 
 		case 'C':
 			client->cache_dir = strdup(optarg);
+			break;
+
+		case 'y':
+			client->flags &= ~FLAG_INTERACTIVE;
 			break;
 
 		default:
