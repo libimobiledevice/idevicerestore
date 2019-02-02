@@ -1486,28 +1486,6 @@ int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce,
 	return 0;
 }
 
-plist_t build_manifest_get_build_identity(plist_t build_manifest, uint32_t identity) {
-	// fetch build identities array from BuildManifest
-	plist_t build_identities_array = plist_dict_get_item(build_manifest, "BuildIdentities");
-	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
-		error("ERROR: Unable to find build identities node\n");
-		return NULL;
-	}
-
-	// check and make sure this identity exists in buildmanifest
-	if (identity >= plist_array_get_size(build_identities_array)) {
-		return NULL;
-	}
-
-	plist_t build_identity = plist_array_get_item(build_identities_array, identity);
-	if (!build_identity || plist_get_node_type(build_identity) != PLIST_DICT) {
-		error("ERROR: Unable to find build identities node\n");
-		return NULL;
-	}
-
-	return plist_copy(build_identity);
-}
-
 plist_t build_manifest_get_build_identity_for_model_with_restore_behavior(plist_t build_manifest, const char *hardware_model, const char *behavior)
 {
 	plist_t build_identities_array = plist_dict_get_item(build_manifest, "BuildIdentities");
