@@ -733,7 +733,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		remove(lockfn);
 
 		// Extract filesystem from IPSW
-		info("Extracting filesystem from IPSW\n");
+		info("Extracting filesystem from IPSW: %s\n", fsname);
 		if (ipsw_extract_to_file_with_progress(client->ipsw, fsname, filesystem, 1) < 0) {
 			error("ERROR: Unable to extract filesystem from IPSW\n");
 			if (client->tss)
