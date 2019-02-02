@@ -1202,6 +1202,11 @@ int main(int argc, char* argv[]) {
 			break;
 
 		case 'u':
+			if (!*optarg) {
+				error("ERROR: UDID must not be empty!\n");
+				usage(argc, argv);
+				return -1;
+			}
 			client->udid = strdup(optarg);
 			break;
 
