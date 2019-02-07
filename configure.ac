@@ -50,7 +50,6 @@ AC_MSG_CHECKING([whether we need platform-specific build settings])
 case ${host_os} in
   *mingw32*|*cygwin*)
     AC_MSG_RESULT([yes])
-    AC_DEFINE(WINVER, 0x0501, [minimum Windows version])
     win32=true
     GLOBAL_CFLAGS+="-DWIN32 -D__LITTLE_ENDIAN__=1"
     AC_LDFLAGS+="-static-libgcc"
