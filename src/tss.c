@@ -167,6 +167,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	}
 	node = NULL;
 
+	/* BbCalibrationManifestKeyHash */
 	node = plist_dict_get_item(build_identity, "BbCalibrationManifestKeyHash");
 	if (node && plist_get_node_type(node) == PLIST_DATA) {
 		plist_dict_set_item(parameters, "BbCalibrationManifestKeyHash", plist_copy(node));
@@ -639,6 +640,7 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t o
 	}
 	node = NULL;
 
+	/* BbCalibrationManifestKeyHash */
 	node = plist_dict_get_item(parameters, "BbCalibrationManifestKeyHash");
 	if (node) {
 		plist_dict_set_item(request, "BbCalibrationManifestKeyHash", plist_copy(node));
@@ -1198,6 +1200,9 @@ plist_t tss_request_send(plist_t tss_request, const char* server_url_string) {
 			break;
 		} else if (status_code == 126) {
 			// An internal error occured, most likely the request was malformed
+			break;
+		} else if (status_code == 128) {
+			// Error that occurs when TSS request on certain devices
 			break;
 		} else {
 			error("ERROR: tss_send_request: Unhandled status code %d\n", status_code);
