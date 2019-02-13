@@ -662,6 +662,14 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.0);
 
+	/* check if all components we need are actually there */
+	info("Checking IPSW for required components...\n");
+	if (build_identity_check_components_in_ipsw(build_identity, client->ipsw) < 0) {
+		error("ERROR: Could not find all required components in IPSW %s\n", client->ipsw);
+		return -1;
+	}
+	info("All required components found in IPSW\n");
+
 	// Get filesystem name from build identity
 	char* fsname = NULL;
 	if (build_identity_get_component_path(build_identity, "OS", &fsname) < 0) {
@@ -1930,6 +1938,40 @@ void build_identity_print_information(plist_t build_identity) {
 
 	info_node = NULL;
 	node = NULL;
+}
+
+int build_identity_check_components_in_ipsw(plist_t build_identity, const char *ipsw)
+{
+	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		return -1;
+	}
+	int res = 0;
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(manifest_node, &iter);
+	plist_t node = NULL;
+	char *key = NULL;
+	do {
+		node = NULL;
+		key = NULL;
+		plist_dict_next_item(manifest_node, iter, &key, &node);
+		if (key && node) {
+			plist_t path = plist_access_path(node, 2, "Info", "Path");
+			if (path) {
+				char *comp_path = NULL;
+				plist_get_string_val(path, &comp_path);
+				if (comp_path) {
+					if (!ipsw_file_exists(ipsw, comp_path)) {
+						error("ERROR: %s file %s not found in IPSW\n", key, comp_path);
+						res = -1;
+					}
+					free(comp_path);
+				}
+			}
+		}
+		free(key);
+	} while (node);
+	return res;
 }
 
 int build_identity_has_component(plist_t build_identity, const char* component) {
