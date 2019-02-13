@@ -2,8 +2,8 @@
  * recovery.c
  * Functions for handling idevices in recovery mode
  *
+ * Copyright (c) 2012-2019 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010-2012 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -102,6 +102,11 @@ int recovery_check_mode(struct idevicerestore_client_t* client) {
 	irecv_client_t recovery = NULL;
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 	int mode = 0;
+
+	if (client->udid && client->ecid == 0) {
+		/* if we have a UDID but no ECID we can't make sure this is the correct device */
+		return -1;
+	}
 
 	irecv_init();
 	recovery_error=irecv_open_with_ecid(&recovery, client->ecid);

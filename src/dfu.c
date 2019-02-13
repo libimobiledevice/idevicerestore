@@ -2,8 +2,8 @@
  * dfu.c
  * Functions for handling idevices in DFU mode
  *
+ * Copyright (c) 2012-2019 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010-2013 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -89,6 +89,11 @@ void dfu_client_free(struct idevicerestore_client_t* client) {
 int dfu_check_mode(struct idevicerestore_client_t* client, int* mode) {
 	irecv_client_t dfu = NULL;
 	int probe_mode = -1;
+
+	if (client->udid && client->ecid == 0) {
+		/* if we have a UDID but no ECID we can't make sure this is the correct device */
+		return -1;
+	}
 
 	irecv_init();
 	if (irecv_open_with_ecid(&dfu, client->ecid) != IRECV_E_SUCCESS) {
