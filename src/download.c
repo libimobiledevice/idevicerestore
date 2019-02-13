@@ -2,8 +2,8 @@
  * download.c
  * file download helper functions
  *
+ * Copyright (c) 2012-2019 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2012-2013 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -146,7 +146,7 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 #endif
 	fclose(f);
 
-	if ((sz == 0) || (sz == (off_t)-1)) {
+	if ((sz == 0) || ((int64_t)sz == (int64_t)-1)) {
 		res = -1;
 		remove(filename);
 	}

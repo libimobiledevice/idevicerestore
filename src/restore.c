@@ -1207,7 +1207,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 	unsigned char* buffer = NULL;
 	unsigned char* blob = NULL;
 	unsigned char* fdata = NULL;
-	off_t fsize = 0;
+	uint64_t fsize = 0;
 	uint64_t blob_size = 0;
 	int zerr = 0;
 	int zindex = -1;

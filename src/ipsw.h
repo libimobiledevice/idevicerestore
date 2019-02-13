@@ -33,7 +33,7 @@ extern "C" {
 
 int ipsw_is_directory(const char* ipsw);
 int ipsw_file_exists(const char* ipsw, const char* infile);
-int ipsw_get_file_size(const char* ipsw, const char* infile, off_t* size);
+int ipsw_get_file_size(const char* ipsw, const char* infile, uint64_t* size);
 int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfile);
 int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, const char* outfile, int print_progress);
 int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char** pbuffer, unsigned int* psize);

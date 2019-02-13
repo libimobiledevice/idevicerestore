@@ -716,9 +716,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	memset(&st, '\0', sizeof(struct stat));
 	if (stat(tmpf, &st) == 0) {
-		off_t fssize = 0;
+		uint64_t fssize = 0;
 		ipsw_get_file_size(client->ipsw, fsname, &fssize);
-		if ((fssize > 0) && (st.st_size == fssize)) {
+		if ((fssize > 0) && ((uint64_t)st.st_size == fssize)) {
 			info("Using cached filesystem from '%s'\n", tmpf);
 			filesystem = strdup(tmpf);
 		}

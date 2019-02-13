@@ -104,7 +104,7 @@ int ipsw_is_directory(const char* ipsw)
 	return S_ISDIR(fst.st_mode);
 }
 
-int ipsw_get_file_size(const char* ipsw, const char* infile, off_t* size)
+int ipsw_get_file_size(const char* ipsw, const char* infile, uint64_t* size)
 {
 	ipsw_archive* archive = ipsw_open(ipsw);
 	if (archive == NULL) {
@@ -188,7 +188,7 @@ int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, con
 			return -1;
 		}
 
-		off_t i, bytes = 0;
+		uint64_t i, bytes = 0;
 		int count, size = BUFSIZE;
 		double progress;
 		for(i = zstat.size; i > 0; i -= count) {
