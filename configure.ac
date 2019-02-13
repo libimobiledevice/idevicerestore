@@ -55,7 +55,8 @@ case ${host_os} in
     AC_LDFLAGS+="-static-libgcc"
     ;;
   darwin*)
-    AC_MSG_RESULT([no])
+    AC_MSG_RESULT([yes])
+    AC_DEFINE([_DARWIN_BETTER_REALPATH], [1], [Use better method for realpath])
     AX_PTHREAD([], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
     ;;
   *)
@@ -65,7 +66,7 @@ case ${host_os} in
 esac
 AM_CONDITIONAL(WIN32, test x$win32 = xtrue)
 
-AC_CHECK_FUNCS([strsep strcspn mkstemp])
+AC_CHECK_FUNCS([strsep strcspn mkstemp realpath])
 if test x$ac_cv_func_strsep != xyes; then
   if test x$ac_cv_func_strcspn != xyes; then
     AC_MSG_ERROR([You need either strsep or strcspn to build $PACKAGE])

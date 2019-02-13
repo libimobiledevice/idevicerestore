@@ -2,8 +2,8 @@
  * common.h
  * Misc functions used in idevicerestore
  *
+ * Copyright (c) 2012-2019 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2012 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -142,6 +142,10 @@ void idevicerestore_progress(struct idevicerestore_client_t* client, int step, d
 
 #ifndef HAVE_STRSEP
 char* strsep(char** strp, const char* delim);
+#endif
+
+#ifndef HAVE_REALPATH
+char* realpath(const char *filename, char *resolved_name);
 #endif
 
 void get_user_input(char *buf, int maxlen, int secure);

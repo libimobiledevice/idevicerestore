@@ -2,8 +2,8 @@
  * restore.c
  * Functions for handling idevices in restore mode
  *
+ * Copyright (c) 2012-2019 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010-2013 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -938,7 +938,9 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	snprintf(manifest_file, sizeof(manifest_file), "%s/manifest", firmware_path);
 
 	firmware_files = plist_new_dict();
-	ipsw_extract_to_memory(client->ipsw, manifest_file, &manifest_data, &manifest_size);
+	if (ipsw_file_exists(client->ipsw, manifest_file)) {
+		ipsw_extract_to_memory(client->ipsw, manifest_file, &manifest_data, &manifest_size);
+	}
 	if (manifest_data && manifest_size > 0) {
 		info("Getting firmware manifest from %s\n", manifest_file);
 		char *manifest_p = (char*)manifest_data;

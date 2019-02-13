@@ -2,8 +2,8 @@
  * idevicerestore.c
  * Restore device firmware and filesystem
  *
+ * Copyright (c) 2012-2019 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010-2015 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -77,32 +77,38 @@ static struct option longopts[] = {
 
 void usage(int argc, char* argv[]) {
 	char* name = strrchr(argv[0], '/');
-	printf("Usage: %s [OPTIONS] FILE\n", (name ? name + 1 : argv[0]));
-	printf("Restore IPSW firmware FILE to an iOS device.\n\n");
-	printf("  -i, --ecid ECID\ttarget specific device by its ECID\n");
-	printf("                 \te.g. 0xaabb123456 (hex) or 1234567890 (decimal)\n");
-	printf("  -u, --udid UDID\ttarget specific device by its device UDID\n");
-	printf("                 \tNOTE: only works with devices in normal mode.\n");
-	printf("  -d, --debug\t\tenable communication debugging\n");
-	printf("  -h, --help\t\tprints usage information\n");
-	printf("  -e, --erase\t\tperform a full restore, erasing all data (defaults to update)\n");
-	printf("  -c, --custom\t\trestore with a custom firmware\n");
-	printf("  -l, --latest\t\tuse latest available firmware (with download on demand)\n");
-	printf("              \t\tDO NOT USE if you need to preserve the baseband (unlock)!\n");
-	printf("              \t\tUSE WITH CARE if you want to keep a jailbreakable firmware!\n");
-	printf("              \t\tThe FILE argument is ignored when using this option.\n");
-	printf("  -s, --cydia\t\tuse Cydia's signature service instead of Apple's\n");
-	printf("  -x, --exclude\t\texclude nor/baseband upgrade\n");
-	printf("  -t, --shsh\t\tfetch TSS record and save to .shsh file, then exit\n");
-	printf("  -k, --keep-pers\twrite personalized components to files for debugging\n");
-	printf("  -p, --pwn\t\tput device in pwned DFU mode and exit (limera1n devices only)\n");
-	printf("  -n, --no-action\tDo not perform any restore action. If combined with -l option\n");
-	printf("                 \tthe on demand ipsw download is performed before exiting.\n");
-	printf("  -C, --cache-path DIR\tUse specified directory for caching extracted\n");
-	printf("                      \tor other reused files.\n");
-	printf("  -y, --no-input\t\tNon-interactive mode, do not ask for any input\n");
-	printf("\n");
-	printf("Homepage: <" PACKAGE_URL ">\n");
+	printf("Usage: %s [OPTIONS] PATH\n" \
+	"Restore IPSW firmware at PATH to an iOS device.\n" \
+	"\n" \
+	"PATH can be a compressed .ipsw file or a directory containing all files\n" \
+	"extracted from an IPSW.\n" \
+	"\n" \
+	"Options:\n" \
+	" -i, --ecid ECID  target specific device by its ECID\n" \
+	"                  e.g. 0xaabb123456 (hex) or 1234567890 (decimal)\n" \
+	" -u, --udid UDID  target specific device by its device UDID\n" \
+	"                  NOTE: only works with devices in normal mode.\n" \
+	" -d, --debug      enable communication debugging\n" \
+	" -h, --help       prints usage information\n" \
+	" -e, --erase      perform a full restore, erasing all data (defaults to update)\n" \
+	" -c, --custom     restore with a custom firmware\n" \
+	" -l, --latest     use latest available firmware (with download on demand)\n" \
+	"                  DO NOT USE if you need to preserve the baseband (unlock)!\n" \
+	"                  USE WITH CARE if you want to keep a jailbreakable firmware!\n" \
+	"                  The FILE argument is ignored when using this option.\n" \
+	" -s, --cydia      use Cydia's signature service instead of Apple's\n" \
+	" -x, --exclude    exclude nor/baseband upgrade\n" \
+	" -t, --shsh       fetch TSS record and save to .shsh file, then exit\n" \
+	" -k, --keep-pers  write personalized components to files for debugging\n" \
+	" -p, --pwn        put device in pwned DFU mode and exit (limera1n devices only)\n" \
+	" -n, --no-action  Do not perform any restore action. If combined with -l option\n" \
+	"                  the on demand ipsw download is performed before exiting.\n" \
+	" -C, --cache-path DIR  Use specified directory for caching extracted\n" \
+	"                  or other reused files.\n" \
+	" -y, --no-input   Non-interactive mode, do not ask for any input\n" \
+	"\n" \
+	"Homepage: <" PACKAGE_URL ">",
+	(name ? name + 1 : argv[0]));
 }
 #endif
 
@@ -681,9 +687,17 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	} else {
 		strcpy(tmpf, client->ipsw);
 	}
-	char* p = strrchr((const char*)tmpf, '.');
-	if (p) {
-		*p = '\0';
+
+	if (!ipsw_is_directory(client->ipsw)) {
+		// strip off file extension if given ipsw is not a directory
+		char* s = tmpf + strlen(tmpf) - 1;
+		char* p = s;
+		while (*p != '\0' && *p != '.' && *p != '/' && *p != '\\') p--;
+		if (s - p < 6) {
+			if (*p == '.') {
+				*p = '\0';
+			}
+		}
 	}
 
 	if (stat(tmpf, &st) < 0) {

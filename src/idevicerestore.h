@@ -2,8 +2,8 @@
  * idevicerestore.h
  * Restore device firmware and filesystem
  *
+ * Copyright (c) 2012-2019 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010-2012 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -90,6 +90,7 @@ plist_t build_manifest_get_build_identity_for_model(plist_t build_manifest, cons
 plist_t build_manifest_get_build_identity_for_model_with_restore_behavior(plist_t build_manifest, const char *hardware_model, const char *behavior);
 int build_manifest_get_build_count(plist_t build_manifest);
 void build_identity_print_information(plist_t build_identity);
+int build_identity_check_components_in_ipsw(plist_t build_identity, const char* ipsw);
 int build_identity_has_component(plist_t build_identity, const char* component);
 int build_identity_get_component_path(plist_t build_identity, const char* component, char** path);
 int ipsw_extract_filesystem(const char* ipsw, plist_t build_identity, char** filesystem);

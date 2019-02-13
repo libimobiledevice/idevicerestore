@@ -2,8 +2,8 @@
  * common.c
  * Misc functions used in idevicerestore
  *
+ * Copyright (c) 2012-2019 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2012 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -35,7 +35,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <ctype.h>
-#include <unistd.h>
 
 #ifdef WIN32
 #include <windows.h>
@@ -483,6 +482,24 @@ char* strsep(char** strp, const char* delim)
         if (*p != '\0') *p++ = '\0';
         *strp = p;
         return s;
+}
+#endif
+
+#ifndef HAVE_REALPATH
+char* realpath(const char *filename, char *resolved_name)
+{
+#ifdef WIN32
+	if (access(filename, F_OK) != 0) {
+		return NULL;
+	}
+	if (GetFullPathName(filename, MAX_PATH, resolved_name, NULL) == 0) {
+		return NULL;
+	}
+	return resolved_name;
+#else
+#error please provide a realpath implementation for this platform
+	return NULL;
+#endif
 }
 #endif
 
