@@ -140,6 +140,7 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 	curl_easy_cleanup(handle);
 
 #ifdef WIN32
+	fflush(f);
 	uint64_t sz = _lseeki64(fileno(f), 0, SEEK_CUR);
 #else
 	off_t sz = ftello(f);
