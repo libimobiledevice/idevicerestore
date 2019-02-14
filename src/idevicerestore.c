@@ -75,39 +75,47 @@ static struct option longopts[] = {
 	{ NULL, 0, NULL, 0 }
 };
 
-void usage(int argc, char* argv[]) {
+static void usage(int argc, char* argv[], int err)
+{
 	char* name = strrchr(argv[0], '/');
-	printf("Usage: %s [OPTIONS] PATH\n" \
+	fprintf((err) ? stderr : stdout,
+	"Usage: %s [OPTIONS] PATH\n" \
 	"Restore IPSW firmware at PATH to an iOS device.\n" \
 	"\n" \
 	"PATH can be a compressed .ipsw file or a directory containing all files\n" \
 	"extracted from an IPSW.\n" \
 	"\n" \
 	"Options:\n" \
-	" -i, --ecid ECID  target specific device by its ECID\n" \
+	" -i, --ecid ECID  Target specific device by its ECID\n" \
 	"                  e.g. 0xaabb123456 (hex) or 1234567890 (decimal)\n" \
-	" -u, --udid UDID  target specific device by its device UDID\n" \
+	" -u, --udid UDID  Target specific device by its device UDID\n" \
 	"                  NOTE: only works with devices in normal mode.\n" \
-	" -d, --debug      enable communication debugging\n" \
-	" -h, --help       prints usage information\n" \
-	" -e, --erase      perform a full restore, erasing all data (defaults to update)\n" \
-	" -c, --custom     restore with a custom firmware\n" \
-	" -l, --latest     use latest available firmware (with download on demand)\n" \
+	" -l, --latest     Use latest available firmware (with download on demand).\n" \
+	"                  Before performing any action it will interactively ask to\n" \
+	"                  select one of the currently signed firmware versions,\n" \
+	"                  unless -y has been given too.\n" \
+	"                  The PATH argument is ignored when using this option.\n" \
 	"                  DO NOT USE if you need to preserve the baseband (unlock)!\n" \
 	"                  USE WITH CARE if you want to keep a jailbreakable firmware!\n" \
-	"                  The FILE argument is ignored when using this option.\n" \
-	" -s, --cydia      use Cydia's signature service instead of Apple's\n" \
-	" -x, --exclude    exclude nor/baseband upgrade\n" \
-	" -t, --shsh       fetch TSS record and save to .shsh file, then exit\n" \
-	" -k, --keep-pers  write personalized components to files for debugging\n" \
-	" -p, --pwn        put device in pwned DFU mode and exit (limera1n devices only)\n" \
+	" -e, --erase      Perform a full restore, erasing all data (defaults to update)\n" \
+	"                  DO NOT USE if you want to preserve user data on the device!\n" \
+	" -y, --no-input   Non-interactive mode, do not ask for any input.\n" \
 	" -n, --no-action  Do not perform any restore action. If combined with -l option\n" \
-	"                  the on demand ipsw download is performed before exiting.\n" \
-	" -C, --cache-path DIR  Use specified directory for caching extracted\n" \
-	"                  or other reused files.\n" \
-	" -y, --no-input   Non-interactive mode, do not ask for any input\n" \
+	"                  the on-demand ipsw download is performed before exiting.\n" \
+	" -h, --help       Prints this usage information\n" \
+	" -C, --cache-path DIR  Use specified directory for caching extracted or other\n" \
+	"                  reused files.\n" \
+	" -d, --debug      Enable communication debugging\n" \
 	"\n" \
-	"Homepage: <" PACKAGE_URL ">",
+	"Advanced/experimental options:\n"
+	" -c, --custom     Restore with a custom firmware\n" \
+	" -s, --cydia      Use Cydia's signature service instead of Apple's\n" \
+	" -x, --exclude    Exclude nor/baseband upgrade\n" \
+	" -t, --shsh       Fetch TSS record and save to .shsh file, then exit\n" \
+	" -k, --keep-pers  Write personalized components to files for debugging\n" \
+	" -p, --pwn        Put device in pwned DFU mode and exit (limera1n devices only)\n" \
+	"\n" \
+	"Homepage: <" PACKAGE_URL ">\n",
 	(name ? name + 1 : argv[0]));
 }
 #endif
@@ -1182,7 +1190,7 @@ int main(int argc, char* argv[]) {
 	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:ky", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
-			usage(argc, argv);
+			usage(argc, argv, 0);
 			return 0;
 
 		case 'd':
@@ -1226,7 +1234,7 @@ int main(int argc, char* argv[]) {
 		case 'u':
 			if (!*optarg) {
 				error("ERROR: UDID must not be empty!\n");
-				usage(argc, argv);
+				usage(argc, argv, 1);
 				return -1;
 			}
 			client->udid = strdup(optarg);
@@ -1257,7 +1265,7 @@ int main(int argc, char* argv[]) {
 			break;
 
 		default:
-			usage(argc, argv);
+			usage(argc, argv, 1);
 			return -1;
 		}
 	}
@@ -1268,7 +1276,7 @@ int main(int argc, char* argv[]) {
 
 		ipsw = argv[0];
 	} else {
-		usage(argc, argv);
+		usage(argc, argv, 1);
 		return -1;
 	}
 
