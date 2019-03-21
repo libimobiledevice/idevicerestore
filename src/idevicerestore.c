@@ -371,6 +371,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				fflush(stdout);
 				fflush(stdin);
 				get_user_input(input, 63, 0);
+				if (*input == '\0') {
+					plist_free(signed_fws);
+					return -1;
+				}
 				unsigned long selected = strtoul(input, NULL, 10);
 				if (selected == 0 || selected > count) {
 					printf("Invalid input value. Must be in range: 1..%d\n", count);

@@ -527,7 +527,7 @@ void get_user_input(char *buf, int maxlen, int secure)
 	int len = 0;
 	int c;
 
-	while ((c = my_getch())) {
+	while ((c = my_getch()) > 0) {
 		if ((c == '\r') || (c == '\n')) {
 			break;
 		} else if (isprint(c)) {
@@ -540,6 +540,9 @@ void get_user_input(char *buf, int maxlen, int secure)
 				len--;
 			}
 		}
+	}
+	if (c < 0) {
+		len = 0;
 	}
 	fputs("\n", stdout);
 	buf[len] = 0;
