@@ -18,6 +18,7 @@ Requirements
 ============
 
 Development Packages of:
+        libcurl
 	libimobiledevice
 	libirecovery
 	libusbmuxd
