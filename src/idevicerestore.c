@@ -484,7 +484,13 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	/* print iOS information from the manifest */
 	build_manifest_get_version_information(buildmanifest, client);
-
+	if(client->version) {
+		/* Scare users a little */
+		info("Please read the following LEGAL NOTICE! \n");
+		info("Please ensure you have a backup\nHit Ctrl-C to stop now\n");
+		info("Ignore all FDR timeouts or warnings. They are normal\n");
+		sleep(5);
+	}
 	info("Product Version: %s\n", client->version);
 	info("Product Build: %s Major: %d\n", client->build, client->build_major);
 
