@@ -487,7 +487,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	if(client->version) {
 		/* Scare users a little */
 		info("Please read the following LEGAL NOTICE! \n");
-		info("Please ensure you have a backup\nHit Ctrl-C to stop now\n");
+		info("Please ensure you have a backup of all your data! It may be lost\nHit Ctrl-C to stop now\n");
 		info("Ignore all FDR timeouts or warnings. They are normal\n");
 		sleep(5);
 	}
