@@ -672,6 +672,30 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	/* print information about current build identity */
 	build_identity_print_information(build_identity);
 
+	if (client->flags & FLAG_ERASE && client->flags & FLAG_INTERACTIVE) {
+		char input[64];
+		printf("################################ [ WARNING ] #################################\n"
+		       "# You are about to perform an *ERASE* restore. ALL DATA on the target device #\n"
+		       "# will be IRREVERSIBLY DESTROYED. If you want to update your device without  #\n"
+		       "# erasing the user data, hit CTRL+C now and restart without -e or --erase    #\n"
+		       "# command line switch.                                                       #\n"
+		       "# If you want to continue with the ERASE, please type YES and press ENTER.   #\n"
+		       "##############################################################################\n");
+		while (1) {
+			printf("> ");
+			fflush(stdout);
+			fflush(stdin);
+			input[0] = '\0';
+			get_user_input(input, 63, 0);
+			if (*input != '\0' && !strcmp(input, "YES")) {
+				break;
+			} else {
+				printf("Invalid input. Please type YES or hit CTRL+C to abort.\n");
+				continue;
+			}
+		}
+	}
+
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.0);
 
 	/* check if all components we need are actually there */
@@ -1944,7 +1968,7 @@ void build_identity_print_information(plist_t build_identity) {
 		info("This restore will erase your device data.\n");
 
 	if (!strcmp(value, "Update"))
-		info("This restore will update your device without losing data.\n");
+		info("This restore will update your device without erasing user data.\n");
 
 	free(value);
 
