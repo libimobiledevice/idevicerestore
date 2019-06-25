@@ -146,7 +146,7 @@ int fdr_poll_and_handle_message(fdr_client_t fdr)
 #ifdef HAVE_IDEVICE_E_TIMEOUT
 	if (device_error == IDEVICE_E_TIMEOUT || (device_error == IDEVICE_E_SUCCESS && bytes != sizeof(cmd)))
 #else
-	if (device_error == IDEVICE_ESUCCESS && bytes != sizeof(cmd))
+	if (device_error == IDEVICE_E_SUCCESS && bytes != sizeof(cmd))
 #endif
 	{
 		debug("FDR %p timeout waiting for command\n", fdr);
