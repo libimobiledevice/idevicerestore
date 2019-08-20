@@ -51,6 +51,7 @@ int normal_is_image4_supported(struct idevicerestore_client_t* client);
 int normal_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
 int normal_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
 int normal_get_preflight_info(struct idevicerestore_client_t* client, plist_t *preflight_info);
+plist_t normal_get_lockdown_value(struct idevicerestore_client_t* client, const char* domain, const char* key);
 
 #ifdef __cplusplus
 }
