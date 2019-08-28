@@ -547,3 +547,25 @@ void get_user_input(char *buf, int maxlen, int secure)
 	fputs("\n", stdout);
 	buf[len] = 0;
 }
+
+uint64_t _plist_dict_get_uint(plist_t dict, const char *key)
+{
+	uint64_t uintval = 0;
+	plist_t node = plist_dict_get_item(dict, key);
+	if (!node) {
+		return (uint64_t)-1LL;
+	}
+	plist_get_uint_val(node, &uintval);
+	return uintval;
+}
+
+uint8_t _plist_dict_get_bool(plist_t dict, const char *key)
+{
+	uint8_t bval = 0;
+	plist_t node = plist_dict_get_item(dict, key);
+	if (!node) {
+		return 0;
+	}
+	plist_get_bool_val(node, &bval);
+	return bval;
+}

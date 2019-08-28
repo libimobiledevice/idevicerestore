@@ -150,6 +150,9 @@ char* realpath(const char *filename, char *resolved_name);
 
 void get_user_input(char *buf, int maxlen, int secure);
 
+uint8_t _plist_dict_get_bool(plist_t dict, const char *key);
+uint64_t _plist_dict_get_uint(plist_t dict, const char *key);
+
 #ifdef __cplusplus
 }
 #endif
