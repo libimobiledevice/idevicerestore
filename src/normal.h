@@ -2,8 +2,8 @@
  * normal.h
  * Functions for handling idevices in normal mode
  *
+ * Copyright (c) 2012-2019 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2012 Martin Szulecki. All Rights Reserved.
- * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -52,6 +52,8 @@ int normal_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** 
 int normal_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
 int normal_get_preflight_info(struct idevicerestore_client_t* client, plist_t *preflight_info);
 plist_t normal_get_lockdown_value(struct idevicerestore_client_t* client, const char* domain, const char* key);
+int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_t manifest);
+int normal_handle_commit_stashbag(struct idevicerestore_client_t* client, plist_t manifest);
 
 #ifdef __cplusplus
 }

@@ -574,6 +574,14 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 			continue;
 		}
 
+		if (_plist_dict_get_bool(parameters, "_OnlyFWComponents")) {
+			plist_t info_dict = plist_dict_get_item(manifest_entry, "Info");
+			if (!_plist_dict_get_bool(manifest_entry, "Trusted") && !_plist_dict_get_bool(info_dict, "IsFirmwarePayload") && !_plist_dict_get_bool(info_dict, "IsSecondaryFirmwarePayload") && !_plist_dict_get_bool(info_dict, "IsFUDFirmware")) {
+				debug("DEBUG: %s: Skipping '%s' as it is neither firmware nor secondary firmware payload\n", __func__, key);
+				continue;
+			}
+		}
+
 		/* copy this entry */
 		plist_t tss_entry = plist_copy(manifest_entry);
 

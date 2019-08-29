@@ -2,7 +2,7 @@
  * normal.h
  * Functions for handling idevices in normal mode
  *
- * Copyright (c) 2012-2015 Nikias Bassen. All Rights Reserved.
+ * Copyright (c) 2012-2019 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2012 Martin Szulecki. All Rights Reserved.
  * Copyright (c) 2010 Joshua Hill. All Rights Reserved.
  *
@@ -26,8 +26,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <libirecovery.h>
-#include <libimobiledevice/lockdown.h>
 #include <libimobiledevice/libimobiledevice.h>
+#include <libimobiledevice/lockdown.h>
+#include <libimobiledevice/preboard.h>
 
 #include "common.h"
 #include "normal.h"
@@ -230,6 +231,16 @@ irecv_device_t normal_get_irecv_device(struct idevicerestore_client_t* client) {
 	}
 
 	lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
+	if (!(client->flags & FLAG_ERASE) && lockdown_error == LOCKDOWN_E_PAIRING_DIALOG_RESPONSE_PENDING) {
+		info("*** Device is not paired with this computer. Please trust this computer on the device to continue. ***\n");
+		while (1) {
+			lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
+			if (lockdown_error != LOCKDOWN_E_PAIRING_DIALOG_RESPONSE_PENDING) {
+				break;
+			}
+			sleep(1);
+		}
+	}
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
 		lockdown_error = lockdownd_client_new(device, &lockdown, "idevicerestore");
 	}
@@ -399,4 +410,219 @@ int normal_get_preflight_info(struct idevicerestore_client_t* client, plist_t *p
 	*preflight_info = node;
 
 	return 0;
+}
+
+int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_t manifest)
+{
+	int result = -1;
+
+	idevice_t device = NULL;
+	idevice_error_t device_err;
+	lockdownd_client_t lockdown;
+	lockdownd_service_descriptor_t service = NULL;
+	lockdownd_error_t lerr;
+	preboard_client_t preboard = NULL;
+	preboard_error_t perr;
+
+	device_err = idevice_new(&device, client->udid);
+	if (device_err != IDEVICE_E_SUCCESS) {
+		error("ERROR: Could not connect to device (%d)\n", device_err);
+		return -1;
+	}
+
+	lerr = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
+	if (lerr != LOCKDOWN_E_SUCCESS) {
+		error("ERROR: Could not connect to lockdownd (%d)\n", lerr);
+		idevice_free(device);
+		return -1;
+	}
+
+	lerr = lockdownd_start_service(lockdown, PREBOARD_SERVICE_NAME, &service);
+	if (lerr == LOCKDOWN_E_PASSWORD_PROTECTED) {
+		info("*** Device is locked. Please unlock the device to continue. ***\n");
+		while (1) {
+			lerr = lockdownd_start_service(lockdown, PREBOARD_SERVICE_NAME, &service);
+			if (lerr != LOCKDOWN_E_PASSWORD_PROTECTED) {
+				break;
+			}
+			sleep(1);
+		}
+	}
+
+	if (lerr != LOCKDOWN_E_SUCCESS) {
+		error("ERROR: Could not start preboard service (%d)\n", lerr);
+		lockdownd_client_free(lockdown);
+		idevice_free(device);
+		return -1;
+	}
+
+	perr = preboard_client_new(device, service, &preboard);
+	lockdownd_service_descriptor_free(service);
+	lockdownd_client_free(lockdown);
+	if (perr != PREBOARD_E_SUCCESS) {
+		error("ERROR: Could not connect to preboard service (%d)\n", perr);
+		idevice_free(device);
+		return -1;
+	}
+
+	perr = preboard_create_stashbag(preboard, manifest, NULL, NULL);
+	if (perr != PREBOARD_E_SUCCESS) {
+		error("ERROR: Failed to trigger stashbag creation (%d)\n", perr);
+		preboard_client_free(preboard);
+		idevice_free(device);
+		return -1;
+	}
+
+	int ticks = 0;
+	while (ticks++ < 130) {
+		plist_t pl = NULL;
+		perr = preboard_receive_with_timeout(preboard, &pl, 1000);
+		if (perr == PREBOARD_E_TIMEOUT) {
+			continue;
+		} else if (perr != PREBOARD_E_SUCCESS) {
+			error("ERROR: could not receive from preboard service\n");
+			break;
+		} else {
+			plist_t node;
+
+			if (_plist_dict_get_bool(pl, "Skip")) {
+				result = 0;
+				info("Device does not require stashbag.\n");
+				break;
+			}
+
+			if (_plist_dict_get_bool(pl, "ShowDialog")) {
+				info("Device requires stashbag.\n");
+				printf("******************************************************************************\n"
+				       "* Please enter your passcode on the device.  The device will store a token   *\n"
+				       "* that will be used after restore to access the user data partition.  This   *\n"
+				       "* prevents an 'Attempting data recovery' process occurring after reboot that *\n"
+				       "* may take a long time to complete and will _also_ require the passcode.     *\n"
+				       "******************************************************************************\n");
+				plist_free(pl);
+				continue;
+			}
+			node = plist_dict_get_item(pl, "Error");
+			if (node) {
+				char *strval = NULL;
+				node = plist_dict_get_item(pl, "ErrorString");
+				if (node) {
+					plist_get_string_val(node, &strval);
+				}
+				error("ERROR: Could not create stashbag: %s\n", (strval) ? strval : "(Unknown error)");
+				free(strval);
+				plist_free(pl);
+				break;
+			}
+			if (_plist_dict_get_bool(pl, "Timeout")) {
+				error("ERROR: Timeout while waiting for user to enter passcode.\n");
+				result = -2;
+				plist_free(pl);
+				break;
+			}
+			if (_plist_dict_get_bool(pl, "HideDialog")) {
+				plist_free(pl);
+				/* hide dialog */
+				result = 1;
+				info("Stashbag created.\n");
+				break;
+			}
+		}
+		plist_free(pl);
+	}
+	preboard_client_free(preboard);
+	idevice_free(device);
+
+	return result;
+}
+
+int normal_handle_commit_stashbag(struct idevicerestore_client_t* client, plist_t manifest)
+{
+	int result = -1;
+
+	idevice_t device = NULL;
+	idevice_error_t device_err;
+	lockdownd_client_t lockdown;
+	lockdownd_service_descriptor_t service = NULL;
+	lockdownd_error_t lerr;
+	preboard_client_t preboard = NULL;
+	preboard_error_t perr;
+	plist_t pl = NULL;
+
+	device_err = idevice_new(&device, client->udid);
+	if (device_err != IDEVICE_E_SUCCESS) {
+		error("ERROR: Could not connect to device (%d)\n", device_err);
+		return -1;
+	}
+
+	lerr = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
+	if (lerr != LOCKDOWN_E_SUCCESS) {
+		error("ERROR: Could not connect to lockdownd (%d)\n", lerr);
+		idevice_free(device);
+		return -1;
+	}
+
+	lerr = lockdownd_start_service(lockdown, PREBOARD_SERVICE_NAME, &service);
+	if (lerr == LOCKDOWN_E_PASSWORD_PROTECTED) {
+		info("*** Device is locked. Please unlock the device to continue. ***\n");
+		while (1) {
+			lerr = lockdownd_start_service(lockdown, PREBOARD_SERVICE_NAME, &service);
+			if (lerr != LOCKDOWN_E_PASSWORD_PROTECTED) {
+				break;
+			}
+			sleep(1);
+		}
+	}
+
+	if (lerr != LOCKDOWN_E_SUCCESS) {
+		error("ERROR: Could not start preboard service (%d)\n", lerr);
+		lockdownd_client_free(lockdown);
+		idevice_free(device);
+		return -1;
+	}
+
+	perr = preboard_client_new(device, service, &preboard);
+	lockdownd_service_descriptor_free(service);
+	lockdownd_client_free(lockdown);
+	if (perr != PREBOARD_E_SUCCESS) {
+		error("ERROR: Could not connect to preboard service (%d)\n", perr);
+		idevice_free(device);
+		return -1;
+	}
+
+	perr = preboard_commit_stashbag(preboard, manifest, NULL, NULL);
+	if (perr != PREBOARD_E_SUCCESS) {
+		error("ERROR: Failed to trigger stashbag creation (%d)\n", perr);
+		preboard_client_free(preboard);
+		idevice_free(device);
+		return -1;
+	}
+
+	perr = preboard_receive_with_timeout(preboard, &pl, 30000);
+	if (perr != PREBOARD_E_SUCCESS) {
+		error("ERROR: could not receive from preboard service (%d)\n", perr);
+	} else {
+		int commit_complete = 0;
+		plist_t node = plist_dict_get_item(pl, "Error");
+		if (node) {
+			char *strval = NULL;
+			node = plist_dict_get_item(pl, "ErrorString");
+			if (node) {
+				plist_get_string_val(node, &strval);
+			}
+			error("ERROR: Could not commit stashbag: %s\n", (strval) ? strval : "(Unknown error)");
+			free(strval);
+		} else if (_plist_dict_get_bool(pl, "StashbagCommitComplete")) {
+			info("Stashbag committed!\n");
+			result = 0;
+		} else {
+			error("ERROR: Unexpected reply from preboard service\n");
+			debug_plist(pl);
+		}
+		plist_free(pl);
+	}
+	preboard_client_free(preboard);
+	idevice_free(device);
+
+	return result;
 }

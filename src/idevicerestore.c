@@ -813,6 +813,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	/* retrieve shsh blobs if required */
 	if (tss_enabled) {
+		int stashbag_commit_required = 0;
 		debug("Getting device's ECID for TSS request\n");
 		/* fetch the device's ECID for the TSS request */
 		if (get_ecid(client, &client->ecid) < 0) {
@@ -820,6 +821,35 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return -1;
 		}
 		info("Found ECID " FMT_qu "\n", (long long unsigned int)client->ecid);
+
+		if (client->mode->index == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
+			plist_t node = normal_get_lockdown_value(client, NULL, "HasSiDP");
+			uint8_t needs_preboard = 0;
+			if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
+				plist_get_bool_val(node, &needs_preboard);
+			}
+			if (needs_preboard) {
+				info("Checking if device requires stashbag...\n");
+				plist_t manifest;
+				if (get_preboard_manifest(client, build_identity, &manifest) < 0) {
+					error("ERROR: Unable to create preboard manifest.\n");
+					return -1;
+				}
+				debug("DEBUG: creating stashbag...\n");
+				int err = normal_handle_create_stashbag(client, manifest);
+				if (err < 0) {
+					if (err == -2) {
+						error("ERROR: Could not create stashbag (timeout).\n");
+					} else {
+						error("ERROR: An error occurred while creating the stashbag.\n");
+					}
+					return -1;
+				} else if (err == 1) {
+					stashbag_commit_required = 1;
+				}
+				plist_free(manifest);
+			}
+		}
 
 		if (client->build_major > 8) {
 			unsigned char* nonce = NULL;
@@ -843,6 +873,19 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		if (get_tss_response(client, build_identity, &client->tss) < 0) {
 			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
+		}
+		if (stashbag_commit_required) {
+			plist_t ticket = plist_dict_get_item(client->tss, "ApImg4Ticket");
+			if (!ticket || plist_get_node_type(ticket) != PLIST_DATA) {
+				error("ERROR: Missing ApImg4Ticket in TSS response for stashbag commit\n");
+				return -1;
+			}
+			info("Committing stashbag...\n");
+			int err = normal_handle_commit_stashbag(client, ticket);
+			if (err < 0) {
+				error("ERROR: Could not commit stashbag (%d). Aborting.\n", err);
+				return -1;
+			}
 		}
 	}
 
@@ -1599,6 +1642,66 @@ plist_t build_manifest_get_build_identity_for_model_with_restore_behavior(plist_
 plist_t build_manifest_get_build_identity_for_model(plist_t build_manifest, const char *hardware_model)
 {
 	return build_manifest_get_build_identity_for_model_with_restore_behavior(build_manifest, hardware_model, NULL);
+}
+
+int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* manifest)
+{
+	plist_t request = NULL;
+	*manifest = NULL;
+
+	if (!client->image4supported) {
+		return -1;
+	}
+
+	/* populate parameters */
+	plist_t parameters = plist_new_dict();
+
+	plist_t overrides = plist_new_dict();
+	plist_dict_set_item(overrides, "@APTicket", plist_new_bool(1));
+	plist_dict_set_item(overrides, "ApProductionMode", plist_new_uint(0));
+	plist_dict_set_item(overrides, "ApSecurityDomain", plist_new_uint(0));
+
+	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(0));
+	plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(0));
+
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	/* create basic request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create TSS request\n");
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* add common tags from manifest */
+	if (tss_request_add_common_tags(request, parameters, overrides) < 0) {
+		error("ERROR: Unable to add common tags\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	plist_dict_set_item(parameters, "_OnlyFWComponents", plist_new_bool(1));
+
+	/* add tags from manifest */
+	if (tss_request_add_ap_tags(request, parameters, NULL) < 0) {
+		error("ERROR: Unable to add ap tags\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	plist_t local_manifest = NULL;
+	int res = img4_create_local_manifest(request, &local_manifest);
+
+	*manifest = local_manifest;
+
+	plist_free(request);
+	plist_free(parameters);
+	plist_free(overrides);
+
+	return res;
 }
 
 int get_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss) {
