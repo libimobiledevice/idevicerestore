@@ -1,8 +1,8 @@
 /*
  * img4.h
- * Functions for handling the new IMG4 format
+ * Functions for handling the IMG4 format
  *
- * Copyright (c) 2013 Nikias Bassen. All Rights Reserved.
+ * Copyright (c) 2013-2019 Nikias Bassen. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,6 +27,7 @@ extern "C" {
 #endif
 
 int img4_stitch_component(const char* component_name, const unsigned char* component_data, unsigned int component_size, const unsigned char* blob, unsigned int blob_size, unsigned char** img4_data, unsigned int *img4_size);
+int img4_create_local_manifest(plist_t request, plist_t* manifest);
 
 #ifdef __cplusplus
 }
