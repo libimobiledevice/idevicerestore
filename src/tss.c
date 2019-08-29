@@ -422,11 +422,9 @@ int tss_request_add_common_tags(plist_t request, plist_t parameters, plist_t ove
 
 	/* ApECID */
 	node = plist_dict_get_item(parameters, "ApECID");
-	if (!node || plist_get_node_type(node) != PLIST_UINT) {
-		error("ERROR: Unable to find required ApECID in parameters\n");
-		return -1;
+	if (node) {
+		plist_dict_set_item(request, "ApECID", plist_copy(node));
 	}
-	plist_dict_set_item(request, "ApECID", plist_copy(node));
 	node = NULL;
 
 	/* UniqueBuildID */
