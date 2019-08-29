@@ -525,15 +525,15 @@ static void tss_entry_apply_restore_request_rules(plist_t tss_entry, plist_t par
 			plist_dict_next_item(actions, iter, &key, &value);
 			if (key == NULL)
 				break;
-			uint8_t bv = 0;
+			uint8_t bv = 255;
 			plist_get_bool_val(value, &bv);
-			if (bv) {
+			if (bv != 255) {
 				value2 = plist_dict_get_item(tss_entry, key);
 				if (value2) {
 					plist_dict_remove_item(tss_entry, key);
 				}
-				debug("DEBUG: Adding action %s to TSS entry\n", key);
-				plist_dict_set_item(tss_entry, key, plist_new_bool(1));
+				debug("DEBUG: Adding %s=%s to TSS entry\n", key, (bv) ? "true" : "false");
+				plist_dict_set_item(tss_entry, key, plist_new_bool(bv));
 			}
 			free(key);
 		}
