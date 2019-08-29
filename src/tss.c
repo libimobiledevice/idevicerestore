@@ -145,7 +145,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 		sscanf(bb_chip_id_string, "%x", &bb_chip_id);
 		plist_dict_set_item(parameters, "BbChipID", plist_new_uint(bb_chip_id));
 	} else {
-		error("WARNING: Unable to find BbChipID node\n");
+		debug("NOTE: Unable to find BbChipID node\n");
 	}
 	node = NULL;
 
@@ -198,7 +198,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	if (node && plist_get_node_type(node) == PLIST_DATA) {
 		plist_dict_set_item(parameters, "BbSkeyId", plist_copy(node));
 	} else {
-		error("WARNING: Unable to find BbSkeyId node\n");
+		debug("NOTE: Unable to find BbSkeyId node\n");
 	}
 	node = NULL;
 
