@@ -100,6 +100,8 @@ static void usage(int argc, char* argv[], int err)
 	" -e, --erase      Perform a full restore, erasing all data (defaults to update)\n" \
 	"                  DO NOT USE if you want to preserve user data on the device!\n" \
 	" -y, --no-input   Non-interactive mode, do not ask for any input.\n" \
+	"                  WARNING: This will disable certain checks/prompts that are\n" \
+	"                  supposed to prevent DATA LOSS. Use with caution.\n" \
 	" -n, --no-action  Do not perform any restore action. If combined with -l option\n" \
 	"                  the on-demand ipsw download is performed before exiting.\n" \
 	" -h, --help       Prints this usage information\n" \
@@ -185,6 +187,20 @@ static int load_version_data(struct idevicerestore_client_t* client)
 	}
 
 	return 0;
+}
+
+static int32_t get_version_num(const char *s_ver)
+{
+        int vers[3] = {0, 0, 0};
+        if (sscanf(s_ver, "%d.%d.%d", &vers[0], &vers[1], &vers[2]) >= 2) {
+                return ((vers[0] & 0xFF) << 16) | ((vers[1] & 0xFF) << 8) | (vers[2] & 0xFF);
+        }
+        return 0x00FFFFFF;
+}
+
+static int compare_versions(const char *s_ver1, const char *s_ver2)
+{
+	return (get_version_num(s_ver1) & 0xFFFF00) - (get_version_num(s_ver2) & 0xFFFF00);
 }
 
 int idevicerestore_start(struct idevicerestore_client_t* client)
@@ -671,6 +687,47 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	/* print information about current build identity */
 	build_identity_print_information(build_identity);
+
+	if (client->mode->index == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
+		plist_t pver = normal_get_lockdown_value(client, NULL, "ProductVersion");
+		char *device_version = NULL;
+		if (pver) {
+			plist_get_string_val(pver, &device_version);
+			plist_free(pver);
+		}
+		if (device_version && (compare_versions(device_version, client->version) > 0)) {
+			if (client->flags & FLAG_INTERACTIVE) {
+				char input[64];
+				char spaces[16];
+				int num_spaces = 13 - strlen(client->version) - strlen(device_version);
+				memset(spaces, ' ', num_spaces);
+				spaces[num_spaces] = '\0';
+				printf("################################ [ WARNING ] #################################\n"
+				       "# You are trying to DOWNGRADE a %s device with an IPSW for %s while%s #\n"
+				       "# trying to preserve the user data (Upgrade restore). This *might* work, but #\n"
+				       "# there is a VERY HIGH chance it might FAIL BADLY with COMPLETE DATA LOSS.   #\n"
+				       "# Hit CTRL+C now if you want to abort the restore.                           #\n"
+				       "# If you want to take the risk (and have a backup of your important data!)   #\n"
+				       "# type YES and press ENTER to continue. You have been warned.                #\n"
+				       "##############################################################################\n",
+				       device_version, client->version, spaces);
+				while (1) {
+					printf("> ");
+					fflush(stdout);
+					fflush(stdin);
+					input[0] = '\0';
+					get_user_input(input, 63, 0);
+					if (*input != '\0' && !strcmp(input, "YES")) {
+						break;
+					} else {
+						printf("Invalid input. Please type YES or hit CTRL+C to abort.\n");
+						continue;
+					}
+				}
+			}
+		}
+		free(device_version);
+	}
 
 	if (client->flags & FLAG_ERASE && client->flags & FLAG_INTERACTIVE) {
 		char input[64];
