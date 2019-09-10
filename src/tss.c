@@ -1188,6 +1188,7 @@ plist_t tss_request_send(plist_t tss_request, const char* server_url_string) {
 			// no status code in response. retry
 			free(response->content);
 			free(response);
+			response = NULL;
 			sleep(2);
 			continue;
 		} else if (status_code == 8) {
@@ -1211,15 +1212,15 @@ plist_t tss_request_send(plist_t tss_request, const char* server_url_string) {
 	}
 
 	if (status_code != 0) {
-		if (strstr(response->content, "MESSAGE=") != NULL) {
+		if (response && strstr(response->content, "MESSAGE=") != NULL) {
 			char* message = strstr(response->content, "MESSAGE=") + strlen("MESSAGE=");
 			error("ERROR: TSS request failed (status=%d, message=%s)\n", status_code, message);
 		} else {
 			error("ERROR: TSS request failed: %s (status=%d)\n", curl_error_message, status_code);
 		}
 		free(request);
-		free(response->content);
-		free(response);
+		if (response) free(response->content);
+		if (response) free(response);
 		return NULL;
 	}
 
