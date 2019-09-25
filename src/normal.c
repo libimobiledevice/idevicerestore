@@ -218,6 +218,12 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 		return -1;
 	}
 
+	/* unpair the device */
+	lockdown_error = lockdownd_unpair(lockdown, NULL);
+	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
+		error("WARNING: Could not unpair device\n");
+	}
+
 	lockdown_error = lockdownd_enter_recovery(lockdown);
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
 		error("ERROR: Unable to place device in recovery mode\n");
