@@ -327,7 +327,7 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 
 	device_error = idevice_new(&device, udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
-		debug("%s: can't open device with UDID %s", __func__, udid);
+		debug("%s: can't open device with UDID %s\n", __func__, udid);
 		return 0;
 	}
 
@@ -1714,17 +1714,35 @@ int restore_send_fdr_trust_data(restored_client_t restore, idevice_t device)
 	return 0;
 }
 
-int restore_send_fud_data(restored_client_t restore, struct idevicerestore_client_t *client, plist_t build_identity)
+int restore_send_fud_data(restored_client_t restore, struct idevicerestore_client_t *client, plist_t build_identity, plist_t message)
 {
 	restored_error_t restore_error;
+	plist_t arguments;
 	plist_t dict;
-	plist_t fud_dict;
+	plist_t node;
+	plist_t fud_images = NULL;
+	plist_t fud_dict = NULL;
 	plist_t build_id_manifest;
 	plist_dict_iter iter = NULL;
+	char *image_name = NULL;
+	int want_image_list = 0;
 
-	info("About to send FUD data...\n");
+	arguments = plist_dict_get_item(message, "Arguments");
+	want_image_list = _plist_dict_get_bool(arguments, "FUDImageList");
+	node = plist_dict_get_item(arguments, "ImageName");
+	if (node) {
+		plist_get_string_val(node, &image_name);
+	}
 
-	fud_dict = plist_new_dict();
+	if (!want_image_list && !image_name) {
+		info("About to send FUD data...\n");
+	}
+
+	if (want_image_list) {
+		fud_images = plist_new_array();
+	} else {
+		fud_dict = plist_new_dict();
+	}
 
 	build_id_manifest = plist_dict_get_item(build_identity, "Manifest");
 	if (build_id_manifest) {
@@ -1744,35 +1762,40 @@ int restore_send_fud_data(restored_client_t restore, struct idevicerestore_clien
 					plist_get_bool_val(is_fud_node, &is_fud);
 				}
 				if (is_fud) {
-					char *path = NULL;
-					unsigned char* data = NULL;
-					unsigned int size = 0;
-					unsigned char* component_data = NULL;
-					unsigned int component_size = 0;
-					int ret = -1;
+					if (want_image_list) {
+						info("Found FUD component '%s'\n", component);
+						plist_array_append_item(fud_images, plist_new_string(component));
+					} else if (!image_name || !strcmp(image_name, component)) {
+						char *path = NULL;
+						unsigned char* data = NULL;
+						unsigned int size = 0;
+						unsigned char* component_data = NULL;
+						unsigned int component_size = 0;
+						int ret = -1;
 
-					info("Found FUD component '%s'\n", component);
+						if (!image_name) {
+							info("Found FUD component '%s'\n", component);
+						}
+						build_identity_get_component_path(build_identity, component, &path);
+						if (path) {
+							ret = extract_component(client->ipsw, path, &component_data, &component_size);
+						}
+						free(path);
+						path = NULL;
+						if (ret < 0) {
+							error("ERROR: Unable to extract component: %s\n", component);
+						}
 
-					build_identity_get_component_path(build_identity, component, &path);
-					if (path) {
-						ret = extract_component(client->ipsw, path, &component_data, &component_size);
+						ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
+						free(component_data);
+						component_data = NULL;
+						if (ret < 0) {
+							error("ERROR: Unable to get personalized component: %s\n", component);
+						}
+
+						plist_dict_set_item(fud_dict, component, plist_new_data((const char*)data, size));
+						free(data);
 					}
-					free(path);
-					path = NULL;
-					if (ret < 0) {
-						error("ERROR: Unable to extract component: %s\n", component);
-					}
-
-					ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
-					free(component_data);
-					component_data = NULL;
-					if (ret < 0) {
-						error("ERROR: Unable to get personalized component: %s\n", component);
-						return -1;
-					}
-
-					plist_dict_set_item(fud_dict, component, plist_new_data((const char*)data, size));
-					free(data);
 				}
 				free(component);
 			}
@@ -1781,17 +1804,46 @@ int restore_send_fud_data(restored_client_t restore, struct idevicerestore_clien
 	}
 
 	dict = plist_new_dict();
-	plist_dict_set_item(dict, "FUDImageData", fud_dict);
+	if (want_image_list) {
+		plist_dict_set_item(dict, "FUDImageList", fud_images);
+		info("Sending FUD image list\n");
+	} else {
+		if (image_name) {
+			node = plist_dict_get_item(fud_dict, image_name);
+			if (node) {
+				plist_dict_set_item(dict, "FUDImageData", plist_copy(node));
+			}
+			plist_dict_set_item(dict, "ImageName", plist_new_string(image_name));
+			info("Sending FUD data for %s...\n", image_name);
+		} else {
+			plist_dict_set_item(dict, "FUDImageData", fud_dict);
+			info("Sending FUD data now...\n");
+		}
+	}
 
-	info("Sending FUD data now...\n");
 	restore_error = restored_send(restore, dict);
 	plist_free(dict);
 	if (restore_error != RESTORE_E_SUCCESS) {
-		error("ERROR: During sending FUD data (%d)\n", restore_error);
+		if (want_image_list) {
+			error("ERROR: Failed to send FUD image list (%d)\n", restore_error);
+		} else {
+			if (image_name) {
+				error("ERROR: Failed to send FUD data for %s (%d)\n", image_name, restore_error);
+				free(image_name);
+			} else {
+				error("ERROR: Failed to send FUD data (%d)\n", restore_error);
+			}
+		}
 		return -1;
 	}
 
-	info("Done sending FUD data\n");
+	if (!want_image_list) {
+		if (image_name) {
+			free(image_name);
+		} else {
+			info("Done sending FUD data\n");
+		}
+	}
 
 	return 0;
 }
@@ -2235,7 +2287,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 
 		else if (!strcmp(type, "FUDData")) {
-			if(restore_send_fud_data(restore, client, build_identity) < 0) {
+			if(restore_send_fud_data(restore, client, build_identity, message) < 0) {
 				error("ERROR: Unable to send FUD data\n");
 				return -1;
 			}
