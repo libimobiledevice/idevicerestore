@@ -231,7 +231,13 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 		return -1;
 	}
 
-	client->mode = &idevicerestore_modes[MODE_RESTORE];
+	debug("DEBUG: Waiting for device to disconnect...\n");
+	WAIT_FOR(client->mode != &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT), 30);
+	if (client->mode == &idevicerestore_modes[MODE_RECOVERY]) {
+		error("ERROR: Failed to place device in restore mode\n");
+		return -1;
+	}
+
 	return 0;
 }
 

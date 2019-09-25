@@ -32,19 +32,8 @@ extern "C" {
 #include <libimobiledevice/lockdown.h>
 #include <libimobiledevice/libimobiledevice.h>
 
-struct normal_client_t {
-	idevice_t device;
-	lockdownd_client_t client;
-	const char* ipsw;
-	plist_t tss;
-};
-
-
 int normal_check_mode(struct idevicerestore_client_t* client);
 irecv_device_t normal_get_irecv_device(struct idevicerestore_client_t* client);
-int normal_client_new(struct idevicerestore_client_t* client);
-void normal_client_free(struct idevicerestore_client_t* client);
-int normal_open_with_timeout(struct idevicerestore_client_t* client);
 int normal_enter_recovery(struct idevicerestore_client_t* client);
 int normal_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
 int normal_is_image4_supported(struct idevicerestore_client_t* client);

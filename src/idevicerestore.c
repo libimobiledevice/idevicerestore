@@ -34,6 +34,7 @@
 #include <plist/plist.h>
 #include <zlib.h>
 #include <libgen.h>
+#include <signal.h>
 
 #include <curl/curl.h>
 
@@ -203,6 +204,56 @@ static int compare_versions(const char *s_ver1, const char *s_ver2)
 	return (get_version_num(s_ver1) & 0xFFFF00) - (get_version_num(s_ver2) & 0xFFFF00);
 }
 
+static void idevice_event_cb(const idevice_event_t *event, void *userdata)
+{
+	struct idevicerestore_client_t *client = (struct idevicerestore_client_t*)userdata;
+	if (event->event == IDEVICE_DEVICE_ADD) {
+		if (normal_check_mode(client) == 0) {
+			client->mode = &idevicerestore_modes[MODE_NORMAL];
+			debug("%s: device %016llx (udid: %s) connected in normal mode\n", __func__, client->ecid, client->udid);
+		} else if (client->ecid && restore_check_mode(client) == 0) {
+			client->mode = &idevicerestore_modes[MODE_RESTORE];
+			debug("%s: device %016llx (udid: %s) connected in restore mode\n", __func__, client->ecid, client->udid);
+		}
+	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
+		if (client->udid && !strcmp(event->udid, client->udid)) {
+			client->mode = &idevicerestore_modes[MODE_UNKNOWN];
+			debug("%s: device %016llx (udid: %s) disconnected\n", __func__, client->ecid, client->udid);
+		}
+	}
+}
+
+static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
+{
+	struct idevicerestore_client_t *client = (struct idevicerestore_client_t*)userdata;
+	if (event->type == IRECV_DEVICE_ADD) {
+		if (client->ecid && event->device_info->ecid == client->ecid) {
+			switch (event->mode) {
+				case IRECV_K_WTF_MODE:
+					client->mode = &idevicerestore_modes[MODE_WTF];
+					break;
+				case IRECV_K_DFU_MODE:
+					client->mode = &idevicerestore_modes[MODE_DFU];
+					break;
+				case IRECV_K_RECOVERY_MODE_1:
+				case IRECV_K_RECOVERY_MODE_2:
+				case IRECV_K_RECOVERY_MODE_3:
+				case IRECV_K_RECOVERY_MODE_4:
+					client->mode = &idevicerestore_modes[MODE_RECOVERY];
+					break;
+				default:
+					client->mode = &idevicerestore_modes[MODE_UNKNOWN];
+			}
+			debug("%s: device %016llx (udid: %s) connected in %s mode\n", __func__, client->ecid, client->udid, client->mode->string);
+		}
+	} else if (event->type == IRECV_DEVICE_REMOVE) {
+		if (client->ecid && event->device_info->ecid == client->ecid) {
+			client->mode = &idevicerestore_modes[MODE_UNKNOWN];
+			debug("%s: device %016llx (udid: %s) disconnected\n", __func__, client->ecid, client->udid);
+		}
+	}
+}
+
 int idevicerestore_start(struct idevicerestore_client_t* client)
 {
 	int tss_enabled = 0;
@@ -230,8 +281,14 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.0);
 
+	irecv_device_event_subscribe(&client->irecv_e_ctx, irecv_event_cb, client);
+
+	idevice_event_subscribe(idevice_event_cb, client);
+	client->idevice_e_ctx = idevice_event_cb;
+
 	// check which mode the device is currently in so we know where to start
-	if (check_mode(client) < 0) {
+	WAIT_FOR(client->mode != &idevicerestore_modes[MODE_UNKNOWN], 10);
+	if (client->mode == &idevicerestore_modes[MODE_UNKNOWN]) {
 		error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
 		return -1;
 	}
@@ -309,10 +366,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 		dfu_client_free(client);
 
-		sleep(1);
-
 		free(wtftmp);
-		client->mode = &idevicerestore_modes[MODE_DFU];
+
+		WAIT_FOR(client->mode == &idevicerestore_modes[MODE_DFU] || (client->flags & FLAG_QUIT), 10); /* TODO: verify if it actually goes from 0x1222 -> 0x1227 */
 	}
 
 	// discover the device type
@@ -331,6 +387,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	if (client->flags & FLAG_PWN) {
 		recovery_client_free(client);
+
+		if (client->mode->index != MODE_DFU) {
+			error("ERROR: Device needs to be in DFU mode for this option.\n");
+			return -1;
+		}
 
 		info("connecting to DFU\n");
 		if (dfu_client_new(client) < 0) {
@@ -466,7 +527,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 
 		// we need to refresh the current mode again
-		if (check_mode(client) < 0) {
+		WAIT_FOR(client->mode != &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT), 60);
+		if (client->mode == &idevicerestore_modes[MODE_UNKNOWN]) {
 			error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
 			return -1;
 		}
@@ -1141,6 +1203,15 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.9);
 
+	info("Waiting for device to enter restore mode...\n");
+	WAIT_FOR(client->mode == &idevicerestore_modes[MODE_RESTORE] || (client->flags & FLAG_QUIT), 180);
+	if (client->mode != &idevicerestore_modes[MODE_RESTORE]) {
+		error("ERROR: Device failed to enter restore mode.\n");
+		if (delete_fs && filesystem)
+			unlink(filesystem);
+		return -1;
+	}
+
 	// device is finally in restore mode, let's do this
 	if (client->mode->index == MODE_RESTORE) {
 		info("About to restore device... \n");
@@ -1193,6 +1264,7 @@ struct idevicerestore_client_t* idevicerestore_client_new(void)
 		return NULL;
 	}
 	memset(client, '\0', sizeof(struct idevicerestore_client_t));
+	client->mode = &idevicerestore_modes[MODE_UNKNOWN];
 	return client;
 }
 
@@ -1202,6 +1274,12 @@ void idevicerestore_client_free(struct idevicerestore_client_t* client)
 		return;
 	}
 
+	if (client->irecv_e_ctx) {
+		irecv_device_event_unsubscribe(client->irecv_e_ctx);
+	}
+	if (client->idevice_e_ctx) {
+		idevice_event_unsubscribe();
+	}
 	if (client->tss_url) {
 		free(client->tss_url);
 	}
@@ -1297,6 +1375,15 @@ void idevicerestore_set_progress_callback(struct idevicerestore_client_t* client
 }
 
 #ifndef IDEVICERESTORE_NOMAIN
+static struct idevicerestore_client_t* idevicerestore_client = NULL;
+
+static void handle_signal(int sig)
+{
+	if (idevicerestore_client) {
+		idevicerestore_client->flags |= FLAG_QUIT;
+	}
+}
+
 int main(int argc, char* argv[]) {
 	int opt = 0;
 	int optindex = 0;
@@ -1308,6 +1395,19 @@ int main(int argc, char* argv[]) {
 		error("ERROR: could not create idevicerestore client\n");
 		return -1;
 	}
+
+	idevicerestore_client = client;
+
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(struct sigaction));
+	sa.sa_handler = handle_signal;
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+#ifndef WIN32
+	sigaction(SIGQUIT, &sa, NULL);
+	sa.sa_handler = SIG_IGN;
+	sigaction(SIGPIPE, &sa, NULL);
+#endif
 
 	if (!isatty(fileno(stdin)) || !isatty(fileno(stdout))) {
 		client->flags &= ~FLAG_INTERACTIVE;

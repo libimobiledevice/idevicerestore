@@ -34,69 +34,40 @@
 #include "normal.h"
 #include "recovery.h"
 
-static int normal_device_connected = 0;
-
-void normal_device_callback(const idevice_event_t* event, void* userdata) {
-	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) userdata;
-	if (event->event == IDEVICE_DEVICE_ADD) {
-		normal_device_connected = 1;
-
-	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
-		normal_device_connected = 0;
-		client->flags &= FLAG_QUIT;
-	}
-}
-
-int normal_client_new(struct idevicerestore_client_t* client) {
-	struct normal_client_t* normal = (struct normal_client_t*) malloc(sizeof(struct normal_client_t));
-	if (normal == NULL) {
-		error("ERROR: Out of memory\n");
-		return -1;
-	}
-
-	if (normal_open_with_timeout(client) < 0) {
-		normal_client_free(client);
-		return -1;
-	}
-
-	client->normal = normal;
-	return 0;
-}
-
-void normal_client_free(struct idevicerestore_client_t* client) {
-	struct normal_client_t* normal = NULL;
-	if (client) {
-		normal = client->normal;
-		if(normal) {
-			if(normal->client) {
-				lockdownd_client_free(normal->client);
-				normal->client = NULL;
-			}
-			if(normal->device) {
-				idevice_free(normal->device);
-				normal->device = NULL;
-			}
-		}
-		free(normal);
-		client->normal = NULL;
-	}
-}
-
 static int normal_idevice_new(struct idevicerestore_client_t* client, idevice_t* device)
 {
 	int num_devices = 0;
 	char **devices = NULL;
 	idevice_t dev = NULL;
 	idevice_error_t device_error;
+	lockdownd_client_t lockdown = NULL;
 
 	*device = NULL;
 
 	if (client->udid) {
 		device_error = idevice_new(&dev, client->udid);
 		if (device_error != IDEVICE_E_SUCCESS) {
-			error("ERROR: %s: can't open device with UDID %s\n", __func__, client->udid);
+			debug("%s: can't open device with UDID %s\n", __func__, client->udid);
 			return -1;
 		}
+
+		if (lockdownd_client_new(dev, &lockdown, "idevicerestore") != LOCKDOWN_E_SUCCESS) {
+			error("ERROR: %s: can't connect to lockdownd on device with UDID %s\n", __func__, client->udid);
+			return -1;
+
+		}
+		char* type = NULL;
+		if (lockdownd_query_type(lockdown, &type) != LOCKDOWN_E_SUCCESS) {
+			return -1;
+		}
+		if (strcmp(type, "com.apple.mobile.lockdown") != 0) {
+			free(type);
+			return -1;
+		}
+		free(type);
+		lockdownd_client_free(lockdown);
+		lockdown = NULL;
+
 		*device = dev;
 		return 0;
 	}
@@ -105,7 +76,6 @@ static int normal_idevice_new(struct idevicerestore_client_t* client, idevice_t*
 	if (num_devices == 0) {
 		return -1;
 	}
-	lockdownd_client_t lockdown = NULL;
 	int j;
 	for (j = 0; j < num_devices; j++) {
 		if (lockdown != NULL) {
@@ -118,7 +88,7 @@ static int normal_idevice_new(struct idevicerestore_client_t* client, idevice_t*
 		}
 		device_error = idevice_new(&dev, devices[j]);
 		if (device_error != IDEVICE_E_SUCCESS) {
-			error("ERROR: %s: can't open device with UDID %s\n", __func__, devices[j]);
+			debug("%s: can't open device with UDID %s\n", __func__, devices[j]);
 			continue;
 		}
 
@@ -179,47 +149,8 @@ int normal_check_mode(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-int normal_open_with_timeout(struct idevicerestore_client_t* client) {
-	int i = 0;
-	int attempts = 10;
-	idevice_t device = NULL;
-
-	// no context exists so bail
-	if(client == NULL) {
-		return -1;
-	}
-
-	normal_device_connected = 0;
-
-	// create our normal client if it doesn't yet exist
-	if(client->normal == NULL) {
-		client->normal = (struct normal_client_t*) malloc(sizeof(struct normal_client_t));
-		if(client->normal == NULL) {
-			error("ERROR: Out of memory\n");
-			return -1;
-		}
-	}
-
-	for (i = 1; i <= attempts; i++) {
-		normal_idevice_new(client, &device);
-		if (device) {
-			normal_device_connected = 1;
-			break;
-		}
-
-		if (i == attempts) {
-			error("ERROR: Unable to connect to device in normal mode\n");
-			return -1;
-		}
-		sleep(2);
-	}
-
-	client->normal->device = device;
-
-	return 0;
-}
-
-irecv_device_t normal_get_irecv_device(struct idevicerestore_client_t* client) {
+irecv_device_t normal_get_irecv_device(struct idevicerestore_client_t* client)
+{
 	idevice_t device = NULL;
 	lockdownd_client_t lockdown = NULL;
 	lockdownd_error_t lockdown_error = LOCKDOWN_E_SUCCESS;
@@ -267,7 +198,8 @@ irecv_device_t normal_get_irecv_device(struct idevicerestore_client_t* client) {
 	return irecv_device;
 }
 
-int normal_enter_recovery(struct idevicerestore_client_t* client) {
+int normal_enter_recovery(struct idevicerestore_client_t* client)
+{
 	idevice_t device = NULL;
 	lockdownd_client_t lockdown = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
@@ -299,12 +231,25 @@ int normal_enter_recovery(struct idevicerestore_client_t* client) {
 	lockdown = NULL;
 	device = NULL;
 
+	debug("DEBUG: Waiting for device to disconnect...\n");
+	WAIT_FOR(client->mode != &idevicerestore_modes[MODE_NORMAL] || (client->flags & FLAG_QUIT), 30);
+	if (client->mode == &idevicerestore_modes[MODE_NORMAL]) {
+		error("ERROR: Failed to place device in recovery mode\n");
+		return -1;
+	}
+
+	debug("DEBUG: Waiting for device to connect in recovery mode...\n");
+	WAIT_FOR(client->mode == &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT), 30);
+	if (client->mode != &idevicerestore_modes[MODE_RECOVERY]) {
+		error("ERROR: Failed to enter recovery mode\n");
+		return -1;
+	}
+
 	if (recovery_client_new(client) < 0) {
 		error("ERROR: Unable to enter recovery mode\n");
 		return -1;
 	}
 
-	client->mode = &idevicerestore_modes[MODE_RECOVERY];
 	return 0;
 }
 

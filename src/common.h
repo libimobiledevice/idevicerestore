@@ -32,6 +32,8 @@ extern "C" {
 #include <config.h>
 #endif
 
+#include <unistd.h>
+
 #include <plist/plist.h>
 #include <libirecovery.h>
 
@@ -90,7 +92,6 @@ struct idevicerestore_client_t {
 	char* ipsw;
 	const char* filesystem;
 	struct dfu_client_t* dfu;
-	struct normal_client_t* normal;
 	struct restore_client_t* restore;
 	struct recovery_client_t* recovery;
 	irecv_device_t device;
@@ -103,6 +104,8 @@ struct idevicerestore_client_t {
 	char* cache_dir;
 	idevicerestore_progress_cb_t progress_cb;
 	void* progress_cb_data;
+	irecv_device_event_context_t irecv_e_ctx;
+	void* idevice_e_ctx;
 };
 
 extern struct idevicerestore_mode_t idevicerestore_modes[];
@@ -128,10 +131,12 @@ char *generate_guid(void);
 #ifndef sleep
 #define sleep(x) Sleep(x*1000)
 #endif
+#define __usleep(x) Sleep(x/1000)
 #else
 #include <sys/stat.h>
 #define __mkdir(path, mode) mkdir(path, mode)
 #define FMT_qu "%qu"
+#define __usleep(x) usleep(x)
 #endif
 
 int mkdir_with_parents(const char *dir, int mode);
@@ -149,6 +154,10 @@ char* realpath(const char *filename, char *resolved_name);
 #endif
 
 void get_user_input(char *buf, int maxlen, int secure);
+
+#define WAIT_INTERVAL 200000
+#define WAIT_MAX(x) (x * (1000000 / WAIT_INTERVAL))
+#define WAIT_FOR(cond, timeout) { int __repeat = WAIT_MAX(timeout); while (!(cond) && __repeat-- > 0) { __usleep(WAIT_INTERVAL); } }
 
 uint8_t _plist_dict_get_bool(plist_t dict, const char *key);
 uint64_t _plist_dict_get_uint(plist_t dict, const char *key);

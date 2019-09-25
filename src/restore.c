@@ -103,7 +103,8 @@ static int restore_finished = 0;
 
 static int restore_device_connected = 0;
 
-int restore_client_new(struct idevicerestore_client_t* client) {
+int restore_client_new(struct idevicerestore_client_t* client)
+{
 	struct restore_client_t* restore = (struct restore_client_t*) malloc(sizeof(struct restore_client_t));
 	if (restore == NULL) {
 		error("ERROR: Out of memory\n");
@@ -119,7 +120,8 @@ int restore_client_new(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-void restore_client_free(struct idevicerestore_client_t* client) {
+void restore_client_free(struct idevicerestore_client_t* client)
+{
 	if (client && client->restore) {
 		if(client->restore->client) {
 			restored_client_free(client->restore->client);
@@ -162,12 +164,12 @@ static int restore_idevice_new(struct idevicerestore_client_t* client, idevice_t
 		}
 		device_error = idevice_new(&dev, devices[j]);
 		if (device_error != IDEVICE_E_SUCCESS) {
-			error("ERROR: %s: can't open device with UDID %s", __func__, devices[j]);
+			debug("%s: can't open device with UDID %s\n", __func__, devices[j]);
 			continue;
 		}
 
 		if (restored_client_new(dev, &restore, "idevicerestore") != RESTORE_E_SUCCESS) {
-			error("ERROR: %s: can't connect to restored on device with UDID %s\n", __func__, devices[j]);
+			debug("%s: can't connect to restored on device with UDID %s\n", __func__, devices[j]);
 			continue;
 
 		}
@@ -222,7 +224,8 @@ static int restore_idevice_new(struct idevicerestore_client_t* client, idevice_t
 	return 0;
 }
 
-int restore_check_mode(struct idevicerestore_client_t* client) {
+int restore_check_mode(struct idevicerestore_client_t* client)
+{
 	idevice_t device = NULL;
 
 	restore_idevice_new(client, &device);
@@ -234,7 +237,8 @@ int restore_check_mode(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-irecv_device_t restore_get_irecv_device(struct idevicerestore_client_t* client) {
+irecv_device_t restore_get_irecv_device(struct idevicerestore_client_t* client)
+{
 	char* model = NULL;
 	plist_t node = NULL;
 	idevice_t device = NULL;
@@ -290,18 +294,8 @@ irecv_device_t restore_get_irecv_device(struct idevicerestore_client_t* client) 
 	return irecv_device;
 }
 
-void restore_device_callback(const idevice_event_t* event, void* userdata) {
-	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) userdata;
-	if (event->event == IDEVICE_DEVICE_ADD) {
-		restore_device_connected = 1;
-		client->udid = strdup(event->udid);
-	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
-		restore_device_connected = 0;
-		client->flags |= FLAG_QUIT;
-	}
-}
-
-int restore_reboot(struct idevicerestore_client_t* client) {
+int restore_reboot(struct idevicerestore_client_t* client)
+{
 	if(client->restore == NULL) {
 		if (restore_open_with_timeout(client) < 0) {
 			error("ERROR: Unable to open device in restore mode\n");
@@ -314,8 +308,10 @@ int restore_reboot(struct idevicerestore_client_t* client) {
 
 	restored_client_free(client->restore->client);
 
-	// FIXME: wait for device disconnect here
-	sleep(10);
+	WAIT_FOR(client->mode != &idevicerestore_modes[MODE_RESTORE] || (client->flags & FLAG_QUIT), 30);
+	if (client->mode == &idevicerestore_modes[MODE_RESTORE]) {
+		return -1;
+	}
 
 	return 0;
 }
@@ -384,18 +380,8 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 	return (strcasecmp(this_srnm, client->srnm) == 0);
 }
 
-static void restore_device_event_cb(const idevice_event_t *event, void *user_data)
+int restore_open_with_timeout(struct idevicerestore_client_t* client)
 {
-	if (event->event == IDEVICE_DEVICE_ADD) {
-		struct idevicerestore_client_t* client = (struct idevicerestore_client_t*)user_data;
-		if (!restore_device_connected && restore_is_current_device(client, event->udid)) {
-			restore_device_connected = 1;
-			client->udid = strdup(event->udid);
-		}
-	}
-}
-
-int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 	int i = 0;
 	int attempts = 180;
 	char *type = NULL;
@@ -427,22 +413,9 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client) {
 
 	restore_device_connected = 0;
 
-	info("Waiting for device...\n");
-	idevice_event_subscribe(restore_device_event_cb, client);
-	i = 0;
-	while (i++ < attempts) {
-		debug("Attempt %d to connect to restore mode device...\n", i);
-		if (restore_device_connected) {
-			info("Device %s is now connected in restore mode...\n", client->udid);
-			break;
-		}
-		sleep(1);
-	}
-	idevice_event_unsubscribe();
-
-	if (!restore_device_connected) {
+	if (!restore_is_current_device(client, client->udid)) {
 		error("ERROR: Unable to connect to device in restore mode\n");
-		return (i == attempts ? -2:-1);
+		return -1;
 	}
 
 	info("Connecting now...\n");
@@ -597,7 +570,8 @@ const char* restore_progress_string(unsigned int operation)
 
 static int lastop = 0;
 
-int restore_handle_previous_restore_log_msg(restored_client_t client, plist_t msg) {
+int restore_handle_previous_restore_log_msg(restored_client_t client, plist_t msg)
+{
 	plist_t node = NULL;
 	char* restorelog = NULL;
 
@@ -614,7 +588,8 @@ int restore_handle_previous_restore_log_msg(restored_client_t client, plist_t ms
 	return 0;
 }
 
-int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t msg) {
+int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t msg)
+{
 	plist_t node = NULL;
 	uint64_t progress = 0;
 	uint64_t operation = 0;
@@ -674,7 +649,8 @@ int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t 
 	return 0;
 }
 
-int restore_handle_status_msg(restored_client_t client, plist_t msg) {
+int restore_handle_status_msg(restored_client_t client, plist_t msg)
+{
 	int result = 0;
 	uint64_t value = 0;
 	char* log = NULL;
@@ -786,7 +762,8 @@ static void restore_asr_progress_cb(double progress, void* userdata)
 	}
 }
 
-int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t device, const char* filesystem) {
+int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t device, const char* filesystem)
+{
 	asr_client_t asr = NULL;
 
 	info("About to send filesystem...\n");
@@ -930,7 +907,8 @@ int restore_send_component(restored_client_t restore, struct idevicerestore_clie
 	return 0;
 }
 
-int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity) {
+int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity)
+{
 	char* llb_path = NULL;
 	char* llb_filename = NULL;
 	char* sep_path = NULL;
@@ -2596,7 +2574,8 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 	return 0;
 }
 
-int restore_device(struct idevicerestore_client_t* client, plist_t build_identity, const char* filesystem) {
+int restore_device(struct idevicerestore_client_t* client, plist_t build_identity, const char* filesystem)
+{
 	int err = 0;
 	char* type = NULL;
 	plist_t node = NULL;
@@ -2802,7 +2781,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 	// this is the restore process loop, it reads each message in from
 	// restored and passes that data on to it's specific handler
-	while ((client->flags & FLAG_QUIT) == 0) {
+	while (!(client->flags & FLAG_QUIT)) {
 		// finally, if any of these message handlers returned -1 then we encountered
 		// an unrecoverable error, so we need to bail.
 		if (err < 0) {
@@ -2811,10 +2790,14 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		}
 
 		restore_error = restored_receive(restore, &message);
-		if (restore_error != RESTORE_E_SUCCESS) {
-			debug("No data to read\n");
+		if (restore_error == RESTORE_E_RECEIVE_TIMEOUT) {
+			debug("No data to read (timeout)\n");
 			message = NULL;
 			continue;
+		} else if (restore_error != RESTORE_E_SUCCESS) {
+			error("ERROR: Could not read data (%d). Aborting.\n", restore_error);
+			err = -11;
+			break;
 		}
 
 		// discover what kind of message has been received
