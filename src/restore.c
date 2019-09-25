@@ -66,6 +66,8 @@
 #define CHECK_INAPPR_BOOT_PARTITIONS  33
 #define CREATE_FACTORY_RESTORE_MARKER 34
 #define LOAD_FIRMWARE                 35
+#define REQUESTING_FUD_DATA           36
+#define REMOVING_ACTIVATION_RECORD    37
 #define CHECK_BATTERY_VOLTAGE         38
 #define WAIT_BATTERY_CHARGE           39
 #define CLOSE_MODEM_TICKETS           40
@@ -80,13 +82,22 @@
 #define CREATE_SYSTEM_KEYBAG          50
 #define UPDATE_IR_MCU_FIRMWARE        51
 #define RESIZE_SYSTEM_PARTITION       52
+#define COLLECTING_UPDATER_OUTPUT     53
 #define PAIR_STOCKHOLM                54
 #define UPDATE_STOCKHOLM              55
 #define UPDATE_SWDHID                 56
-#define UPDATE_S3E_FIRMWARE           58
+#define CERTIFY_SEP                   57
+#define UPDATE_NAND_FIRMWARE          58
 #define UPDATE_SE_FIRMWARE            59
 #define UPDATE_SAVAGE                 60
-#define CERTIFY_SAVAGE                61
+#define INSTALLING_DEVICETREE         61
+#define CERTIFY_SAVAGE                62
+#define SUBMITTING_PROVINFO           63
+#define CERTIFY_YONKERS               64
+#define UPDATE_ROSE                   65
+#define UPDATE_VERIDIAN               66
+#define CREATING_PROTECTED_VOLUME     67
+#define RESIZING_MAIN_FS_PARTITION    68
 
 static int restore_finished = 0;
 
@@ -515,6 +526,10 @@ const char* restore_progress_string(unsigned int operation)
 		return "Creating factory restore marker";
 	case LOAD_FIRMWARE:
 		return "Loading firmware data to flash";
+	case REQUESTING_FUD_DATA:
+		return "Requesting FUD data";
+	case REMOVING_ACTIVATION_RECORD:
+		return "Removing activation record";
 	case CHECK_BATTERY_VOLTAGE:
 		return "Checking battery voltage";
 	case WAIT_BATTERY_CHARGE:
@@ -543,20 +558,38 @@ const char* restore_progress_string(unsigned int operation)
 		return "Updating IR MCU firmware";
 	case RESIZE_SYSTEM_PARTITION:
 		return "Resizing system partition";
+	case COLLECTING_UPDATER_OUTPUT:
+		return "Collecting updater output";
 	case PAIR_STOCKHOLM:
 		return "Pairing Stockholm";
 	case UPDATE_STOCKHOLM:
 		return "Updating Stockholm";
 	case UPDATE_SWDHID:
 		return "Updating SWDHID";
-	case UPDATE_S3E_FIRMWARE:
-		return "Updating S3E Firmware";
+	case CERTIFY_SEP:
+		return "Certifying SEP";
+	case UPDATE_NAND_FIRMWARE:
+		return "Updating NAND Firmware";
 	case UPDATE_SE_FIRMWARE:
 		return "Updating SE Firmware";
 	case UPDATE_SAVAGE:
 		return "Updating Savage";
+	case INSTALLING_DEVICETREE:
+		return "Installing DeviceTree";
 	case CERTIFY_SAVAGE:
 		return "Certifying Savage";
+	case SUBMITTING_PROVINFO:
+		return "Submitting Provinfo";
+	case CERTIFY_YONKERS:
+		return "Certifying Yonkers";
+	case UPDATE_ROSE:
+		return "Updating Rose";
+	case UPDATE_VERIDIAN:
+		return "Updating Veridian";
+	case CREATING_PROTECTED_VOLUME:
+		return "Creating Protected Volume";
+	case RESIZING_MAIN_FS_PARTITION:
+		return "Resizing Main Filesystem Partition";
 	default:
 		return "Unknown operation";
 	}
@@ -622,6 +655,12 @@ int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t 
 		case UPDATE_BASEBAND:
 		case UPDATE_IR_MCU_FIRMWARE:
 			idevicerestore_progress(client, RESTORE_STEP_FLASH_BB, progress / 100.0);
+			break;
+		case REQUESTING_FUD_DATA:
+			idevicerestore_progress(client, RESTORE_STEP_FUD, progress / 100.0);
+			break;
+		case UPDATE_ROSE:
+		case UPDATE_VERIDIAN:
 			break;
 		default:
 			debug("Unhandled progress operation %d (%d)\n", adapted_operation, (int)operation);
