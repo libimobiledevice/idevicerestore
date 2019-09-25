@@ -34,6 +34,7 @@
 #include "fdr.h"
 #include "fls.h"
 #include "mbn.h"
+#include "ftab.h"
 #include "tss.h"
 #include "ipsw.h"
 #include "restore.h"
@@ -2118,6 +2119,237 @@ plist_t restore_get_yonkers_firmware_data(restored_client_t restore, struct idev
 	return response;
 }
 
+plist_t restore_get_rose_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+{
+	char *comp_name = NULL;
+	char *comp_path = NULL;
+	plist_t comp_node = NULL;
+	unsigned char* component_data = NULL;
+	unsigned int component_size = 0;
+	ftab_t ftab = NULL;
+	ftab_t rftab = NULL;
+	uint32_t ftag = 0;
+	plist_t parameters = NULL;
+	plist_t request = NULL;
+	plist_t response = NULL;
+	plist_t node = NULL;
+	int ret;
+
+	/* create Rose request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create Rose TSS request\n");
+		free(component_data);
+		return NULL;
+	}
+
+	parameters = plist_new_dict();
+
+	/* add manifest for current build_identity to parameters */
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
+	if (client->image4supported) {
+		plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(1));
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(1));
+	} else {
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
+	}
+
+	/* add Rap,* tags from info dictionary to parameters */
+	plist_dict_merge(&parameters, p_info);
+
+	/* add required tags for Rose TSS request */
+	tss_request_add_rose_tags(request, parameters, NULL);
+
+	plist_free(parameters);
+
+	info("Sending Rose TSS request...\n");
+	response = tss_request_send(request, client->tss_url);
+	plist_free(request);
+	if (response == NULL) {
+		error("ERROR: Unable to fetch Rose ticket\n");
+		free(component_data);
+		return NULL;
+	}
+
+	if (plist_dict_get_item(response, "Rap,Ticket")) {
+		info("Received Rose ticket\n");
+	} else {
+		error("ERROR: No 'Rap,Ticket' in TSS response, this might not work\n");
+	}
+
+	comp_name = "Rap,RTKitOS";
+	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+		error("ERROR: Unable get path for '%s' component\n", comp_name);
+		return NULL;
+	}
+	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	free(comp_path);
+	comp_path = NULL;
+	if (ret < 0) {
+		error("ERROR: Unable to extract '%s' component\n", comp_name);
+		return NULL;
+	}
+	if (ftab_parse(component_data, component_size, &ftab, &ftag) != 0) {
+		free(component_data);
+		error("ERROR: Failed to parse '%s' component data.\n");
+		return NULL;
+	}
+	free(component_data);
+	component_data = NULL;
+	component_size = 0;
+	if (ftag != 'rkos') {
+		error("WARNING: Unexpected tag 0x%08x, expected 0x%08x; continuing anyway.", ftag, 'rkos');
+	}
+
+	comp_name = "Rap,RestoreRTKitOS";
+	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+		ftab_free(ftab);
+		error("ERROR: Unable get path for '%s' component\n", comp_name);
+		return NULL;
+	}
+	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	free(comp_path);
+	comp_path = NULL;
+	if (ret < 0) {
+		ftab_free(ftab);
+		error("ERROR: Unable to extract '%s' component\n", comp_name);
+		return NULL;
+	}
+
+	ftag = 0;
+	if (ftab_parse(component_data, component_size, &rftab, &ftag) != 0) {
+		free(component_data);
+		ftab_free(ftab);
+		error("ERROR: Failed to parse '%s' component data.\n");
+		return NULL;
+	}
+	free(component_data);
+	component_data = NULL;
+	component_size = 0;
+	if (ftag != 'rkos') {
+		error("WARNING: Unexpected tag 0x%08x, expected 0x%08x; continuing anyway.", ftag, 'rkos');
+	}
+
+	if (ftab_get_entry_ptr(rftab, 'rrko', &component_data, &component_size) == 0) {
+		ftab_add_entry(ftab, 'rrko', component_data, component_size);
+	} else {
+		error("ERROR: Could not find 'rrko' entry in ftab. This will probably break things.\n");
+	}
+	ftab_free(rftab);
+	component_data = NULL;
+	component_size = 0;
+
+	ftab_write(ftab, &component_data, &component_size);
+	ftab_free(ftab);
+
+	plist_dict_set_item(response, "FirmwareData", plist_new_data((char *)component_data, (uint64_t)component_size));
+	free(component_data);
+	component_data = NULL;
+	component_size = 0;
+
+	return response;
+}
+
+plist_t restore_get_veridian_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+{
+	char *comp_name = "BMU,FirmwareMap";
+	char *comp_path = NULL;
+	plist_t comp_node = NULL;
+	unsigned char* component_data = NULL;
+	unsigned int component_size = 0;
+	plist_t parameters = NULL;
+	plist_t request = NULL;
+	plist_t response = NULL;
+	plist_t node = NULL;
+	int ret;
+
+	/* create Veridian request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create Veridian TSS request\n");
+		free(component_data);
+		return NULL;
+	}
+
+	parameters = plist_new_dict();
+
+	/* add manifest for current build_identity to parameters */
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	/* add BMU,* tags from info dictionary to parameters */
+	plist_dict_merge(&parameters, p_info);
+
+	/* add required tags for Veridian TSS request */
+	tss_request_add_veridian_tags(request, parameters, NULL);
+
+	plist_free(parameters);
+
+	info("Sending Veridian TSS request...\n");
+	response = tss_request_send(request, client->tss_url);
+	plist_free(request);
+	if (response == NULL) {
+		error("ERROR: Unable to fetch Veridian ticket\n");
+		free(component_data);
+		return NULL;
+	}
+
+	if (plist_dict_get_item(response, "BMU,Ticket")) {
+		info("Received Veridian ticket\n");
+	} else {
+		error("ERROR: No 'BMU,Ticket' in TSS response, this might not work\n");
+	}
+
+	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+		error("ERROR: Unable get path for '%s' component\n", comp_name);
+		return NULL;
+	}
+
+	/* now get actual component data */
+	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	free(comp_path);
+	comp_path = NULL;
+	if (ret < 0) {
+		error("ERROR: Unable to extract '%s' component\n", comp_name);
+		return NULL;
+	}
+
+	plist_t fw_map = NULL;
+	if (plist_is_binary((const char*)component_data, component_size)) {
+		plist_from_bin((const char*)component_data, component_size, &fw_map);
+	} else {
+		plist_from_xml((const char*)component_data, component_size, &fw_map);
+	}
+	free(component_data);
+	component_data = NULL;
+	component_size = 0;
+
+	if (!fw_map) {
+		error("ERROR: Unable to parse '%s' component data as plist\n", comp_name);
+		return NULL;
+	}
+
+	plist_t fw_map_digest = plist_access_path(build_identity, 3, "Manifest", comp_name, "Digest");
+	if (!fw_map_digest) {
+		plist_free(fw_map);
+		error("ERROR: Unable to get Digest for '%s' component\n", comp_name);
+		return NULL;
+	}
+
+	plist_dict_set_item(fw_map, "fw_map_digest", plist_copy(fw_map_digest));
+
+	char *bin_plist = NULL;
+	uint32_t bin_size = 0;
+	plist_to_bin(fw_map, &bin_plist, &bin_size);
+	plist_free(fw_map);
+
+	plist_dict_set_item(response, "FirmwareData", plist_new_data(bin_plist, (uint64_t)bin_size));
+	free(bin_plist);
+
+	return response;
+}
+
 int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
 {
 	plist_t arguments;
@@ -2191,6 +2423,18 @@ int restore_send_firmware_updater_data(restored_client_t restore, struct idevice
 		}
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, fwtype);
+			goto error_out;
+		}
+	} else if (strcmp(s_updater_name, "Rose") == 0) {
+		fwdict = restore_get_rose_firmware_data(restore, client, build_identity, p_info);
+		if (fwdict == NULL) {
+			error("ERROR: %s: Couldn't get Rose firmware data\n", __func__);
+			goto error_out;
+		}
+	} else if (strcmp(s_updater_name, "T200") == 0) {
+		fwdict = restore_get_veridian_firmware_data(restore, client, build_identity, p_info);
+		if (fwdict == NULL) {
+			error("ERROR: %s: Couldn't get Veridian firmware data\n", __func__);
 			goto error_out;
 		}
 	} else {
