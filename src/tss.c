@@ -202,6 +202,15 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	}
 	node = NULL;
 
+	/* PearlCertificationRootPub */
+	node = plist_dict_get_item(build_identity, "PearlCertificationRootPub");
+	if (node && plist_get_node_type(node) == PLIST_DATA) {
+		plist_dict_set_item(parameters, "PearlCertificationRootPub", plist_copy(node));
+	} else {
+		debug("NOTE: Unable to find PearlCertificationRootPub node\n");
+	}
+	node = NULL;
+
 	/* SE,ChipID - Used for SE firmware request */
 	node = plist_dict_get_item(build_identity, "SE,ChipID");
 	if (node) {
@@ -452,6 +461,13 @@ int tss_request_add_common_tags(plist_t request, plist_t parameters, plist_t ove
 	node = plist_dict_get_item(parameters, "ApSecurityDomain");
 	if (node) {
 		plist_dict_set_item(request, "ApSecurityDomain", plist_copy(node));
+	}
+	node = NULL;
+
+	/* PearlCertificationRootPub */
+	node = plist_dict_get_item(parameters, "PearlCertificationRootPub");
+	if (node) {
+		plist_dict_set_item(request, "PearlCertificationRootPub", plist_copy(node));
 	}
 	node = NULL;
 
