@@ -1920,6 +1920,34 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		
 			/* add baseband parameters */
 			tss_request_add_baseband_tags(request, parameters, NULL);
+
+			node = plist_dict_get_item(pinfo, "EUICCChipID");
+			uint64_t euiccchipid = 0;
+			if (node && plist_get_node_type(node) == PLIST_UINT) {
+				plist_get_uint_val(node, &euiccchipid);
+				plist_dict_set_item(parameters, "eUICC,ChipID", plist_copy(node));
+			}
+			if (euiccchipid >= 5) {
+				node = plist_dict_get_item(pinfo, "EUICCCSN");
+				if (node) {
+					plist_dict_set_item(parameters, "eUICC,EID", plist_copy(node));
+				}
+				node = plist_dict_get_item(pinfo, "EUICCCertIdentifier");
+				if (node) {
+					plist_dict_set_item(parameters, "eUICC,RootKeyIdentifier", plist_copy(node));
+				}
+				node = plist_dict_get_item(pinfo, "EUICCGoldNonce");
+				if (node) {
+					plist_dict_set_item(parameters, "EUICCGoldNonce", plist_copy(node));
+				}
+				node = plist_dict_get_item(pinfo, "EUICCMainNonce");
+				if (node) {
+					plist_dict_set_item(parameters, "EUICCMainNonce", plist_copy(node));
+				}
+
+				/* add vinyl parameters */
+				tss_request_add_vinyl_tags(request, parameters, NULL);
+			}
 		}
 		client->preflight_info = pinfo;
 	}
