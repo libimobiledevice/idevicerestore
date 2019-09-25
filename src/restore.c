@@ -1175,6 +1175,9 @@ static const char* restore_get_bbfw_fn_for_element(const char* elem)
 		// ICE16 firmware files
 		{ "RestorePSI", "restorepsi.bin" },
 		{ "PSI", "psi_ram.bin" },
+		// ICE19 firmware files
+		{ "RestorePSI2", "restorepsi2.bin" },
+		{ "PSI2", "psi_ram2.bin" },
 		{ NULL, NULL }
 	};
 
@@ -2191,7 +2194,7 @@ int restore_send_firmware_updater_data(restored_client_t restore, struct idevice
 			goto error_out;
 		}
 	} else {
-		error("ERROR: %s: Got unknown updater name '%s'.", __func__, s_updater_name);
+		error("ERROR: %s: Got unknown updater name '%s'.\n", __func__, s_updater_name);
 		goto error_out;
 	}
 	free(s_updater_name);
