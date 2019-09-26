@@ -1860,6 +1860,7 @@ int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_
 
 	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(0));
 	plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(0));
+	plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(1));
 
 	tss_parameters_add_from_manifest(parameters, build_identity);
 
