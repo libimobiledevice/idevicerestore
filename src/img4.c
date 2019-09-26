@@ -500,7 +500,7 @@ void _manifest_write_component(unsigned char **p, unsigned int *length, const ch
 	unsigned int inner_length = 0;
 	asn1_write_element(&inner_start, &inner_length, ASN1_IA5_STRING, (void*)tag, -1);
 
-	unsigned char tmp_[256] = { 0, };
+	unsigned char tmp_[512] = { 0, };
 	unsigned int tmp_len = 0;
 	unsigned char *tmp = &tmp_[0];
 
@@ -540,6 +540,25 @@ void _manifest_write_component(unsigned char **p, unsigned int *length, const ch
 		plist_get_bool_val(node, &boolval);
 		unsigned int int_bool_val = boolval;
 		_manifest_write_key_value(&tmp, &tmp_len, "ESEC", ASN1_BOOLEAN, &int_bool_val, -1);
+	}
+
+	node = plist_dict_get_item(comp, "TBMDigests");
+	if (node) {
+		char *data = NULL;
+		uint64_t datalen = 0;
+		plist_get_data_val(node, &data, &datalen);
+		const char *tbmtag = NULL;
+		if (!strcmp(tag, "sepi")) {
+			tbmtag = "tbms";
+		} else if (!strcmp(tag, "rsep")) {
+			tbmtag = "tbmr";
+		}
+		if (!tbmtag) {
+			error("ERROR: Unexpected TMBDigests for comp '%s'\n", tag);
+		} else {
+			_manifest_write_key_value(&tmp, &tmp_len, tbmtag, ASN1_OCTET_STRING, data, datalen);
+		}
+		free(data);
 	}
 
 	asn1_write_element_header(ASN1_SET | ASN1_CONSTRUCTED, tmp_len, &inner_start, &inner_length);
