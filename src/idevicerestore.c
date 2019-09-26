@@ -1000,6 +1000,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			}
 		}
 
+		if (client->flags & FLAG_QUIT) {
+			return -1;
+		}
 		if (get_tss_response(client, build_identity, &client->tss) < 0) {
 			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
@@ -1019,6 +1022,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 	}
 
+	if (client->flags & FLAG_QUIT) {
+		if (delete_fs && filesystem)
+			unlink(filesystem);
+		return -1;
+	}
 	if (client->flags & FLAG_SHSHONLY) {
 		if (!tss_enabled) {
 			info("This device does not require a TSS record\n");
@@ -1073,6 +1081,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		fixup_tss(client->tss);
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.25);
+	if (client->flags & FLAG_QUIT) {
+		if (delete_fs && filesystem)
+			unlink(filesystem);
+		return -1;
+	}
 
 	// if the device is in normal mode, place device into recovery mode
 	if (client->mode->index == MODE_NORMAL) {
@@ -1087,6 +1100,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.3);
+	if (client->flags & FLAG_QUIT) {
+		if (delete_fs && filesystem)
+			unlink(filesystem);
+		return -1;
+	}
 
 	// if the device is in DFU mode, place device into recovery mode
 	if (client->mode->index == MODE_DFU) {
@@ -1148,6 +1166,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		sleep(7);
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.5);
+	if (client->flags & FLAG_QUIT) {
+		if (delete_fs && filesystem)
+			unlink(filesystem);
+		return -1;
+	}
 
 	if (!client->image4supported && (client->build_major > 8)) {
 		// we need another tss request with nonce.
@@ -1192,6 +1215,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.7);
+	if (client->flags & FLAG_QUIT) {
+		if (delete_fs && filesystem)
+			unlink(filesystem);
+		return -1;
+	}
 
 	// now finally do the magic to put the device into restore mode
 	if (client->mode->index == MODE_RECOVERY) {

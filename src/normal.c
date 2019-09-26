@@ -238,14 +238,14 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 	device = NULL;
 
 	debug("DEBUG: Waiting for device to disconnect...\n");
-	WAIT_FOR(client->mode != &idevicerestore_modes[MODE_NORMAL] || (client->flags & FLAG_QUIT), 30);
+	WAIT_FOR(client->mode != &idevicerestore_modes[MODE_NORMAL] || (client->flags & FLAG_QUIT), 60);
 	if (client->mode == &idevicerestore_modes[MODE_NORMAL] || (client->flags & FLAG_QUIT)) {
 		error("ERROR: Failed to place device in recovery mode\n");
 		return -1;
 	}
 
 	debug("DEBUG: Waiting for device to connect in recovery mode...\n");
-	WAIT_FOR(client->mode == &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT), 30);
+	WAIT_FOR(client->mode == &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT), 60);
 	if (client->mode != &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT)) {
 		error("ERROR: Failed to enter recovery mode\n");
 		return -1;
@@ -425,7 +425,7 @@ int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_
 	}
 
 	int ticks = 0;
-	while (ticks++ < 130) {
+	while (ticks++ < 130 && !(client->flags & FLAG_QUIT)) {
 		plist_t pl = NULL;
 		perr = preboard_receive_with_timeout(preboard, &pl, 1000);
 		if (perr == PREBOARD_E_TIMEOUT) {
