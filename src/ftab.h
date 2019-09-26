@@ -26,6 +26,8 @@
 extern "C" {
 #endif
 
+#include <stdint.h>
+
 struct ftab_header {
 	uint32_t always_01; // 1
 	uint32_t always_ff; // 0xFFFFFFFF
