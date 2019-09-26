@@ -21,6 +21,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -2790,6 +2793,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		}
 
 		restore_error = restored_receive(restore, &message);
+#ifdef HAVE_RESTORE_E_RECEIVE_TIMEOUT
 		if (restore_error == RESTORE_E_RECEIVE_TIMEOUT) {
 			debug("No data to read (timeout)\n");
 			message = NULL;
@@ -2799,6 +2803,13 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			err = -11;
 			break;
 		}
+#else
+		if (restore_error != RESTORE_E_SUCCESS) {
+			debug("No data to read\n");
+			message = NULL;
+			continue;
+		}
+#endif
 
 		// discover what kind of message has been received
 		node = plist_dict_get_item(message, "MsgType");
