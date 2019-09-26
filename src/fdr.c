@@ -486,13 +486,21 @@ static int fdr_handle_plist_cmd(fdr_client_t fdr)
 static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
-	char buf[16*1024];
+	char *buf = NULL;
+	size_t bufsize = 1048576;
 	uint32_t sent = 0, bytes = 0;
 	char *host = NULL;
 	uint16_t port = 0;
 
-	device_error = idevice_connection_receive(fdr->connection, buf, sizeof(buf), &bytes);
+	buf = malloc(bufsize);
+	if (!buf) {
+		error("ERROR: %s: malloc failed\n", __func__);
+		return -1;
+	}
+
+	device_error = idevice_connection_receive(fdr->connection, buf, bufsize, &bytes);
 	if (device_error != IDEVICE_E_SUCCESS) {
+		free(buf);
 		error("ERROR: FDR %p failed to read data for proxy command\n", fdr);
 		return -1;
 	}
@@ -503,6 +511,7 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 	uint16_t ack = 5;
 	device_error = idevice_connection_send(fdr->connection, (char *)&ack, sizeof(ack), &sent);
 	if (device_error != IDEVICE_E_SUCCESS || sent != sizeof(ack)) {
+		free(buf);
 		error("ERROR: FDR %p unable to send ack. Sent %u of %u bytes.\n",
 		      fdr, sent, sizeof(ack));
 		return -1;
@@ -516,6 +525,7 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 	/* ack command data too */
 	device_error = idevice_connection_send(fdr->connection, buf, bytes, &sent);
 	if (device_error != IDEVICE_E_SUCCESS || sent != bytes) {
+		free(buf);
 		error("ERROR: FDR %p unable to send data. Sent %u of %u bytes.\n",
 		      fdr, sent, bytes);
 		return -1;
@@ -531,13 +541,17 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 		debug("FDR %p Proxy connect request to %s:%u\n", fdr, host, port);
 	}
 
-	if (!host || !buf[2]) /* missing or zero length host name */
+	if (!host || !buf[2]) {
+		/* missing or zero length host name */
+		free(buf);
 		return 0;
+	}
 
 	/* else wait for messages and forward them */
 	int sockfd = socket_connect(host, port);
 	free(host);
 	if (sockfd < 0) {
+		free(buf);
 		error("ERROR: Failed to connect socket: %s\n", strerror(errno));
 		return -1;
 	}
@@ -545,7 +559,7 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 	int res = 0, bytes_ret;
 	while (1) {
 		bytes = 0;
-		device_error = idevice_connection_receive_timeout(fdr->connection, buf, sizeof(buf), &bytes, 100);
+		device_error = idevice_connection_receive_timeout(fdr->connection, buf, bufsize, &bytes, 100);
 #ifdef HAVE_IDEVICE_E_TIMEOUT
 		if (device_error == IDEVICE_E_TIMEOUT || (device_error == IDEVICE_E_SUCCESS && !bytes))
 #else
@@ -562,15 +576,22 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 		if (bytes) {
 			debug("FDR %p got payload of %u bytes, now try to proxy it\n", fdr, bytes);
 			debug("Sending %u bytes of data\n", bytes);
-			sent = socket_send(sockfd, buf, bytes);
+			sent = 0;
+			while (sent < bytes) {
+				int s = socket_send(sockfd, buf + sent, bytes - sent);
+				if (s < 0) {
+					break;
+				}
+				sent += s;
+			}
 			if (sent != bytes) {
-				error("ERROR: Sending proxy payload failed: %s\n", strerror(errno));
+				error("ERROR: Sending proxy payload failed: %s. Sent %u of %u bytes. \n", strerror(errno), sent, bytes);
 				socket_close(sockfd);
 				res = -1;
 				break;
 			}
 		}
-		bytes_ret = socket_receive_timeout(sockfd, buf, sizeof(buf), 0, 100);
+		bytes_ret = socket_receive_timeout(sockfd, buf, bufsize, 0, 100);
 		if (bytes_ret < 0) {
 			if (errno)
 				error("ERROR: FDR %p receiving proxy payload failed: %s\n",
@@ -585,15 +606,23 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 			debug("FDR %p Received %u bytes reply data,%s sending to device\n",
 			      fdr, bytes, (bytes ? "" : " not"));
 
-			device_error = idevice_connection_send(fdr->connection, buf, bytes, &sent);
+			sent = 0;
+			while (sent < bytes) {
+				uint32_t s;
+				device_error = idevice_connection_send(fdr->connection, buf + sent, bytes - sent, &s);
+				if (device_error != IDEVICE_E_SUCCESS) {
+					break;
+				}
+				sent += s;
+			}
 			if (device_error != IDEVICE_E_SUCCESS || bytes != sent) {
-				error("ERROR: FDR %p unable to send data (%d). Sent %u of %u bytes.\n",
-				      fdr, device_error, sent, bytes);
+				error("ERROR: FDR %p unable to send data (%d). Sent %u of %u bytes.\n", fdr, device_error, sent, bytes);
 				res = -1;
 				break;
 			}
 		} else serial++;
 	}
 	socket_close(sockfd);
+	free(buf);
 	return res;
 }
