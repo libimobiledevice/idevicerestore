@@ -239,14 +239,14 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 
 	debug("DEBUG: Waiting for device to disconnect...\n");
 	WAIT_FOR(client->mode != &idevicerestore_modes[MODE_NORMAL] || (client->flags & FLAG_QUIT), 30);
-	if (client->mode == &idevicerestore_modes[MODE_NORMAL]) {
+	if (client->mode == &idevicerestore_modes[MODE_NORMAL] || (client->flags & FLAG_QUIT)) {
 		error("ERROR: Failed to place device in recovery mode\n");
 		return -1;
 	}
 
 	debug("DEBUG: Waiting for device to connect in recovery mode...\n");
 	WAIT_FOR(client->mode == &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT), 30);
-	if (client->mode != &idevicerestore_modes[MODE_RECOVERY]) {
+	if (client->mode != &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT)) {
 		error("ERROR: Failed to enter recovery mode\n");
 		return -1;
 	}

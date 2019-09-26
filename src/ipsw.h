@@ -46,6 +46,8 @@ int ipsw_download_fw(const char *fwurl, unsigned char* isha1, const char* todir,
 int ipsw_get_latest_fw(plist_t version_data, const char* product, char** fwurl, unsigned char* sha1buf);
 int ipsw_download_latest_fw(plist_t version_data, const char* product, const char* todir, char** ipswfile);
 
+void ipsw_cancel(void);
+
 #ifdef __cplusplus
 }
 #endif

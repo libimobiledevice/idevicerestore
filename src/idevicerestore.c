@@ -287,8 +287,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	client->idevice_e_ctx = idevice_event_cb;
 
 	// check which mode the device is currently in so we know where to start
-	WAIT_FOR(client->mode != &idevicerestore_modes[MODE_UNKNOWN], 10);
-	if (client->mode == &idevicerestore_modes[MODE_UNKNOWN]) {
+	WAIT_FOR(client->mode != &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT), 10);
+	if (client->mode == &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT)) {
 		error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
 		return -1;
 	}
@@ -452,6 +452,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 					plist_free(signed_fws);
 					return -1;
 				}
+				if (client->flags & FLAG_QUIT) {
+					return -1;
+				}
 				unsigned long selected = strtoul(input, NULL, 10);
 				if (selected == 0 || selected > count) {
 					printf("Invalid input value. Must be in range: 1..%d\n", count);
@@ -528,7 +531,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 		// we need to refresh the current mode again
 		WAIT_FOR(client->mode != &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT), 60);
-		if (client->mode == &idevicerestore_modes[MODE_UNKNOWN]) {
+		if (client->mode == &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT)) {
 			error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
 			return -1;
 		}
@@ -779,6 +782,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 					fflush(stdin);
 					input[0] = '\0';
 					get_user_input(input, 63, 0);
+					if (client->flags & FLAG_QUIT) {
+						return -1;
+					}
 					if (*input != '\0' && !strcmp(input, "YES")) {
 						break;
 					} else {
@@ -806,6 +812,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			fflush(stdin);
 			input[0] = '\0';
 			get_user_input(input, 63, 0);
+			if (client->flags & FLAG_QUIT) {
+				return -1;
+			}
 			if (*input != '\0' && !strcmp(input, "YES")) {
 				break;
 			} else {
@@ -916,6 +925,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			if (client->tss)
 				plist_free(client->tss);
 			plist_free(buildmanifest);
+			info("Removing %s\n", filesystem);
+			unlink(filesystem);
 			return -1;
 		}
 
@@ -1205,7 +1216,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	info("Waiting for device to enter restore mode...\n");
 	WAIT_FOR(client->mode == &idevicerestore_modes[MODE_RESTORE] || (client->flags & FLAG_QUIT), 180);
-	if (client->mode != &idevicerestore_modes[MODE_RESTORE]) {
+	if (client->mode != &idevicerestore_modes[MODE_RESTORE] || (client->flags & FLAG_QUIT)) {
 		error("ERROR: Device failed to enter restore mode.\n");
 		if (delete_fs && filesystem)
 			unlink(filesystem);
@@ -1381,6 +1392,7 @@ static void handle_signal(int sig)
 {
 	if (idevicerestore_client) {
 		idevicerestore_client->flags |= FLAG_QUIT;
+		ipsw_cancel();
 	}
 }
 

@@ -48,6 +48,8 @@ typedef struct {
 	char *path;
 } ipsw_archive;
 
+static int cancel_flag = 0;
+
 ipsw_archive* ipsw_open(const char* ipsw);
 void ipsw_close(ipsw_archive* archive);
 
@@ -155,6 +157,8 @@ int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, con
 		return -1;
 	}
 
+	cancel_flag = 0;
+
 	if (archive->zip) {
 		int zindex = zip_name_locate(archive->zip, infile, 0);
 		if (zindex < 0) {
@@ -192,6 +196,9 @@ int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, con
 		int count, size = BUFSIZE;
 		double progress;
 		for(i = zstat.size; i > 0; i -= count) {
+			if (cancel_flag) {
+				break;
+			}
 			if (i < BUFSIZE)
 				size = i;
 			count = zip_fread(zfile, buffer, size);
@@ -260,6 +267,9 @@ int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, con
 				uint64_t bytes = 0;
 				double progress;
 				while (!feof(fi)) {
+					if (cancel_flag) {
+						break;
+					}
 					ssize_t r = fread(buffer, 1, BUFSIZE, fi);
 					if (r < 0) {
 						error("ERROR: fread failed: %s\n", strerror(errno));
@@ -287,6 +297,9 @@ int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, con
 		free(filepath);
 	}
 	ipsw_close(archive);
+	if (cancel_flag) {
+		ret = -2;
+	}
 	return ret;
 }
 
@@ -788,4 +801,9 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 	free(fwurl);
 
 	return res;
+}
+
+void ipsw_cancel(void)
+{
+	cancel_flag++;
 }
