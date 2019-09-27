@@ -679,11 +679,10 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t o
 	plist_t node = NULL;
 
 	/* BbChipID */
-	node = plist_dict_get_item(parameters, "BbChipID");
-	if (node) {
-		plist_dict_set_item(request, "BbChipID", plist_copy(node));
+	uint64_t bb_chip_id = _plist_dict_get_uint(parameters, "BbChipID");
+	if (bb_chip_id) {
+		plist_dict_set_item(request, "BbChipID", plist_new_uint(bb_chip_id));
 	}
-	node = NULL;
 
 	/* BbProvisioningManifestKeyHash */
 	node = plist_dict_get_item(parameters, "BbProvisioningManifestKeyHash");
@@ -770,13 +769,16 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t o
 	if (plist_dict_get_item(bbfwdict, "Info")) {
 		plist_dict_remove_item(bbfwdict, "Info");
 	}
-	/* depending on the BasebandCertId remove certain nodes */
-	if (bb_cert_id == 0x26F3FACC || bb_cert_id == 0x5CF2EC4E || bb_cert_id == 0x8399785A) {
-		plist_dict_remove_item(bbfwdict, "PSI2-PartialDigest");
-		plist_dict_remove_item(bbfwdict, "RestorePSI2-PartialDigest");
-	} else {
-		plist_dict_remove_item(bbfwdict, "PSI-PartialDigest");
-		plist_dict_remove_item(bbfwdict, "RestorePSI-PartialDigest");
+
+	if (bb_chip_id == 0x68) {
+		/* depending on the BasebandCertId remove certain nodes */
+		if (bb_cert_id == 0x26F3FACC || bb_cert_id == 0x5CF2EC4E || bb_cert_id == 0x8399785A) {
+			plist_dict_remove_item(bbfwdict, "PSI2-PartialDigest");
+			plist_dict_remove_item(bbfwdict, "RestorePSI2-PartialDigest");
+		} else {
+			plist_dict_remove_item(bbfwdict, "PSI-PartialDigest");
+			plist_dict_remove_item(bbfwdict, "RestorePSI-PartialDigest");
+		}
 	}
 
 	plist_dict_set_item(request, "BasebandFirmware", bbfwdict);
