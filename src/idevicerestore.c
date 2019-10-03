@@ -227,6 +227,9 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 {
 	struct idevicerestore_client_t *client = (struct idevicerestore_client_t*)userdata;
 	if (event->type == IRECV_DEVICE_ADD) {
+		if (!client->udid && !client->ecid) {
+			client->ecid = event->device_info->ecid;
+		}
 		if (client->ecid && event->device_info->ecid == client->ecid) {
 			switch (event->mode) {
 				case IRECV_K_WTF_MODE:
