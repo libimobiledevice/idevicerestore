@@ -226,6 +226,7 @@ static const unsigned char *asn1_find_element(unsigned int index, unsigned char 
 	unsigned char el_type = 0;
 	unsigned char el_size = 0;
 	unsigned int off = 0;
+	int i;
 
 	// verify data integrity
 	if (data[off++] != (ASN1_CONSTRUCTED | ASN1_SEQUENCE))
@@ -250,7 +251,7 @@ static const unsigned char *asn1_find_element(unsigned int index, unsigned char 
 	}
 
 	// find the element we are searching
-	for (int i = 0; i <= index; i++) {
+	for (i = 0; i <= index; i++) {
 		off += asn1_get_element(&data[off], &el_type, &el_size);
 		if (i == index)
 			break;
