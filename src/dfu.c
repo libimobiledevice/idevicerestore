@@ -319,7 +319,8 @@ int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** no
 	return 0;
 }
 
-int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_identity) {
+int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_identity)
+{
 	int mode = 0;
 
 	if (dfu_client_new(client) < 0) {
@@ -345,7 +346,22 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 	if (client->build_major > 8) {
 		/* reconnect */
 		dfu_client_free(client);
-		sleep(2);
+		debug("Waiting for device to disconnect...\n");
+		WAIT_FOR(client->mode == &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT), 10);
+		if (client->mode != &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT)) {
+			if (!(client->flags & FLAG_QUIT)) {
+				error("ERROR: Device did not disconnect. Possibly invalid iBSS. Reset device and try again.\n");
+			}
+			return -1;
+		}
+		debug("Waiting for device to reconnect in DFU mode...\n");
+		WAIT_FOR(client->mode == &idevicerestore_modes[MODE_DFU] || (client->flags & FLAG_QUIT), 10);
+		if (client->mode != &idevicerestore_modes[MODE_DFU] || (client->flags & FLAG_QUIT)) {
+			if (!(client->flags & FLAG_QUIT)) {
+				error("ERROR: Device did not reconnect in DFU mode. Possibly invalid iBSS. Reset device and try again.\n");
+			}
+			return -1;
+		}
 		dfu_client_new(client);
 
 		/* get nonce */
@@ -401,24 +417,26 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 			return -1;
 		}
 	}
-
 	dfu_client_free(client);
 
-	sleep(7);
-
-	// Reconnect to device, but this time make sure we're not still in DFU mode
-	if (recovery_client_new(client) < 0) {
-		error("ERROR: Unable to connect to recovery device\n");
-		if (client->recovery->client) {
-			irecv_close(client->recovery->client);
-			client->recovery->client = NULL;
+	debug("Waiting for device to disconnect...\n");
+	WAIT_FOR(client->mode == &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT), 10);
+	if (client->mode != &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT)) {
+		if (!(client->flags & FLAG_QUIT)) {
+			error("ERROR: Device did not disconnect. Possibly invalid %s. Reset device and try again.\n", (client->build_major > 8) ? "iBEC" : "iBSS");
+		}
+		return -1;
+	}
+	debug("Waiting for device to reconnect in recovery mode...\n");
+	WAIT_FOR(client->mode == &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT), 10);
+	if (client->mode != &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT)) {
+		if (!(client->flags & FLAG_QUIT)) {
+			error("ERROR: Device did not reconnect in recovery mode. Possibly invalid %s. Reset device and try again.\n", (client->build_major > 8) ? "iBEC" : "iBSS");
 		}
 		return -1;
 	}
 
-	irecv_get_mode(client->recovery->client, &mode);
-
-	if (mode == IRECV_K_DFU_MODE) {
+	if (recovery_client_new(client) < 0) {
 		error("ERROR: Unable to connect to recovery device\n");
 		if (client->recovery->client) {
 			irecv_close(client->recovery->client);

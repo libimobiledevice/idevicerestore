@@ -1109,8 +1109,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		return -1;
 	}
 
-	// if the device is in DFU mode, place device into recovery mode
 	if (client->mode->index == MODE_DFU) {
+		// if the device is in DFU mode, place it into recovery mode
 		dfu_client_free(client);
 		recovery_client_free(client);
 		if ((client->flags & FLAG_CUSTOM) && limera1n_is_supported(client->device)) {
@@ -1133,7 +1133,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			info("exploited\n");
 		}
 		if (dfu_enter_recovery(client, build_identity) < 0) {
-			error("ERROR: Unable to place device into recovery mode from %s mode\n", client->mode->string);
+			error("ERROR: Unable to place device into recovery mode from DFU mode\n");
 			plist_free(buildmanifest);
 			if (client->tss)
 				plist_free(client->tss);
@@ -1141,11 +1141,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				unlink(filesystem);
 			return -2;
 		}
-	}
-
-	if (client->mode->index == MODE_DFU) {
-		client->mode = &idevicerestore_modes[MODE_RECOVERY];
-	} else {
+	} else if (client->mode->index == MODE_RECOVERY) {
+		// device is in recovery mode
 		if ((client->build_major > 8) && !(client->flags & FLAG_CUSTOM)) {
 			if (!client->image4supported) {
 				/* send ApTicket */
