@@ -1094,7 +1094,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	if (client->mode->index == MODE_NORMAL) {
 		info("Entering recovery mode...\n");
 		if (normal_enter_recovery(client) < 0) {
-			error("ERROR: Unable to place device into recovery mode from %s mode\n", client->mode->string);
+			error("ERROR: Unable to place device into recovery mode from normal mode\n");
 			if (client->tss)
 				plist_free(client->tss);
 			plist_free(buildmanifest);
