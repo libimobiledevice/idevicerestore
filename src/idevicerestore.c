@@ -1163,10 +1163,27 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return -2;
 		}
 		recovery_client_free(client);
-	
-		/* this must be long enough to allow the device to run the iBEC */
-		/* FIXME: Probably better to detect if the device is back then */
-		sleep(7);
+
+		debug("Waiting for device to disconnect...\n");
+		WAIT_FOR(client->mode == &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT), 10);
+		if (client->mode != &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT)) {
+			if (!(client->flags & FLAG_QUIT)) {
+				error("ERROR: Device did not disconnect. Possibly invalid iBEC. Reset device and try again.\n");
+			}
+			if (delete_fs && filesystem)
+				unlink(filesystem);
+			return -2;
+		}
+		debug("Waiting for device to reconnect in recovery mode...\n");
+		WAIT_FOR(client->mode == &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT), 10);
+		if (client->mode != &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT)) {
+			if (!(client->flags & FLAG_QUIT)) {
+				error("ERROR: Device did not reconnect in recovery mode. Possibly invalid iBEC. Reset device and try again.\n");
+			}
+			if (delete_fs && filesystem)
+				unlink(filesystem);
+			return -2;
+		}
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.5);
 	if (client->flags & FLAG_QUIT) {
