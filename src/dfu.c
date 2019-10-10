@@ -342,10 +342,10 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		client->dfu->client = NULL;
 		return -1;
 	}
+	dfu_client_free(client);
 
 	if (client->build_major > 8) {
 		/* reconnect */
-		dfu_client_free(client);
 		debug("Waiting for device to disconnect...\n");
 		WAIT_FOR(client->mode == &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT), 10);
 		if (client->mode != &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT)) {
@@ -354,11 +354,11 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 			}
 			return -1;
 		}
-		debug("Waiting for device to reconnect in DFU mode...\n");
-		WAIT_FOR(client->mode == &idevicerestore_modes[MODE_DFU] || (client->flags & FLAG_QUIT), 10);
-		if (client->mode != &idevicerestore_modes[MODE_DFU] || (client->flags & FLAG_QUIT)) {
+		debug("Waiting for device to reconnect...\n");
+		WAIT_FOR(client->mode == &idevicerestore_modes[MODE_DFU] || client->mode == &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT), 10);
+		if ((client->mode != &idevicerestore_modes[MODE_DFU] && client->mode != &idevicerestore_modes[MODE_RECOVERY]) || (client->flags & FLAG_QUIT)) {
 			if (!(client->flags & FLAG_QUIT)) {
-				error("ERROR: Device did not reconnect in DFU mode. Possibly invalid iBSS. Reset device and try again.\n");
+				error("ERROR: Device did not reconnect in DFU or recovery mode. Possibly invalid iBSS. Reset device and try again.\n");
 			}
 			return -1;
 		}
@@ -416,8 +416,16 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 			client->dfu->client = NULL;
 			return -1;
 		}
+
+		if (client->mode == &idevicerestore_modes[MODE_RECOVERY]) {
+			if (irecv_send_command(client->dfu->client, "go") != IRECV_E_SUCCESS) {
+				error("ERROR: Unable to execute iBEC\n");
+				return -1;
+			}
+			irecv_usb_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
+		}
+		dfu_client_free(client);
 	}
-	dfu_client_free(client);
 
 	debug("Waiting for device to disconnect...\n");
 	WAIT_FOR(client->mode == &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT), 10);
