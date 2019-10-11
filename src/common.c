@@ -506,7 +506,9 @@ char* realpath(const char *filename, char *resolved_name)
 
 #ifdef WIN32
 #define BS_CC '\b'
-#define my_getch getch
+#define CTRL_C_CC 0x03
+#define ESC_CC 0x1B
+#define my_getch _getch
 #else
 #define BS_CC 0x7f
 static int my_getch(void)
@@ -541,6 +543,12 @@ void get_user_input(char *buf, int maxlen, int secure)
 				len--;
 			}
 		}
+#ifdef WIN32
+		else if (c == CTRL_C_CC || c == ESC_CC) {
+			c = -1;
+			break;
+		}
+#endif
 	}
 	if (c < 0) {
 		len = 0;

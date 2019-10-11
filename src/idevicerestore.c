@@ -1499,12 +1499,16 @@ int main(int argc, char* argv[]) {
 
 	idevicerestore_client = client;
 
+#ifdef WIN32
+	signal(SIGINT, handle_signal);
+	signal(SIGTERM, handle_signal);
+	signal(SIGABRT, handle_signal);
+#else
 	struct sigaction sa;
 	memset(&sa, 0, sizeof(struct sigaction));
 	sa.sa_handler = handle_signal;
 	sigaction(SIGINT, &sa, NULL);
 	sigaction(SIGTERM, &sa, NULL);
-#ifndef WIN32
 	sigaction(SIGQUIT, &sa, NULL);
 	sa.sa_handler = SIG_IGN;
 	sigaction(SIGPIPE, &sa, NULL);
