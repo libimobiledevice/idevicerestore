@@ -38,6 +38,7 @@ extern "C" {
 #include <libirecovery.h>
 
 #include "idevicerestore.h"
+#include "thread.h"
 
 #define MODE_UNKNOWN        -1
 #define MODE_WTF             0
@@ -106,6 +107,8 @@ struct idevicerestore_client_t {
 	void* progress_cb_data;
 	irecv_device_event_context_t irecv_e_ctx;
 	void* idevice_e_ctx;
+	mutex_t device_event_mutex;
+	cond_t device_event_cond;
 };
 
 extern struct idevicerestore_mode_t idevicerestore_modes[];
@@ -154,10 +157,6 @@ char* realpath(const char *filename, char *resolved_name);
 #endif
 
 void get_user_input(char *buf, int maxlen, int secure);
-
-#define WAIT_INTERVAL 200000
-#define WAIT_MAX(x) (x * (1000000 / WAIT_INTERVAL))
-#define WAIT_FOR(cond, timeout) { int __repeat = WAIT_MAX(timeout); while (!(cond) && __repeat-- > 0) { __usleep(WAIT_INTERVAL); } }
 
 uint8_t _plist_dict_get_bool(plist_t dict, const char *key);
 uint64_t _plist_dict_get_uint(plist_t dict, const char *key);

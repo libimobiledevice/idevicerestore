@@ -306,15 +306,19 @@ int restore_reboot(struct idevicerestore_client_t* client)
 		}
 	}
 
+	mutex_lock(&client->device_event_mutex);
+
 	info("Rebooting restore mode device...\n");
 	restored_reboot(client->restore->client);
 
 	restored_client_free(client->restore->client);
 
-	WAIT_FOR(client->mode != &idevicerestore_modes[MODE_RESTORE] || (client->flags & FLAG_QUIT), 30);
+	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 30000);
 	if (client->mode == &idevicerestore_modes[MODE_RESTORE]) {
+		mutex_unlock(&client->device_event_mutex);
 		return -1;
 	}
+	mutex_unlock(&client->device_event_mutex);
 
 	return 0;
 }
