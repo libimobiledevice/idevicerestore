@@ -211,13 +211,13 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 		if (normal_check_mode(client) == 0) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = &idevicerestore_modes[MODE_NORMAL];
-			debug("%s: device %016llx (udid: %s) connected in normal mode\n", __func__, client->ecid, client->udid);
+			debug("%s: device " FMT_016llx " (udid: %s) connected in normal mode\n", __func__, client->ecid, client->udid);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		} else if (client->ecid && restore_check_mode(client) == 0) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = &idevicerestore_modes[MODE_RESTORE];
-			debug("%s: device %016llx (udid: %s) connected in restore mode\n", __func__, client->ecid, client->udid);
+			debug("%s: device " FMT_016llx " (udid: %s) connected in restore mode\n", __func__, client->ecid, client->udid);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
@@ -225,7 +225,7 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 		if (client->udid && !strcmp(event->udid, client->udid)) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = &idevicerestore_modes[MODE_UNKNOWN];
-			debug("%s: device %016llx (udid: %s) disconnected\n", __func__, client->ecid, client->udid);
+			debug("%s: device " FMT_016llx " (udid: %s) disconnected\n", __func__, client->ecid, client->udid);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
@@ -257,7 +257,7 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 				default:
 					client->mode = &idevicerestore_modes[MODE_UNKNOWN];
 			}
-			debug("%s: device %016llx (udid: %s) connected in %s mode\n", __func__, client->ecid, client->udid, client->mode->string);
+			debug("%s: device " FMT_016llx " (udid: %s) connected in %s mode\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A", client->mode->string);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
@@ -265,7 +265,7 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 		if (client->ecid && event->device_info->ecid == client->ecid) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = &idevicerestore_modes[MODE_UNKNOWN];
-			debug("%s: device %016llx (udid: %s) disconnected\n", __func__, client->ecid, client->udid);
+			debug("%s: device " FMT_016llx " (udid: %s) disconnected\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A");
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
