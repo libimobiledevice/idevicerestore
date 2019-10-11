@@ -221,6 +221,45 @@ int read_file(const char* filename, void** data, size_t* size) {
 	return 0;
 }
 
+int copy_file(const char* destname, const char* srcname) {
+	FILE *filein, *fileout;
+
+	filein = fopen(srcname, "rb");
+	if (filein == NULL) {
+		error("copy_file: cannot open %s: %s\n", srcname, strerror(errno));
+		return -1;
+	}
+	fileout = fopen(destname, "wb");
+	if (fileout == NULL) {
+		error("copy_file: cannot open %s: %s\n", destname, strerror(errno));
+		return -1;
+	}
+
+	size_t s, d;
+	unsigned char buff[8192];
+	do {
+		s = fread(buff, 1, sizeof buff, filein);
+		if (s) d = fwrite(buff, 1, s, fileout);
+		else   d = 0;
+	} while ((s > 0) && (s == d));
+
+	if (d) {
+		error("copy_file: cannot copy %s: %s\n", srcname, strerror(errno));
+		return -1;
+	}
+
+	if (fclose(fileout)) {
+		error("copy_file: cannot close %s: %s\n", destname, strerror(errno));
+		return -1;
+	}
+	if (fclose(filein)) {
+		error("copy_file: cannot close %s: %s\n", srcname, strerror(errno));
+		return -1;
+	}
+
+	return 0;
+}
+
 void debug_plist(plist_t plist) {
 	uint32_t size = 0;
 	char* data = NULL;

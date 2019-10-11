@@ -120,6 +120,7 @@ void debug_plist(plist_t plist);
 void print_progress_bar(double progress);
 int read_file(const char* filename, void** data, size_t* size);
 int write_file(const char* filename, const void* data, size_t size);
+int copy_file(const char* destname, const char* srcname);
 
 char *generate_guid(void);
 

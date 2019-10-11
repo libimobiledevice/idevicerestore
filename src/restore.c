@@ -1662,7 +1662,60 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 		strcpy(bbfwtmp + 5 + l, ".tmp");
 		error("WARNING: Could not generate temporary filename, using %s in current directory\n", bbfwtmp);
 	}
-	if (ipsw_extract_to_file(client->ipsw, bbfwpath, bbfwtmp) != 0) {
+	
+	// check if we already have an extracted baseband
+	char* baseband = NULL;
+	struct stat st;
+	memset(&st, '\0', sizeof(struct stat));
+	char tmpb[1024];
+	if (client->cache_dir) {
+		if (stat(client->cache_dir, &st) < 0) {
+			mkdir_with_parents(client->cache_dir, 0755);
+		}
+		strcpy(tmpb, client->cache_dir);
+		strcat(tmpb, "/");
+		char *ipswtmp = strdup(client->ipsw);
+		strcat(tmpb, basename(ipswtmp));
+		free(ipswtmp);
+	} else {
+		strcpy(tmpb, client->ipsw);
+	}
+
+	if (!ipsw_is_directory(client->ipsw)) {
+		// strip off file extension if given ipsw is not a directory
+		char* s = tmpb + strlen(tmpb) - 1;
+		char* p = s;
+		while (*p != '\0' && *p != '.' && *p != '/' && *p != '\\') p--;
+		if (s - p < 6) {
+			if (*p == '.') {
+				*p = '\0';
+			}
+		}
+	}
+
+	if (stat(tmpb, &st) < 0) {
+		__mkdir(tmpb, 0755);
+	}
+	strcat(tmpb, "/");
+	strcat(tmpb, bbfwpath);
+
+	memset(&st, '\0', sizeof(struct stat));
+	if (stat(tmpb, &st) == 0) {
+		uint64_t fssize = 0;
+		ipsw_get_file_size(client->ipsw, bbfwpath, &fssize);
+		if ((fssize > 0) && ((uint64_t)st.st_size == fssize)) {
+			baseband = strdup(tmpb);
+			info("Using cached baseband from '%s'\n", baseband);
+		}
+	}
+	
+	if(baseband) {
+		if (copy_file(bbfwtmp, baseband) != 0) {
+			error("ERROR: Unable to copy baseband firmware from directory\n");
+			goto leave;
+		}
+	}
+	else if (ipsw_extract_to_file(client->ipsw, bbfwpath, bbfwtmp) != 0) {
 		error("ERROR: Unable to extract baseband firmware from ipsw\n");
 		goto leave;
 	}
@@ -1704,6 +1757,9 @@ int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_
 leave:
 	plist_free(dict);
 	free(buffer);
+	if (baseband) {
+		free(baseband);
+	}
 	if (bbfwtmp) {
 		remove(bbfwtmp);
 		free(bbfwtmp);
