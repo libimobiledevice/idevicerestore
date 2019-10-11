@@ -43,7 +43,7 @@ PKG_CHECK_MODULES(libcurl, libcurl >= $LIBCURL_VERSION)
 PKG_CHECK_MODULES(openssl, openssl >= $OPENSSL_VERSION)
 PKG_CHECK_MODULES(zlib, zlib)
 
-GLOBAL_CFLAGS=""
+GLOBAL_CFLAGS="-Wno-multichar "
 AC_LDADD=""
 AC_LDFLAGS=""
 AC_MSG_CHECKING([whether we need platform-specific build settings])
