@@ -231,10 +231,14 @@ int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, con
 			ret = -1;
 			goto leave;
 		} else {
+			actual_outfile[0] = '\0';
 			if (realpath(outfile, actual_outfile) && (strcmp(actual_filepath, actual_outfile) == 0)) {
 				/* files are identical */
 				ret = 0;
 			} else {
+				if (actual_outfile[0] == '\0') {
+					strcpy(actual_outfile, outfile);
+				}
 				FILE *fi = fopen(actual_filepath, "rb");
 				if (!fi) {
 					error("ERROR: fopen: %s: %s\n", actual_filepath, strerror(errno));
