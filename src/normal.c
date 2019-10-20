@@ -165,12 +165,21 @@ irecv_device_t normal_get_irecv_device(struct idevicerestore_client_t* client)
 	lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
 	if (!(client->flags & FLAG_ERASE) && lockdown_error == LOCKDOWN_E_PAIRING_DIALOG_RESPONSE_PENDING) {
 		info("*** Device is not paired with this computer. Please trust this computer on the device to continue. ***\n");
-		while (1) {
+		if (client->flags & FLAG_DEBUG) {
+			idevice_set_debug_level(0);
+		}
+		while (!(client->flags & FLAG_QUIT)) {
 			lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
 			if (lockdown_error != LOCKDOWN_E_PAIRING_DIALOG_RESPONSE_PENDING) {
 				break;
 			}
 			sleep(1);
+		}
+		if (client->flags & FLAG_DEBUG) {
+			idevice_set_debug_level(1);
+		}
+		if (client->flags & FLAG_QUIT) {
+			return NULL;
 		}
 	}
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
