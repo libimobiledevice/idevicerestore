@@ -109,6 +109,7 @@ struct idevicerestore_client_t {
 	void* idevice_e_ctx;
 	mutex_t device_event_mutex;
 	cond_t device_event_cond;
+	int ignore_device_add_events;
 };
 
 extern struct idevicerestore_mode_t idevicerestore_modes[];

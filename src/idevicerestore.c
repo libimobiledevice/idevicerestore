@@ -208,6 +208,9 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 {
 	struct idevicerestore_client_t *client = (struct idevicerestore_client_t*)userdata;
 	if (event->event == IDEVICE_DEVICE_ADD) {
+		if (client->ignore_device_add_events) {
+			return;
+		}
 		if (normal_check_mode(client) == 0) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = &idevicerestore_modes[MODE_NORMAL];
@@ -226,6 +229,7 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 			mutex_lock(&client->device_event_mutex);
 			client->mode = &idevicerestore_modes[MODE_UNKNOWN];
 			debug("%s: device " FMT_016llx " (udid: %s) disconnected\n", __func__, client->ecid, client->udid);
+			client->ignore_device_add_events = 0;
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
@@ -1309,6 +1313,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	// device is finally in restore mode, let's do this
 	if (client->mode->index == MODE_RESTORE) {
+		client->ignore_device_add_events = 1;
 		info("About to restore device... \n");
 		result = restore_device(client, build_identity, filesystem);
 		if (result < 0) {
