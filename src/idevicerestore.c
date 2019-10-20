@@ -1180,7 +1180,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			if (!client->image4supported) {
 				/* send ApTicket */
 				if (recovery_send_ticket(client) < 0) {
-					error("WARNING: Unable to send APTicket\n");
+					error("ERROR: Unable to send APTicket\n");
+					if (delete_fs && filesystem)
+						unlink(filesystem);
+					return -2;
 				}
 			}
 		}
