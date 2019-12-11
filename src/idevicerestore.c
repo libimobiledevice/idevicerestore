@@ -496,7 +496,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				}
 				unsigned long selected = strtoul(input, NULL, 10);
 				if (selected == 0 || selected > count) {
-					printf("Invalid input value. Must be in range: 1..%d\n", count);
+					printf("Invalid input value. Must be in range: 1..%u\n", count);
 					continue;
 				}
 				selected_fw = plist_array_get_item(signed_fws, (uint32_t)selected-1);
