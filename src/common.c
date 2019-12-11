@@ -444,7 +444,7 @@ char *get_temp_filename(const char *prefix)
 	}
 	lp = strlen(prefix);
 	result = malloc(lt + lp + 8);
-	strncpy(result, tmpdir, lt);
+	memcpy(result, tmpdir, lt);
 #ifdef WIN32
 	if (tmpdir[lt-1] != '/' && tmpdir[lt-1] != '\\') result[lt++] = '\\';
 #else

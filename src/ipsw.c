@@ -61,9 +61,9 @@ static char* build_path(const char* path, const char* file)
 	if (!fullpath) {
 		return NULL;
 	}
-	strncpy(fullpath, path, plen);
+	memcpy(fullpath, path, plen);
 	fullpath[plen] = '/';
-	strncpy(fullpath+plen+1, file, flen);
+	memcpy(fullpath+plen+1, file, flen);
 	fullpath[plen+1+flen] = '\0';
 	return fullpath;
 }
