@@ -35,7 +35,7 @@
 #include "restore.h"
 #include "recovery.h"
 
-int recovery_progress_callback(irecv_client_t client, const irecv_event_t* event) {
+static int recovery_progress_callback(irecv_client_t client, const irecv_event_t* event) {
 	if (event->type == IRECV_PROGRESS) {
 		//print_progress_bar(event->progress);
 	}

@@ -617,7 +617,7 @@ const char* restore_progress_string(unsigned int operation)
 
 static int lastop = 0;
 
-int restore_handle_previous_restore_log_msg(restored_client_t client, plist_t msg)
+static int restore_handle_previous_restore_log_msg(restored_client_t client, plist_t msg)
 {
 	plist_t node = NULL;
 	char* restorelog = NULL;
@@ -761,7 +761,7 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg)
 	return result;
 }
 
-int restore_handle_bb_update_status_msg(restored_client_t client, plist_t msg)
+static int restore_handle_bb_update_status_msg(restored_client_t client, plist_t msg)
 {
 	int result = -1;
 	plist_t node = plist_dict_get_item(msg, "Accepted");
@@ -1596,7 +1596,7 @@ leave:
 	return res;
 }
 
-int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
+static int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
 {
 	int res = -1;
 	uint64_t bb_cert_id = 0;
@@ -1787,7 +1787,7 @@ int restore_send_fdr_trust_data(restored_client_t restore, idevice_t device)
 	return 0;
 }
 
-int restore_send_fud_data(restored_client_t restore, struct idevicerestore_client_t *client, plist_t build_identity, plist_t message)
+static int restore_send_fud_data(restored_client_t restore, struct idevicerestore_client_t *client, plist_t build_identity, plist_t message)
 {
 	restored_error_t restore_error;
 	plist_t arguments;
@@ -1921,7 +1921,7 @@ int restore_send_fud_data(restored_client_t restore, struct idevicerestore_clien
 	return 0;
 }
 
-plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+static plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
 {
 	const char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2010,7 +2010,7 @@ plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicere
 	return response;
 }
 
-plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+static plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2102,7 +2102,7 @@ plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevi
 	return response;
 }
 
-plist_t restore_get_yonkers_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2188,7 +2188,7 @@ plist_t restore_get_yonkers_firmware_data(restored_client_t restore, struct idev
 	return response;
 }
 
-plist_t restore_get_rose_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2325,7 +2325,7 @@ plist_t restore_get_rose_firmware_data(restored_client_t restore, struct idevice
 	return response;
 }
 
-plist_t restore_get_veridian_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+static plist_t restore_get_veridian_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
 {
 	char *comp_name = "BMU,FirmwareMap";
 	char *comp_path = NULL;
@@ -2423,7 +2423,7 @@ plist_t restore_get_veridian_firmware_data(restored_client_t restore, struct ide
 	return response;
 }
 
-int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
+static int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
 {
 	plist_t arguments;
 	plist_t p_type, p_updater_name, p_loop_count, p_info;

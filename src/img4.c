@@ -265,7 +265,7 @@ static const unsigned char *asn1_find_element(unsigned int index, unsigned char 
 	return &data[off];
 }
 
-const char *_img4_get_component_tag(const char *compname)
+static const char *_img4_get_component_tag(const char *compname)
 {
 	struct comp_tags {
 		const char *comp;
@@ -457,7 +457,7 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
                     | (((x) & 0x000000FF) << 24))
 #endif
 
-void _manifest_write_key_value(unsigned char **p, unsigned int *length, const char *tag, int type, void *value, int size)
+static void _manifest_write_key_value(unsigned char **p, unsigned int *length, const char *tag, int type, void *value, int size)
 {
 	uint32_t utag = __bswap_32(*(uint32_t*)tag);
 	asn1_write_priv_element(p, length, utag);
@@ -490,7 +490,7 @@ void _manifest_write_key_value(unsigned char **p, unsigned int *length, const ch
 	*p += this_length + outer_length + inner_length;
 }
 
-void _manifest_write_component(unsigned char **p, unsigned int *length, const char *tag, plist_t comp)
+static void _manifest_write_component(unsigned char **p, unsigned int *length, const char *tag, plist_t comp)
 {
 	uint32_t utag = __bswap_32(*(uint32_t*)tag);
 	asn1_write_priv_element(p, length, utag);
