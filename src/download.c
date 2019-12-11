@@ -92,7 +92,7 @@ static int download_progress(void *clientp, double dltotal, double dlnow, double
 {
 	double p = (dlnow / dltotal) * 100;
 
-	if (p < 100.0f) {
+	if (p < 100.0) {
 		if ((int)p > lastprogress) {
 			info("downloading: %d%%\n", (int)p);
 			lastprogress = (int)p;
