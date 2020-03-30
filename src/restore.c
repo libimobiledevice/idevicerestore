@@ -2307,7 +2307,7 @@ plist_t restore_get_rose_firmware_data(restored_client_t restore, struct idevice
 		component_data = NULL;
 		component_size = 0;
 	}else{
-		info("WARNING: Rap,RestoreRTKitOS section is not presented into BuildManifest file.\n");
+		info("WARNING: Rap,RestoreRTKitOS node. The entry is not in the build manifest.\n");
 	}
 	ftab_write(ftab, &component_data, &component_size);
 	ftab_free(ftab);
