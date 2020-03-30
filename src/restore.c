@@ -2273,43 +2273,40 @@ plist_t restore_get_rose_firmware_data(restored_client_t restore, struct idevice
 	}
 
 	comp_name = "Rap,RestoreRTKitOS";
-	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
-		ftab_free(ftab);
-		error("ERROR: Unable get path for '%s' component\n", comp_name);
-		return NULL;
-	}
-	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
-	free(comp_path);
-	comp_path = NULL;
-	if (ret < 0) {
-		ftab_free(ftab);
-		error("ERROR: Unable to extract '%s' component\n", comp_name);
-		return NULL;
-	}
+	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) >= 0) {
 
-	ftag = 0;
-	if (ftab_parse(component_data, component_size, &rftab, &ftag) != 0) {
-		free(component_data);
-		ftab_free(ftab);
-		error("ERROR: Failed to parse '%s' component data.\n");
-		return NULL;
-	}
-	free(component_data);
-	component_data = NULL;
-	component_size = 0;
-	if (ftag != 'rkos') {
-		error("WARNING: Unexpected tag 0x%08x, expected 0x%08x; continuing anyway.", ftag, 'rkos');
-	}
+			ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+			free(comp_path);
+			comp_path = NULL;
+			if (ret < 0) {
+				ftab_free(ftab);
+				error("ERROR: Unable to extract '%s' component\n", comp_name);
+				return NULL;
+			}
 
-	if (ftab_get_entry_ptr(rftab, 'rrko', &component_data, &component_size) == 0) {
-		ftab_add_entry(ftab, 'rrko', component_data, component_size);
-	} else {
-		error("ERROR: Could not find 'rrko' entry in ftab. This will probably break things.\n");
-	}
-	ftab_free(rftab);
-	component_data = NULL;
-	component_size = 0;
+			ftag = 0;
+			if (ftab_parse(component_data, component_size, &rftab, &ftag) != 0) {
+				free(component_data);
+				ftab_free(ftab);
+				error("ERROR: Failed to parse '%s' component data.\n");
+				return NULL;
+			}
+			free(component_data);
+			component_data = NULL;
+			component_size = 0;
+			if (ftag != 'rkos') {
+				error("WARNING: Unexpected tag 0x%08x, expected 0x%08x; continuing anyway.", ftag, 'rkos');
+			}
 
+			if (ftab_get_entry_ptr(rftab, 'rrko', &component_data, &component_size) == 0) {
+				ftab_add_entry(ftab, 'rrko', component_data, component_size);
+			} else {
+				error("ERROR: Could not find 'rrko' entry in ftab. This will probably break things.\n");
+			}
+			ftab_free(rftab);
+			component_data = NULL;
+			component_size = 0;
+	}
 	ftab_write(ftab, &component_data, &component_size);
 	ftab_free(ftab);
 
