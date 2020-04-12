@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include <libimobiledevice/restore.h>
 #include <zip.h>
 #include <libirecovery.h>
@@ -1941,7 +1942,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 	} else if (chip_id == 0x73 || chip_id == 0x64 || chip_id == 0xC8) {
 		comp_name = "SE,UpdatePayload";
 	} else {
-		info("WARNING: Unknown SE,ChipID 0x%x detected. Restore might fail.\n", chip_id);
+		info("WARNING: Unknown SE,ChipID 0x%" PRIx64 " detected. Restore might fail.\n", (unsigned long long)chip_id);
 		if (build_identity_has_component(build_identity, "SE,UpdatePayload"))
 			comp_name = "SE,UpdatePayload";
 		else if (build_identity_has_component(build_identity, "SE,Firmware"))
@@ -2262,7 +2263,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 	}
 	if (ftab_parse(component_data, component_size, &ftab, &ftag) != 0) {
 		free(component_data);
-		error("ERROR: Failed to parse '%s' component data.\n");
+		error("ERROR: Failed to parse '%s' component data.\n", comp_name);
 		return NULL;
 	}
 	free(component_data);
@@ -2292,7 +2293,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 		if (ftab_parse(component_data, component_size, &rftab, &ftag) != 0) {
 			free(component_data);
 			ftab_free(ftab);
-			error("ERROR: Failed to parse '%s' component data.\n");
+			error("ERROR: Failed to parse '%s' component data.\n", comp_name);
 			return NULL;
 		}
 		free(component_data);
@@ -2435,7 +2436,7 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 	int restore_error;
 
 	if (idevicerestore_debug) {
-		debug("DEBUG: Got FirmwareUpdaterData request:\n", __func__);
+		debug("DEBUG: %s: Got FirmwareUpdaterData request:\n", __func__);
 		debug_plist(message);
 	}
 
