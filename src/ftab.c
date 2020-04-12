@@ -41,7 +41,7 @@ int ftab_parse(unsigned char *data, unsigned int data_size, ftab_t *ftab, uint32
 
 	struct ftab_header *hdr_ptr = (struct ftab_header*)data;
 	if (be32toh(hdr_ptr->magic) != 'ftab') {
-		error("ERROR: %s: Unexpected magic value 0x%08x\n", le32toh(hdr_ptr->magic));
+		error("ERROR: %s: Unexpected magic value 0x%08x\n", __func__, le32toh(hdr_ptr->magic));
 		return -1;
 	}
 
