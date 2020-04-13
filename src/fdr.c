@@ -27,7 +27,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <inttypes.h>
 #include <libimobiledevice/libimobiledevice.h>
 
 #include "socket.h" /* from libimobiledevice/common */
@@ -341,7 +340,7 @@ static int fdr_ctrl_handshake(fdr_client_t fdr)
 		conn_port = le16toh(cport);
 	}
 
-	debug("Ctrl handshake done (ConnPort = %" PRIu64 ")\n", (unsigned long long)conn_port);
+	debug("Ctrl handshake done (ConnPort = %" PRIu64 ")\n", (uint64_t)conn_port);
 
 	return 0;
 }

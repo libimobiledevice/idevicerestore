@@ -28,7 +28,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <inttypes.h>
 #include <libimobiledevice/restore.h>
 #include <zip.h>
 #include <libirecovery.h>
@@ -1942,7 +1941,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 	} else if (chip_id == 0x73 || chip_id == 0x64 || chip_id == 0xC8) {
 		comp_name = "SE,UpdatePayload";
 	} else {
-		info("WARNING: Unknown SE,ChipID 0x%" PRIx64 " detected. Restore might fail.\n", (unsigned long long)chip_id);
+		info("WARNING: Unknown SE,ChipID 0x%" PRIx64 " detected. Restore might fail.\n", (uint64_t)chip_id);
 		if (build_identity_has_component(build_identity, "SE,UpdatePayload"))
 			comp_name = "SE,UpdatePayload";
 		else if (build_identity_has_component(build_identity, "SE,Firmware"))

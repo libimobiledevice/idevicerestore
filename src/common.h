@@ -32,6 +32,7 @@ extern "C" {
 #include <config.h>
 #endif
 
+#include <inttypes.h>
 #include <unistd.h>
 
 #include <plist/plist.h>
@@ -146,7 +147,7 @@ char *generate_guid(void);
 #include <sys/stat.h>
 #define __mkdir(path, mode) mkdir(path, mode)
 #define FMT_qu "%qu"
-#define FMT_016llx "%016llx"
+#define FMT_016llx "%016" PRIx64
 #define __usleep(x) usleep(x)
 #endif
 
