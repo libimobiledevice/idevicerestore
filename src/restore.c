@@ -24,6 +24,7 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -965,11 +966,11 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	char* llb_filename = NULL;
 	char* sep_path = NULL;
 	char* restore_sep_path = NULL;
-	char firmware_path[256];
-	char manifest_file[256];
+	char firmware_path[PATH_MAX - 9];
+	char manifest_file[PATH_MAX];
 	unsigned int manifest_size = 0;
 	unsigned char* manifest_data = NULL;
-	char firmware_filename[256];
+	char firmware_filename[PATH_MAX];
 	unsigned int llb_size = 0;
 	unsigned char* llb_data = NULL;
 	plist_t dict = NULL;

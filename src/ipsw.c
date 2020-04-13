@@ -704,14 +704,14 @@ int ipsw_download_fw(const char *fwurl, unsigned char* isha1, const char* todir,
 	}
 	fwfn++;
 
-	char fwlfn[256];
+	char fwlfn[PATH_MAX - 5];
 	if (todir) {
 		sprintf(fwlfn, "%s/%s", todir, fwfn);
 	} else {
 		sprintf(fwlfn, "%s", fwfn);
 	}
 
-	char fwlock[256];
+	char fwlock[PATH_MAX];
 	sprintf(fwlock, "%s.lock", fwlfn);
 
 	lock_info_t lockinfo;
