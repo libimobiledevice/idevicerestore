@@ -735,7 +735,7 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg)
 			info("Status: X-Gold Baseband Update Failed. Defective Unit?\n");
 			break;
 		default:
-			info("Unhandled status message (" FMT_qu ")\n", (long long unsigned int)value);
+			info("Unhandled status message (%" PRIu64 ")\n", value);
 			debug_plist(msg);
 			break;
 	}
@@ -2677,7 +2677,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		node = plist_dict_get_item(hwinfo, "UniqueChipID");
 		if (node && plist_get_node_type(node) == PLIST_UINT) {
 			plist_get_uint_val(node, &i);
-			info("UniqueChipID: " FMT_qu "\n", (long long unsigned int)i);
+			info("UniqueChipID: %" PRIu64 "\n", i);
 		}
 
 		node = plist_dict_get_item(hwinfo, "ProductionMode");

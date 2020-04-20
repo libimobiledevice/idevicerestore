@@ -576,7 +576,7 @@ int ipsw_get_latest_fw(plist_t version_data, const char* product, char** fwurl, 
 		return -1;
 	}
 	char* key = NULL;
-	long long unsigned int major = 0;
+	uint64_t major = 0;
 	plist_t val = NULL;
 	do {
 		plist_dict_next_item(n1, iter, &key, &val);
@@ -598,7 +598,7 @@ int ipsw_get_latest_fw(plist_t version_data, const char* product, char** fwurl, 
 	}
 
 	char majstr[32]; // should be enough for a uint64_t value
-	sprintf(majstr, FMT_qu, (long long unsigned int)major);
+	sprintf(majstr, "%"PRIu64, (uint64_t)major);
 	n1 = plist_access_path(version_data, 7, "MobileDeviceSoftwareVersionsByVersion", majstr, "MobileDeviceSoftwareVersions", product, "Unknown", "Universal", "Restore");
 	if (!n1) {
 		error("%s: ERROR: Can't get Unknown/Universal/Restore node?!\n", __func__);

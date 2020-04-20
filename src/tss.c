@@ -50,7 +50,7 @@ char* ecid_to_string(uint64_t ecid) {
 		error("ERROR: Invalid ECID passed.\n");
 		return NULL;
 	}
-	snprintf(ecid_string, ECID_STRSIZE, FMT_qu, (long long unsigned int)ecid);
+	snprintf(ecid_string, ECID_STRSIZE, "%"PRIu64, ecid);
 	return ecid_string;
 }
 

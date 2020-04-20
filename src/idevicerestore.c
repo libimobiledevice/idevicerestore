@@ -220,13 +220,13 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 		if (normal_check_mode(client) == 0) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = &idevicerestore_modes[MODE_NORMAL];
-			debug("%s: device " FMT_016llx " (udid: %s) connected in normal mode\n", __func__, client->ecid, client->udid);
+			debug("%s: device %016" PRIx64 " (udid: %s) connected in normal mode\n", __func__, client->ecid, client->udid);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		} else if (client->ecid && restore_check_mode(client) == 0) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = &idevicerestore_modes[MODE_RESTORE];
-			debug("%s: device " FMT_016llx " (udid: %s) connected in restore mode\n", __func__, client->ecid, client->udid);
+			debug("%s: device %016" PRIx64 " (udid: %s) connected in restore mode\n", __func__, client->ecid, client->udid);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
@@ -234,7 +234,7 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 		if (client->udid && !strcmp(event->udid, client->udid)) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = &idevicerestore_modes[MODE_UNKNOWN];
-			debug("%s: device " FMT_016llx " (udid: %s) disconnected\n", __func__, client->ecid, client->udid);
+			debug("%s: device %016" PRIx64 " (udid: %s) disconnected\n", __func__, client->ecid, client->udid);
 			client->ignore_device_add_events = 0;
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
@@ -267,7 +267,7 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 				default:
 					client->mode = &idevicerestore_modes[MODE_UNKNOWN];
 			}
-			debug("%s: device " FMT_016llx " (udid: %s) connected in %s mode\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A", client->mode->string);
+			debug("%s: device %016" PRIx64 " (udid: %s) connected in %s mode\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A", client->mode->string);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
@@ -275,7 +275,7 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 		if (client->ecid && event->device_info->ecid == client->ecid) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = &idevicerestore_modes[MODE_UNKNOWN];
-			debug("%s: device " FMT_016llx " (udid: %s) disconnected\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A");
+			debug("%s: device %016" PRIx64 " (udid: %s) disconnected\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A");
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
@@ -1000,7 +1000,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			error("ERROR: Unable to find device ECID\n");
 			return -1;
 		}
-		info("Found ECID " FMT_qu "\n", (long long unsigned int)client->ecid);
+		info("Found ECID %" PRIu64 "\n", client->ecid);
 
 		if (client->mode->index == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
 			plist_t node = normal_get_lockdown_value(client, NULL, "HasSiDP");
@@ -1099,7 +1099,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 					strcpy(zfn, "shsh");
 				}
 				mkdir_with_parents(zfn, 0755);
-				sprintf(zfn+strlen(zfn), "/" FMT_qu "-%s-%s.shsh", (long long int)client->ecid, client->device->product_type, client->version);
+				sprintf(zfn+strlen(zfn), "/%" PRIu64 "-%s-%s.shsh", client->ecid, client->device->product_type, client->version);
 				struct stat fst;
 				if (stat(zfn, &fst) != 0) {
 					gzFile zf = gzopen(zfn, "wb");
@@ -1440,7 +1440,7 @@ void idevicerestore_client_free(struct idevicerestore_client_t* client)
 	free(client);
 }
 
-void idevicerestore_set_ecid(struct idevicerestore_client_t* client, unsigned long long ecid)
+void idevicerestore_set_ecid(struct idevicerestore_client_t* client, uint64_t ecid)
 {
 	if (!client)
 		return;
@@ -2034,9 +2034,9 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		char zfn[1024];
 		if (client->version) {
 			if (client->cache_dir) {
-				sprintf(zfn, "%s/shsh/" FMT_qu "-%s-%s.shsh", client->cache_dir, (long long int)client->ecid, client->device->product_type, client->version);
+				sprintf(zfn, "%s/shsh/%" PRIu64 "-%s-%s.shsh", client->cache_dir, client->ecid, client->device->product_type, client->version);
 			} else {
-				sprintf(zfn, "shsh/" FMT_qu "-%s-%s.shsh", (long long int)client->ecid, client->device->product_type, client->version);
+				sprintf(zfn, "shsh/%" PRIu64 "-%s-%s.shsh", client->ecid, client->device->product_type, client->version);
 			}
 			struct stat fst;
 			if (stat(zfn, &fst) == 0) {

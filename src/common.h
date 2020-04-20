@@ -137,8 +137,6 @@ char *generate_guid(void);
 #include <windows.h>
 #include <unistd.h>
 #define __mkdir(path, mode) mkdir(path)
-#define FMT_qu "%I64u"
-#define FMT_016llx "%016I64x"
 #ifndef sleep
 #define sleep(x) Sleep(x*1000)
 #endif
@@ -146,8 +144,6 @@ char *generate_guid(void);
 #else
 #include <sys/stat.h>
 #define __mkdir(path, mode) mkdir(path, mode)
-#define FMT_qu "%qu"
-#define FMT_016llx "%016" PRIx64
 #define __usleep(x) usleep(x)
 #endif
 

@@ -63,7 +63,7 @@ typedef void (*idevicerestore_progress_cb_t)(int step, double step_progress, voi
 struct idevicerestore_client_t* idevicerestore_client_new(void);
 void idevicerestore_client_free(struct idevicerestore_client_t* client);
 
-void idevicerestore_set_ecid(struct idevicerestore_client_t* client, unsigned long long ecid);
+void idevicerestore_set_ecid(struct idevicerestore_client_t* client, uint64_t ecid);
 void idevicerestore_set_udid(struct idevicerestore_client_t* client, const char* udid);
 void idevicerestore_set_flags(struct idevicerestore_client_t* client, int flags);
 void idevicerestore_set_ipsw(struct idevicerestore_client_t* client, const char* path);
