@@ -76,6 +76,7 @@ static struct option longopts[] = {
 	{ "plain-progress", no_argument, NULL, 'P' },
 	{ "restore-mode", no_argument,  NULL, 'R' },
 	{ "ticket", required_argument,  NULL, 'T' },
+	{ "no-restore", no_argument,    NULL, 'z' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -118,6 +119,7 @@ static void usage(int argc, char* argv[], int err)
 	" -s, --cydia      Use Cydia's signature service instead of Apple's\n" \
 	" -x, --exclude    Exclude nor/baseband upgrade\n" \
 	" -t, --shsh       Fetch TSS record and save to .shsh file, then exit\n" \
+	" -z, --no-restore Do not restore and end after booting to the ramdisk\n" \
 	" -k, --keep-pers  Write personalized components to files for debugging\n" \
 	" -p, --pwn        Put device in pwned DFU mode and exit (limera1n devices only)\n" \
 	" -P, --plain-progress  Print progress as plain step and progress\n" \
@@ -1332,6 +1334,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	// device is finally in restore mode, let's do this
 	if (client->mode->index == MODE_RESTORE) {
+		if ((client->flags & FLAG_NO_RESTORE) != 0) {
+			info("Device is now in restore mode. Exiting as requested.");
+			return 0;
+		}
 		client->ignore_device_add_events = 1;
 		info("About to restore device... \n");
 		result = restore_device(client, build_identity, filesystem);
@@ -1553,7 +1559,7 @@ int main(int argc, char* argv[]) {
 		client->flags |= FLAG_INTERACTIVE;
 	}
 
-	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:kyPRT:", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:kyPRT:z", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv, 0);
@@ -1636,6 +1642,10 @@ int main(int argc, char* argv[]) {
 
 		case 'R':
 			client->flags |= FLAG_ALLOW_RESTORE_MODE;
+			break;
+
+		case 'z':
+			client->flags |= FLAG_NO_RESTORE;
 			break;
 
 		case 'T': {
