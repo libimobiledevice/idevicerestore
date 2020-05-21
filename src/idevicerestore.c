@@ -215,6 +215,12 @@ static int compare_versions(const char *s_ver1, const char *s_ver2)
 static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 {
 	struct idevicerestore_client_t *client = (struct idevicerestore_client_t*)userdata;
+#ifdef HAVE_ENUM_IDEVICE_CONNECTION_TYPE
+	if (event->conn_type != CONNECTION_USBMUXD) {
+		// ignore everything but devices connected through USB
+		return;
+	}
+#endif
 	if (event->event == IDEVICE_DEVICE_ADD) {
 		if (client->ignore_device_add_events) {
 			return;
