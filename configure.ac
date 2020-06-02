@@ -40,10 +40,12 @@ PKG_CHECK_MODULES(libimobiledevice, libimobiledevice-1.0 >= $LIBIMOBILEDEVICE_VE
 PKG_CHECK_MODULES(libplist, libplist >= $LIBPLIST_VERSION)
 PKG_CHECK_MODULES(libzip, libzip >= $LIBZIP_VERSION)
 PKG_CHECK_MODULES(libcurl, libcurl >= $LIBCURL_VERSION)
-PKG_CHECK_MODULES(openssl, openssl >= $OPENSSL_VERSION)
 PKG_CHECK_MODULES(zlib, zlib)
 
-GLOBAL_CFLAGS="-Wno-multichar "
+# optional
+PKG_CHECK_MODULES(openssl, openssl >= $OPENSSL_VERSION, have_openssl=yes, have_openssl=no)
+
+GLOBAL_CFLAGS="-Wno-multichar -O2"
 AC_LDADD=""
 AC_LDFLAGS=""
 AC_MSG_CHECKING([whether we need platform-specific build settings])
@@ -111,6 +113,31 @@ fi
 
 CFLAGS="$CACHED_CFLAGS"
 
+AC_ARG_WITH([openssl],
+            [AS_HELP_STRING([--without-openssl],
+            [Do not use OpenSSL])],
+            [use_openssl=$withval],
+            [use_openssl=$have_openssl])
+
+if test "x$use_openssl" == "xyes"; then
+  if test "x$have_openssl" != "xyes"; then
+    echo "*** NOTE: --with-openssl passed but OpenSSL is not available ***"
+    use_openssl=no
+  fi
+fi
+if test "x$use_openssl" != "xyes"; then
+  echo "*** NOTE: Using internal SHA1 implementation ***"
+  have_openssl=no
+  openssl_CFLAGS=
+  openssl_LIBS=
+fi
+if test "x$have_openssl" == "xyes"; then
+  AC_DEFINE(HAVE_OPENSSL, [1], [Define if you have OpenSSL])
+fi
+AC_SUBST(openssl_CFLAGS)
+AC_SUBST(openssl_LIBS)
+
+AM_CONDITIONAL(USE_INTERNAL_SHA1, test x$use_openssl != xyes)
 
 AC_SUBST(GLOBAL_CFLAGS)
 AC_SUBST(AC_LDFLAGS)

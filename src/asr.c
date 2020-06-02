@@ -21,13 +21,24 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <libimobiledevice/libimobiledevice.h>
+#ifdef HAVE_OPENSSL
 #include <openssl/sha.h>
+#else
+#include "sha1.h"
+#define SHA_CTX SHA1_CTX
+#define SHA1_Init SHA1Init
+#define SHA1_Update SHA1Update
+#define SHA1_Final SHA1Final
+#endif
 
 #include "asr.h"
 #include "idevicerestore.h"
@@ -399,7 +410,7 @@ int asr_send_payload(asr_client_t asr, const char* filesystem)
 		}
 
 		if (asr->checksum_chunks) {
-			SHA1_Update(&sha1, data, size);
+			SHA1_Update(&sha1, (unsigned char*)data, size);
 			chunk += size;
 
 			if (add_checksum) {

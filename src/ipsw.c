@@ -32,7 +32,15 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <zip.h>
+#ifdef HAVE_OPENSSL
 #include <openssl/sha.h>
+#else
+#include "sha1.h"
+#define SHA_CTX SHA1_CTX
+#define SHA1_Init SHA1Init
+#define SHA1_Update SHA1Update
+#define SHA1_Final SHA1Final
+#endif
 
 #include "ipsw.h"
 #include "locking.h"
