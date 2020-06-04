@@ -85,48 +85,52 @@ static void usage(int argc, char* argv[], int err)
 	char* name = strrchr(argv[0], '/');
 	fprintf((err) ? stderr : stdout,
 	"Usage: %s [OPTIONS] PATH\n" \
+	"\n" \
 	"Restore IPSW firmware at PATH to an iOS device.\n" \
 	"\n" \
 	"PATH can be a compressed .ipsw file or a directory containing all files\n" \
 	"extracted from an IPSW.\n" \
 	"\n" \
-	"Options:\n" \
-	" -i, --ecid ECID  Target specific device by its ECID\n" \
-	"                  e.g. 0xaabb123456 (hex) or 1234567890 (decimal)\n" \
-	" -u, --udid UDID  Target specific device by its device UDID\n" \
-	"                  NOTE: only works with devices in normal mode.\n" \
-	" -l, --latest     Use latest available firmware (with download on demand).\n" \
-	"                  Before performing any action it will interactively ask to\n" \
-	"                  select one of the currently signed firmware versions,\n" \
-	"                  unless -y has been given too.\n" \
-	"                  The PATH argument is ignored when using this option.\n" \
-	"                  DO NOT USE if you need to preserve the baseband (unlock)!\n" \
-	"                  USE WITH CARE if you want to keep a jailbreakable firmware!\n" \
-	" -e, --erase      Perform a full restore, erasing all data (defaults to update)\n" \
-	"                  DO NOT USE if you want to preserve user data on the device!\n" \
-	" -y, --no-input   Non-interactive mode, do not ask for any input.\n" \
-	"                  WARNING: This will disable certain checks/prompts that are\n" \
-	"                  supposed to prevent DATA LOSS. Use with caution.\n" \
-	" -n, --no-action  Do not perform any restore action. If combined with -l option\n" \
-	"                  the on-demand ipsw download is performed before exiting.\n" \
-	" -h, --help       Prints this usage information\n" \
-	" -C, --cache-path DIR  Use specified directory for caching extracted or other\n" \
-	"                  reused files.\n" \
-	" -d, --debug      Enable communication debugging\n" \
+	"OPTIONS:\n" \
+	"  -i, --ecid ECID       Target specific device by its ECID\n" \
+	"                        e.g. 0xaabb123456 (hex) or 1234567890 (decimal)\n" \
+	"  -u, --udid UDID       Target specific device by its device UDID\n" \
+	"                        NOTE: only works with devices in normal mode.\n" \
+	"  -l, --latest          Use latest available firmware (with download on demand).\n" \
+	"                        Before performing any action it will interactively ask\n" \
+	"                        to select one of the currently signed firmware versions,\n" \
+	"                        unless -y has been given too.\n" \
+	"                        The PATH argument is ignored when using this option.\n" \
+	"                        DO NOT USE if you need to preserve the baseband/unlock!\n" \
+	"                        USE WITH CARE if you want to keep a jailbreakable\n" \
+	"                        firmware!\n" \
+	"  -e, --erase           Perform full restore instead of update, erasing all data\n" \
+	"                        DO NOT USE if you want to preserve user data on the device!\n" \
+	"  -y, --no-input        Non-interactive mode, do not ask for any input.\n" \
+	"                        WARNING: This will disable certain checks/prompts that\n" \
+	"                        are supposed to prevent DATA LOSS. Use with caution.\n" \
+	"  -n, --no-action       Do not perform any restore action. If combined with -l\n" \
+	"                        option the on-demand ipsw download is performed before\n" \
+	"                        exiting.\n" \
+	"  -h, --help            Prints this usage information\n" \
+	"  -C, --cache-path DIR  Use specified directory for caching extracted or other\n" \
+	"                        reused files.\n" \
+	"  -d, --debug           Enable communication debugging\n" \
 	"\n" \
 	"Advanced/experimental options:\n"
-	" -c, --custom     Restore with a custom firmware\n" \
-	" -s, --cydia      Use Cydia's signature service instead of Apple's\n" \
-	" -x, --exclude    Exclude nor/baseband upgrade\n" \
-	" -t, --shsh       Fetch TSS record and save to .shsh file, then exit\n" \
-	" -z, --no-restore Do not restore and end after booting to the ramdisk\n" \
-	" -k, --keep-pers  Write personalized components to files for debugging\n" \
-	" -p, --pwn        Put device in pwned DFU mode and exit (limera1n devices only)\n" \
-	" -P, --plain-progress  Print progress as plain step and progress\n" \
-	" -R, --restore-mode  Allow restoring from Restore mode\n" \
-	" -T, --ticket PATH   Use file at PATH to send as AP ticket\n" \
+	"  -c, --custom          Restore with a custom firmware\n" \
+	"  -s, --cydia           Use Cydia's signature service instead of Apple's\n" \
+	"  -x, --exclude         Exclude nor/baseband upgrade\n" \
+	"  -t, --shsh            Fetch TSS record and save to .shsh file, then exit\n" \
+	"  -z, --no-restore      Do not restore and end after booting to the ramdisk\n" \
+	"  -k, --keep-pers       Write personalized components to files for debugging\n" \
+	"  -p, --pwn             Put device in pwned DFU mode and exit (limera1n devices)\n" \
+	"  -P, --plain-progress  Print progress as plain step and progress\n" \
+	"  -R, --restore-mode    Allow restoring from Restore mode\n" \
+	"  -T, --ticket PATH     Use file at PATH to send as AP ticket\n" \
 	"\n" \
-	"Homepage: <" PACKAGE_URL ">\n",
+	"Homepage:    <" PACKAGE_URL ">\n" \
+	"Bug Reports: <" PACKAGE_BUGREPORT ">\n",
 	(name ? name + 1 : argv[0]));
 }
 #endif
