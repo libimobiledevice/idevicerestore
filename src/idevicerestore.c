@@ -77,6 +77,7 @@ static struct option longopts[] = {
 	{ "restore-mode",   no_argument,       NULL, 'R' },
 	{ "ticket",         required_argument, NULL, 'T' },
 	{ "no-restore",     no_argument,       NULL, 'z' },
+	{ "version",        no_argument,       NULL, 'v' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -116,6 +117,7 @@ static void usage(int argc, char* argv[], int err)
 	"  -C, --cache-path DIR  Use specified directory for caching extracted or other\n" \
 	"                        reused files.\n" \
 	"  -d, --debug           Enable communication debugging\n" \
+	"  -v, --version         Print version information\n" \
 	"\n" \
 	"Advanced/experimental options:\n"
 	"  -c, --custom          Restore with a custom firmware\n" \
@@ -1569,7 +1571,7 @@ int main(int argc, char* argv[]) {
 		client->flags |= FLAG_INTERACTIVE;
 	}
 
-	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:kyPRT:z", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:kyPRT:zv", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv, 0);
@@ -1658,6 +1660,10 @@ int main(int argc, char* argv[]) {
 			client->flags |= FLAG_NO_RESTORE;
 			break;
 
+		case 'v':
+			info("%s %s\n", PACKAGE_NAME, PACKAGE_VERSION);
+			return 0;
+
 		case 'T': {
 			size_t root_ticket_len = 0;
 			unsigned char* root_ticket = NULL;
@@ -1669,6 +1675,7 @@ int main(int argc, char* argv[]) {
 			info("Using ApTicket found at %s length %u\n", optarg, client->root_ticket_len);
 			break;
 		}
+
 		default:
 			usage(argc, argv, 1);
 			return -1;
