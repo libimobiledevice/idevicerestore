@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.64)
-AC_INIT([idevicerestore], [1.0], [https://github.com/libimobiledevice/idevicerestore/issues],, [http://libimobiledevice.org])
+AC_INIT([idevicerestore], [1.0.0], [https://github.com/libimobiledevice/idevicerestore/issues],, [http://libimobiledevice.org])
 
 AC_CANONICAL_SYSTEM
 AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip])
