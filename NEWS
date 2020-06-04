@@ -1,1 +1,16 @@
-Sample NEWS file for idevicerestore project.
+Version 1.0.0
+~~~~~~~~~~~~~
+
+* First official public release
+* Features:
+  - Restore firmware files to iOS devices
+  - Use official IPSW firmware archive file or directory
+  - Updates the device by default or allows full restore erasing all data
+  - Download latest available firmware for device on demand
+  - Cache downloaded firmware files
+  - Restore using custom firmware files
+  - Skip NOR/Baseband upgrade
+  - Fetch TSS records as ".shsh" files
+  - Put devices in pwned DFU mode (limera1n devices only)
+  - Use custom AP ticket from file
+  - Developed since 2010
