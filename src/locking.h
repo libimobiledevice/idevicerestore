@@ -34,7 +34,7 @@ typedef struct {
 #else
 	FILE* fp;
 	struct flock ldata;
-#endif	
+#endif
 } lock_info_t;
 
 int lock_file(const char* filename, lock_info_t* lockp);

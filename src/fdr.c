@@ -246,7 +246,7 @@ static int fdr_send_plist(fdr_client_t fdr, plist_t data)
 		debug_plist(data);
 	device_error = idevice_connection_send(fdr->connection, (char *)&len, sizeof(len), &bytes);
 	if (device_error != IDEVICE_E_SUCCESS || bytes != sizeof(len)) {
-		error("ERROR: FDR unable to send data length. (%d) Sent %u of %u bytes.\n", 
+		error("ERROR: FDR unable to send data length. (%d) Sent %u of %u bytes.\n",
 		      device_error, bytes, (uint32_t)sizeof(len));
 		free(buf);
 		return -1;

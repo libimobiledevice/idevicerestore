@@ -76,7 +76,7 @@ int ftab_parse(unsigned char *data, unsigned int data_size, ftab_t *ftab, uint32
 		memcpy(ftab_new->storage[i], data + ftab_new->entries[i].offset, ftab_new->entries[i].size);
 	}
 
-	*ftab = ftab_new;	
+	*ftab = ftab_new;
 
 	return 0;
 }

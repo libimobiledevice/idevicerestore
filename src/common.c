@@ -290,7 +290,7 @@ int mkdir_with_parents(const char *dir, int mode)
 	if (parentdir && (strcmp(parentdir, ".") != 0) && (strcmp(parentdir, dir) != 0)) {
 		res = mkdir_with_parents(parentdir, mode);
 	} else {
-		res = -1;	
+		res = -1;
 	}
 	free(parent);
 	if (res == 0) {

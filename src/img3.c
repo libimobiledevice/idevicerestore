@@ -413,7 +413,7 @@ int img3_stitch_component(const char* component_name, const unsigned char* compo
 	}
 
 	info("Personalizing IMG3 component %s...\n", component_name);
-	
+
 	/* parse current component as img3 */
 	img3 = img3_parse_file(component_data, component_size);
 	if (img3 == NULL) {

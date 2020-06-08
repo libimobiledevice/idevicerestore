@@ -249,7 +249,7 @@ int recovery_send_ticket(struct idevicerestore_client_t* client)
 {
 	if (!client->tss) {
 		error("ERROR: ApTicket requested but no TSS present\n");
-		return -1;		
+		return -1;
 	}
 
 	unsigned char* data = NULL;

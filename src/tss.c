@@ -1459,7 +1459,7 @@ plist_t tss_request_send(plist_t tss_request, const char* server_url_string) {
 		curl_easy_perform(handle);
 		curl_slist_free_all(header);
 		curl_easy_cleanup(handle);
-	
+
 		if (strstr(response->content, "MESSAGE=SUCCESS")) {
 			status_code = 0;
 			info("response successfully received\n");

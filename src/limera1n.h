@@ -1,7 +1,7 @@
 /*
  * limera1n.h
  * Helper code for limera1n exploit based on discovery by geohot
- * 
+ *
  * Copyright (c) 2012-2013 Nikias Bassen. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or

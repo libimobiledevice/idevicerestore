@@ -47,7 +47,7 @@ static plist_t parse_primitive(const char* js, jsmntok_t* tokens, int* index)
 		fprintf(stderr, "%s: ERROR: token type != JSMN_PRIMITIVE?!\n", __func__);
 		return NULL;
 	}
-	plist_t val = NULL;	
+	plist_t val = NULL;
 	char* strval = get_string_value(js, tokens[*index]);
 	if (strval[0] == 'f') {
 		val = plist_new_bool(0);
@@ -188,7 +188,7 @@ reparse:
 			goto reparse;
 		}
 	}
-	
+
 	switch(r) {
 	case JSMN_ERROR_NOMEM:
 		fprintf(stderr, "%s: ERROR: Out of memory...\n", __func__);

@@ -145,7 +145,7 @@ int normal_check_mode(struct idevicerestore_client_t* client) {
 	if (!device) {
 		return -1;
 	}
-	idevice_free(device);	
+	idevice_free(device);
 
 	return 0;
 }

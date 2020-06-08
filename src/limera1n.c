@@ -1,7 +1,7 @@
 /*
  * limera1n.c
  * Helper code for limera1n exploit based on discovery by geohot
- * 
+ *
  * Copyright (c) 2012-2013 Nikias Bassen. All Rights Reserved.
  * Copyright (c) 2012 Martin Szulecki. All Rights Reserved.
  * Copyright (C) 2010 Chronic-Dev Team
@@ -76,7 +76,7 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 	} else if (device->chip_id == ipod3g->chip_id) {
 		max_size = 0x24000;
 		stack_address = 0x84033F98;
-		shellcode_address = 0x84023001;	
+		shellcode_address = 0x84023001;
 	} else {
 		error("Unsupported ChipID 0x%04x. Can't exploit with limera1n.\n", device->chip_id);
 		return -1;

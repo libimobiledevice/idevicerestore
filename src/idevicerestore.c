@@ -347,7 +347,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			error("ERROR: Could not open device in WTF mode\n");
 			return -1;
 		}
-		if ((dfu_get_cpid(client, &cpid) < 0) || (cpid == 0)) { 
+		if ((dfu_get_cpid(client, &cpid) < 0) || (cpid == 0)) {
 			error("ERROR: Could not get CPID for WTF mode device\n");
 			dfu_client_free(client);
 			return -1;
@@ -999,7 +999,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			remove(tmpf);
 			rename(filesystem, tmpf);
 			free(filesystem);
-			filesystem = strdup(tmpf); 
+			filesystem = strdup(tmpf);
 		}
 	}
 
@@ -2205,7 +2205,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 			if (node) {
 				plist_dict_set_item(parameters, "BbSNUM", plist_copy(node));
 			}
-		
+
 			/* add baseband parameters */
 			tss_request_add_baseband_tags(request, parameters, NULL);
 

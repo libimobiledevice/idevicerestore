@@ -193,7 +193,6 @@ static int restore_idevice_new(struct idevicerestore_client_t* client, idevice_t
 			plist_t hwinfo = NULL;
 
 			if (restored_query_value(restore, "HardwareInfo", &hwinfo) != RESTORE_E_SUCCESS) {
-				
 				continue;
 			}
 
@@ -1239,7 +1238,7 @@ static const char* restore_get_bbfw_fn_for_element(const char* elem)
 		{ "RestoreDBL", "restoredbl.mbn" },
 		// Phoenix/Mav4 firmware files
 		{ "DBL", "dbl.mbn" },
-		{ "ENANDPRG", "ENPRG.mbn" },	
+		{ "ENANDPRG", "ENPRG.mbn" },
 		// Mav5 firmware files
 		{ "RestoreSBL1", "restoresbl1.mbn" },
 		{ "SBL1", "sbl1.mbn" },
@@ -1695,7 +1694,7 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 		return -1;
 	}
 	char* bbfwpath = NULL;
-	plist_get_string_val(bbfw_path, &bbfwpath);	
+	plist_get_string_val(bbfw_path, &bbfwpath);
 	if (!bbfwpath) {
 		error("ERROR: Unable to get baseband path\n");
 		plist_free(response);
@@ -1729,7 +1728,7 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 	}
 
 	res = -1;
-	
+
 	size_t sz = 0;
 	if (read_file(bbfwtmp, (void**)&buffer, &sz) < 0) {
 		error("ERROR: could not read updated bbfw archive\n");
@@ -2741,7 +2740,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 	if (client->preflight_info) {
 		plist_t node;
-		plist_t bbus = plist_copy(client->preflight_info);	
+		plist_t bbus = plist_copy(client->preflight_info);
 
 		plist_dict_remove_item(bbus, "FusingStatus");
 		plist_dict_remove_item(bbus, "PkHash");
