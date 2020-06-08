@@ -10,7 +10,7 @@ restore of a firmware to a device.
 In general, upgrades and downgrades are possible, however subject to
 availability of SHSH blobs from Apple for signing the firmare files.
 
-To restore a device, simply run
+To restore a device, simply run:
 ```bash
 idevicerestore -l
 ```
@@ -24,8 +24,8 @@ in which case an erase restore will be performed).
 
 **WARNING**
 
-This tool can easily destroy your user data irreversibly. Use with caution and
-make sure to backup your data before trying to restore.
+This tool can easily __destroy your user data__ irreversibly. Use with caution
+and make sure to backup your data before trying to restore.
 
 **In any case, usage is at your own risk.**
 
@@ -61,18 +61,18 @@ sudo make install
 
 ## Who/What/Where?
 
-* Home: https://www.libimobiledevice.org/
+* Home: https://libimobiledevice.org/
 * Code: `git clone https://git.libimobiledevice.org/idevicerestore.git`
 * Code (Mirror): `git clone https://github.com/libimobiledevice/idevicerestore.git`
 * Tickets: https://github.com/libimobiledevice/idevicerestore/issues
 * Mailing List: https://lists.libimobiledevice.org/mailman/listinfo/libimobiledevice-devel
-* IRC: irc://irc.freenode.net#libimobiledevice
+* Twitter: https://twitter.com/libimobiledev
 
 ## Credits
 
 Apple, iPhone, iPad, iPod, iPod Touch, and Apple TV are trademarks of Apple Inc.
-idevicerestore is an independent software tool and has not been
+
+idevicerestore is an independent software application and has not been
 authorized, sponsored, or otherwise approved by Apple Inc.
 
-README Updated on:
-	2019-09-11
+README Updated on: 2020-06-08
