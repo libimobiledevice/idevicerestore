@@ -1,78 +1,135 @@
 # idevicerestore
 
-## About
+*The idevicerestore application allows to restore firmware files to iOS devices.*
 
-The idevicerestore tool allows to restore firmware files to iOS devices.
+## Features
 
-It is a full reimplementation of all granular steps which are performed during
-restore of a firmware to a device.
+The idevicerestore application is a full reimplementation of all granular steps
+which are performed during the restore of a firmware to a device.
 
 In general, upgrades and downgrades are possible, however subject to
 availability of SHSH blobs from Apple for signing the firmare files.
 
-To restore a device, simply run:
-```bash
-idevicerestore -l
-```
+- **Restore:** Update firmware on iOS devices
+- **Firmware:** Use official IPSW firmware archive file or a directory as source
+- **Update:** Allows updating the device by default or erasing all data
+- **Download:** On demand download of latest available firmware for a device
+- **Cache:** Downloaded firmware files are cached locally
+- **Custom Firmware:** Restore custom firmware files *(requires bootrom exploit)*
+- **Baseband:** Allows you to skip NOR/Baseband upgrade
+- **SHSH:** Fetch TSS records and save them as ".shsh" files
+- **DFU:** Put devices in pwned DFU mode *(limera1n devices only)*
+- **AP Ticket:** Use custom AP ticket from a file
+- **Cross-Platform:** Tested on Linux, macOS, Windows and Android platforms
+- **History:** Developed since 2010
 
-This will print a selection of firmware versions that are currently being signed
-for the attached device. It will then download and restore the selected firmware.
+**WARNING:** This tool can easily __destroy your user data__ irreversibly.
 
-By default, an update restore is performed, which will preserve the user data
-(unless the firmware image does not contain a 'Customer Upgrade Install' variant,
-in which case an erase restore will be performed).
-
-**WARNING**
-
-This tool can easily __destroy your user data__ irreversibly. Use with caution
-and make sure to backup your data before trying to restore.
+Use with caution and make sure to backup your data before trying to restore.
 
 **In any case, usage is at your own risk.**
 
-## Requirements
+## Installation / Getting started
 
-Development Packages of:
-* libimobiledevice
-* libirecovery
-* libusbmuxd
-* libplist
-* libcurl
-* libzip
-* openssl
+### Debian / Ubuntu Linux
 
-Software:
-* usbmuxd
-* make
-* autoheader
-* automake
-* autoconf
-* libtool
-* pkg-config
-* gcc or clang
+First install all required dependencies and build tools:
+```shell
+sudo apt-get install \
+	build-essential \
+	checkinstall \
+	git \
+	autoconf \
+	automake \
+	libtool-bin \
+	libreadline-dev \
+	libusb-1.0-0-dev \
+	libplist-dev \
+	libimobiledevice-dev \
+	libcurl4-openssl-dev \
+	libssl-dev \
+	libzip-dev \
+	zlib1g-dev
+```
 
-## Installation
+Then clone, build and install [libirecovery](https://github.com/libimobiledevice/libirecovery.git) which is not yet packaged:
+```shell
+git clone https://github.com/libimobiledevice/libirecovery.git
+cd libirecovery
+./autogen.sh
+make
+sudo make install
+cd ..
+```
 
-To compile run:
-```bash
+If the configure processes indicates old or missing libraries, your distribution
+might not have yet packaged the latest versions. In that case you will have to
+clone [these libraries](https://github.com/libimobiledevice/) separately and repeat the process in order to proceed.
+
+Continue with cloning the actual project repository:
+```shell
+git clone https://github.com/libimobiledevice/idevicerestore.git
+cd idevicerestore
+```
+
+Now you can build and install it:
+```shell
 ./autogen.sh
 make
 sudo make install
 ```
 
-## Who/What/Where?
+## Usage
 
-* Home: https://libimobiledevice.org/
-* Code: `git clone https://git.libimobiledevice.org/idevicerestore.git`
-* Code (Mirror): `git clone https://github.com/libimobiledevice/idevicerestore.git`
-* Tickets: https://github.com/libimobiledevice/idevicerestore/issues
+The primary scenario is to restore a new firmware to a device.
+First of all attach your device to your machine.
+
+Then simply run:
+```shell
+idevicerestore --latest
+```
+
+This will print a selection of firmware versions that are currently being signed
+and can be restored to the attached device. It will then attempt to download and
+restore the selected firmware.
+
+By default, an update restore is performed which will preserve user data.
+
+Mind that if the firmware file does not contain a 'Customer Upgrade Install'
+variant, an erase restore will be performed.
+
+You can force restoring with erasing all data and basically resetting the device
+by using:
+```shell
+idevicerestore --erase --latest
+```
+
+Please consult the usage information or manual page for a full documentation of
+available command line options:
+```shell
+idevicerestore --help
+man idevicerestore
+```
+
+## Links
+
+* Homepage: https://libimobiledevice.org/
+* Repository: https://git.libimobiledevice.org/idevicerestore.git
+* Repository (Mirror): https://github.com/libimobiledevice/idevicerestore.git
+* Issue Tracker: https://github.com/libimobiledevice/idevicerestore/issues
 * Mailing List: https://lists.libimobiledevice.org/mailman/listinfo/libimobiledevice-devel
 * Twitter: https://twitter.com/libimobiledev
+
+## License
+
+This project is licensed under the [GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html),
+also included in the repository in the `COPYING` file.
 
 ## Credits
 
 Apple, iPhone, iPad, iPod, iPod Touch, and Apple TV are trademarks of Apple Inc.
 
-idevicerestore is an independent software application and has not been
+This project is an independent software application and has not been
 authorized, sponsored, or otherwise approved by Apple Inc.
 
-README Updated on: 2020-06-08
+README Updated on: 2020-06-12
