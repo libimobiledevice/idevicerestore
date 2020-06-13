@@ -1,6 +1,6 @@
 # idevicerestore
 
-*The idevicerestore application allows to restore firmware files to iOS devices.*
+*A command-line application to restore firmware files to iOS devices.*
 
 ## Features
 
@@ -9,6 +9,8 @@ which are performed during the restore of a firmware to a device.
 
 In general, upgrades and downgrades are possible, however subject to
 availability of SHSH blobs from Apple for signing the firmare files.
+
+Some key features are:
 
 - **Restore:** Update firmware on iOS devices
 - **Firmware:** Use official IPSW firmware archive file or a directory as source
