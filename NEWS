@@ -8,7 +8,7 @@ Version 1.0.0
   - Updates the device by default or allows full restore erasing all data
   - Download latest available firmware for device on demand
   - Cache downloaded firmware files
-  - Restore using custom firmware files
+  - Restore using custom firmware files (requires bootrom exploit)
   - Skip NOR/Baseband upgrade
   - Fetch TSS records as ".shsh" files
   - Put devices in pwned DFU mode (limera1n devices only)

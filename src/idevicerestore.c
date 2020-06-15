@@ -120,7 +120,7 @@ static void usage(int argc, char* argv[], int err)
 	"  -v, --version         Print version information\n" \
 	"\n" \
 	"Advanced/experimental options:\n"
-	"  -c, --custom          Restore with a custom firmware\n" \
+	"  -c, --custom          Restore with a custom firmware (requires bootrom exploit)\n" \
 	"  -s, --cydia           Use Cydia's signature service instead of Apple's\n" \
 	"  -x, --exclude         Exclude nor/baseband upgrade\n" \
 	"  -t, --shsh            Fetch TSS record and save to .shsh file, then exit\n" \
