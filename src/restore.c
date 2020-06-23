@@ -899,7 +899,7 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 	return 0;
 }
 
-int restore_send_component(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, const char *component)
+int restore_send_component(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, const char* component, const char* component_name)
 {
 	unsigned int size = 0;
 	unsigned char* data = NULL;
@@ -908,7 +908,11 @@ int restore_send_component(restored_client_t restore, struct idevicerestore_clie
 	plist_t dict = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
-	info("About to send %s...\n", component);
+	if (component_name == NULL) {
+		component_name = component;
+	}
+
+	info("About to send %s...\n", component_name);
 
 	if (client->tss) {
 		if (tss_response_get_path_by_entry(client->tss, component, &path) < 0) {
@@ -943,19 +947,19 @@ int restore_send_component(restored_client_t restore, struct idevicerestore_clie
 	dict = plist_new_dict();
 	blob = plist_new_data((char*)data, size);
 	char compkeyname[256];
-	sprintf(compkeyname, "%sFile", component);
+	sprintf(compkeyname, "%sFile", component_name);
 	plist_dict_set_item(dict, compkeyname, blob);
 	free(data);
 
-	info("Sending %s now...\n", component);
+	info("Sending %s now...\n", component_name);
 	restore_error = restored_send(restore, dict);
 	plist_free(dict);
 	if (restore_error != RESTORE_E_SUCCESS) {
-		error("ERROR: Unable to send kernelcache data\n");
+		error("ERROR: Unable to send component %s data\n", component_name);
 		return -1;
 	}
 
-	info("Done sending %s\n", component);
+	info("Done sending %s\n", component_name);
 	return 0;
 }
 
@@ -2541,14 +2545,13 @@ error_out:
 
 int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t build_identity, const char* filesystem)
 {
-	char* type = NULL;
 	plist_t node = NULL;
 
 	// checks and see what kind of data restored is requests and pass
 	// the request to its own handler
 	node = plist_dict_get_item(message, "DataType");
 	if (node && PLIST_STRING == plist_get_node_type(node)) {
-		plist_get_string_val(node, &type);
+		const char *type = plist_get_string_ptr(node, NULL);
 
 		// this request is sent when restored is ready to receive the filesystem
 		if (!strcmp(type, "SystemImageData")) {
@@ -2567,15 +2570,29 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 		// send KernelCache
 		else if (!strcmp(type, "KernelCache")) {
-			if (restore_send_component(restore, client, build_identity, "KernelCache") < 0) {
+			if (restore_send_component(restore, client, build_identity, "KernelCache", NULL) < 0) {
 				error("ERROR: Unable to send kernelcache\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "DeviceTree")) {
-			if (restore_send_component(restore, client, build_identity, "DeviceTree") < 0) {
+			if (restore_send_component(restore, client, build_identity, "DeviceTree", NULL) < 0) {
 				error("ERROR: Unable to send DeviceTree\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "SystemImageRootHash")) {
+			if (restore_send_component(restore, client, build_identity, "SystemVolume", type) < 0) {
+				error("ERROR: Unable to send SystemImageRootHash data\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "SystemImageCanonicalMetadata")) {
+			if (restore_send_component(restore, client, build_identity, "Ap,SystemVolumeCanonicalMetadata", type) < 0) {
+				error("ERROR: Unable to send SystemImageCanonicalMetadata data\n");
 				return -1;
 			}
 		}
