@@ -630,8 +630,12 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 
 		if (_plist_dict_get_bool(parameters, "_OnlyFWComponents")) {
 			plist_t info_dict = plist_dict_get_item(manifest_entry, "Info");
-			if (!_plist_dict_get_bool(manifest_entry, "Trusted") && !_plist_dict_get_bool(info_dict, "IsFirmwarePayload") && !_plist_dict_get_bool(info_dict, "IsSecondaryFirmwarePayload") && !_plist_dict_get_bool(info_dict, "IsFUDFirmware")) {
-				debug("DEBUG: %s: Skipping '%s' as it is neither firmware nor secondary firmware payload\n", __func__, key);
+			if (!_plist_dict_get_bool(manifest_entry, "Trusted")) {
+				debug("DEBUG: %s: Skipping '%s' as it is not trusted", __func__, key);
+				continue;
+			}
+			if (!_plist_dict_get_bool(info_dict, "IsFirmwarePayload") && !_plist_dict_get_bool(info_dict, "IsSecondaryFirmwarePayload") && !_plist_dict_get_bool(info_dict, "IsFUDFirmware")) {
+				debug("DEBUG: %s: Skipping '%s' as it is neither firmware nor secondary nor FUD firmware payload\n", __func__, key);
 				continue;
 			}
 		}
