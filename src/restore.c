@@ -1791,34 +1791,44 @@ int restore_send_fdr_trust_data(restored_client_t restore, idevice_t device)
 	return 0;
 }
 
-static int restore_send_fud_data(restored_client_t restore, struct idevicerestore_client_t *client, plist_t build_identity, plist_t message)
+static int restore_send_image_data(restored_client_t restore, struct idevicerestore_client_t *client, plist_t build_identity, plist_t message, const char *image_list_k, const char *image_type_k, const char *image_data_k)
 {
 	restored_error_t restore_error;
 	plist_t arguments;
 	plist_t dict;
 	plist_t node;
-	plist_t fud_images = NULL;
-	plist_t fud_dict = NULL;
+	plist_t matched_images = NULL;
+	plist_t data_dict = NULL;
 	plist_t build_id_manifest;
 	plist_dict_iter iter = NULL;
 	char *image_name = NULL;
 	int want_image_list = 0;
 
 	arguments = plist_dict_get_item(message, "Arguments");
-	want_image_list = _plist_dict_get_bool(arguments, "FUDImageList");
+	want_image_list = _plist_dict_get_bool(arguments, image_list_k);
 	node = plist_dict_get_item(arguments, "ImageName");
 	if (node) {
 		plist_get_string_val(node, &image_name);
 	}
+	if (!image_type_k) {
+		node = plist_dict_get_item(arguments, "ImageType");
+		if (node) {
+			image_type_k = plist_get_string_ptr(node, NULL);
+		}
+	}
+	if (!image_type_k) {
+		error("ERROR: missing ImageType");
+		return -1;
+	}
 
 	if (!want_image_list && !image_name) {
-		info("About to send FUD data...\n");
+		info("About to send %s...\n", image_data_k);
 	}
 
 	if (want_image_list) {
-		fud_images = plist_new_array();
+		matched_images = plist_new_array();
 	} else {
-		fud_dict = plist_new_dict();
+		data_dict = plist_new_dict();
 	}
 
 	build_id_manifest = plist_dict_get_item(build_identity, "Manifest");
@@ -1833,15 +1843,15 @@ static int restore_send_fud_data(restored_client_t restore, struct idevicerestor
 			manifest_entry = NULL;
 			plist_dict_next_item(build_id_manifest, iter, &component, &manifest_entry);
 			if (component && manifest_entry && plist_get_node_type(manifest_entry) == PLIST_DICT) {
-				uint8_t is_fud = 0;
-				plist_t is_fud_node = plist_access_path(manifest_entry, 2, "Info", "IsFUDFirmware");
-				if (is_fud_node && plist_get_node_type(is_fud_node) == PLIST_BOOLEAN) {
-					plist_get_bool_val(is_fud_node, &is_fud);
+				uint8_t is_image_type = 0;
+				plist_t is_image_type_node = plist_access_path(manifest_entry, 2, "Info", image_type_k);
+				if (is_image_type_node && plist_get_node_type(is_image_type_node) == PLIST_BOOLEAN) {
+					plist_get_bool_val(is_image_type_node, &is_image_type);
 				}
-				if (is_fud) {
+				if (is_image_type) {
 					if (want_image_list) {
-						info("Found FUD component '%s'\n", component);
-						plist_array_append_item(fud_images, plist_new_string(component));
+						info("Found %s component %s\n", image_type_k, component);
+						plist_array_append_item(matched_images, plist_new_string(component));
 					} else if (!image_name || !strcmp(image_name, component)) {
 						char *path = NULL;
 						unsigned char* data = NULL;
@@ -1851,7 +1861,7 @@ static int restore_send_fud_data(restored_client_t restore, struct idevicerestor
 						int ret = -1;
 
 						if (!image_name) {
-							info("Found FUD component '%s'\n", component);
+							info("Found %s component '%s'\n", image_type_k, component);
 						}
 						build_identity_get_component_path(build_identity, component, &path);
 						if (path) {
@@ -1870,7 +1880,7 @@ static int restore_send_fud_data(restored_client_t restore, struct idevicerestor
 							error("ERROR: Unable to get personalized component: %s\n", component);
 						}
 
-						plist_dict_set_item(fud_dict, component, plist_new_data((const char*)data, size));
+						plist_dict_set_item(data_dict, component, plist_new_data((const char*)data, size));
 						free(data);
 					}
 				}
@@ -1882,19 +1892,19 @@ static int restore_send_fud_data(restored_client_t restore, struct idevicerestor
 
 	dict = plist_new_dict();
 	if (want_image_list) {
-		plist_dict_set_item(dict, "FUDImageList", fud_images);
-		info("Sending FUD image list\n");
+		plist_dict_set_item(dict, image_list_k, matched_images);
+		info("Sending %s image list\n", image_type_k);
 	} else {
 		if (image_name) {
-			node = plist_dict_get_item(fud_dict, image_name);
+			node = plist_dict_get_item(data_dict, image_name);
 			if (node) {
-				plist_dict_set_item(dict, "FUDImageData", plist_copy(node));
+				plist_dict_set_item(dict, image_data_k, plist_copy(node));
 			}
 			plist_dict_set_item(dict, "ImageName", plist_new_string(image_name));
-			info("Sending FUD data for %s...\n", image_name);
+			info("Sending %s for %s...\n", image_type_k, image_name);
 		} else {
-			plist_dict_set_item(dict, "FUDImageData", fud_dict);
-			info("Sending FUD data now...\n");
+			plist_dict_set_item(dict, image_data_k, data_dict);
+			info("Sending %s now...\n", image_type_k);
 		}
 	}
 
@@ -1902,13 +1912,13 @@ static int restore_send_fud_data(restored_client_t restore, struct idevicerestor
 	plist_free(dict);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		if (want_image_list) {
-			error("ERROR: Failed to send FUD image list (%d)\n", restore_error);
+			error("ERROR: Failed to send %s image list (%d)\n", image_type_k, restore_error);
 		} else {
 			if (image_name) {
-				error("ERROR: Failed to send FUD data for %s (%d)\n", image_name, restore_error);
+				error("ERROR: Failed to send %s for %s (%d)\n", image_type_k, image_name, restore_error);
 				free(image_name);
 			} else {
-				error("ERROR: Failed to send FUD data (%d)\n", restore_error);
+				error("ERROR: Failed to send %s (%d)\n", image_type_k, restore_error);
 			}
 		}
 		return -1;
@@ -1918,7 +1928,7 @@ static int restore_send_fud_data(restored_client_t restore, struct idevicerestor
 		if (image_name) {
 			free(image_name);
 		} else {
-			info("Done sending FUD data\n");
+			info("Done sending %s\n", image_type_k);
 		}
 	}
 
@@ -2624,7 +2634,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 
 		else if (!strcmp(type, "FUDData")) {
-			if(restore_send_fud_data(restore, client, build_identity, message) < 0) {
+			if(restore_send_image_data(restore, client, build_identity, message, "FUDImageList", "IsFUDFirmware", "FUDImageData") < 0) {
 				error("ERROR: Unable to send FUD data\n");
 				return -1;
 			}
@@ -2633,6 +2643,20 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		else if (!strcmp(type, "FirmwareUpdaterData")) {
 			if(restore_send_firmware_updater_data(restore, client, build_identity, message) < 0) {
 				error("ERROR: Unable to send FirmwareUpdater data\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "PersonalizedData")) {
+			if(restore_send_image_data(restore, client, build_identity, message, "ImageList", NULL, "ImageData") < 0) {
+				error("ERROR: Unable to send Personalized data\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "EANData")) {
+			if(restore_send_image_data(restore, client, build_identity, message, "EANImageList", "IsEarlyAccessFirmware", "EANData") < 0) {
+				error("ERROR: Unable to send Personalized data\n");
 				return -1;
 			}
 		}
