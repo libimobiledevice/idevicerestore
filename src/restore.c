@@ -1216,7 +1216,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 
 	info("Sending NORData now...\n");
 	if (restored_send(restore, dict) != RESTORE_E_SUCCESS) {
-		error("ERROR: Unable to send NORImageData data\n");
+		error("ERROR: Unable to send NORData\n");
 		plist_free(dict);
 		return -1;
 	}
