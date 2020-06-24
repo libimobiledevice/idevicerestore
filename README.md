@@ -81,6 +81,14 @@ make
 sudo make install
 ```
 
+**Important**
+
+idevicerestore requires a properly installed [usbmuxd](https://github.com/libimobiledevice/usbmuxd.git)
+for the restore procedure. Please make sure that it is either running or
+configured to be started automatically as soon as a device is detected
+in normal and/or restore mode. If properly installed this will be handled
+by udev/systemd.
+
 ## Usage
 
 The primary scenario is to restore a new firmware to a device.
