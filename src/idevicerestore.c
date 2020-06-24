@@ -1337,6 +1337,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		if (client->mode != &idevicerestore_modes[MODE_RESTORE] || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			error("ERROR: Device failed to enter restore mode.\n");
+			error("Please make sure that usbmuxd is running.\n");
 			if (delete_fs && filesystem)
 				unlink(filesystem);
 			return -1;
