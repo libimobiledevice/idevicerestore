@@ -53,8 +53,8 @@ case ${host_os} in
   *mingw32*|*cygwin*)
     AC_MSG_RESULT([yes])
     win32=true
-    GLOBAL_CFLAGS+="-DWIN32 -D__LITTLE_ENDIAN__=1"
-    AC_LDFLAGS+="-static-libgcc"
+    GLOBAL_CFLAGS+=" -DWIN32 -D__LITTLE_ENDIAN__=1"
+    AC_LDFLAGS+=" -static-libgcc"
     ;;
   darwin*)
     AC_MSG_RESULT([yes])
