@@ -901,7 +901,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	// Get filesystem name from build identity
 	char* fsname = NULL;
 	if (build_identity_get_component_path(build_identity, "OS", &fsname) < 0) {
-		error("ERROR: Unable get path for filesystem component\n");
+		error("ERROR: Unable to get path for filesystem component\n");
 		return -1;
 	}
 

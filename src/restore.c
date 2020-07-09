@@ -1968,7 +1968,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 	}
 
 	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
-		error("ERROR: Unable get path for '%s' component\n", comp_name);
+		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		return NULL;
 	}
 
@@ -2081,7 +2081,7 @@ static plist_t restore_get_savage_firmware_data(restored_client_t restore, struc
 
 	/* now get actual component data */
 	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
-		error("ERROR: Unable get path for '%s' component\n", comp_name);
+		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		free(comp_name);
 		return NULL;
 	}
@@ -2174,7 +2174,7 @@ static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, stru
 	}
 
 	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
-		error("ERROR: Unable get path for '%s' component\n", comp_name);
+		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		free(comp_name);
 		return NULL;
 	}
@@ -2264,7 +2264,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 
 	comp_name = "Rap,RTKitOS";
 	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
-		error("ERROR: Unable get path for '%s' component\n", comp_name);
+		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		return NULL;
 	}
 	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
@@ -2290,7 +2290,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 	if (build_identity_has_component(build_identity, comp_name)) {
 		if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
 			ftab_free(ftab);
-			error("ERROR: Unable get path for '%s' component\n", comp_name);
+			error("ERROR: Unable to get path for '%s' component\n", comp_name);
 			return NULL;
 		}
 		ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
@@ -2389,7 +2389,7 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 	}
 
 	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
-		error("ERROR: Unable get path for '%s' component\n", comp_name);
+		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		return NULL;
 	}
 
