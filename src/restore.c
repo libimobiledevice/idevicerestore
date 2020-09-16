@@ -102,6 +102,11 @@
 #define UPDATE_VERIDIAN               66
 #define CREATING_PROTECTED_VOLUME     67
 #define RESIZING_MAIN_FS_PARTITION    68
+#define CREATING_RECOVERY_OS_VOLUME   69
+#define INSTALLING_RECOVERY_OS_FILES  70
+#define INSTALLING_RECOVERY_OS_IMAGE  71
+#define REQUESTING_EAN_DATA           74
+#define SEALING_SYSTEM_VOLUME         77
 
 static int restore_finished = 0;
 
@@ -610,6 +615,16 @@ const char* restore_progress_string(unsigned int operation)
 		return "Creating Protected Volume";
 	case RESIZING_MAIN_FS_PARTITION:
 		return "Resizing Main Filesystem Partition";
+	case CREATING_RECOVERY_OS_VOLUME:
+		return "Creating Recovery OS Volume";
+	case INSTALLING_RECOVERY_OS_FILES:
+		return "Installing Recovery OS Files";
+	case INSTALLING_RECOVERY_OS_IMAGE:
+		return "Installing Recovery OS Image";
+	case REQUESTING_EAN_DATA:
+		return "Requesting EAN Data";
+	case SEALING_SYSTEM_VOLUME:
+		return "Sealing System Volume";
 	default:
 		return "Unknown operation";
 	}
