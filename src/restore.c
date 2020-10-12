@@ -1059,11 +1059,26 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 				plist_dict_next_item(build_id_manifest, iter, &component, &manifest_entry);
 				if (component && manifest_entry && plist_get_node_type(manifest_entry) == PLIST_DICT) {
 					uint8_t is_fw = 0;
-					plist_t is_fw_node = plist_access_path(manifest_entry, 2, "Info", "IsFirmwarePayload");
-					if (is_fw_node && plist_get_node_type(is_fw_node) == PLIST_BOOLEAN) {
-						plist_get_bool_val(is_fw_node, &is_fw);
+					uint8_t is_secondary_fw = 0;
+					uint8_t loaded_by_iboot = 0;
+					plist_t fw_node;
+
+					fw_node = plist_access_path(manifest_entry, 2, "Info", "IsFirmwarePayload");
+					if (fw_node && plist_get_node_type(fw_node) == PLIST_BOOLEAN) {
+						plist_get_bool_val(fw_node, &is_fw);
 					}
-					if (is_fw) {
+
+					fw_node = plist_access_path(manifest_entry, 2, "Info", "IsLoadedByiBoot");
+					if (fw_node && plist_get_node_type(fw_node) == PLIST_BOOLEAN) {
+						plist_get_bool_val(fw_node, &loaded_by_iboot);
+					}
+
+					fw_node = plist_access_path(manifest_entry, 2, "Info", "IsSecondaryFirmwarePayload");
+					if (fw_node && plist_get_node_type(fw_node) == PLIST_BOOLEAN) {
+						plist_get_bool_val(fw_node, &is_secondary_fw);
+					}
+
+					if (is_fw || (is_secondary_fw && loaded_by_iboot)) {
 						plist_t comp_path = plist_access_path(manifest_entry, 2, "Info", "Path");
 						if (comp_path) {
 							plist_dict_set_item(firmware_files, component, plist_copy(comp_path));
