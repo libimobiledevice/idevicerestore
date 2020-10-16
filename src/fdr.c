@@ -276,7 +276,7 @@ static int fdr_ctrl_handshake(fdr_client_t fdr)
 
 	device_error = idevice_connection_send(fdr->connection, CTRLCMD, len, &bytes);
 	if (device_error != IDEVICE_E_SUCCESS || bytes != len) {
-		debug("Hmm... lookes like the device doesn't like the newer protocol, using the old one\n");
+		debug("Hmm... looks like the device doesn't like the newer protocol, using the old one\n");
 		ctrlprotoversion = 1;
 		len = sizeof(HELLOCTRLCMD);
 		device_error = idevice_connection_send(fdr->connection, HELLOCTRLCMD, len, &bytes);

@@ -1432,7 +1432,7 @@ plist_t tss_request_send(plist_t tss_request, const char* server_url_string) {
 
 		response = malloc(sizeof(tss_response));
 		if (response == NULL) {
-			fprintf(stderr, "Unable to allocate sufficent memory\n");
+			fprintf(stderr, "Unable to allocate sufficient memory\n");
 			return NULL;
 		}
 
