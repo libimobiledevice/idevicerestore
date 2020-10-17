@@ -64,6 +64,7 @@ case ${host_os} in
   *)
     AC_MSG_RESULT([yes])
     AX_PTHREAD([], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
+    AC_CHECK_LIB(pthread, [pthread_kill], [], [AC_MSG_ERROR([pthread with pthread_kill required to build $PACKAGE])])
     ;;
 esac
 AM_CONDITIONAL(WIN32, test x$win32 = xtrue)
