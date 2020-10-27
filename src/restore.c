@@ -698,6 +698,7 @@ int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t 
 			break;
 		case UPDATE_ROSE:
 		case UPDATE_VERIDIAN:
+		case REQUESTING_EAN_DATA:
 			break;
 		default:
 			debug("Unhandled progress operation %d (%d)\n", adapted_operation, (int)operation);
