@@ -1282,6 +1282,8 @@ static const char* restore_get_bbfw_fn_for_element(const char* elem)
 		// ICE19 firmware files
 		{ "RestorePSI2", "restorepsi2.bin" },
 		{ "PSI2", "psi_ram2.bin" },
+		// Mav20 Firmware file
+		{ "Misc", "multi_image.mbn" },
 		{ NULL, NULL }
 	};
 
