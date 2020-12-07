@@ -83,13 +83,13 @@ int idevicerestore_socket_create_unix(const char *filename)
 
 	if (bind(sock, (struct sockaddr *) &name, size) < 0) {
 		perror("bind");
-		socket_close(sock);
+		idevicerestore_socket_close(sock);
 		return -1;
 	}
 
 	if (listen(sock, 10) < 0) {
 		perror("listen");
-		socket_close(sock);
+		idevicerestore_socket_close(sock);
 		return -1;
 	}
 
@@ -132,7 +132,7 @@ int idevicerestore_socket_connect_unix(const char *filename)
 			+ strlen(name.sun_path) + 1);
 
 	if (connect(sfd, (struct sockaddr *) &name, size) < 0) {
-		socket_close(sfd);
+		idevicerestore_socket_close(sfd);
 		if (verbose >= 2)
 			fprintf(stderr, "%s: connect: %s\n", __func__,
 					strerror(errno));
@@ -232,7 +232,7 @@ int idevicerestore_socket_connect(const char *addr, uint16_t port)
 
 	if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, (void*)&yes, sizeof(int)) == -1) {
 		perror("setsockopt()");
-		socket_close(sfd);
+		idevicerestore_socket_close(sfd);
 		return -1;
 	}
 
@@ -243,7 +243,7 @@ int idevicerestore_socket_connect(const char *addr, uint16_t port)
 
 	if (connect(sfd, (struct sockaddr *) &saddr, sizeof(saddr)) < 0) {
 		perror("connect");
-		socket_close(sfd);
+		idevicerestore_socket_close(sfd);
 		return -2;
 	}
 
@@ -368,7 +368,7 @@ int idevicerestore_socket_receive_timeout(int fd, void *data, size_t length, int
 	int result;
 
 	// check if data is available
-	res = socket_check_fd(fd, FDM_READ, timeout);
+	res = idevicerestore_socket_check_fd(fd, FDM_READ, timeout);
 	if (res <= 0) {
 		return res;
 	}
