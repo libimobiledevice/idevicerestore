@@ -353,12 +353,12 @@ int idevicerestore_socket_close(int fd) {
 
 int idevicerestore_socket_receive(int fd, void *data, size_t length)
 {
-	return socket_receive_timeout(fd, data, length, 0, RECV_TIMEOUT);
+	return idevicerestore_socket_receive_timeout(fd, data, length, 0, RECV_TIMEOUT);
 }
 
 int idevicerestore_socket_peek(int fd, void *data, size_t length)
 {
-	return socket_receive_timeout(fd, data, length, MSG_PEEK, RECV_TIMEOUT);
+	return idevicerestore_socket_receive_timeout(fd, data, length, MSG_PEEK, RECV_TIMEOUT);
 }
 
 int idevicerestore_socket_receive_timeout(int fd, void *data, size_t length, int flags,
