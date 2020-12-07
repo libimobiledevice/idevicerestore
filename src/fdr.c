@@ -549,7 +549,7 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 	}
 
 	/* else wait for messages and forward them */
-	int sockfd = socket_connect(host, port);
+	int sockfd = idevicerestore_socket_connect(host, port);
 	free(host);
 	if (sockfd < 0) {
 		free(buf);
@@ -579,7 +579,7 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 			debug("Sending %u bytes of data\n", bytes);
 			sent = 0;
 			while (sent < bytes) {
-				int s = socket_send(sockfd, buf + sent, bytes - sent);
+				int s = idevicerestore_socket_send(sockfd, buf + sent, bytes - sent);
 				if (s < 0) {
 					break;
 				}
@@ -587,12 +587,12 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 			}
 			if (sent != bytes) {
 				error("ERROR: Sending proxy payload failed: %s. Sent %u of %u bytes. \n", strerror(errno), sent, bytes);
-				socket_close(sockfd);
+				idevicerestore_socket_close(sockfd);
 				res = -1;
 				break;
 			}
 		}
-		bytes_ret = socket_receive_timeout(sockfd, buf, bufsize, 0, 100);
+		bytes_ret = idevicerestore_socket_receive_timeout(sockfd, buf, bufsize, 0, 100);
 		if (bytes_ret < 0) {
 			if (errno)
 				error("ERROR: FDR %p receiving proxy payload failed: %s\n",
@@ -623,7 +623,7 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 			}
 		} else serial++;
 	}
-	socket_close(sockfd);
+	idevicerestore_socket_close(sockfd);
 	free(buf);
 	return res;
 }
