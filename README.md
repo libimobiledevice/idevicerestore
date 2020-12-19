@@ -8,7 +8,7 @@ The idevicerestore application is a full reimplementation of all granular steps
 which are performed during the restore of a firmware to a device.
 
 In general, upgrades and downgrades are possible, however subject to
-availability of SHSH blobs from Apple for signing the firmare files.
+availability of SHSH blobs from Apple for signing the firmware files.
 
 Some key features are:
 
