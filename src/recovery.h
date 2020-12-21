@@ -45,6 +45,7 @@ int recovery_client_new(struct idevicerestore_client_t* client);
 void recovery_client_free(struct idevicerestore_client_t* client);
 int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build_identity);
 int recovery_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component);
+int recovery_send_component_and_command(struct idevicerestore_client_t* client, plist_t build_identity, const char* component, const char* command);
 int recovery_send_ibec(struct idevicerestore_client_t* client, plist_t build_identity);
 int recovery_send_applelogo(struct idevicerestore_client_t* client, plist_t build_identity);
 int recovery_send_devicetree(struct idevicerestore_client_t* client, plist_t build_identity);
