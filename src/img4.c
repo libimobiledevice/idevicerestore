@@ -409,6 +409,14 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 			memcpy((void*)tag, "rlgo", 4);
 		} else if (strcmp(component_name, "RestoreTrustCache") == 0) {
 			memcpy((void*)tag, "rtsc", 4);
+		} else if (strcmp(component_name, "RestoreDCP") == 0) {
+			memcpy((void*)tag, "rdcp", 4);
+		} else if (strcmp(component_name, "Ap,RestoreTMU") == 0) {
+			memcpy((void*)tag, "rtmu", 4);
+		} else if (strcmp(component_name, "Ap,RestoreCIO") == 0) {
+			memcpy((void*)tag, "rcio", 4);
+		} else if (strcmp(component_name, "Ap,DCP2") == 0) {
+			memcpy((void*)tag, "dcp2", 4);
 		}
 	}
 
