@@ -223,7 +223,7 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 
 	lockdown_error = lockdownd_client_new(device, &lockdown, "idevicerestore");
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-		error("ERROR: Unable to connect to lockdownd service\n");
+		error("ERROR: Unable to connect to lockdownd: %s (%d)\n", lockdownd_strerror(lockdown_error), lockdown_error);
 		idevice_free(device);
 		return -1;
 	}
@@ -235,8 +235,18 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 	}
 
 	lockdown_error = lockdownd_enter_recovery(lockdown);
+	if (lockdown_error == LOCKDOWN_E_SESSION_INACTIVE) {
+		lockdownd_client_free(lockdown);
+		lockdown = NULL;
+		if (LOCKDOWN_E_SUCCESS != (lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore"))) {
+			error("ERROR: Could not connect to lockdownd: %s (%d)\n", lockdownd_strerror(lockdown_error), lockdown_error);
+			idevice_free(device);
+			return 1;
+		}
+		lockdown_error = lockdownd_enter_recovery(lockdown);
+	}
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-		error("ERROR: Unable to place device in recovery mode\n");
+		error("ERROR: Unable to place device in recovery mode: %s (%d)\n", lockdownd_strerror(lockdown_error), lockdown_error);
 		lockdownd_client_free(lockdown);
 		idevice_free(device);
 		return -1;
