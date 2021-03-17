@@ -45,6 +45,10 @@ PKG_CHECK_MODULES(zlib, zlib)
 # optional
 PKG_CHECK_MODULES(openssl, openssl >= $OPENSSL_VERSION, have_openssl=yes, have_openssl=no)
 
+# Checking endianness
+AC_C_BIGENDIAN([AC_DEFINE([__BIG_ENDIAN__], [1], [big endian])],
+               [AC_DEFINE([__LITTLE_ENDIAN__], [1], [little endian])])
+
 GLOBAL_CFLAGS="-Wno-multichar -O2"
 AC_LDADD=""
 AC_LDFLAGS=""
