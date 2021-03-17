@@ -777,6 +777,75 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg)
 	return result;
 }
 
+static int restore_handle_baseband_updater_output_data(restored_client_t restore, struct idevicerestore_client_t* client, idevice_t device, plist_t msg)
+{
+	int result = -1;
+	plist_t node = plist_dict_get_item(msg, "DataPort");
+	uint64_t u64val = 0;
+	plist_get_uint_val(node, &u64val);
+	uint16_t data_port = (uint16_t)u64val;
+
+	int attempts = 10;
+	idevice_connection_t connection = NULL;
+	idevice_error_t device_error = IDEVICE_E_SUCCESS;
+
+	debug("Connecting to baseband updater data port\n");
+	while (--attempts > 0) {
+		device_error = idevice_connect(device, data_port, &connection);
+		if (device_error == IDEVICE_E_SUCCESS) {
+			break;
+		}
+		sleep(1);
+		debug("Retrying connection...\n");
+	}
+	if (device_error != IDEVICE_E_SUCCESS) {
+		error("ERROR: Unable to connect to baseband updater data port\n");
+		return result;
+	}
+
+	int fl = snprintf(NULL, 0, "updater_output-%s.cpio", client->udid);
+	if (fl < 0) {
+		idevice_disconnect(connection);
+		error("ERROR: snprintf failed?!\n");
+		return result;
+	}
+	char* updater_out_fn = malloc(fl+1);
+	if (!updater_out_fn) {
+		idevice_disconnect(connection);
+		error("ERROR: Could not allocate buffer for filename\n");
+		return result;
+	}
+	snprintf(updater_out_fn, fl+1, "updater_output-%s.cpio", client->udid);
+	FILE* f = fopen(updater_out_fn, "wb");
+	if (!f) {
+		error("Could not open %s for writing, will not write baseband updater output data.\n", updater_out_fn);
+	}
+	const int bufsize = 65536;
+	char* buf = malloc(bufsize);
+	if (!buf) {
+		free(updater_out_fn);
+		idevice_disconnect(connection);
+		error("ERROR: Could not allocate buffer\n");
+		return result;
+	}
+	uint32_t size = 0;
+	while (idevice_connection_receive(connection, buf, bufsize, &size) == IDEVICE_E_SUCCESS) {
+		if (f) {
+			fwrite(buf, 1, size, f);
+		}
+	}
+	if (f) {
+		fclose(f);
+		info("Wrote baseband updater output data to %s\n", updater_out_fn);
+	}
+	free(updater_out_fn);
+	free(buf);
+	idevice_disconnect(connection);
+	result = 0;
+
+	return result;
+}
+
 static int restore_handle_bb_update_status_msg(restored_client_t client, plist_t msg)
 {
 	int result = -1;
@@ -2984,6 +3053,11 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// baseband update message
 		else if (!strcmp(type, "BBUpdateStatusMsg")) {
 			err = restore_handle_bb_update_status_msg(restore, message);
+		}
+
+		// baseband updater output data request
+		else if (!strcmp(type, "BasebandUpdaterOutputData")) {
+			err = restore_handle_baseband_updater_output_data(restore, client, device, message);
 		}
 
 		// there might be some other message types i'm not aware of, but I think
