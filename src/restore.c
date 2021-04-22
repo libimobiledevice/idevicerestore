@@ -247,6 +247,7 @@ int restore_check_mode(struct idevicerestore_client_t* client)
 
 irecv_device_t restore_get_irecv_device(struct idevicerestore_client_t* client)
 {
+	debug("restore_get_irecv_device ...\n");
 	char* model = NULL;
 	plist_t node = NULL;
 	idevice_t device = NULL;
@@ -272,6 +273,7 @@ irecv_device_t restore_get_irecv_device(struct idevicerestore_client_t* client)
 	}
 
 	if (client->srnm == NULL) {
+		debug("Calling restored_get_value ...\n");
 		restore_error = restored_get_value(restore, "SerialNumber", &node);
 		if (restore_error != RESTORE_E_SUCCESS || !node || plist_get_node_type(node) != PLIST_STRING) {
 			error("ERROR: Unable to get SerialNumber from restored\n");
@@ -281,7 +283,7 @@ irecv_device_t restore_get_irecv_device(struct idevicerestore_client_t* client)
 		}
 
 		plist_get_string_val(node, &client->srnm);
-		info("INFO: device serial number is %s\n", client->srnm);
+		info("RESTORE INFO: device serial number is %s\n", client->srnm);
 		plist_free(node);
 		node = NULL;
 	}
@@ -429,7 +431,7 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 		return 0;
 	}
 
-	return (strcasecmp(this_srnm, client->srnm) == 0);
+	return (strcasecmp(this_srnm, client->srnm) == 0) ||  (strcasecmp(client->srnm,"[4DCEBAADFOOD]")==0);
 }
 
 int restore_open_with_timeout(struct idevicerestore_client_t* client)

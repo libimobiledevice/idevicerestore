@@ -56,6 +56,8 @@ void recovery_client_free(struct idevicerestore_client_t* client) {
 }
 
 int recovery_client_new(struct idevicerestore_client_t* client) {
+	
+	debug("recovery_client_new\n");
 	int i = 0;
 	int attempts = 20;
 	irecv_client_t recovery = NULL;
@@ -71,6 +73,7 @@ int recovery_client_new(struct idevicerestore_client_t* client) {
 	}
 
 	for (i = 1; i <= attempts; i++) {
+		debug("calling irecv_open_with_ecid\n");
 		recovery_error = irecv_open_with_ecid(&recovery, client->ecid);
 		if (recovery_error == IRECV_E_SUCCESS) {
 			break;
@@ -86,10 +89,11 @@ int recovery_client_new(struct idevicerestore_client_t* client) {
 	}
 
 	if (client->srnm == NULL) {
+		debug("Calling irecv_get_device_info ...\n");
 		const struct irecv_device_info *device_info = irecv_get_device_info(recovery);
 		if (device_info && device_info->srnm) {
 			client->srnm = strdup(device_info->srnm);
-			info("INFO: device serial number is %s\n", client->srnm);
+			info("RECOVERY INFO: device serial number is %s\n", client->srnm);
 		}
 	}
 

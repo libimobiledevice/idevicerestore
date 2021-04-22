@@ -592,7 +592,7 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 				break;
 			}
 		}
-		bytes_ret = idevicerestore_socket_receive_timeout(sockfd, buf, bufsize, 0, 100);
+		bytes_ret = idevicerestore_socket_receive_timeout(sockfd, buf, bufsize, 0, 1000);
 		if (bytes_ret < 0) {
 			if (errno)
 				error("ERROR: FDR %p receiving proxy payload failed: %s\n",
