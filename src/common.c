@@ -78,37 +78,52 @@ static int info_disabled = 0;
 static int error_disabled = 0;
 static int debug_disabled = 0;
 
+
+
+void Printf(const char* header,const char* format,va_list vargs)
+{
+	char pOut[2048];
+	int threadID = pthread_self() ;
+	vsnprintf(pOut,2048, format, vargs);
+	printf("\n(%d) %s:%s",threadID,header,pOut);
+}
+
 void info(const char* format, ...)
 {
 	if (info_disabled) return;
 	va_list vargs;
 	va_start(vargs, format);
-	vfprintf((info_stream) ? info_stream : stdout, format, vargs);
+	//vfprintf((info_stream) ? info_stream : stdout, format, vargs);
+	Printf("Info",format,vargs);
+	
 	va_end(vargs);
 }
 
 void error(const char* format, ...)
 {
+	
 	va_list vargs, vargs2;
 	va_start(vargs, format);
-	va_copy(vargs2, vargs);
-	vsnprintf(idevicerestore_err_buff, idevicerestore_err_buff_size, format, vargs);
+	Printf("Error",format,vargs);
+	//va_copy(vargs2, vargs);
+	//vsnprintf(idevicerestore_err_buff, idevicerestore_err_buff_size, format, vargs);
 	va_end(vargs);
-	if (!error_disabled) {
-		vfprintf((error_stream) ? error_stream : stderr, format, vargs2);
-	}
-	va_end(vargs2);
+	//if (!error_disabled) {
+	//	vfprintf((error_stream) ? error_stream : stderr, format, vargs2);
+	//}
+	//va_end(vargs2);
 }
 
 void debug(const char* format, ...)
 {
-	if (debug_disabled) return;
-	if (!idevicerestore_debug) {
-		return;
-	}
+	//if (debug_disabled) return;
+	//if (!idevicerestore_debug) {
+	//	return;
+	//}
 	va_list vargs;
 	va_start(vargs, format);
-	vfprintf((debug_stream) ? debug_stream : stderr, format, vargs);
+	//vfprintf((debug_stream) ? debug_stream : stderr, format, vargs);
+	Printf("Debug",format,vargs);
 	va_end(vargs);
 }
 
