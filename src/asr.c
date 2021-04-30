@@ -368,9 +368,7 @@ int asr_send_payload(asr_client_t asr, const char* filesystem)
 	fseeko(file, 0, SEEK_SET);
 #endif
 
-	int chunk = 0;
-	int add_checksum = 0;
-	data = (char*)malloc(ASR_PAYLOAD_CHUNK_SIZE);
+	data = (char*)malloc(ASR_PAYLOAD_CHUNK_SIZE + 20);
 
 	SHA_CTX sha1;
 
@@ -379,58 +377,28 @@ int asr_send_payload(asr_client_t asr, const char* filesystem)
 	}
 
 	int size = 0;
-	for (i = length; i > 0; i -= size) {
+	i = length;
+	int retry = 3;
+	while(i > 0 && retry >= 0) {
 		size = ASR_PAYLOAD_CHUNK_SIZE;
 		if (i < ASR_PAYLOAD_CHUNK_SIZE) {
 			size = i;
 		}
 
-		if (add_checksum) {
-			add_checksum = 0;
-		}
-
-		if (asr->checksum_chunks && ((chunk + size) >= ASR_CHECKSUM_CHUNK_SIZE)) {
-			// reduce packet size to match checksum chunk size
-			size -= ((chunk + size) - ASR_CHECKSUM_CHUNK_SIZE);
-			add_checksum = 1;
-		}
-
 		if (fread(data, 1, size, file) != (size_t)size) {
 			error("Error reading filesystem\n");
-			free(data);
-			fclose(file);
-			return -1;
-		}
-
-		if (asr_send_buffer(asr, data, size) < 0) {
-			error("ERROR: Unable to send filesystem payload\n");
-			free(data);
-			fclose(file);
-			return -1;
+			retry--;
+			continue;
 		}
 
 		if (asr->checksum_chunks) {
-			SHA1_Update(&sha1, (unsigned char*)data, size);
-			chunk += size;
+			SHA1((unsigned char*)data, size, (unsigned char*)(data+size));
+		}
 
-			if (add_checksum) {
-				// get sha1 of last chunk
-				SHA1_Final((unsigned char*)data, &sha1);
-
-				// send checksum
-				if (asr_send_buffer(asr, data, 20) < 0) {
-					error("ERROR: Unable to send chunk checksum\n");
-					free(data);
-					fclose(file);
-					return -1;
-				}
-
-				// reset SHA1 context
-				SHA1_Init(&sha1);
-
-				// reset chunk byte counter
-				chunk = 0;
-			}
+		if (asr_send_buffer(asr, data, size+20) < 0) {
+			error("ERROR: Unable to send filesystem payload\n");
+			retry--;
+			continue;
 		}
 
 		bytes += size;
@@ -439,20 +407,8 @@ int asr_send_payload(asr_client_t asr, const char* filesystem)
 			asr->progress_cb(progress, asr->progress_cb_data);
 			asr->lastprogress = (int)(progress*100);
 		}
-	}
 
-	// if last chunk wasn't terminated with a checksum we do it here
-	if (asr->checksum_chunks && !add_checksum) {
-		// get sha1 of last chunk
-		SHA1_Final((unsigned char*)data, &sha1);
-
-		// send checksum
-		if (asr_send_buffer(asr, data, 20) < 0) {
-			error("ERROR: Unable to send chunk checksum\n");
-			free(data);
-			fclose(file);
-			return -1;
-		}
+		i -= size;
 	}
 
 	free(data);
