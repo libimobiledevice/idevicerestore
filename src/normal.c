@@ -241,7 +241,7 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 		if (LOCKDOWN_E_SUCCESS != (lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore"))) {
 			error("ERROR: Could not connect to lockdownd: %s (%d)\n", lockdownd_strerror(lockdown_error), lockdown_error);
 			idevice_free(device);
-			return 1;
+			return -1;
 		}
 		lockdown_error = lockdownd_enter_recovery(lockdown);
 	}
