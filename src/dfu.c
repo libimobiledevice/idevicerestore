@@ -503,6 +503,74 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 
 		mutex_lock(&client->device_event_mutex);
 
+		// Now, before sending iBEC, we must send necessary firmwares on new versions.
+		if (client->build_major >= 20) {
+			// Without this empty policy file & its special signature, iBEC won't start.
+			if (dfu_send_component_and_command(client, build_identity, "Ap,LocalPolicy", "lpolrestore") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send Ap,LocalPolicy to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_iboot_stage1_components(client, build_identity) < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send iBoot stage 1 components to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_command(client, "setenv auto-boot false") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send command to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_command(client, "saveenv") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send command to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_command(client, "setenvnp boot-args rd=md0 nand-enable-reformat=1 -progress -restore") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send command to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_component(client, build_identity, "RestoreLogo") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send RestoreDCP to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_command(client, "setpicture 4") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send command to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_command(client, "bgcolor 0 0 0") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send command to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+		}
+
 		/* send iBEC */
 		if (dfu_send_component(client, build_identity, "iBEC") < 0) {
 			mutex_unlock(&client->device_event_mutex);
@@ -513,12 +581,16 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		}
 
 		if (client->mode == &idevicerestore_modes[MODE_RECOVERY]) {
-			if (irecv_send_command(client->dfu->client, "go") != IRECV_E_SUCCESS) {
+			sleep(1);
+			if (irecv_send_command_breq(client->dfu->client, "go", 1) != IRECV_E_SUCCESS) {
 				mutex_unlock(&client->device_event_mutex);
 				error("ERROR: Unable to execute iBEC\n");
 				return -1;
 			}
-			irecv_usb_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
+
+			if (client->build_major < 20) {
+				irecv_usb_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
+			}
 		}
 		dfu_client_free(client);
 	}
