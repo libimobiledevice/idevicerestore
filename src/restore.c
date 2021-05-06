@@ -2783,6 +2783,85 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 	return 0;
 }
 
+// Extracted from ac2
+plist_t restore_supported_data_types() {
+	plist_t dict = plist_new_dict();
+	plist_dict_set_item(dict, "BasebandBootData", plist_new_bool(0));
+	plist_dict_set_item(dict, "BasebandData", plist_new_bool(0));
+	plist_dict_set_item(dict, "BasebandStackData", plist_new_bool(0));
+	plist_dict_set_item(dict, "BasebandUpdaterOutputData", plist_new_bool(0));
+	plist_dict_set_item(dict, "BuildIdentityDict", plist_new_bool(0));
+	plist_dict_set_item(dict, "BuildIdentityDictV2", plist_new_bool(0));
+	plist_dict_set_item(dict, "DataType", plist_new_bool(0));
+	plist_dict_set_item(dict, "DiagData", plist_new_bool(0));
+	plist_dict_set_item(dict, "EANData", plist_new_bool(0));
+	plist_dict_set_item(dict, "FDRMemoryCommit", plist_new_bool(0));
+	plist_dict_set_item(dict, "FDRTrustData", plist_new_bool(0));
+	plist_dict_set_item(dict, "FUDData", plist_new_bool(0));
+	plist_dict_set_item(dict, "FileData", plist_new_bool(0));
+	plist_dict_set_item(dict, "FileDataDone", plist_new_bool(0));
+	plist_dict_set_item(dict, "FirmwareUpdaterData", plist_new_bool(0));
+	plist_dict_set_item(dict, "GrapeFWData", plist_new_bool(0));
+	plist_dict_set_item(dict, "HPMFWData", plist_new_bool(0));
+	plist_dict_set_item(dict, "HostSystemTime", plist_new_bool(1));
+	plist_dict_set_item(dict, "KernelCache", plist_new_bool(0));
+	plist_dict_set_item(dict, "NORData", plist_new_bool(0));
+	plist_dict_set_item(dict, "NitrogenFWData", plist_new_bool(1));
+	plist_dict_set_item(dict, "OpalFWData", plist_new_bool(0));
+	plist_dict_set_item(dict, "OverlayRootDataCount", plist_new_bool(0));
+	plist_dict_set_item(dict, "OverlayRootDataForKey", plist_new_bool(1));
+	plist_dict_set_item(dict, "PeppyFWData", plist_new_bool(1));
+	plist_dict_set_item(dict, "PersonalizedBootObjectV3", plist_new_bool(0));
+	plist_dict_set_item(dict, "PersonalizedData", plist_new_bool(1));
+	plist_dict_set_item(dict, "ProvisioningData", plist_new_bool(0));
+	plist_dict_set_item(dict, "RamdiskFWData", plist_new_bool(1));
+	plist_dict_set_item(dict, "RecoveryOSASRImage", plist_new_bool(1));
+	plist_dict_set_item(dict, "RecoveryOSAppleLogo", plist_new_bool(1));
+	plist_dict_set_item(dict, "RecoveryOSDeviceTree", plist_new_bool(1));
+	plist_dict_set_item(dict, "RecoveryOSFileAssetImage", plist_new_bool(1));
+	plist_dict_set_item(dict, "RecoveryOSIBEC", plist_new_bool(1));
+	plist_dict_set_item(dict, "RecoveryOSIBootFWFilesImages", plist_new_bool(1));
+	plist_dict_set_item(dict, "RecoveryOSImage", plist_new_bool(1));
+	plist_dict_set_item(dict, "RecoveryOSKernelCache", plist_new_bool(1));
+	plist_dict_set_item(dict, "RecoveryOSLocalPolicy", plist_new_bool(1));
+	plist_dict_set_item(dict, "RecoveryOSOverlayRootDataCount", plist_new_bool(0));
+	plist_dict_set_item(dict, "RecoveryOSRootTicketData", plist_new_bool(1));
+	plist_dict_set_item(dict, "RecoveryOSStaticTrustCache", plist_new_bool(1));
+	plist_dict_set_item(dict, "RecoveryOSVersionData", plist_new_bool(1));
+	plist_dict_set_item(dict, "RootData", plist_new_bool(0));
+	plist_dict_set_item(dict, "RootTicket", plist_new_bool(0));
+	plist_dict_set_item(dict, "S3EOverride", plist_new_bool(0));
+	plist_dict_set_item(dict, "SourceBootObjectV3", plist_new_bool(0));
+	plist_dict_set_item(dict, "SourceBootObjectV4", plist_new_bool(0));
+	plist_dict_set_item(dict, "SsoServiceTicket", plist_new_bool(0));
+	plist_dict_set_item(dict, "StockholmPostflight", plist_new_bool(0));
+	plist_dict_set_item(dict, "SystemImageCanonicalMetadata", plist_new_bool(0));
+	plist_dict_set_item(dict, "SystemImageData", plist_new_bool(0));
+	plist_dict_set_item(dict, "SystemImageRootHash", plist_new_bool(0));
+	plist_dict_set_item(dict, "USBCFWData", plist_new_bool(0));
+	plist_dict_set_item(dict, "USBCOverride", plist_new_bool(0));
+	return dict;
+}
+
+// Extracted from ac2
+plist_t restore_supported_message_types() {
+	plist_t dict = plist_new_dict();
+	plist_dict_set_item(dict, "BBUpdateStatusMsg", plist_new_bool(0));
+	plist_dict_set_item(dict, "CheckpointMsg", plist_new_bool(1));
+	plist_dict_set_item(dict, "DataRequestMsg", plist_new_bool(0));
+	plist_dict_set_item(dict, "FDRSubmit", plist_new_bool(1));
+	plist_dict_set_item(dict, "MsgType", plist_new_bool(0));
+	plist_dict_set_item(dict, "PreviousRestoreLogMsg", plist_new_bool(0));
+	plist_dict_set_item(dict, "ProgressMsg", plist_new_bool(0));
+	plist_dict_set_item(dict, "ProvisioningAck", plist_new_bool(0));
+	plist_dict_set_item(dict, "ProvisioningInfo", plist_new_bool(0));
+	plist_dict_set_item(dict, "ProvisioningStatusMsg", plist_new_bool(0));
+	plist_dict_set_item(dict, "ReceivedFinalStatusMsg", plist_new_bool(0));
+	plist_dict_set_item(dict, "RestoredCrash", plist_new_bool(1));
+	plist_dict_set_item(dict, "StatusMsg", plist_new_bool(0));
+	return dict;
+}
+
 int restore_device(struct idevicerestore_client_t* client, plist_t build_identity, const char* filesystem)
 {
 	int err = 0;
@@ -2906,38 +2985,105 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		}
 	}
 
-	// FIXME: new on iOS 5 ?
-	plist_dict_set_item(opts, "BootImageType", plist_new_string("UserOrInternal"));
-	// FIXME: required?
-	//plist_dict_set_item(opts, "BootImageFile", plist_new_string("018-7923-347.dmg"));
+	// FIXME: Should be adjusted for update behaviors
+	if (client->build_major >= 20) {
+		plist_dict_set_item(opts, "AddSystemPartitionPadding", plist_new_bool(1));
+		plist_dict_set_item(opts, "AllowUntetheredRestore", plist_new_bool(0));
+		plist_dict_set_item(opts, "AuthInstallEnableSso", plist_new_bool(0));
+		char *macos_variant = NULL;
+		int ret = extract_macos_variant(build_identity, &macos_variant);
+		if (ret == 0) {
+			plist_dict_set_item(opts, "AuthInstallRecoveryOSVariant", plist_new_string(macos_variant));
+			free(macos_variant);
+		}
+		plist_dict_set_item(opts, "AuthInstallRestoreBehavior", plist_new_string(client->flags & FLAG_ERASE ? "Erase": "Update"));
+		plist_dict_set_item(opts, "AutoBootDelay", plist_new_uint(0));
+		plist_dict_set_item(opts, "BasebandUpdaterOutputPath", plist_new_bool(1));
+		plist_dict_set_item(opts, "DisableUserAuthentication", plist_new_bool(1));
+		plist_dict_set_item(opts, "FitSystemPartitionToContent", plist_new_bool(1));
+		plist_dict_set_item(opts, "FlashNOR", plist_new_bool(1));
+		plist_dict_set_item(opts, "FormatForAPFS", plist_new_bool(1));
+		plist_dict_set_item(opts, "FormatForLwVM", plist_new_bool(0));
+		plist_dict_set_item(opts, "InstallDiags", plist_new_bool(0));
+		plist_dict_set_item(opts, "InstallRecoveryOS", plist_new_bool(1));
+		plist_dict_set_item(opts, "MacOSSwapPerformed", plist_new_bool(1));
+		plist_dict_set_item(opts, "MacOSVariantPresent", plist_new_bool(1));
+		plist_dict_set_item(opts, "MinimumBatteryVoltage", plist_new_uint(0)); // FIXME: Should be adjusted for M1 macbooks (if needed)
+		plist_dict_set_item(opts, "RecoveryOSUnpack", plist_new_bool(1));
+		plist_dict_set_item(opts, "ShouldRestoreSystemImage", plist_new_bool(1));
+		plist_dict_set_item(opts, "SkipPreflightPersonalization", plist_new_bool(0));
+		plist_dict_set_item(opts, "SupportedDataTypes", restore_supported_data_types());
+		plist_dict_set_item(opts, "SupportedMessageTypes", restore_supported_message_types());
+		plist_dict_set_item(opts, "UpdateBaseband", plist_new_bool(1));
+		// FIXME: I don't know where this number comes from yet. It seems like it matches this part of the build identity:
+		// 	<key>OSVarContentSize</key>
+		// 	<integer>573751296</integer>
+		//  But i can't seem to find a plausible formula
+		// It did work with multiple macOS versions
+		plist_dict_set_item(opts, "recoveryOSPartitionSize", plist_new_uint(58201));
+		plist_t msp = plist_access_path(build_identity, 2, "Info", "MinimumSystemPartition");
+		if (msp) {
+			plist_dict_set_item(opts, "SystemPartitionSize", plist_copy(msp));
+		}
+	} else {
+		// FIXME: new on iOS 5 ?
+		plist_dict_set_item(opts, "BootImageType", plist_new_string("UserOrInternal"));
+		// FIXME: required?
+		//plist_dict_set_item(opts, "BootImageFile", plist_new_string("018-7923-347.dmg"));
+		plist_dict_set_item(opts, "DFUFileType", plist_new_string("RELEASE"));
+		plist_dict_set_item(opts, "DataImage", plist_new_bool(0));
+		// FIXME: not required for iOS 5?
+		//plist_dict_set_item(opts, "DeviceTreeFile", plist_new_string("DeviceTree.k48ap.img3"));
+		plist_dict_set_item(opts, "FirmwareDirectory", plist_new_string("."));
+		// FIXME: usable if false? (-x parameter)
+		plist_dict_set_item(opts, "FlashNOR", plist_new_bool(1));
+		// FIXME: not required for iOS 5?
+		//plist_dict_set_item(opts, "KernelCacheFile", plist_new_string("kernelcache.release.k48"));
+		// FIXME: new on iOS 5 ?
+		plist_dict_set_item(opts, "KernelCacheType", plist_new_string("Release"));
+		// FIXME: not required for iOS 5?
+		//plist_dict_set_item(opts, "NORImagePath", plist_new_string("."));
+		// FIXME: new on iOS 5 ?
+		plist_dict_set_item(opts, "NORImageType", plist_new_string("production"));
+		// FIXME: not required for iOS 5?
+		//plist_dict_set_item(opts, "PersonalizedRestoreBundlePath", plist_new_string("/tmp/Per2.tmp"));
+		plist_dict_set_item(opts, "RestoreBundlePath", plist_new_string("/tmp/Per2.tmp"));
+		// FIXME: not required for iOS 5?
+		//plist_dict_set_item(opts, "SourceRestoreBundlePath", plist_new_string("/tmp"));
+		// FIXME: new on iOS 5 ?
+		plist_dict_set_item(opts, "SystemImageType", plist_new_string("User"));
+		// FIXME: does this have any effect actually?
+		plist_dict_set_item(opts, "UpdateBaseband", plist_new_bool(0));
+
+		plist_t sep = plist_access_path(build_identity, 3, "Manifest", "SEP", "Info");
+		if (sep) {
+			node = plist_dict_get_item(sep, "RequiredCapacity");
+			if (node && plist_get_node_type(node) == PLIST_STRING) {
+				char* sval = NULL;
+				plist_get_string_val(node, &sval);
+				debug("TZ0RequiredCapacity: %s\n", sval);
+				plist_dict_set_item(opts, "TZ0RequiredCapacity", plist_copy(node));
+				free(sval);
+				sval = NULL;
+			}
+		}
+		// FIXME: not required for iOS 5?
+		//plist_dict_set_item(opts, "UserLocale", plist_new_string("en_US"));
+		/* this is mandatory on iOS 7+ to allow restore from normal mode */
+		plist_dict_set_item(opts, "PersonalizedDuringPreflight", plist_new_bool(1));
+	}
+
+	plist_dict_set_item(opts, "RootToInstall", plist_new_bool(0));
+	char* guid = generate_guid();
+	if (guid) {
+		plist_dict_set_item(opts, "UUID", plist_new_string(guid));
+		free(guid);
+	}
 	plist_dict_set_item(opts, "CreateFilesystemPartitions", plist_new_bool(1));
-	plist_dict_set_item(opts, "DFUFileType", plist_new_string("RELEASE"));
-	plist_dict_set_item(opts, "DataImage", plist_new_bool(0));
-	// FIXME: not required for iOS 5?
-	//plist_dict_set_item(opts, "DeviceTreeFile", plist_new_string("DeviceTree.k48ap.img3"));
-	plist_dict_set_item(opts, "FirmwareDirectory", plist_new_string("."));
-	// FIXME: usable if false? (-x parameter)
-	plist_dict_set_item(opts, "FlashNOR", plist_new_bool(1));
-	// FIXME: not required for iOS 5?
-	//plist_dict_set_item(opts, "KernelCacheFile", plist_new_string("kernelcache.release.k48"));
-	// FIXME: new on iOS 5 ?
-	plist_dict_set_item(opts, "KernelCacheType", plist_new_string("Release"));
-	// FIXME: not required for iOS 5?
-	//plist_dict_set_item(opts, "NORImagePath", plist_new_string("."));
-	// FIXME: new on iOS 5 ?
-	plist_dict_set_item(opts, "NORImageType", plist_new_string("production"));
-	// FIXME: not required for iOS 5?
-	//plist_dict_set_item(opts, "PersonalizedRestoreBundlePath", plist_new_string("/tmp/Per2.tmp"));
+	plist_dict_set_item(opts, "SystemImage", plist_new_bool(1));
 	if (client->restore_boot_args) {
 		plist_dict_set_item(opts, "RestoreBootArgs", plist_new_string(client->restore_boot_args));
 	}
-	plist_dict_set_item(opts, "RestoreBundlePath", plist_new_string("/tmp/Per2.tmp"));
-	plist_dict_set_item(opts, "RootToInstall", plist_new_bool(0));
-	// FIXME: not required for iOS 5?
-	//plist_dict_set_item(opts, "SourceRestoreBundlePath", plist_new_string("/tmp"));
-	plist_dict_set_item(opts, "SystemImage", plist_new_bool(1));
-	// FIXME: new on iOS 5 ?
-	plist_dict_set_item(opts, "SystemImageType", plist_new_string("User"));
 	plist_t spp = plist_access_path(build_identity, 2, "Info", "SystemPartitionPadding");
 	if (spp) {
 		spp = plist_copy(spp);
@@ -2950,32 +3096,6 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		plist_dict_set_item(spp, "8", plist_new_uint(80));
 	}
 	plist_dict_set_item(opts, "SystemPartitionPadding", spp);
-	char* guid = generate_guid();
-	if (guid) {
-		plist_dict_set_item(opts, "UUID", plist_new_string(guid));
-		free(guid);
-	}
-	// FIXME: does this have any effect actually?
-	plist_dict_set_item(opts, "UpdateBaseband", plist_new_bool(0));
-
-	plist_t sep = plist_access_path(build_identity, 3, "Manifest", "SEP", "Info");
-	if (sep) {
-		node = plist_dict_get_item(sep, "RequiredCapacity");
-		if (node && plist_get_node_type(node) == PLIST_STRING) {
-			char* sval = NULL;
-			plist_get_string_val(node, &sval);
-			debug("TZ0RequiredCapacity: %s\n", sval);
-			plist_dict_set_item(opts, "TZ0RequiredCapacity", plist_copy(node));
-			free(sval);
-			sval = NULL;
-		}
-	}
-
-	// FIXME: not required for iOS 5?
-	//plist_dict_set_item(opts, "UserLocale", plist_new_string("en_US"));
-
-	/* this is mandatory on iOS 7+ to allow restore from normal mode */
-	plist_dict_set_item(opts, "PersonalizedDuringPreflight", plist_new_bool(1));
 
 	// start the restore process
 	restore_error = restored_start_restore(restore, opts, client->restore->protocol_version);
