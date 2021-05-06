@@ -41,6 +41,7 @@ PKG_CHECK_MODULES(libplist, libplist-2.0 >= $LIBPLIST_VERSION)
 PKG_CHECK_MODULES(libzip, libzip >= $LIBZIP_VERSION)
 PKG_CHECK_MODULES(libcurl, libcurl >= $LIBCURL_VERSION)
 PKG_CHECK_MODULES(zlib, zlib)
+PKG_CHECK_MODULES(uuid, uuid)
 
 # optional
 PKG_CHECK_MODULES(openssl, openssl >= $OPENSSL_VERSION, have_openssl=yes, have_openssl=no)
@@ -51,7 +52,7 @@ AC_C_BIGENDIAN([AC_DEFINE([__BIG_ENDIAN__], [1], [big endian])],
 
 GLOBAL_CFLAGS="-Wno-multichar -O2"
 AC_LDADD=""
-AC_LDFLAGS=""
+AC_LDFLAGS="-luuid"
 AC_MSG_CHECKING([whether we need platform-specific build settings])
 case ${host_os} in
   *mingw32*|*cygwin*)

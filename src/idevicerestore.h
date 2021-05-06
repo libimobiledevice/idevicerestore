@@ -32,6 +32,8 @@ extern "C" {
 #include <stdint.h>
 #include <plist/plist.h>
 #include <libirecovery.h>
+#include <openssl/sha.h>
+#include <uuid/uuid.h>
 
 // the flag with value 1 is reserved for internal use only. don't use it.
 #define FLAG_DEBUG           (1 << 1)
@@ -89,12 +91,24 @@ int is_image4_supported(struct idevicerestore_client_t* client);
 int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
 int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
 int get_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss);
+int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss);
+int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss);
+int get_recovery_os_local_policy_tss_response(
+		struct idevicerestore_client_t* client,
+		plist_t build_identity,
+		plist_t* tss,
+		plist_t args);
 void fixup_tss(plist_t tss);
 int build_manifest_get_identity_count(plist_t build_manifest);
 int build_manifest_check_compatibility(plist_t build_manifest, const char* product);
 void build_manifest_get_version_information(plist_t build_manifest, struct idevicerestore_client_t* client);
 plist_t build_manifest_get_build_identity_for_model(plist_t build_manifest, const char *hardware_model);
 plist_t build_manifest_get_build_identity_for_model_with_restore_behavior(plist_t build_manifest, const char *hardware_model, const char *behavior);
+plist_t build_manifest_get_build_identity_for_model_with_restore_behavior_and_global_signing(
+		plist_t build_manifest,
+		const char *hardware_model,
+		const char *behavior,
+		uint8_t global_signing);
 int build_manifest_get_build_count(plist_t build_manifest);
 void build_identity_print_information(plist_t build_identity);
 int build_identity_check_components_in_ipsw(plist_t build_identity, const char* ipsw);

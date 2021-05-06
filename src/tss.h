@@ -36,8 +36,10 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 /* request */
 plist_t tss_request_new(plist_t overrides);
 
+int tss_request_add_local_policy_tags(plist_t request, plist_t parameters);
 int tss_request_add_common_tags(plist_t request, plist_t parameters, plist_t overrides);
 int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrides);
+int tss_request_add_ap_recovery_tags(plist_t request, plist_t parameters, plist_t overrides);
 int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t overrides);
 int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrides);
 int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t overrides, char **component_name);

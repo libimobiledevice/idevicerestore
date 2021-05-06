@@ -1074,10 +1074,23 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		if (client->flags & FLAG_QUIT) {
 			return -1;
 		}
+		
 		if (get_tss_response(client, build_identity, &client->tss) < 0) {
 			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
 		}
+		if (client->build_major >= 20) {
+			if (get_local_policy_tss_response(client, build_identity, &client->tss_localpolicy) < 0) {
+				error("ERROR: Unable to get SHSH blobs for this device (local policy)\n");
+				return -1;
+			}
+			if (get_recoveryos_root_ticket_tss_response(client, build_identity, &client->tss_recoveryos_root_ticket) <
+				0) {
+				error("ERROR: Unable to get SHSH blobs for this device (recovery OS Root Ticket)\n");
+				return -1;
+			}
+		}
+
 		if (stashbag_commit_required) {
 			plist_t ticket = plist_dict_get_item(client->tss, "ApImg4Ticket");
 			if (!ticket || plist_get_node_type(ticket) != PLIST_DATA) {
@@ -1991,6 +2004,79 @@ plist_t build_manifest_get_build_identity_for_model_with_restore_behavior(plist_
 	return NULL;
 }
 
+plist_t build_manifest_get_build_identity_for_model_with_restore_behavior_and_global_signing(
+		plist_t build_manifest,
+		const char *hardware_model,
+		const char *behavior,
+		uint8_t global_signing)
+{
+	plist_t build_identities_array = plist_dict_get_item(build_manifest, "BuildIdentities");
+	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
+		error("ERROR: Unable to find build identities node\n");
+		return NULL;
+	}
+
+	uint32_t i;
+	for (i = 0; i < plist_array_get_size(build_identities_array); i++) {
+		plist_t ident = plist_array_get_item(build_identities_array, i);
+		if (!ident || plist_get_node_type(ident) != PLIST_DICT) {
+			continue;
+		}
+		plist_t info_dict = plist_dict_get_item(ident, "Info");
+		if (!info_dict || plist_get_node_type(ident) != PLIST_DICT) {
+			continue;
+		}
+		plist_t devclass = plist_dict_get_item(info_dict, "DeviceClass");
+		if (!devclass || plist_get_node_type(devclass) != PLIST_STRING) {
+			continue;
+		}
+		char *str = NULL;
+		plist_get_string_val(devclass, &str);
+		if (strcasecmp(str, hardware_model) != 0) {
+			free(str);
+			continue;
+		}
+		free(str);
+		str = NULL;
+
+		plist_t global_signing_node = plist_dict_get_item(info_dict, "VariantSupportsGlobalSigning");
+		if (!global_signing_node) {
+			if (global_signing) {
+				continue;
+			}
+		} else {
+			uint8_t is_global_signing;
+			plist_get_bool_val(global_signing_node, &is_global_signing);
+
+			if (global_signing && !is_global_signing) {
+				continue;
+			} else if (!global_signing && is_global_signing) {
+				continue;
+			}
+		}
+
+		if (behavior) {
+			plist_t rbehavior = plist_dict_get_item(info_dict, "RestoreBehavior");
+			if (!rbehavior || plist_get_node_type(rbehavior) != PLIST_STRING) {
+				continue;
+			}
+			plist_get_string_val(rbehavior, &str);
+			if (strcasecmp(str, behavior) != 0) {
+				free(str);
+				continue;
+			} else {
+				free(str);
+				return plist_copy(ident);
+			}
+			free(str);
+		} else {
+			return plist_copy(ident);
+		}
+	}
+
+	return NULL;
+}
+
 plist_t build_manifest_get_build_identity_for_model(plist_t build_manifest, const char *hardware_model)
 {
 	return build_manifest_get_build_identity_for_model_with_restore_behavior(build_manifest, hardware_model, NULL);
@@ -2246,6 +2332,266 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 			}
 		}
 		client->preflight_info = pinfo;
+	}
+
+	/* send request and grab response */
+	response = tss_request_send(request, client->tss_url);
+	if (response == NULL) {
+		info("ERROR: Unable to send TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	info("Received SHSH blobs\n");
+
+	plist_free(request);
+	plist_free(parameters);
+
+	*tss = response;
+
+	return 0;
+}
+
+int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss) {
+	plist_t request = NULL;
+	plist_t response = NULL;
+	*tss = NULL;
+
+	/* populate parameters */
+	plist_t parameters = plist_new_dict();
+
+	/* ApECID */
+	plist_dict_set_item(parameters, "ApECID", plist_new_uint(client->ecid));
+	plist_dict_set_item(parameters, "Ap,LocalBoot", plist_new_bool(0));
+
+	/* ApNonce */
+	if (client->nonce) {
+		plist_dict_set_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
+	}
+	unsigned char* sep_nonce = NULL;
+	int sep_nonce_size = 0;
+	get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
+
+	/* ApSepNonce */
+	if (sep_nonce) {
+		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
+		free(sep_nonce);
+	}
+
+	/* ApProductionMode */
+	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
+
+	/* ApSecurityMode */
+	if (client->image4supported) {
+		plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(1));
+	}
+
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	/* create basic request */
+	/* Adds @BBTicket, @HostPlatformInfo, @VersionInfo, @UUID */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create TSS request\n");
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* add common tags from manifest */
+	/* Adds Ap,OSLongVersion, AppNonce, @ApImg4Ticket */
+	if (tss_request_add_ap_img4_tags(request, parameters) < 0) {
+		error("ERROR: Unable to add AP IMG4 tags to TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* add AP tags from manifest */
+	if (tss_request_add_common_tags(request, parameters, NULL) < 0) {
+		error("ERROR: Unable to add common tags to TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* add AP tags from manifest */
+	/* Fills digests & co */
+	if (tss_request_add_ap_recovery_tags(request, parameters, NULL) < 0) {
+		error("ERROR: Unable to add common tags to TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* send request and grab response */
+	response = tss_request_send(request, client->tss_url);
+	if (response == NULL) {
+		info("ERROR: Unable to send TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+	// request_add_ap_tags
+
+	info("Received SHSH blobs\n");
+
+	plist_free(request);
+	plist_free(parameters);
+
+	*tss = response;
+
+	return 0;
+}
+
+int get_recovery_os_local_policy_tss_response(
+				struct idevicerestore_client_t* client,
+				plist_t build_identity,
+				plist_t* tss,
+				plist_t args) {
+	plist_t request = NULL;
+	plist_t response = NULL;
+	*tss = NULL;
+
+	/* populate parameters */
+	plist_t parameters = plist_new_dict();
+	plist_dict_set_item(parameters, "ApECID", plist_new_uint(client->ecid));
+	plist_dict_set_item(parameters, "Ap,LocalBoot", plist_new_bool(1));
+
+	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
+	if (client->image4supported) {
+		plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(1));
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(1));
+	} else {
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
+	}
+
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	// Add Ap,LocalPolicy
+	uint8_t digest[SHA384_DIGEST_LENGTH];
+	SHA384(lpol_file, lpol_file_length, digest);
+	plist_t lpol = plist_new_dict();
+	plist_dict_set_item(lpol, "Digest", plist_new_data(digest, SHA384_DIGEST_LENGTH));
+	plist_dict_set_item(lpol, "Trusted", plist_new_bool(1));
+	plist_dict_set_item(parameters, "Ap,LocalPolicy", lpol);
+
+	plist_t im4m_hash = plist_dict_get_item(args, "Ap,NextStageIM4MHash");
+	plist_dict_set_item(parameters, "Ap,NextStageIM4MHash", plist_copy(im4m_hash));
+
+	plist_t nonce_hash = plist_dict_get_item(args, "Ap,RecoveryOSPolicyNonceHash");
+	plist_dict_set_item(parameters, "Ap,RecoveryOSPolicyNonceHash", plist_copy(nonce_hash));
+
+	plist_t vol_uuid_node = plist_dict_get_item(args, "Ap,VolumeUUID");
+	char* vol_uuid_str = malloc(40);
+	plist_get_string_val(vol_uuid_node, &vol_uuid_str);
+	uuid_t vol_uuid;
+	int ret = uuid_parse(vol_uuid_str, vol_uuid);
+	if (ret != 0) {
+		error("failed to parse Ap,VolumeUUID (%s) with code %d\n", vol_uuid_str, ret);
+		return -1;
+	}
+	free(vol_uuid_str);
+	plist_dict_set_item(parameters, "Ap,VolumeUUID", plist_new_data(vol_uuid, 16));
+
+	/* create basic request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create TSS request\n");
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* add common tags from manifest */
+	if (tss_request_add_local_policy_tags(request, parameters) < 0) {
+		error("ERROR: Unable to add common tags to TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* send request and grab response */
+	response = tss_request_send(request, client->tss_url);
+	if (response == NULL) {
+		info("ERROR: Unable to send TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	info("Received SHSH blobs\n");
+
+	plist_free(request);
+	plist_free(parameters);
+
+	*tss = response;
+
+	return 0;
+}
+
+int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss) {
+	plist_t request = NULL;
+	plist_t response = NULL;
+	*tss = NULL;
+
+	/* populate parameters */
+	plist_t parameters = plist_new_dict();
+	plist_dict_set_item(parameters, "ApECID", plist_new_uint(client->ecid));
+	plist_dict_set_item(parameters, "Ap,LocalBoot", plist_new_bool(0));
+	if (client->nonce) {
+		plist_dict_set_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
+	}
+	unsigned char* sep_nonce = NULL;
+	int sep_nonce_size = 0;
+	get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
+
+	if (sep_nonce) {
+		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
+		free(sep_nonce);
+	}
+
+	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
+	if (client->image4supported) {
+		plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(1));
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(1));
+	} else {
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
+	}
+
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	// Add Ap,LocalPolicy
+	uint8_t digest[SHA384_DIGEST_LENGTH];
+	SHA384(lpol_file, lpol_file_length, digest);
+	plist_t lpol = plist_new_dict();
+	plist_dict_set_item(lpol, "Digest", plist_new_data(digest, SHA384_DIGEST_LENGTH));
+	plist_dict_set_item(lpol, "Trusted", plist_new_bool(1));
+	plist_dict_set_item(parameters, "Ap,LocalPolicy", lpol);
+
+	// Add Ap,NextStageIM4MHash
+	// Get previous TSS ticket
+	uint8_t* ticket = NULL;
+	uint32_t ticket_length = 0;
+	tss_response_get_ap_img4_ticket(client->tss, &ticket, &ticket_length);
+	// Hash it and add it as Ap,NextStageIM4MHash
+	uint8_t hash[SHA384_DIGEST_LENGTH];
+	SHA384(ticket, ticket_length, hash);
+	plist_dict_set_item(parameters, "Ap,NextStageIM4MHash", plist_new_data(hash, SHA384_DIGEST_LENGTH));
+
+	/* create basic request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create TSS request\n");
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* add common tags from manifest */
+	if (tss_request_add_local_policy_tags(request, parameters) < 0) {
+		error("ERROR: Unable to add common tags to TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
 	}
 
 	/* send request and grab response */
