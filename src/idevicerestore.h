@@ -59,6 +59,11 @@ enum {
 	RESTORE_NUM_STEPS
 };
 
+// lpol_file has been extracted from the IMG4 dump of the ac2 usb protocol. It is not present in the .ipsw and
+// represents and empty "local policy". See https://support.apple.com/guide/security/contents-a-localpolicy-file-mac-apple-silicon-secc745a0845/web.
+extern const uint8_t lpol_file[22];
+extern const uint32_t lpol_file_length;
+
 typedef void (*idevicerestore_progress_cb_t)(int step, double step_progress, void* userdata);
 
 struct idevicerestore_client_t* idevicerestore_client_new(void);
