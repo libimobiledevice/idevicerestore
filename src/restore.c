@@ -1064,7 +1064,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	plist_t dict = NULL;
 	unsigned int nor_size = 0;
 	unsigned char* nor_data = NULL;
-	plist_t norimage_array = NULL;
+	plist_t norimage = NULL;
 	plist_t firmware_files = NULL;
 	uint32_t i;
 
@@ -1189,7 +1189,13 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	plist_dict_set_item(dict, "LlbImageData", plist_new_data((char*)llb_data, (uint64_t) llb_size));
 	free(llb_data);
 
-	norimage_array = plist_new_array();
+	if (client->build_major >= 20) {
+		// Starting with M1 macs, it seems that NorImageData is now a dict.
+		// Sending an array like previous versions results in restore success but the machine will SOS after rebooting.
+		norimage = plist_new_dict();
+	} else {
+		norimage = plist_new_array();
+	}
 
 	plist_dict_iter iter = NULL;
 	plist_dict_new_iter(firmware_files, &iter);
@@ -1241,11 +1247,15 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		component_data = NULL;
 		component_size = 0;
 
-		/* make sure iBoot is the first entry in the array */
-		if (!strncmp("iBoot", component, 5)) {
-			plist_array_insert_item(norimage_array, plist_new_data((char*)nor_data, (uint64_t)nor_size), 0);
+		if (client->build_major >= 20) {
+			plist_dict_set_item(norimage, component, plist_new_data((char*)nor_data, (uint64_t)nor_size));
 		} else {
-			plist_array_append_item(norimage_array, plist_new_data((char*)nor_data, (uint64_t)nor_size));
+			/* make sure iBoot is the first entry in the array */
+			if (!strncmp("iBoot", component, 5)) {
+				plist_array_insert_item(norimage, plist_new_data((char*)nor_data, (uint64_t)nor_size), 0);
+			} else {
+				plist_array_append_item(norimage, plist_new_data((char*)nor_data, (uint64_t)nor_size));
+			}
 		}
 
 		free(comp);
@@ -1256,7 +1266,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	}
 	free(iter);
 	plist_free(firmware_files);
-	plist_dict_set_item(dict, "NorImageData", norimage_array);
+	plist_dict_set_item(dict, "NorImageData", norimage);
 
 	unsigned char* personalized_data = NULL;
 	unsigned int personalized_size = 0;
