@@ -2322,7 +2322,7 @@ int extract_component(const char* ipsw, const char* path, unsigned char** compon
 	else
 		component_name = (char*) path;
 
-	info("Extracting %s...\n", component_name);
+	info("Extracting %s (%s)...\n", component_name, path);
 	if (ipsw_extract_to_memory(ipsw, path, component_data, component_size) < 0) {
 		error("ERROR: Unable to extract %s from %s\n", component_name, ipsw);
 		return -1;
