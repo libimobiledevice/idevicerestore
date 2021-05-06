@@ -331,6 +331,81 @@ int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** no
 	return 0;
 }
 
+int dfu_send_component_and_command(struct idevicerestore_client_t* client, plist_t build_identity, const char* component, const char* command)
+{
+	irecv_error_t dfu_error = IRECV_E_SUCCESS;
+
+	if (dfu_send_component(client, build_identity, component) < 0) {
+		error("ERROR: Unable to send %s to device.\n", component);
+		return -1;
+	}
+
+	info("INFO: executing command: %s\n", command);
+	dfu_error = irecv_send_command(client->dfu->client, command);
+	if (dfu_error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to execute %s\n", command);
+		return -1;
+	}
+
+	return 0;
+}
+
+int dfu_send_command(struct idevicerestore_client_t* client, const char* command)
+{
+	irecv_error_t dfu_error = IRECV_E_SUCCESS;
+
+	info("INFO: executing command: %s\n", command);
+	dfu_error = irecv_send_command(client->dfu->client, command);
+	if (dfu_error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to execute %s\n", command);
+		return -1;
+	}
+
+	return 0;
+}
+
+int dfu_send_iboot_stage1_components(struct idevicerestore_client_t* client, plist_t build_identity)
+{
+	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: Unable to find manifest node\n");
+		return -1;
+	}
+
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(manifest_node, &iter);
+	int err = 0;
+	while (iter) {
+		char *key = NULL;
+		plist_t node = NULL;
+		plist_dict_next_item(manifest_node, iter, &key, &node);
+		if (key == NULL)
+			break;
+
+		plist_t iboot_node = plist_access_path(node, 2, "Info", "IsLoadedByiBoot");
+		plist_t iboot_stg1_node = plist_access_path(node, 2, "Info", "IsLoadedByiBootStage1");
+		uint8_t is_stg1 = 0;
+		if (iboot_stg1_node && plist_get_node_type(iboot_stg1_node) == PLIST_BOOLEAN) {
+			plist_get_bool_val(iboot_stg1_node, &is_stg1);
+		}
+		if (iboot_node && plist_get_node_type(iboot_node) == PLIST_BOOLEAN && is_stg1) {
+			uint8_t b = 0;
+			plist_get_bool_val(iboot_node, &b);
+			if (b) {
+				debug("DEBUG: %s is loaded by iBoot Stage 1.\n", key);
+				if (dfu_send_component_and_command(client, build_identity, key, "firmware") < 0) {
+					error("ERROR: Unable to send component '%s' to device.\n", key);
+					err++;
+				}
+			}
+		}
+		free(key);
+	}
+	free(iter);
+
+	return (err) ? -1 : 0;
+}
+
 int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_identity)
 {
 	int mode = 0;
