@@ -932,6 +932,59 @@ int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t de
 	return 0;
 }
 
+int restore_send_recovery_os_root_ticket(restored_client_t restore, struct idevicerestore_client_t* client)
+{
+	restored_error_t restore_error;
+	plist_t dict;
+
+	info("About to send RecoveryOSRootTicket...\n");
+
+	if (client->root_ticket) {
+		dict = plist_new_dict();
+		plist_dict_set_item(dict, "RecoveryOSRootTicketData", plist_new_data((char*)client->root_ticket, client->root_ticket_len));
+	} else {
+		unsigned char* data = NULL;
+		unsigned int len = 0;
+
+		if (!client->tss_recoveryos_root_ticket && !(client->flags & FLAG_CUSTOM)) {
+			error("ERROR: Cannot send RootTicket without TSS\n");
+			return -1;
+		}
+
+		if (client->image4supported) {
+			if (tss_response_get_ap_img4_ticket(client->tss_recoveryos_root_ticket, &data, &len) < 0) {
+				error("ERROR: Unable to get ApImg4Ticket from TSS\n");
+				return -1;
+			}
+		} else {
+			if (!(client->flags & FLAG_CUSTOM) && (tss_response_get_ap_ticket(client->tss, &data, &len) < 0)) {
+				error("ERROR: Unable to get ticket from TSS\n");
+				return -1;
+			}
+		}
+
+		dict = plist_new_dict();
+		if (data && (len > 0)) {
+			plist_dict_set_item(dict, "RootTicketData", plist_new_data((char*)data, len));
+		} else {
+			info("NOTE: not sending RootTicketData (no data present)\n");
+		}
+		free(data);
+	}
+
+	info("Sending RecoveryOSRootTicket now...\n");
+	restore_error = restored_send(restore, dict);
+	plist_free(dict);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: Unable to send RootTicket (%d)\n", restore_error);
+		return -1;
+	}
+
+	info("Done sending RecoveryOS RootTicket\n");
+	return 0;
+}
+
+
 int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_client_t* client)
 {
 	restored_error_t restore_error;
@@ -2665,6 +2718,394 @@ error_out:
 	return -1;
 }
 
+plist_t restore_get_build_identity(struct idevicerestore_client_t* client, uint8_t is_recover_os) {
+	unsigned int size = 0;
+	unsigned char* data = NULL;
+	plist_t buildmanifest = NULL;
+	ipsw_extract_to_memory(client->ipsw, "BuildManifest.plist", &data, &size);
+	plist_from_xml((char*)data, size, &buildmanifest);
+	free(data);
+
+	plist_t build_identity = build_manifest_get_build_identity_for_model_with_restore_behavior_and_global_signing(
+			buildmanifest,
+			client->device->hardware_model,
+			client->flags & FLAG_ERASE ? "Erase": "Update",
+			is_recover_os);
+
+	plist_t unique_id_node = plist_dict_get_item(buildmanifest, "UniqueBuildID");
+	debug_plist(unique_id_node);
+
+	return build_identity;
+}
+
+plist_t restore_get_build_identity_from_request(struct idevicerestore_client_t* client, plist_t msg) {
+	plist_t args = plist_dict_get_item(msg, "Arguments");
+	plist_t is_recovery_node = plist_dict_get_item(args, "IsRecoveryOS");
+	uint8_t is_recovery = 0;
+	plist_get_bool_val(is_recovery_node, &is_recovery);
+
+	return restore_get_build_identity(client, is_recovery);
+}
+
+int extract_macos_variant(plist_t build_identity, char** output) {
+	plist_t build_info = plist_dict_get_item(build_identity, "Info");
+	if (!build_info) {
+		error("ERROR: build identity does not contain an 'Info' element\n");
+		return -1;
+	}
+
+	plist_t macos_variant_node = plist_dict_get_item(build_info, "MacOSVariant");
+	if (!macos_variant_node) {
+		error("ERROR: build identity info does not contain a MacOSVariant\n");
+		return -1;
+	}
+	plist_get_string_val(macos_variant_node, output);
+
+	return 0;
+}
+
+int extract_global_manifest(struct idevicerestore_client_t* client, plist_t build_identity, unsigned char** pbuffer, unsigned int* psize) {
+	plist_t build_info = plist_dict_get_item(build_identity, "Info");
+	if (!build_info) {
+		error("ERROR: build identity does not contain an 'Info' element\n");
+		return -1;
+	}
+
+	plist_t device_class_node = plist_dict_get_item(build_info, "DeviceClass");
+	if (!device_class_node) {
+		error("ERROR: build identity info does not contain a DeviceClass\n");
+		return -1;
+	}
+	char *device_class = NULL;
+	plist_get_string_val(device_class_node, &device_class);
+
+	char *macos_variant = NULL;
+	int ret = extract_macos_variant(build_identity, &macos_variant);
+	if (ret != 0) {
+		free(device_class);
+		return -1;
+	}
+
+	// The path of the global manifest is hardcoded. There's no pointer to in the build manifest.
+	char *ticket_path = malloc((42+strlen(macos_variant)+strlen(device_class)+1)*sizeof(char));
+	sprintf(ticket_path, "Firmware/Manifests/restore/%s/apticket.%s.im4m", macos_variant, device_class);
+
+	free(device_class);
+	free(macos_variant);
+
+	ret = ipsw_extract_to_memory(client->ipsw, ticket_path, pbuffer, psize);
+	if (ret != 0) {
+		free(ticket_path);
+		error("ERROR: failed to read global manifest\n");
+		return -1;
+	}
+	free(ticket_path);
+
+	return 0;
+}
+
+int restore_send_personalized_boot_object_v3(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg, plist_t build_identity) {
+	debug_plist(msg);
+
+	char *image_name = NULL;
+	plist_t node = plist_access_path(msg, 2, "Arguments", "ImageName");
+	if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		debug("Failed to parse arguments from PersonalizedBootObjectV3 plist\n");
+		return -1;
+	}
+	plist_get_string_val(node, &image_name);
+	if (!image_name) {
+		debug("Failed to parse arguments from PersonalizedBootObjectV3 as string\n");
+		return -1;
+	}
+
+	char *component = image_name;
+	unsigned int size = 0;
+	unsigned char *data = NULL;
+	char *path = NULL;
+	plist_t blob = NULL;
+	plist_t dict = NULL;
+	restored_error_t restore_error = RESTORE_E_SUCCESS;
+	char *component_name = component;
+
+	info("About to send %s...\n", component_name);
+
+	if (strcmp(image_name, "__GlobalManifest__") == 0) {
+		int ret = extract_global_manifest(client, build_identity, &data, &size);
+		if (ret != 0) {
+			return -1;
+		}
+	} else if (strcmp(image_name, "__RestoreVersion__") == 0) {
+		int ret = ipsw_extract_to_memory(client->ipsw, "RestoreVersion.plist", &data, &size);
+		if (ret != 0) {
+			error("ERROR: failed to read global manifest\n");
+			return -1;
+		}
+	} else if (strcmp(image_name, "__SystemVersion__") == 0) {
+		int ret = ipsw_extract_to_memory(client->ipsw, "SystemVersion.plist", &data, &size);
+		if (ret != 0) {
+			error("ERROR: failed to read global manifest\n");
+			return -1;
+		}
+	} else {
+		// Get component path
+		if (client->tss) {
+			if (tss_response_get_path_by_entry(client->tss, component, &path) < 0) {
+				debug("NOTE: No path for component %s in TSS, will fetch from build identity\n", component);
+			}
+		}
+		if (!path) {
+			plist_t build_identity = restore_get_build_identity_from_request(client, msg);
+			if (build_identity_get_component_path(build_identity, component, &path) < 0) {
+				error("ERROR: Unable to find %s path from build identity\n", component);
+				return -1;
+			}
+		}
+
+		// Extract component
+		unsigned char *component_data = NULL;
+		unsigned int component_size = 0;
+		int ret = extract_component(client->ipsw, path, &component_data, &component_size);
+		free(path);
+		path = NULL;
+		if (ret < 0) {
+			error("ERROR: Unable to extract component %s\n", component);
+			return -1;
+		}
+
+		// Personalize IMG40
+		ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
+		free(component_data);
+		component_data = NULL;
+		if (ret < 0) {
+			error("ERROR: Unable to get personalized component %s\n", component);
+			return -1;
+		}
+	}
+
+	// Make plist
+	info("Sending %s now...", component_name);
+
+	int64_t i = size;
+	while (i > 0) {
+		int blob_size = i > 8192 ? 8192 : i;
+
+		dict = plist_new_dict();
+		blob = plist_new_data((char *) (data + size - i), blob_size);
+		plist_dict_set_item(dict, "FileData", blob);
+
+		restore_error = restored_send(restore, dict);
+		if (restore_error != RESTORE_E_SUCCESS) {
+			error("ERROR: Unable to send component %s data\n", component_name);
+			return -1;
+		}
+
+		plist_free(dict);
+
+		i -= blob_size;
+	}
+	debug("\n");
+
+	// Send FileDataDone
+	dict = plist_new_dict();
+	plist_dict_set_item(dict, "FileDataDone", plist_new_bool(1));
+
+	restore_error = restored_send(restore, dict);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: Unable to send component %s data\n", component_name);
+		return -1;
+	}
+
+	plist_free(dict);
+	free(data);
+
+	info("Done sending %s\n", component_name);
+	return 0;
+}
+
+int restore_send_source_boot_object_v4(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg, plist_t build_identity) {
+	debug_plist(msg);
+
+	char *image_name = NULL;
+	plist_t node = plist_access_path(msg, 2, "Arguments", "ImageName");
+	if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		debug("Failed to parse arguments from SourceBootObjectV4 plist\n");
+		return -1;
+	}
+	plist_get_string_val(node, &image_name);
+	if (!image_name) {
+		debug("Failed to parse arguments from SourceBootObjectV4 as string\n");
+		return -1;
+	}
+
+	char *component = image_name;
+	// Fork from restore_send_component
+	//
+	unsigned int size = 0;
+	unsigned char *data = NULL;
+	char *path = NULL;
+	plist_t blob = NULL;
+	plist_t dict = NULL;
+	restored_error_t restore_error = RESTORE_E_SUCCESS;
+	char *component_name = component;
+
+	info("About to send %s...\n", component_name);
+
+	if (strcmp(image_name, "__GlobalManifest__") == 0) {
+		int ret = extract_global_manifest(client, build_identity, &data, &size);
+		if (ret != 0) {
+			return -1;
+		}
+	} else if (strcmp(image_name, "__RestoreVersion__") == 0) {
+		int ret = ipsw_extract_to_memory(client->ipsw, "RestoreVersion.plist", &data, &size);
+		if (ret != 0) {
+			error("ERROR: failed to read global manifest\n");
+			return -1;
+		}
+	} else if (strcmp(image_name, "__SystemVersion__") == 0) {
+		int ret = ipsw_extract_to_memory(client->ipsw, "SystemVersion.plist", &data, &size);
+		if (ret != 0) {
+			error("ERROR: failed to read global manifest\n");
+			return -1;
+		}
+	} else {
+		// Get component path
+		if (client->tss) {
+			if (tss_response_get_path_by_entry(client->tss, component, &path) < 0) {
+				debug("NOTE: No path for component %s in TSS, will fetch from build identity\n", component);
+			}
+		}
+		if (!path) {
+			plist_t build_identity = restore_get_build_identity_from_request(client, msg);
+			if (build_identity_get_component_path(build_identity, component, &path) < 0) {
+				error("ERROR: Unable to find %s path from build identity\n", component);
+				return -1;
+			}
+		}
+
+		int ret = extract_component(client->ipsw, path, &data, &size);
+		free(path);
+		path = NULL;
+		if (ret < 0) {
+			error("ERROR: Unable to extract component %s\n", component);
+			return -1;
+		}
+	}
+
+	// Make plist
+	info("Sending %s now...", component_name);
+
+	int64_t i = size;
+	while (i > 0) {
+		int blob_size = i > 8192 ? 8192 : i;
+
+		dict = plist_new_dict();
+		blob = plist_new_data((char *) (data + size - i), blob_size);
+		plist_dict_set_item(dict, "FileData", blob);
+
+		restore_error = restored_send(restore, dict);
+		if (restore_error != RESTORE_E_SUCCESS) {
+			error("ERROR: Unable to send component %s data\n", component_name);
+			return -1;
+		}
+
+		plist_free(dict);
+
+		i -= blob_size;
+	}
+	debug("\n");
+
+	// Send FileDataDone
+	dict = plist_new_dict();
+	plist_dict_set_item(dict, "FileDataDone", plist_new_bool(1));
+
+	restore_error = restored_send(restore, dict);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: Unable to send component %s data\n", component_name);
+		return -1;
+	}
+
+	plist_free(dict);
+	free(data);
+
+	info("Done sending %s\n", component_name);
+	return 0;
+}
+
+int restore_send_restore_local_policy(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg) {
+	unsigned int size = 0;
+	unsigned char* data = NULL;
+
+	unsigned char* component_data = NULL;
+	unsigned int component_size = 0;
+
+	char* component = "Ap,LocalPolicy";
+
+	component_data = malloc(sizeof(lpol_file));
+	component_size = sizeof(lpol_file);
+	memcpy(component_data, lpol_file, component_size);
+
+	plist_t build_identity = restore_get_build_identity(client, 1);
+
+	int ret = get_recovery_os_local_policy_tss_response(client, build_identity, &client->tss_localpolicy, plist_dict_get_item(msg, "Arguments"));
+	if (ret < 0) {
+		error("ERROR: Unable to get recovery os local policy tss response\n");
+		return -1;
+	}
+
+	ret = personalize_component(component, component_data, component_size, client->tss_localpolicy, &data, &size);
+	free(component_data);
+	component_data = NULL;
+	if (ret < 0) {
+		error("ERROR: Unable to get personalized component %s\n", component);
+		return -1;
+	}
+
+	plist_t dict = plist_new_dict();
+	plist_dict_set_item(dict, "Ap,LocalPolicy", plist_new_data(data, size));
+
+	int restore_error = restored_send(restore, dict);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: Unable to send component %s data\n", component);
+		return -1;
+	}
+
+	plist_free(dict);
+	free(data);
+
+	return 0;
+}
+
+int restore_send_buildidentity(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg) {
+	restored_error_t restore_error;
+	plist_t dict;
+
+	info("About to send BuildIdentity Dict...\n");
+
+	plist_t build_identity = restore_get_build_identity_from_request(client, msg);
+
+	dict = plist_new_dict();
+	plist_dict_set_item(dict, "BuildIdentityDict", plist_copy(build_identity));
+
+	plist_t node = plist_access_path(msg, 2, "Arguments", "Variant");
+	if(node) {
+		plist_dict_set_item(dict, "Variant", plist_copy(node));
+	} else {
+		plist_dict_set_item(dict, "Variant", plist_new_string("Erase"));
+	}
+
+	info("Sending BuildIdentityDict now...\n");
+	restore_error = restored_send(restore, dict);
+	plist_free(dict);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: Unable to send BuildIdentityDict (%d)\n", restore_error);
+		return -1;
+	}
+
+	info("Done sending BuildIdentityDict\n");
+	return 0;
+}
+
 int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t build_identity, const char* filesystem)
 {
 	plist_t node = NULL;
@@ -2680,6 +3121,50 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 			if(restore_send_filesystem(client, device, filesystem) < 0) {
 				error("ERROR: Unable to send filesystem\n");
 				return -2;
+			}
+		}
+
+		else if (!strcmp(type, "BuildIdentityDict")) {
+			if (restore_send_buildidentity(restore, client, message) < 0) {
+				error("ERROR: Unable to send RootTicket\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "PersonalizedBootObjectV3")) {
+			if (restore_send_personalized_boot_object_v3(restore, client, message, build_identity) < 0) {
+				error("ERROR: Unable to send PersonalizedBootObjectV3\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "SourceBootObjectV4")) {
+			if (restore_send_source_boot_object_v4(restore, client, message, build_identity) < 0) {
+				error("ERROR: Unable to send SourceBootObjectV4\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "RecoveryOSLocalPolicy")) {
+			if (restore_send_restore_local_policy(restore, client, message) < 0) {
+				error("ERROR: Unable to send RecoveryOSLocalPolicy\n");
+				return -1;
+			}
+		}
+
+		// this request is sent when restored is ready to receive the filesystem
+		else if (!strcmp(type, "RecoveryOSASRImage")) {
+			if(restore_send_filesystem(client, device, filesystem) < 0) {
+				error("ERROR: Unable to send filesystem\n");
+				return -2;
+			}
+		}
+
+		// Send RecoveryOS RTD
+		else if(!strcmp(type, "RecoveryOSRootTicketData")) {
+			if (restore_send_recovery_os_root_ticket(restore, client) < 0) {
+				error("ERROR: Unable to send RootTicket\n");
+				return -1;
 			}
 		}
 
@@ -3178,6 +3663,35 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 				plist_free(dict);
 				client->flags |= FLAG_QUIT;
 			}
+		}
+
+		else if (!strcmp(type, "CheckpointMsg")) {
+			uint64_t ckpt_id;
+			uint64_t ckpt_res;
+			uint8_t ckpt_complete;
+			// Get checkpoint id
+			node = plist_dict_get_item(message, "CHECKPOINT_ID");
+			if (!node || plist_get_node_type(node) != PLIST_UINT) {
+				debug("Failed to parse checkpoint id from checkpoint plist\n");
+				return -1;
+			}
+			plist_get_uint_val(node, &ckpt_id);
+			// Get checkpoint result
+			node = plist_dict_get_item(message, "CHECKPOINT_RESULT");
+			if (!node || plist_get_node_type(node) != PLIST_UINT) {
+				debug("Failed to parse checkpoint result from checkpoint plist\n");
+				return -1;
+			}
+			plist_get_uint_val(node, &ckpt_res);
+			// Get checkpoint complete
+			node = plist_dict_get_item(message, "CHECKPOINT_COMPLETE");
+			if (!node || plist_get_node_type(node) != PLIST_BOOLEAN) {
+				debug("Failed to parse checkpoint result from checkpoint plist\n");
+				return -1;
+			}
+			plist_get_bool_val(node, &ckpt_complete);
+			if (ckpt_complete)
+				info("Checkpoint %lu complete with code %lu \n", ckpt_id, ckpt_res);
 		}
 
 		// baseband update message
