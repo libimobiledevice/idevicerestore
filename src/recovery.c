@@ -436,8 +436,14 @@ int recovery_send_loaded_by_iboot(struct idevicerestore_client_t* client, plist_
 		plist_dict_next_item(manifest_node, iter, &key, &node);
 		if (key == NULL)
 			break;
+
 		plist_t iboot_node = plist_access_path(node, 2, "Info", "IsLoadedByiBoot");
-		if (iboot_node && plist_get_node_type(iboot_node) == PLIST_BOOLEAN) {
+		plist_t iboot_stg1_node = plist_access_path(node, 2, "Info", "IsLoadedByiBootStage1");
+		uint8_t is_stg1 = 0;
+		if (iboot_stg1_node && plist_get_node_type(iboot_stg1_node) == PLIST_BOOLEAN) {
+			plist_get_bool_val(iboot_stg1_node, &is_stg1);
+		}
+		if (iboot_node && plist_get_node_type(iboot_node) == PLIST_BOOLEAN && !is_stg1) {
 			uint8_t b = 0;
 			plist_get_bool_val(iboot_node, &b);
 			if (b) {
