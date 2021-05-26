@@ -2472,7 +2472,7 @@ int get_recovery_os_local_policy_tss_response(
 	uint8_t digest[SHA384_DIGEST_LENGTH];
 	SHA384(lpol_file, lpol_file_length, digest);
 	plist_t lpol = plist_new_dict();
-	plist_dict_set_item(lpol, "Digest", plist_new_data(digest, SHA384_DIGEST_LENGTH));
+	plist_dict_set_item(lpol, "Digest", plist_new_data((char*)digest, SHA384_DIGEST_LENGTH));
 	plist_dict_set_item(lpol, "Trusted", plist_new_bool(1));
 	plist_dict_set_item(parameters, "Ap,LocalPolicy", lpol);
 
@@ -2483,16 +2483,21 @@ int get_recovery_os_local_policy_tss_response(
 	plist_dict_set_item(parameters, "Ap,RecoveryOSPolicyNonceHash", plist_copy(nonce_hash));
 
 	plist_t vol_uuid_node = plist_dict_get_item(args, "Ap,VolumeUUID");
-	char* vol_uuid_str = malloc(40);
+	char* vol_uuid_str = NULL;
 	plist_get_string_val(vol_uuid_node, &vol_uuid_str);
-	uuid_t vol_uuid;
-	int ret = uuid_parse(vol_uuid_str, vol_uuid);
-	if (ret != 0) {
-		error("failed to parse Ap,VolumeUUID (%s) with code %d\n", vol_uuid_str, ret);
+	unsigned int vuuid[16];
+	unsigned char vol_uuid[16];
+	if (sscanf(vol_uuid_str, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", &vuuid[0], &vuuid[1], &vuuid[2], &vuuid[3], &vuuid[4], &vuuid[5], &vuuid[6], &vuuid[7], &vuuid[8], &vuuid[9], &vuuid[10], &vuuid[11], &vuuid[12], &vuuid[13], &vuuid[14], &vuuid[15]) != 16) {
+		error("ERROR: Failed to parse Ap,VolumeUUID (%s)\n", vol_uuid_str);
+		free(vol_uuid_str);
 		return -1;
 	}
 	free(vol_uuid_str);
-	plist_dict_set_item(parameters, "Ap,VolumeUUID", plist_new_data(vol_uuid, 16));
+	int i;
+	for (i = 0; i < 16; i++) {
+		vol_uuid[i] = (unsigned char)vuuid[i];
+	}
+	plist_dict_set_item(parameters, "Ap,VolumeUUID", plist_new_data((char*)vol_uuid, 16));
 
 	/* create basic request */
 	request = tss_request_new(NULL);
@@ -2564,7 +2569,7 @@ int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_
 	uint8_t digest[SHA384_DIGEST_LENGTH];
 	SHA384(lpol_file, lpol_file_length, digest);
 	plist_t lpol = plist_new_dict();
-	plist_dict_set_item(lpol, "Digest", plist_new_data(digest, SHA384_DIGEST_LENGTH));
+	plist_dict_set_item(lpol, "Digest", plist_new_data((char*)digest, SHA384_DIGEST_LENGTH));
 	plist_dict_set_item(lpol, "Trusted", plist_new_bool(1));
 	plist_dict_set_item(parameters, "Ap,LocalPolicy", lpol);
 
@@ -2576,7 +2581,7 @@ int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_
 	// Hash it and add it as Ap,NextStageIM4MHash
 	uint8_t hash[SHA384_DIGEST_LENGTH];
 	SHA384(ticket, ticket_length, hash);
-	plist_dict_set_item(parameters, "Ap,NextStageIM4MHash", plist_new_data(hash, SHA384_DIGEST_LENGTH));
+	plist_dict_set_item(parameters, "Ap,NextStageIM4MHash", plist_new_data((char*)hash, SHA384_DIGEST_LENGTH));
 
 	/* create basic request */
 	request = tss_request_new(NULL);
