@@ -1566,7 +1566,7 @@ int main(int argc, char* argv[]) {
 	struct idevicerestore_client_t* client = idevicerestore_client_new();
 	if (client == NULL) {
 		error("ERROR: could not create idevicerestore client\n");
-		return -1;
+		return EXIT_FAILURE;
 	}
 
 	idevicerestore_client = client;
@@ -1596,7 +1596,7 @@ int main(int argc, char* argv[]) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv, 0);
-			return 0;
+			return EXIT_SUCCESS;
 
 		case 'd':
 			client->flags |= FLAG_DEBUG;
@@ -1631,7 +1631,7 @@ int main(int argc, char* argv[]) {
 				}
 				if (client->ecid == 0) {
 					error("ERROR: Could not parse ECID from '%s'\n", optarg);
-					return -1;
+					return EXIT_FAILURE;
 				}
 			}
 			break;
@@ -1640,7 +1640,7 @@ int main(int argc, char* argv[]) {
 			if (!*optarg) {
 				error("ERROR: UDID must not be empty!\n");
 				usage(argc, argv, 1);
-				return -1;
+				return EXIT_FAILURE;
 			}
 			client->udid = strdup(optarg);
 			break;
@@ -1683,13 +1683,13 @@ int main(int argc, char* argv[]) {
 
 		case 'v':
 			info("%s %s\n", PACKAGE_NAME, PACKAGE_VERSION);
-			return 0;
+			return EXIT_SUCCESS;
 
 		case 'T': {
 			size_t root_ticket_len = 0;
 			unsigned char* root_ticket = NULL;
 			if (read_file(optarg, (void**)&root_ticket, &root_ticket_len) != 0) {
-				return -1;
+				return EXIT_FAILURE;
 			}
 			client->root_ticket = root_ticket;
 			client->root_ticket_len = (int)root_ticket_len;
@@ -1699,7 +1699,7 @@ int main(int argc, char* argv[]) {
 
 		default:
 			usage(argc, argv, 1);
-			return -1;
+			return EXIT_FAILURE;
 		}
 	}
 
@@ -1710,12 +1710,12 @@ int main(int argc, char* argv[]) {
 		ipsw = argv[0];
 	} else {
 		usage(argc, argv, 1);
-		return -1;
+		return EXIT_FAILURE;
 	}
 
 	if ((client->flags & FLAG_LATEST) && (client->flags & FLAG_CUSTOM)) {
 		error("ERROR: You can't use --custom and --latest options at the same time.\n");
-		return -1;
+		return EXIT_FAILURE;
 	}
 
 	if (ipsw) {
@@ -1730,7 +1730,7 @@ int main(int argc, char* argv[]) {
 
 	curl_global_cleanup();
 
-	return result;
+	return (result == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 #endif
 
