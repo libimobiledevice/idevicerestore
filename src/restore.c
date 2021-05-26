@@ -3062,7 +3062,7 @@ int restore_send_restore_local_policy(restored_client_t restore, struct idevicer
 	}
 
 	plist_t dict = plist_new_dict();
-	plist_dict_set_item(dict, "Ap,LocalPolicy", plist_new_data(data, size));
+	plist_dict_set_item(dict, "Ap,LocalPolicy", plist_new_data((char*)data, size));
 
 	int restore_error = restored_send(restore, dict);
 	if (restore_error != RESTORE_E_SUCCESS) {
@@ -3691,7 +3691,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			}
 			plist_get_bool_val(node, &ckpt_complete);
 			if (ckpt_complete)
-				info("Checkpoint %lu complete with code %lu \n", ckpt_id, ckpt_res);
+				info("Checkpoint %" PRIu64 " complete with code %" PRIu64 "\n", ckpt_id, ckpt_res);
 		}
 
 		// baseband update message
