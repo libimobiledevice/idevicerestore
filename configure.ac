@@ -141,7 +141,7 @@ fi
 AC_SUBST(openssl_CFLAGS)
 AC_SUBST(openssl_LIBS)
 
-AM_CONDITIONAL(USE_INTERNAL_SHA1, test x$use_openssl != xyes)
+AM_CONDITIONAL(USE_INTERNAL_SHA, test x$use_openssl != xyes)
 
 AC_SUBST(GLOBAL_CFLAGS)
 AC_SUBST(AC_LDFLAGS)

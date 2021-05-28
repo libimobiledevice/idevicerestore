@@ -32,7 +32,6 @@ extern "C" {
 #include <stdint.h>
 #include <plist/plist.h>
 #include <libirecovery.h>
-#include <openssl/sha.h>
 
 // the flag with value 1 is reserved for internal use only. don't use it.
 #define FLAG_DEBUG           (1 << 1)

@@ -38,6 +38,13 @@
 
 #include <curl/curl.h>
 
+#ifdef HAVE_OPENSSL
+#include <openssl/sha.h>
+#else
+#include "sha512.h"
+#define SHA384 sha384
+#endif
+
 #include "dfu.h"
 #include "tss.h"
 #include "img3.h"

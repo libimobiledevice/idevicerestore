@@ -48,8 +48,8 @@ idevicerestore_SOURCES = \
 	thread.c thread.h \
 	jsmn.c jsmn.h \
 	json_plist.c json_plist.h
-if USE_INTERNAL_SHA1
-idevicerestore_SOURCES += sha1.c sha1.h
+if USE_INTERNAL_SHA
+idevicerestore_SOURCES += sha1.c sha1.h sha512.c sha512.h fixedint.h
 endif
 idevicerestore_CFLAGS = $(AM_CFLAGS)
 idevicerestore_LDFLAGS = $(AM_LDFLAGS)
