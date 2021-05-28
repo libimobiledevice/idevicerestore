@@ -28,7 +28,7 @@ void SHA1Init(
 void SHA1Update(
     SHA1_CTX * context,
     const unsigned char *data,
-    uint32_t len
+    size_t len
     );
 
 void SHA1Final(
@@ -37,8 +37,8 @@ void SHA1Final(
     );
 
 void SHA1(
-    char *hash_out,
-    const char *str,
-    int len);
+    const unsigned char *str,
+    size_t len,
+    unsigned char *hash_out);
 
 #endif /* SHA1_H */
