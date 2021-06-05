@@ -2856,6 +2856,10 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 		}
 		if (!path) {
 			plist_t build_identity = restore_get_build_identity_from_request(client, msg);
+			if (!build_identity) {
+				error("ERROR: Unable to find a matching build identity\n");
+				return -1;
+			}
 			if (build_identity_get_component_path(build_identity, component, &path) < 0) {
 				error("ERROR: Unable to find %s path from build identity\n", component);
 				return -1;
