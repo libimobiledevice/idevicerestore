@@ -880,10 +880,6 @@ int tss_request_add_ap_recovery_tags(plist_t request, plist_t parameters, plist_
 		/* copy this entry */
 		plist_t tss_entry = plist_copy(manifest_entry);
 
-		// ac2 TSS recoveryOSRootTicket needs EPRO and ESEC to be true
-		plist_dict_set_item(tss_entry, "EPRO", plist_new_bool(1));
-		plist_dict_set_item(tss_entry, "ESEC", plist_new_bool(1));
-
 		/* remove obsolete Info node */
 		plist_dict_remove_item(tss_entry, "Info");
 

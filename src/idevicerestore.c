@@ -2392,6 +2392,9 @@ int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* clie
 	/* ApSecurityMode */
 	if (client->image4supported) {
 		plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(1));
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(1));
+	} else {
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
 	}
 
 	tss_parameters_add_from_manifest(parameters, build_identity);
