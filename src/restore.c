@@ -856,7 +856,7 @@ static int restore_handle_bb_update_status_msg(restored_client_t client, plist_t
 	plist_get_bool_val(node, &accepted);
 
 	if (!accepted) {
-		error("ERROR: device didn't accept BasebandData\n");
+		error("ERROR:  device didn't accept BasebandData But ret will be 0\n");
 		return 0;//https://github.com/libimobiledevice/idevicerestore/issues/235
 	}
 
