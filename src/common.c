@@ -85,7 +85,7 @@ void Printf(const char* header,const char* format,va_list vargs)
 	char pOut[2048];
 	int threadID = pthread_self() ;
 	vsnprintf(pOut,2048, format, vargs);
-	printf("\n(%d) %s:%s",threadID,header,pOut);
+	printf("\n(%d) t:%d %s:%s",threadID,GetTickCount(),header,pOut);
 }
 
 void info(const char* format, ...)

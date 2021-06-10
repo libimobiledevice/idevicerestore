@@ -38,6 +38,13 @@
 
 #include <curl/curl.h>
 
+#ifdef HAVE_OPENSSL
+#include <openssl/sha.h>
+#else
+#include "sha512.h"
+#define SHA384 sha384
+#endif
+
 #include "dfu.h"
 #include "tss.h"
 #include "img3.h"
@@ -136,6 +143,13 @@ static void usage(int argc, char* argv[], int err)
 	(name ? name + 1 : argv[0]));
 }
 #endif
+
+const uint8_t lpol_file[22] = {
+		0x30, 0x14, 0x16, 0x04, 0x49, 0x4d, 0x34, 0x50,
+		0x16, 0x04,	0x6c, 0x70,	0x6f, 0x6c,	0x16, 0x03,
+		0x31, 0x2e, 0x30, 0x04,	0x01, 0x00
+};
+const uint32_t lpol_file_length = 22;
 
 static int idevicerestore_keep_pers = 0;
 
@@ -240,7 +254,7 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 		} else if (client->ecid && restore_check_mode(client) == 0) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = &idevicerestore_modes[MODE_RESTORE];
-			debug("%s: device %016" PRIx64 " (udid: %s) connected in restore mode\n", __func__, client->ecid, client->udid);
+			debug("%s: device %016" PRIx64 " (udid: %s) mode:%x connected in restore mode\n", __func__, client->ecid, client->udid,client->mode);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
@@ -298,6 +312,7 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 
 int idevicerestore_start(struct idevicerestore_client_t* client)
 {
+
 	int tss_enabled = 0;
 	int result = 0;
 
@@ -338,6 +353,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.1);
 	info("Found device in %s mode\n", client->mode->string);
+
+	
+	
 	mutex_unlock(&client->device_event_mutex);
 
 	if (client->mode->index == MODE_WTF) {
@@ -462,7 +480,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 		return 0;
 	}
-
 	if (client->flags & FLAG_LATEST) {
 		char *fwurl = NULL;
 		unsigned char fwsha1[20];
@@ -571,7 +588,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 	}
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.6);
-
 	if (client->flags & FLAG_NOACTION) {
 		return 0;
 	}
@@ -624,7 +640,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 	}
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.8);
-
 	/* check if device type is supported by the given build manifest */
 	if (build_manifest_check_compatibility(buildmanifest, client->device->product_type) < 0) {
 		error("ERROR: Could not make sure this firmware is suitable for the current device. Refusing to continue.\n");
@@ -816,7 +831,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	/* print information about current build identity */
 	build_identity_print_information(build_identity);
-
 	if (client->mode->index == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
 		plist_t pver = normal_get_lockdown_value(client, NULL, "ProductVersion");
 		char *device_version = NULL;
@@ -889,7 +903,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.0);
-
 	/* check if all components we need are actually there */
 	info("Checking IPSW for required components...\n");
 	if (build_identity_check_components_in_ipsw(build_identity, client->ipsw) < 0) {
@@ -1004,7 +1017,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.2);
-
 	/* retrieve shsh blobs if required */
 	if (tss_enabled) {
 		int stashbag_commit_required = 0;
@@ -1067,10 +1079,23 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		if (client->flags & FLAG_QUIT) {
 			return -1;
 		}
+		
 		if (get_tss_response(client, build_identity, &client->tss) < 0) {
 			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
 		}
+		if (client->build_major >= 20) {
+			if (get_local_policy_tss_response(client, build_identity, &client->tss_localpolicy) < 0) {
+				error("ERROR: Unable to get SHSH blobs for this device (local policy)\n");
+				return -1;
+			}
+			if (get_recoveryos_root_ticket_tss_response(client, build_identity, &client->tss_recoveryos_root_ticket) <
+				0) {
+				error("ERROR: Unable to get SHSH blobs for this device (recovery OS Root Ticket)\n");
+				return -1;
+			}
+		}
+
 		if (stashbag_commit_required) {
 			plist_t ticket = plist_dict_get_item(client->tss, "ApImg4Ticket");
 			if (!ticket || plist_get_node_type(ticket) != PLIST_DATA) {
@@ -1085,7 +1110,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			}
 		}
 	}
-
 	if (client->flags & FLAG_QUIT) {
 		if (delete_fs && filesystem)
 			unlink(filesystem);
@@ -1133,7 +1157,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 	}
 
-	/* verify if we have tss records if required */
+	info("verify if we have tss records if required") ;
 	if ((tss_enabled) && (client->tss == NULL)) {
 		error("ERROR: Unable to proceed without a TSS record.\n");
 		plist_free(buildmanifest);
@@ -1150,8 +1174,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			unlink(filesystem);
 		return -1;
 	}
-
-	// if the device is in normal mode, place device into recovery mode
+	info("if the device is in normal mode, place device into recovery mode");
 	if (client->mode->index == MODE_NORMAL) {
 		info("Entering recovery mode...\n");
 		if (normal_enter_recovery(client) < 0) {
@@ -1169,7 +1192,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			unlink(filesystem);
 		return -1;
 	}
-
 	if (client->mode->index == MODE_DFU) {
 		// if the device is in DFU mode, place it into recovery mode
 		dfu_client_free(client);
@@ -1203,7 +1225,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return -2;
 		}
 	} else if (client->mode->index == MODE_RECOVERY) {
-		// device is in recovery mode
+		info("device is in recovery mode");
 		if ((client->build_major > 8) && !(client->flags & FLAG_CUSTOM)) {
 			if (!client->image4supported) {
 				/* send ApTicket */
@@ -1218,7 +1240,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 		mutex_lock(&client->device_event_mutex);
 
-		/* now we load the iBEC */
+		info("/* now we load the iBEC */") ;
 		if (recovery_send_ibec(client, build_identity) < 0) {
 			mutex_unlock(&client->device_event_mutex);
 			error("ERROR: Unable to send iBEC\n");
@@ -1262,7 +1284,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	if (!client->image4supported && (client->build_major > 8)) {
-		// we need another tss request with nonce.
+		info("we need another tss request with nonce.");
 		unsigned char* nonce = NULL;
 		int nonce_size = 0;
 		int nonce_changed = 0;
@@ -1310,7 +1332,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		return -1;
 	}
 
-	// now finally do the magic to put the device into restore mode
+	info("now finally do the magic to put the device into restore mode");
 	if (client->mode->index == MODE_RECOVERY) {
 		if (client->srnm == NULL) {
 			error("ERROR: could not retrieve device serial number. Can't continue.\n");
@@ -1330,15 +1352,22 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		recovery_client_free(client);
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.9);
-
 	if (client->mode->index != MODE_RESTORE) {
 		mutex_lock(&client->device_event_mutex);
 		info("Waiting for device to enter restore mode...\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 180000);
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
+		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 230000);
+		sleep(1) ;
+		info("Waiting for device to enter restore mode 1...\n");
++		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
+		sleep(1) ;
+		info("Waiting for device to enter restore mode 2...\n");
++		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
+		sleep(1) ;
+		info("Waiting for device to enter restore mode 3...\n");
++		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
+		sleep(1) ;
+		info("Waiting for device to enter restore mode 4...\n");
++		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
 		if (client->mode != &idevicerestore_modes[MODE_RESTORE] || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			error("ERROR: Device failed to enter restore mode.\n");
@@ -1350,7 +1379,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		mutex_unlock(&client->device_event_mutex);
 	}
 
-	// device is finally in restore mode, let's do this
+	info("device is finally in restore mode, let's do this") ;
 	if (client->mode->index == MODE_RESTORE) {
 		if ((client->flags & FLAG_NO_RESTORE) != 0) {
 			info("Device is now in restore mode. Exiting as requested.");
@@ -1551,7 +1580,7 @@ int main(int argc, char* argv[]) {
 	struct idevicerestore_client_t* client = idevicerestore_client_new();
 	if (client == NULL) {
 		error("ERROR: could not create idevicerestore client\n");
-		return -1;
+		return EXIT_FAILURE;
 	}
 
 	idevicerestore_client = client;
@@ -1581,7 +1610,7 @@ int main(int argc, char* argv[]) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv, 0);
-			return 0;
+			return EXIT_SUCCESS;
 
 		case 'd':
 			client->flags |= FLAG_DEBUG;
@@ -1616,7 +1645,7 @@ int main(int argc, char* argv[]) {
 				}
 				if (client->ecid == 0) {
 					error("ERROR: Could not parse ECID from '%s'\n", optarg);
-					return -1;
+					return EXIT_FAILURE;
 				}
 			}
 			break;
@@ -1625,7 +1654,7 @@ int main(int argc, char* argv[]) {
 			if (!*optarg) {
 				error("ERROR: UDID must not be empty!\n");
 				usage(argc, argv, 1);
-				return -1;
+				return EXIT_FAILURE;
 			}
 			client->udid = strdup(optarg);
 			break;
@@ -1668,13 +1697,13 @@ int main(int argc, char* argv[]) {
 
 		case 'v':
 			info("%s %s\n", PACKAGE_NAME, PACKAGE_VERSION);
-			return 0;
+			return EXIT_SUCCESS;
 
 		case 'T': {
 			size_t root_ticket_len = 0;
 			unsigned char* root_ticket = NULL;
 			if (read_file(optarg, (void**)&root_ticket, &root_ticket_len) != 0) {
-				return -1;
+				return EXIT_FAILURE;
 			}
 			client->root_ticket = root_ticket;
 			client->root_ticket_len = (int)root_ticket_len;
@@ -1684,7 +1713,7 @@ int main(int argc, char* argv[]) {
 
 		default:
 			usage(argc, argv, 1);
-			return -1;
+			return EXIT_FAILURE;
 		}
 	}
 
@@ -1695,12 +1724,12 @@ int main(int argc, char* argv[]) {
 		ipsw = argv[0];
 	} else {
 		usage(argc, argv, 1);
-		return -1;
+		return EXIT_FAILURE;
 	}
 
 	if ((client->flags & FLAG_LATEST) && (client->flags & FLAG_CUSTOM)) {
 		error("ERROR: You can't use --custom and --latest options at the same time.\n");
-		return -1;
+		return EXIT_FAILURE;
 	}
 
 	if (ipsw) {
@@ -1715,7 +1744,7 @@ int main(int argc, char* argv[]) {
 
 	curl_global_cleanup();
 
-	return result;
+	return (result == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 #endif
 
@@ -1967,6 +1996,79 @@ plist_t build_manifest_get_build_identity_for_model_with_restore_behavior(plist_
 		}
 		free(str);
 		str = NULL;
+		if (behavior) {
+			plist_t rbehavior = plist_dict_get_item(info_dict, "RestoreBehavior");
+			if (!rbehavior || plist_get_node_type(rbehavior) != PLIST_STRING) {
+				continue;
+			}
+			plist_get_string_val(rbehavior, &str);
+			if (strcasecmp(str, behavior) != 0) {
+				free(str);
+				continue;
+			} else {
+				free(str);
+				return plist_copy(ident);
+			}
+			free(str);
+		} else {
+			return plist_copy(ident);
+		}
+	}
+
+	return NULL;
+}
+
+plist_t build_manifest_get_build_identity_for_model_with_restore_behavior_and_global_signing(
+		plist_t build_manifest,
+		const char *hardware_model,
+		const char *behavior,
+		uint8_t global_signing)
+{
+	plist_t build_identities_array = plist_dict_get_item(build_manifest, "BuildIdentities");
+	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
+		error("ERROR: Unable to find build identities node\n");
+		return NULL;
+	}
+
+	uint32_t i;
+	for (i = 0; i < plist_array_get_size(build_identities_array); i++) {
+		plist_t ident = plist_array_get_item(build_identities_array, i);
+		if (!ident || plist_get_node_type(ident) != PLIST_DICT) {
+			continue;
+		}
+		plist_t info_dict = plist_dict_get_item(ident, "Info");
+		if (!info_dict || plist_get_node_type(ident) != PLIST_DICT) {
+			continue;
+		}
+		plist_t devclass = plist_dict_get_item(info_dict, "DeviceClass");
+		if (!devclass || plist_get_node_type(devclass) != PLIST_STRING) {
+			continue;
+		}
+		char *str = NULL;
+		plist_get_string_val(devclass, &str);
+		if (strcasecmp(str, hardware_model) != 0) {
+			free(str);
+			continue;
+		}
+		free(str);
+		str = NULL;
+
+		plist_t global_signing_node = plist_dict_get_item(info_dict, "VariantSupportsGlobalSigning");
+		if (!global_signing_node) {
+			if (global_signing) {
+				continue;
+			}
+		} else {
+			uint8_t is_global_signing;
+			plist_get_bool_val(global_signing_node, &is_global_signing);
+
+			if (global_signing && !is_global_signing) {
+				continue;
+			} else if (!global_signing && is_global_signing) {
+				continue;
+			}
+		}
+
 		if (behavior) {
 			plist_t rbehavior = plist_dict_get_item(info_dict, "RestoreBehavior");
 			if (!rbehavior || plist_get_node_type(rbehavior) != PLIST_STRING) {
@@ -2265,6 +2367,274 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 	return 0;
 }
 
+int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss) {
+	plist_t request = NULL;
+	plist_t response = NULL;
+	*tss = NULL;
+
+	/* populate parameters */
+	plist_t parameters = plist_new_dict();
+
+	/* ApECID */
+	plist_dict_set_item(parameters, "ApECID", plist_new_uint(client->ecid));
+	plist_dict_set_item(parameters, "Ap,LocalBoot", plist_new_bool(0));
+
+	/* ApNonce */
+	if (client->nonce) {
+		plist_dict_set_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
+	}
+	unsigned char* sep_nonce = NULL;
+	int sep_nonce_size = 0;
+	get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
+
+	/* ApSepNonce */
+	if (sep_nonce) {
+		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
+		free(sep_nonce);
+	}
+
+	/* ApProductionMode */
+	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
+
+	/* ApSecurityMode */
+	if (client->image4supported) {
+		plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(1));
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(1));
+	} else {
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
+	}
+
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	/* create basic request */
+	/* Adds @BBTicket, @HostPlatformInfo, @VersionInfo, @UUID */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create TSS request\n");
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* add common tags from manifest */
+	/* Adds Ap,OSLongVersion, AppNonce, @ApImg4Ticket */
+	if (tss_request_add_ap_img4_tags(request, parameters) < 0) {
+		error("ERROR: Unable to add AP IMG4 tags to TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* add AP tags from manifest */
+	if (tss_request_add_common_tags(request, parameters, NULL) < 0) {
+		error("ERROR: Unable to add common tags to TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* add AP tags from manifest */
+	/* Fills digests & co */
+	if (tss_request_add_ap_recovery_tags(request, parameters, NULL) < 0) {
+		error("ERROR: Unable to add common tags to TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* send request and grab response */
+	response = tss_request_send(request, client->tss_url);
+	if (response == NULL) {
+		info("ERROR: Unable to send TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+	// request_add_ap_tags
+
+	info("Received SHSH blobs\n");
+
+	plist_free(request);
+	plist_free(parameters);
+
+	*tss = response;
+
+	return 0;
+}
+
+int get_recovery_os_local_policy_tss_response(
+				struct idevicerestore_client_t* client,
+				plist_t build_identity,
+				plist_t* tss,
+				plist_t args) {
+	plist_t request = NULL;
+	plist_t response = NULL;
+	*tss = NULL;
+
+	/* populate parameters */
+	plist_t parameters = plist_new_dict();
+	plist_dict_set_item(parameters, "ApECID", plist_new_uint(client->ecid));
+	plist_dict_set_item(parameters, "Ap,LocalBoot", plist_new_bool(1));
+
+	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
+	if (client->image4supported) {
+		plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(1));
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(1));
+	} else {
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
+	}
+
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	// Add Ap,LocalPolicy
+	uint8_t digest[SHA384_DIGEST_LENGTH];
+	SHA384(lpol_file, lpol_file_length, digest);
+	plist_t lpol = plist_new_dict();
+	plist_dict_set_item(lpol, "Digest", plist_new_data((char*)digest, SHA384_DIGEST_LENGTH));
+	plist_dict_set_item(lpol, "Trusted", plist_new_bool(1));
+	plist_dict_set_item(parameters, "Ap,LocalPolicy", lpol);
+
+	plist_t im4m_hash = plist_dict_get_item(args, "Ap,NextStageIM4MHash");
+	plist_dict_set_item(parameters, "Ap,NextStageIM4MHash", plist_copy(im4m_hash));
+
+	plist_t nonce_hash = plist_dict_get_item(args, "Ap,RecoveryOSPolicyNonceHash");
+	plist_dict_set_item(parameters, "Ap,RecoveryOSPolicyNonceHash", plist_copy(nonce_hash));
+
+	plist_t vol_uuid_node = plist_dict_get_item(args, "Ap,VolumeUUID");
+	char* vol_uuid_str = NULL;
+	plist_get_string_val(vol_uuid_node, &vol_uuid_str);
+	unsigned int vuuid[16];
+	unsigned char vol_uuid[16];
+	if (sscanf(vol_uuid_str, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", &vuuid[0], &vuuid[1], &vuuid[2], &vuuid[3], &vuuid[4], &vuuid[5], &vuuid[6], &vuuid[7], &vuuid[8], &vuuid[9], &vuuid[10], &vuuid[11], &vuuid[12], &vuuid[13], &vuuid[14], &vuuid[15]) != 16) {
+		error("ERROR: Failed to parse Ap,VolumeUUID (%s)\n", vol_uuid_str);
+		free(vol_uuid_str);
+		return -1;
+	}
+	free(vol_uuid_str);
+	int i;
+	for (i = 0; i < 16; i++) {
+		vol_uuid[i] = (unsigned char)vuuid[i];
+	}
+	plist_dict_set_item(parameters, "Ap,VolumeUUID", plist_new_data((char*)vol_uuid, 16));
+
+	/* create basic request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create TSS request\n");
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* add common tags from manifest */
+	if (tss_request_add_local_policy_tags(request, parameters) < 0) {
+		error("ERROR: Unable to add common tags to TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* send request and grab response */
+	response = tss_request_send(request, client->tss_url);
+	if (response == NULL) {
+		info("ERROR: Unable to send TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	info("Received SHSH blobs\n");
+
+	plist_free(request);
+	plist_free(parameters);
+
+	*tss = response;
+
+	return 0;
+}
+
+int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss) {
+	plist_t request = NULL;
+	plist_t response = NULL;
+	*tss = NULL;
+
+	/* populate parameters */
+	plist_t parameters = plist_new_dict();
+	plist_dict_set_item(parameters, "ApECID", plist_new_uint(client->ecid));
+	plist_dict_set_item(parameters, "Ap,LocalBoot", plist_new_bool(0));
+	if (client->nonce) {
+		plist_dict_set_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
+	}
+	unsigned char* sep_nonce = NULL;
+	int sep_nonce_size = 0;
+	get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
+
+	if (sep_nonce) {
+		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
+		free(sep_nonce);
+	}
+
+	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
+	if (client->image4supported) {
+		plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(1));
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(1));
+	} else {
+		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
+	}
+
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	// Add Ap,LocalPolicy
+	uint8_t digest[SHA384_DIGEST_LENGTH];
+	SHA384(lpol_file, lpol_file_length, digest);
+	plist_t lpol = plist_new_dict();
+	plist_dict_set_item(lpol, "Digest", plist_new_data((char*)digest, SHA384_DIGEST_LENGTH));
+	plist_dict_set_item(lpol, "Trusted", plist_new_bool(1));
+	plist_dict_set_item(parameters, "Ap,LocalPolicy", lpol);
+
+	// Add Ap,NextStageIM4MHash
+	// Get previous TSS ticket
+	uint8_t* ticket = NULL;
+	uint32_t ticket_length = 0;
+	tss_response_get_ap_img4_ticket(client->tss, &ticket, &ticket_length);
+	// Hash it and add it as Ap,NextStageIM4MHash
+	uint8_t hash[SHA384_DIGEST_LENGTH];
+	SHA384(ticket, ticket_length, hash);
+	plist_dict_set_item(parameters, "Ap,NextStageIM4MHash", plist_new_data((char*)hash, SHA384_DIGEST_LENGTH));
+
+	/* create basic request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create TSS request\n");
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* add common tags from manifest */
+	if (tss_request_add_local_policy_tags(request, parameters) < 0) {
+		error("ERROR: Unable to add common tags to TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	/* send request and grab response */
+	response = tss_request_send(request, client->tss_url);
+	if (response == NULL) {
+		info("ERROR: Unable to send TSS request\n");
+		plist_free(request);
+		plist_free(parameters);
+		return -1;
+	}
+
+	info("Received SHSH blobs\n");
+
+	plist_free(request);
+	plist_free(parameters);
+
+	*tss = response;
+
+	return 0;
+}
+
 void fixup_tss(plist_t tss)
 {
 	plist_t node;
@@ -2320,7 +2690,7 @@ int extract_component(const char* ipsw, const char* path, unsigned char** compon
 	else
 		component_name = (char*) path;
 
-	info("Extracting %s...\n", component_name);
+	info("Extracting %s (%s)...\n", component_name, path);
 	if (ipsw_extract_to_memory(ipsw, path, component_data, component_size) < 0) {
 		error("ERROR: Unable to extract %s from %s\n", component_name, ipsw);
 		return -1;

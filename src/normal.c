@@ -210,6 +210,7 @@ irecv_device_t normal_get_irecv_device(struct idevicerestore_client_t* client)
 
 int normal_enter_recovery(struct idevicerestore_client_t* client)
 {
+	info("normal_enter_recovery... lockdownd_enter_recovery:%x \n",lockdownd_enter_recovery);
 	idevice_t device = NULL;
 	lockdownd_client_t lockdown = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
@@ -229,19 +230,20 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 	}
 
 	/* unpair the device */
-	lockdown_error = lockdownd_unpair(lockdown, NULL);
-	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-		error("WARNING: Could not unpair device\n");
-	}
-
+	//lockdown_error = lockdownd_unpair(lockdown, NULL);
+	//if (lockdown_error != LOCKDOWN_E_SUCCESS) {
+	//	error("WARNING: Could not unpair device\n");
+	//}
+	info("lockdownd_enter_recovery %x ...\n",lockdownd_enter_recovery);
 	lockdown_error = lockdownd_enter_recovery(lockdown);
 	if (lockdown_error == LOCKDOWN_E_SESSION_INACTIVE) {
+		info("lockdownd_enter_recovery %x LOCKDOWN_E_SESSION_INACTIVE...\n",lockdownd_enter_recovery);
 		lockdownd_client_free(lockdown);
 		lockdown = NULL;
 		if (LOCKDOWN_E_SUCCESS != (lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore"))) {
 			error("ERROR: Could not connect to lockdownd: %s (%d)\n", lockdownd_strerror(lockdown_error), lockdown_error);
 			idevice_free(device);
-			return 1;
+			return -1;
 		}
 		lockdown_error = lockdownd_enter_recovery(lockdown);
 	}
@@ -389,6 +391,7 @@ int normal_get_preflight_info(struct idevicerestore_client_t* client, plist_t *p
 
 int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_t manifest)
 {
+	info("normal_handle_create_stashbag");
 	int result = -1;
 
 	idevice_t device = NULL;
@@ -513,6 +516,7 @@ int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_
 
 int normal_handle_commit_stashbag(struct idevicerestore_client_t* client, plist_t manifest)
 {
+	info("normal_handle_commit_stashbag");
 	int result = -1;
 
 	idevice_t device = NULL;

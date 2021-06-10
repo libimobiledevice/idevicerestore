@@ -151,34 +151,47 @@ int dfu_send_buffer(struct idevicerestore_client_t* client, unsigned char* buffe
 int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component) {
 	char* path = NULL;
 
-	if (client->tss) {
-		if (tss_response_get_path_by_entry(client->tss, component, &path) < 0) {
-			debug("NOTE: No path for component %s in TSS, will fetch from build_identity\n", component);
-		}
-	}
-	if (!path) {
-		if (build_identity_get_component_path(build_identity, component, &path) < 0) {
-			error("ERROR: Unable to get path for component '%s'\n", component);
-			free(path);
-			return -1;
-		}
+	// Use a specific TSS ticket for the Ap,LocalPolicy component
+	plist_t tss = client->tss;
+	if (strcmp(component, "Ap,LocalPolicy") == 0) {
+		tss = client->tss_localpolicy;
 	}
 
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
 
-	if (extract_component(client->ipsw, path, &component_data, &component_size) < 0) {
-		error("ERROR: Unable to extract component: %s\n", component);
+	if (strcmp(component, "Ap,LocalPolicy") == 0) {
+		// If Ap,LocalPolicy => Inject an empty policy
+		component_data = malloc(sizeof(lpol_file));
+		component_size = sizeof(lpol_file);
+		memcpy(component_data, lpol_file, component_size);
+	} else {
+		if (tss) {
+			if (tss_response_get_path_by_entry(tss, component, &path) < 0) {
+				debug("NOTE: No path for component %s in TSS, will fetch from build_identity\n", component);
+			}
+		}
+		if (!path) {
+			if (build_identity_get_component_path(build_identity, component, &path) < 0) {
+				error("ERROR: Unable to get path for component '%s'\n", component);
+				free(path);
+				return -1;
+			}
+		}
+
+		if (extract_component(client->ipsw, path, &component_data, &component_size) < 0) {
+			error("ERROR: Unable to extract component: %s\n", component);
+			free(path);
+			return -1;
+		}
 		free(path);
-		return -1;
+		path = NULL;
 	}
-	free(path);
-	path = NULL;
 
 	unsigned char* data = NULL;
 	uint32_t size = 0;
 
-	if (personalize_component(component, component_data, component_size, client->tss, &data, &size) < 0) {
+	if (personalize_component(component, component_data, component_size, tss, &data, &size) < 0) {
 		error("ERROR: Unable to get personalized component: %s\n", component);
 		free(component_data);
 		return -1;
@@ -209,7 +222,6 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 
 	info("Sending %s (%d bytes)...\n", component, size);
 
-	// FIXME: Did I do this right????
 	irecv_error_t err = irecv_send_buffer(client->dfu->client, data, size, 1);
 	if (err != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(err));
@@ -319,6 +331,81 @@ int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** no
 	return 0;
 }
 
+int dfu_send_component_and_command(struct idevicerestore_client_t* client, plist_t build_identity, const char* component, const char* command)
+{
+	irecv_error_t dfu_error = IRECV_E_SUCCESS;
+
+	if (dfu_send_component(client, build_identity, component) < 0) {
+		error("ERROR: Unable to send %s to device.\n", component);
+		return -1;
+	}
+
+	info("INFO: executing command: %s\n", command);
+	dfu_error = irecv_send_command(client->dfu->client, command);
+	if (dfu_error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to execute %s\n", command);
+		return -1;
+	}
+
+	return 0;
+}
+
+int dfu_send_command(struct idevicerestore_client_t* client, const char* command)
+{
+	irecv_error_t dfu_error = IRECV_E_SUCCESS;
+
+	info("INFO: executing command: %s\n", command);
+	dfu_error = irecv_send_command(client->dfu->client, command);
+	if (dfu_error != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to execute %s\n", command);
+		return -1;
+	}
+
+	return 0;
+}
+
+int dfu_send_iboot_stage1_components(struct idevicerestore_client_t* client, plist_t build_identity)
+{
+	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: Unable to find manifest node\n");
+		return -1;
+	}
+
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(manifest_node, &iter);
+	int err = 0;
+	while (iter) {
+		char *key = NULL;
+		plist_t node = NULL;
+		plist_dict_next_item(manifest_node, iter, &key, &node);
+		if (key == NULL)
+			break;
+
+		plist_t iboot_node = plist_access_path(node, 2, "Info", "IsLoadedByiBoot");
+		plist_t iboot_stg1_node = plist_access_path(node, 2, "Info", "IsLoadedByiBootStage1");
+		uint8_t is_stg1 = 0;
+		if (iboot_stg1_node && plist_get_node_type(iboot_stg1_node) == PLIST_BOOLEAN) {
+			plist_get_bool_val(iboot_stg1_node, &is_stg1);
+		}
+		if (iboot_node && plist_get_node_type(iboot_node) == PLIST_BOOLEAN && is_stg1) {
+			uint8_t b = 0;
+			plist_get_bool_val(iboot_node, &b);
+			if (b) {
+				debug("DEBUG: %s is loaded by iBoot Stage 1.\n", key);
+				if (dfu_send_component_and_command(client, build_identity, key, "firmware") < 0) {
+					error("ERROR: Unable to send component '%s' to device.\n", key);
+					err++;
+				}
+			}
+		}
+		free(key);
+	}
+	free(iter);
+
+	return (err) ? -1 : 0;
+}
+
 int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_identity)
 {
 	int mode = 0;
@@ -418,7 +505,74 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		}
 
 		mutex_lock(&client->device_event_mutex);
-		
+
+		// Now, before sending iBEC, we must send necessary firmwares on new versions.
+		if (client->build_major >= 20) {
+			// Without this empty policy file & its special signature, iBEC won't start.
+			if (dfu_send_component_and_command(client, build_identity, "Ap,LocalPolicy", "lpolrestore") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send Ap,LocalPolicy to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_iboot_stage1_components(client, build_identity) < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send iBoot stage 1 components to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_command(client, "setenv auto-boot false") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send command to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_command(client, "saveenv") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send command to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_command(client, "setenvnp boot-args rd=md0 nand-enable-reformat=1 -progress -restore") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send command to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_component(client, build_identity, "RestoreLogo") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send RestoreDCP to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_command(client, "setpicture 4") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send command to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+
+			if (dfu_send_command(client, "bgcolor 0 0 0") < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send command to device\n");
+				irecv_close(client->dfu->client);
+				client->dfu->client = NULL;
+				return -1;
+			}
+		}
 		/* send iBEC */
 		if (dfu_send_component(client, build_identity, "iBEC") < 0) {
 			mutex_unlock(&client->device_event_mutex);
@@ -429,12 +583,16 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		}
 		debug("iBEC OK ...\n");
 		if (client->mode == &idevicerestore_modes[MODE_RECOVERY]) {
-			if (irecv_send_command(client->dfu->client, "go") != IRECV_E_SUCCESS) {
+			sleep(1);
+			if (irecv_send_command_breq(client->dfu->client, "go", 1) != IRECV_E_SUCCESS) {
 				mutex_unlock(&client->device_event_mutex);
 				error("ERROR: Unable to execute iBEC\n");
 				return -1;
 			}
-			irecv_usb_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
+
+			if (client->build_major < 20) {
+				irecv_usb_control_transfer(client->dfu->client, 0x21, 1, 0, 0, 0, 0, 5000);
+			}
 		}
 		dfu_client_free(client);
 	}
