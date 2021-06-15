@@ -94,7 +94,16 @@ ipsw_archive* ipsw_open(const char* ipsw)
 	if (S_ISDIR(fst.st_mode)) {
 		archive->zip = NULL;
 	} else {
+#if defined(_WIN32)
+		// Here, convert ASCII to UTF-8 to adapt to the file path of other languages
+		wchar_t 	ipsw_unicode[1024] = {0};
+		char		ipsw_utf8[1024] = {0};
+		MultiByteToWideChar(CP_ACP, NULL, ipsw, -1, ipsw_unicode, 1024);
+		WideCharToMultiByte(CP_UTF8, NULL, ipsw_unicode, -1, ipsw_utf8, 1024, NULL, NULL);
+		archive->zip = zip_open(ipsw_utf8, 0, &err);
+#else
 		archive->zip = zip_open(ipsw, 0, &err);
+#endif
 		if (archive->zip == NULL) {
 			error("ERROR: zip_open: %s: %d\n", ipsw, err);
 			free(archive);
