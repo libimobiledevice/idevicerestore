@@ -53,6 +53,11 @@ sudo apt-get install \
 	libzip-dev \
 	zlib1g-dev
 ```
+### Arch Linux
+```shell
+sudo pacman -S --noconfirm base-devel git
+```
+
 
 Then clone, build and install [libirecovery](https://github.com/libimobiledevice/libirecovery.git) which is not yet packaged:
 ```shell
@@ -80,6 +85,13 @@ Now you can build and install it:
 make
 sudo make install
 ```
+If you have issues because "autogen.sh" command don't find "libirecovery-1.0", execute:
+```shell
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
+./autogen.sh
+make
+sudo make install
+```
 
 **Important**
 
@@ -94,7 +106,12 @@ by udev/systemd.
 The primary scenario is to restore a new firmware to a device.
 First of all attach your device to your machine.
 
-Then simply run:
+First execute as root:
+```shell
+usbmuxd -f -U root
+```
+
+Then simply run  as root:
 ```shell
 idevicerestore --latest
 ```
