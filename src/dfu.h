@@ -39,7 +39,6 @@ struct dfu_client_t {
 
 int dfu_client_new(struct idevicerestore_client_t* client);
 void dfu_client_free(struct idevicerestore_client_t* client);
-int dfu_check_mode(struct idevicerestore_client_t* client, int* mode);
 irecv_device_t dfu_get_irecv_device(struct idevicerestore_client_t* client);
 int dfu_send_buffer(struct idevicerestore_client_t* client, unsigned char* buffer, unsigned int size);
 int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component);

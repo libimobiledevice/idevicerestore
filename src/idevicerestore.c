@@ -1564,7 +1564,8 @@ void plain_progress_cb(int step, double step_progress, void* userdata)
 	fflush(stdout);
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
 	int opt = 0;
 	int optindex = 0;
 	char* ipsw = NULL;
@@ -1741,35 +1742,8 @@ int main(int argc, char* argv[]) {
 }
 #endif
 
-int check_mode(struct idevicerestore_client_t* client) {
-	int mode = MODE_UNKNOWN;
-	int dfumode = MODE_UNKNOWN;
-
-	if (recovery_check_mode(client) == 0) {
-		mode = MODE_RECOVERY;
-	}
-
-	else if (dfu_check_mode(client, &dfumode) == 0) {
-		mode = dfumode;
-	}
-
-	else if (normal_check_mode(client) == 0) {
-		mode = MODE_NORMAL;
-	}
-
-	else if (restore_check_mode(client) == 0) {
-		mode = MODE_RESTORE;
-	}
-
-	if (mode == MODE_UNKNOWN) {
-		client->mode = NULL;
-	} else {
-		client->mode = &idevicerestore_modes[mode];
-	}
-	return mode;
-}
-
-irecv_device_t get_irecv_device(struct idevicerestore_client_t *client) {
+irecv_device_t get_irecv_device(struct idevicerestore_client_t *client)
+{
 	int mode = MODE_UNKNOWN;
 
 	if (client->mode) {
@@ -1821,7 +1795,8 @@ int is_image4_supported(struct idevicerestore_client_t* client)
 	return res;
 }
 
-int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
+int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid)
+{
 	int mode = MODE_UNKNOWN;
 
 	if (client->mode) {
@@ -1859,7 +1834,8 @@ int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
 	return 0;
 }
 
-int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
+{
 	int mode = MODE_UNKNOWN;
 
 	*nonce = NULL;
@@ -1909,7 +1885,8 @@ int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, 
 	return 0;
 }
 
-int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
+{
 	int mode = MODE_UNKNOWN;
 
 	*nonce = NULL;
@@ -2150,7 +2127,8 @@ int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_
 	return res;
 }
 
-int get_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss) {
+int get_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss)
+{
 	plist_t request = NULL;
 	plist_t response = NULL;
 	*tss = NULL;
@@ -2360,7 +2338,8 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 	return 0;
 }
 
-int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss) {
+int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss)
+{
 	plist_t request = NULL;
 	plist_t response = NULL;
 	*tss = NULL;
@@ -2458,7 +2437,8 @@ int get_recovery_os_local_policy_tss_response(
 				struct idevicerestore_client_t* client,
 				plist_t build_identity,
 				plist_t* tss,
-				plist_t args) {
+				plist_t args)
+{
 	plist_t request = NULL;
 	plist_t response = NULL;
 	*tss = NULL;
@@ -2544,7 +2524,8 @@ int get_recovery_os_local_policy_tss_response(
 	return 0;
 }
 
-int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss) {
+int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss)
+{
 	plist_t request = NULL;
 	plist_t response = NULL;
 	*tss = NULL;
@@ -2658,7 +2639,8 @@ void fixup_tss(plist_t tss)
 	}
 }
 
-int build_manifest_get_identity_count(plist_t build_manifest) {
+int build_manifest_get_identity_count(plist_t build_manifest)
+{
 	// fetch build identities array from BuildManifest
 	plist_t build_identities_array = plist_dict_get_item(build_manifest, "BuildIdentities");
 	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
@@ -2692,7 +2674,8 @@ int extract_component(const char* ipsw, const char* path, unsigned char** compon
 	return 0;
 }
 
-int personalize_component(const char *component_name, const unsigned char* component_data, unsigned int component_size, plist_t tss_response, unsigned char** personalized_component, unsigned int* personalized_component_size) {
+int personalize_component(const char *component_name, const unsigned char* component_data, unsigned int component_size, plist_t tss_response, unsigned char** personalized_component, unsigned int* personalized_component_size)
+{
 	unsigned char* component_blob = NULL;
 	unsigned int component_blob_size = 0;
 	unsigned char* stitched_component = NULL;
@@ -2733,7 +2716,8 @@ int personalize_component(const char *component_name, const unsigned char* compo
 	return 0;
 }
 
-int build_manifest_check_compatibility(plist_t build_manifest, const char* product) {
+int build_manifest_check_compatibility(plist_t build_manifest, const char* product)
+{
 	int res = -1;
 	plist_t node = plist_dict_get_item(build_manifest, "SupportedProductTypes");
 	if (!node || (plist_get_node_type(node) != PLIST_ARRAY)) {
@@ -2759,7 +2743,8 @@ int build_manifest_check_compatibility(plist_t build_manifest, const char* produ
 	return res;
 }
 
-void build_manifest_get_version_information(plist_t build_manifest, struct idevicerestore_client_t* client) {
+void build_manifest_get_version_information(plist_t build_manifest, struct idevicerestore_client_t* client)
+{
 	plist_t node = NULL;
 	client->version = NULL;
 	client->build = NULL;
@@ -2781,7 +2766,8 @@ void build_manifest_get_version_information(plist_t build_manifest, struct idevi
 	client->build_major = strtoul(client->build, NULL, 10);
 }
 
-void build_identity_print_information(plist_t build_identity) {
+void build_identity_print_information(plist_t build_identity)
+{
 	char* value = NULL;
 	plist_t info_node = NULL;
 	plist_t node = NULL;
@@ -2855,7 +2841,8 @@ int build_identity_check_components_in_ipsw(plist_t build_identity, const char *
 	return res;
 }
 
-int build_identity_has_component(plist_t build_identity, const char* component) {
+int build_identity_has_component(plist_t build_identity, const char* component)
+{
 	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
 	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
 		return 0;
@@ -2869,7 +2856,8 @@ int build_identity_has_component(plist_t build_identity, const char* component) 
 	return 1;
 }
 
-int build_identity_get_component_path(plist_t build_identity, const char* component, char** path) {
+int build_identity_get_component_path(plist_t build_identity, const char* component, char** path)
+{
 	char* filename = NULL;
 
 	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
@@ -2909,7 +2897,8 @@ int build_identity_get_component_path(plist_t build_identity, const char* compon
 	return 0;
 }
 
-const char* get_component_name(const char* filename) {
+const char* get_component_name(const char* filename)
+{
 	if (!strncmp(filename, "LLB", 3)) {
 		return "LLB";
 	} else if (!strncmp(filename, "iBoot", 5)) {

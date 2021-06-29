@@ -40,7 +40,8 @@ static int dfu_progress_callback(irecv_client_t client, const irecv_event_t* eve
 	return 0;
 }
 
-int dfu_client_new(struct idevicerestore_client_t* client) {
+int dfu_client_new(struct idevicerestore_client_t* client)
+{
 	int i = 0;
 	int attempts = 10;
 	irecv_client_t dfu = NULL;
@@ -73,7 +74,8 @@ int dfu_client_new(struct idevicerestore_client_t* client) {
 	return 0;
 }
 
-void dfu_client_free(struct idevicerestore_client_t* client) {
+void dfu_client_free(struct idevicerestore_client_t* client)
+{
 	if(client != NULL) {
 		if (client->dfu != NULL) {
 			if(client->dfu->client != NULL) {
@@ -86,35 +88,8 @@ void dfu_client_free(struct idevicerestore_client_t* client) {
 	}
 }
 
-int dfu_check_mode(struct idevicerestore_client_t* client, int* mode) {
-	irecv_client_t dfu = NULL;
-	int probe_mode = -1;
-
-	if (client->udid && client->ecid == 0) {
-		/* if we have a UDID but no ECID we can't make sure this is the correct device */
-		return -1;
-	}
-
-	irecv_init();
-	if (irecv_open_with_ecid(&dfu, client->ecid) != IRECV_E_SUCCESS) {
-		return -1;
-	}
-
-	irecv_get_mode(dfu, &probe_mode);
-
-	if ((probe_mode != IRECV_K_DFU_MODE) && (probe_mode != IRECV_K_WTF_MODE)) {
-		irecv_close(dfu);
-		return -1;
-	}
-
-	*mode = (probe_mode == IRECV_K_WTF_MODE) ? MODE_WTF : MODE_DFU;
-
-	irecv_close(dfu);
-
-	return 0;
-}
-
-irecv_device_t dfu_get_irecv_device(struct idevicerestore_client_t* client) {
+irecv_device_t dfu_get_irecv_device(struct idevicerestore_client_t* client)
+{
 	irecv_client_t dfu = NULL;
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 	irecv_device_t device = NULL;
@@ -148,7 +123,8 @@ int dfu_send_buffer(struct idevicerestore_client_t* client, unsigned char* buffe
 	return 0;
 }
 
-int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component) {
+int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component)
+{
 	char* path = NULL;
 
 	// Use a specific TSS ticket for the Ap,LocalPolicy component
@@ -233,7 +209,8 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	return 0;
 }
 
-int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid) {
+int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid)
+{
 	if(client->dfu == NULL) {
 		if (dfu_client_new(client) < 0) {
 			return -1;
@@ -250,7 +227,8 @@ int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid) {
 	return 0;
 }
 
-int dfu_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid) {
+int dfu_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid)
+{
 	if(client->dfu == NULL) {
 		if (dfu_client_new(client) < 0) {
 			return -1;
@@ -283,7 +261,8 @@ int dfu_is_image4_supported(struct idevicerestore_client_t* client)
 	return (device_info->ibfl & IBOOT_FLAG_IMAGE4_AWARE);
 }
 
-int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
+{
 	if(client->dfu == NULL) {
 		if (dfu_client_new(client) < 0) {
 			return -1;
@@ -307,7 +286,8 @@ int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** non
 	return 0;
 }
 
-int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size) {
+int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
+{
 	if(client->dfu == NULL) {
 		if (dfu_client_new(client) < 0) {
 			return -1;

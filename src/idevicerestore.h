@@ -82,7 +82,6 @@ void idevicerestore_set_debug_stream(FILE* strm);
 int idevicerestore_start(struct idevicerestore_client_t* client);
 const char* idevicerestore_get_error(void);
 
-int check_mode(struct idevicerestore_client_t* client);
 irecv_device_t get_irecv_device(struct idevicerestore_client_t* client);
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
 int is_image4_supported(struct idevicerestore_client_t* client);
