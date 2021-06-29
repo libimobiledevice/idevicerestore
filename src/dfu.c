@@ -399,7 +399,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 
 	if (mode != IRECV_K_DFU_MODE) {
 		info("NOTE: device is not in DFU mode, assuming recovery mode.\n");
-		client->mode = &idevicerestore_modes[MODE_RECOVERY];
+		client->mode = MODE_RECOVERY;
 		return 0;
 	}
 
@@ -417,7 +417,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		/* reconnect */
 		debug("Waiting for device to disconnect...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-		if (client->mode != &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT)) {
+		if (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			if (!(client->flags & FLAG_QUIT)) {
 				error("ERROR: Device did not disconnect. Possibly invalid iBSS. Reset device and try again.\n");
@@ -426,7 +426,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		}
 		debug("Waiting for device to reconnect...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-		if ((client->mode != &idevicerestore_modes[MODE_DFU] && client->mode != &idevicerestore_modes[MODE_RECOVERY]) || (client->flags & FLAG_QUIT)) {
+		if ((client->mode != MODE_DFU && client->mode != MODE_RECOVERY) || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			if (!(client->flags & FLAG_QUIT)) {
 				error("ERROR: Device did not reconnect in DFU or recovery mode. Possibly invalid iBSS. Reset device and try again.\n");
@@ -560,7 +560,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 			return -1;
 		}
 
-		if (client->mode == &idevicerestore_modes[MODE_RECOVERY]) {
+		if (client->mode == MODE_RECOVERY) {
 			sleep(1);
 			if (irecv_send_command_breq(client->dfu->client, "go", 1) != IRECV_E_SUCCESS) {
 				mutex_unlock(&client->device_event_mutex);
@@ -577,7 +577,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 
 	debug("Waiting for device to disconnect...\n");
 	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-	if (client->mode != &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT)) {
+	if (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
 		mutex_unlock(&client->device_event_mutex);
 		if (!(client->flags & FLAG_QUIT)) {
 			error("ERROR: Device did not disconnect. Possibly invalid %s. Reset device and try again.\n", (client->build_major > 8) ? "iBEC" : "iBSS");
@@ -586,7 +586,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 	}
 	debug("Waiting for device to reconnect in recovery mode...\n");
 	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-	if (client->mode != &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT)) {
+	if (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT)) {
 		mutex_unlock(&client->device_event_mutex);
 		if (!(client->flags & FLAG_QUIT)) {
 			error("ERROR: Device did not reconnect in recovery mode. Possibly invalid %s. Reset device and try again.\n", (client->build_major > 8) ? "iBEC" : "iBSS");

@@ -247,13 +247,13 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 		}
 		if (normal_check_mode(client) == 0) {
 			mutex_lock(&client->device_event_mutex);
-			client->mode = &idevicerestore_modes[MODE_NORMAL];
+			client->mode = MODE_NORMAL;
 			debug("%s: device %016" PRIx64 " (udid: %s) connected in normal mode\n", __func__, client->ecid, client->udid);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		} else if (client->ecid && restore_check_mode(client) == 0) {
 			mutex_lock(&client->device_event_mutex);
-			client->mode = &idevicerestore_modes[MODE_RESTORE];
+			client->mode = MODE_RESTORE;
 			debug("%s: device %016" PRIx64 " (udid: %s) connected in restore mode\n", __func__, client->ecid, client->udid);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
@@ -261,7 +261,7 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
 		if (client->udid && !strcmp(event->udid, client->udid)) {
 			mutex_lock(&client->device_event_mutex);
-			client->mode = &idevicerestore_modes[MODE_UNKNOWN];
+			client->mode = MODE_UNKNOWN;
 			debug("%s: device %016" PRIx64 " (udid: %s) disconnected\n", __func__, client->ecid, client->udid);
 			client->ignore_device_add_events = 0;
 			cond_signal(&client->device_event_cond);
@@ -281,19 +281,19 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 			mutex_lock(&client->device_event_mutex);
 			switch (event->mode) {
 				case IRECV_K_WTF_MODE:
-					client->mode = &idevicerestore_modes[MODE_WTF];
+					client->mode = MODE_WTF;
 					break;
 				case IRECV_K_DFU_MODE:
-					client->mode = &idevicerestore_modes[MODE_DFU];
+					client->mode = MODE_DFU;
 					break;
 				case IRECV_K_RECOVERY_MODE_1:
 				case IRECV_K_RECOVERY_MODE_2:
 				case IRECV_K_RECOVERY_MODE_3:
 				case IRECV_K_RECOVERY_MODE_4:
-					client->mode = &idevicerestore_modes[MODE_RECOVERY];
+					client->mode = MODE_RECOVERY;
 					break;
 				default:
-					client->mode = &idevicerestore_modes[MODE_UNKNOWN];
+					client->mode = MODE_UNKNOWN;
 			}
 			debug("%s: device %016" PRIx64 " (udid: %s) connected in %s mode\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A", client->mode->string);
 			cond_signal(&client->device_event_cond);
@@ -302,7 +302,7 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 	} else if (event->type == IRECV_DEVICE_REMOVE) {
 		if (client->ecid && event->device_info->ecid == client->ecid) {
 			mutex_lock(&client->device_event_mutex);
-			client->mode = &idevicerestore_modes[MODE_UNKNOWN];
+			client->mode = MODE_UNKNOWN;
 			debug("%s: device %016" PRIx64 " (udid: %s) disconnected\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A");
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
@@ -345,7 +345,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	// check which mode the device is currently in so we know where to start
 	mutex_lock(&client->device_event_mutex);
 	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-	if (client->mode == &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT)) {
+	if (client->mode == MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
 		mutex_unlock(&client->device_event_mutex);
 		error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
 		return -1;
@@ -354,7 +354,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	info("Found device in %s mode\n", client->mode->string);
 	mutex_unlock(&client->device_event_mutex);
 
-	if (client->mode->index == MODE_WTF) {
+	if (client->mode == MODE_WTF) {
 		unsigned int cpid = 0;
 
 		if (dfu_client_new(client) != 0) {
@@ -429,7 +429,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		free(wtftmp);
 
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-		if (client->mode != &idevicerestore_modes[MODE_DFU] || (client->flags & FLAG_QUIT)) {
+		if (client->mode != MODE_DFU || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			/* TODO: verify if it actually goes from 0x1222 -> 0x1227 */
 			error("ERROR: Failed to put device into DFU from WTF mode\n");
@@ -447,7 +447,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.2);
 	info("Identified device as %s, %s\n", client->device->hardware_model, client->device->product_type);
 
-	if ((client->flags & FLAG_PWN) && (client->mode->index != MODE_DFU)) {
+	if ((client->flags & FLAG_PWN) && (client->mode != MODE_DFU)) {
 		error("ERROR: you need to put your device into DFU mode to pwn it.\n");
 		return -1;
 	}
@@ -455,7 +455,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	if (client->flags & FLAG_PWN) {
 		recovery_client_free(client);
 
-		if (client->mode->index != MODE_DFU) {
+		if (client->mode != MODE_DFU) {
 			error("ERROR: Device needs to be in DFU mode for this option.\n");
 			return -1;
 		}
@@ -590,7 +590,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		return 0;
 	}
 
-	if (client->mode->index == MODE_RESTORE) {
+	if (client->mode == MODE_RESTORE) {
 		if (client->flags & FLAG_ALLOW_RESTORE_MODE) {
 			tss_enabled = 0;
 			if (!client->root_ticket) {
@@ -606,7 +606,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			// we need to refresh the current mode again
 			mutex_lock(&client->device_event_mutex);
 			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
-			if (client->mode == &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT)) {
+			if (client->mode == MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
 				mutex_unlock(&client->device_event_mutex);
 				error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
 				return -1;
@@ -831,7 +831,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	/* print information about current build identity */
 	build_identity_print_information(build_identity);
 
-	if (client->mode->index == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
+	if (client->mode == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
 		plist_t pver = normal_get_lockdown_value(client, NULL, "ProductVersion");
 		char *device_version = NULL;
 		if (pver) {
@@ -1030,7 +1030,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 		info("Found ECID %" PRIu64 "\n", client->ecid);
 
-		if (client->mode->index == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
+		if (client->mode == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
 			plist_t node = normal_get_lockdown_value(client, NULL, "HasSiDP");
 			uint8_t needs_preboard = 0;
 			if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
@@ -1179,7 +1179,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	// if the device is in normal mode, place device into recovery mode
-	if (client->mode->index == MODE_NORMAL) {
+	if (client->mode == MODE_NORMAL) {
 		info("Entering recovery mode...\n");
 		if (normal_enter_recovery(client) < 0) {
 			error("ERROR: Unable to place device into recovery mode from normal mode\n");
@@ -1197,7 +1197,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		return -1;
 	}
 
-	if (client->mode->index == MODE_DFU) {
+	if (client->mode == MODE_DFU) {
 		// if the device is in DFU mode, place it into recovery mode
 		dfu_client_free(client);
 		recovery_client_free(client);
@@ -1229,7 +1229,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				unlink(filesystem);
 			return -2;
 		}
-	} else if (client->mode->index == MODE_RECOVERY) {
+	} else if (client->mode == MODE_RECOVERY) {
 		// device is in recovery mode
 		if ((client->build_major > 8) && !(client->flags & FLAG_CUSTOM)) {
 			if (!client->image4supported) {
@@ -1257,7 +1257,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 		debug("Waiting for device to disconnect...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-		if (client->mode != &idevicerestore_modes[MODE_UNKNOWN] || (client->flags & FLAG_QUIT)) {
+		if (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 
 			if (!(client->flags & FLAG_QUIT)) {
@@ -1269,7 +1269,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 		debug("Waiting for device to reconnect in recovery mode...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-		if (client->mode != &idevicerestore_modes[MODE_RECOVERY] || (client->flags & FLAG_QUIT)) {
+		if (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			if (!(client->flags & FLAG_QUIT)) {
 				error("ERROR: Device did not reconnect in recovery mode. Possibly invalid iBEC. Reset device and try again.\n");
@@ -1337,7 +1337,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	// now finally do the magic to put the device into restore mode
-	if (client->mode->index == MODE_RECOVERY) {
+	if (client->mode == MODE_RECOVERY) {
 		if (client->srnm == NULL) {
 			error("ERROR: could not retrieve device serial number. Can't continue.\n");
 			if (delete_fs && filesystem)
@@ -1357,11 +1357,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.9);
 
-	if (client->mode->index != MODE_RESTORE) {
+	if (client->mode != MODE_RESTORE) {
 		mutex_lock(&client->device_event_mutex);
 		info("Waiting for device to enter restore mode...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 180000);
-		if (client->mode != &idevicerestore_modes[MODE_RESTORE] || (client->flags & FLAG_QUIT)) {
+		if (client->mode != MODE_RESTORE || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			error("ERROR: Device failed to enter restore mode.\n");
 			error("Please make sure that usbmuxd is running.\n");
@@ -1373,7 +1373,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	// device is finally in restore mode, let's do this
-	if (client->mode->index == MODE_RESTORE) {
+	if (client->mode == MODE_RESTORE) {
 		if ((client->flags & FLAG_NO_RESTORE) != 0) {
 			info("Device is now in restore mode. Exiting as requested.");
 			return 0;
@@ -1429,7 +1429,7 @@ struct idevicerestore_client_t* idevicerestore_client_new(void)
 		return NULL;
 	}
 	memset(client, '\0', sizeof(struct idevicerestore_client_t));
-	client->mode = &idevicerestore_modes[MODE_UNKNOWN];
+	client->mode = MODE_UNKNOWN;
 	mutex_init(&client->device_event_mutex);
 	cond_init(&client->device_event_cond);
 	return client;
@@ -1564,8 +1564,7 @@ void plain_progress_cb(int step, double step_progress, void* userdata)
 	fflush(stdout);
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 	int opt = 0;
 	int optindex = 0;
 	char* ipsw = NULL;
@@ -1744,21 +1743,21 @@ int main(int argc, char* argv[])
 
 irecv_device_t get_irecv_device(struct idevicerestore_client_t *client)
 {
-	int mode = MODE_UNKNOWN;
+	int mode = _MODE_UNKNOWN;
 
 	if (client->mode) {
 		mode = client->mode->index;
 	}
 
 	switch (mode) {
-	case MODE_RESTORE:
+	case _MODE_RESTORE:
 		return restore_get_irecv_device(client);
 
-	case MODE_NORMAL:
+	case _MODE_NORMAL:
 		return normal_get_irecv_device(client);
 
-	case MODE_DFU:
-	case MODE_RECOVERY:
+	case _MODE_DFU:
+	case _MODE_RECOVERY:
 		return dfu_get_irecv_device(client);
 
 	default:
@@ -1769,23 +1768,23 @@ irecv_device_t get_irecv_device(struct idevicerestore_client_t *client)
 int is_image4_supported(struct idevicerestore_client_t* client)
 {
 	int res = 0;
-	int mode = MODE_UNKNOWN;
+	int mode = _MODE_UNKNOWN;
 
 	if (client->mode) {
 		mode = client->mode->index;
 	}
 
 	switch (mode) {
-	case MODE_NORMAL:
+	case _MODE_NORMAL:
 		res = normal_is_image4_supported(client);
 		break;
-	case MODE_RESTORE:
+	case _MODE_RESTORE:
 		res = restore_is_image4_supported(client);
 		break;
-	case MODE_DFU:
+	case _MODE_DFU:
 		res = dfu_is_image4_supported(client);
 		break;
-	case MODE_RECOVERY:
+	case _MODE_RECOVERY:
 		res = recovery_is_image4_supported(client);
 		break;
 	default:
@@ -1797,28 +1796,28 @@ int is_image4_supported(struct idevicerestore_client_t* client)
 
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid)
 {
-	int mode = MODE_UNKNOWN;
+	int mode = _MODE_UNKNOWN;
 
 	if (client->mode) {
 		mode = client->mode->index;
 	}
 
 	switch (mode) {
-	case MODE_NORMAL:
+	case _MODE_NORMAL:
 		if (normal_get_ecid(client, ecid) < 0) {
 			*ecid = 0;
 			return -1;
 		}
 		break;
 
-	case MODE_DFU:
+	case _MODE_DFU:
 		if (dfu_get_ecid(client, ecid) < 0) {
 			*ecid = 0;
 			return -1;
 		}
 		break;
 
-	case MODE_RECOVERY:
+	case _MODE_RECOVERY:
 		if (recovery_get_ecid(client, ecid) < 0) {
 			*ecid = 0;
 			return -1;
@@ -1836,7 +1835,7 @@ int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid)
 
 int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
 {
-	int mode = MODE_UNKNOWN;
+	int mode = _MODE_UNKNOWN;
 
 	*nonce = NULL;
 	*nonce_size = 0;
@@ -1848,21 +1847,21 @@ int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, 
 	}
 
 	switch (mode) {
-	case MODE_NORMAL:
+	case _MODE_NORMAL:
 		info("in normal mode... ");
 		if (normal_get_ap_nonce(client, nonce, nonce_size) < 0) {
 			info("failed\n");
 			return -1;
 		}
 		break;
-	case MODE_DFU:
+	case _MODE_DFU:
 		info("in dfu mode... ");
 		if (dfu_get_ap_nonce(client, nonce, nonce_size) < 0) {
 			info("failed\n");
 			return -1;
 		}
 		break;
-	case MODE_RECOVERY:
+	case _MODE_RECOVERY:
 		info("in recovery mode... ");
 		if (recovery_get_ap_nonce(client, nonce, nonce_size) < 0) {
 			info("failed\n");
@@ -1887,7 +1886,7 @@ int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, 
 
 int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
 {
-	int mode = MODE_UNKNOWN;
+	int mode = _MODE_UNKNOWN;
 
 	*nonce = NULL;
 	*nonce_size = 0;
@@ -1899,21 +1898,21 @@ int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce,
 	}
 
 	switch (mode) {
-	case MODE_NORMAL:
+	case _MODE_NORMAL:
 		info("in normal mode... ");
 		if (normal_get_sep_nonce(client, nonce, nonce_size) < 0) {
 			info("failed\n");
 			return -1;
 		}
 		break;
-	case MODE_DFU:
+	case _MODE_DFU:
 		info("in dfu mode... ");
 		if (dfu_get_sep_nonce(client, nonce, nonce_size) < 0) {
 			info("failed\n");
 			return -1;
 		}
 		break;
-	case MODE_RECOVERY:
+	case _MODE_RECOVERY:
 		info("in recovery mode... ");
 		if (recovery_get_sep_nonce(client, nonce, nonce_size) < 0) {
 			info("failed\n");
@@ -2262,7 +2261,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		}
 	}
 
-	if (client->mode->index == MODE_NORMAL) {
+	if (client->mode == MODE_NORMAL) {
 		/* normal mode; request baseband ticket aswell */
 		plist_t pinfo = NULL;
 		normal_get_preflight_info(client, &pinfo);
