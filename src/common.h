@@ -87,10 +87,13 @@ struct idevicerestore_entry_t {
 };
 
 struct idevicerestore_client_t {
-	int flags;
+	uint32_t flags;
 	plist_t tss;
+	plist_t tss_build_identity;
 	plist_t tss_localpolicy;
 	plist_t tss_recoveryos_root_ticket;
+	plist_t latest_build_identity;
+	char* latest_url;
 	char* tss_url;
 	plist_t version_data;
 	uint64_t ecid;

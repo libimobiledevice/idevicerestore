@@ -65,26 +65,27 @@
 
 #ifndef IDEVICERESTORE_NOMAIN
 static struct option longopts[] = {
-	{ "ecid",           required_argument, NULL, 'i' },
-	{ "udid",           required_argument, NULL, 'u' },
-	{ "debug",          no_argument,       NULL, 'd' },
-	{ "help",           no_argument,       NULL, 'h' },
-	{ "erase",          no_argument,       NULL, 'e' },
-	{ "custom",         no_argument,       NULL, 'c' },
-	{ "latest",         no_argument,       NULL, 'l' },
-	{ "cydia",          no_argument,       NULL, 's' },
-	{ "exclude",        no_argument,       NULL, 'x' },
-	{ "shsh",           no_argument,       NULL, 't' },
-	{ "keep-pers",      no_argument,       NULL, 'k' },
-	{ "pwn",            no_argument,       NULL, 'p' },
-	{ "no-action",      no_argument,       NULL, 'n' },
-	{ "cache-path",     required_argument, NULL, 'C' },
-	{ "no-input",       no_argument,       NULL, 'y' },
-	{ "plain-progress", no_argument,       NULL, 'P' },
-	{ "restore-mode",   no_argument,       NULL, 'R' },
-	{ "ticket",         required_argument, NULL, 'T' },
-	{ "no-restore",     no_argument,       NULL, 'z' },
-	{ "version",        no_argument,       NULL, 'v' },
+	{ "ecid",		required_argument,	NULL, 'i' },
+	{ "udid",		required_argument,	NULL, 'u' },
+	{ "debug",		no_argument,		NULL, 'd' },
+	{ "help",		no_argument,		NULL, 'h' },
+	{ "erase",		no_argument,		NULL, 'e' },
+	{ "custom",		no_argument,		NULL, 'c' },
+	{ "latest",		no_argument,		NULL, 'l' },
+	{ "cydia",		no_argument,		NULL, 's' },
+	{ "exclude",		no_argument,		NULL, 'x' },
+	{ "shsh",		no_argument,		NULL, 't' },
+	{ "keep-pers",		no_argument,		NULL, 'k' },
+	{ "pwn",		no_argument,		NULL, 'p' },
+	{ "no-action",		no_argument,		NULL, 'n' },
+	{ "cache-path",		required_argument,	NULL, 'C' },
+	{ "no-input",		no_argument,		NULL, 'y' },
+	{ "plain-progress",	no_argument,		NULL, 'P' },
+	{ "restore-mode",	no_argument,		NULL, 'R' },
+	{ "ticket",		required_argument,	NULL, 'T' },
+	{ "no-restore",		no_argument,		NULL, 'z' },
+	{ "version",		no_argument,		NULL, 'v' },
+	{ "downgrade",		no_argument,		NULL, 'w' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -125,6 +126,7 @@ static void usage(int argc, char* argv[], int err)
 	"                        reused files.\n" \
 	"  -d, --debug           Enable communication debugging\n" \
 	"  -v, --version         Print version information\n" \
+	"  -w, --downgrade SHSH  Enables using custom SHSH blobs or the latest blobs\n" \
 	"\n" \
 	"Advanced/experimental options:\n"
 	"  -c, --custom          Restore with a custom firmware (requires bootrom exploit)\n" \
@@ -663,6 +665,59 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	// choose whether this is an upgrade or a restore (default to upgrade)
 	client->tss = NULL;
 	plist_t build_identity = NULL;
+
+	// we use the latest SHSH blobs certainly for baseband firmware, though also for the bootchain if blobs aren't specified
+	if(client->flags & FLAG_DOWNGRADE) {
+		plist_t signed_fws;
+
+		int ret = ipsw_get_signed_firmwares(client->device->product_type, &signed_fws);
+		if (ret < 0) {
+			error("ERROR: Could not fetch list of signed firmwares.\n");
+			return ret;
+		}
+		uint32_t count = plist_array_get_size(signed_fws);
+		if (count == 0) {
+			plist_free(signed_fws);
+			error("ERROR: No firmwares are currently being signed for %s (REALLY?!)\n", client->device->product_type);
+			return -1;
+		}
+		plist_t latest_version = plist_array_get_item(signed_fws, 0);
+		plist_t plist_ipsw_url = plist_dict_get_item(latest_version, "url");
+		plist_get_string_val(plist_ipsw_url, &client->latest_url);
+
+		char* tss_manifest_buf = NULL;
+		size_t tss_manifest_len = 0;
+		ret = download_firmware_component(client->latest_url, "BuildManifest.plist", &tss_manifest_buf, &tss_manifest_len);
+		if (ret < 0) {
+			error("ERROR: Could not fetch latest BuildManifest.\n");
+			return ret;
+		}
+		plist_t tss_manifest = NULL;
+		plist_from_xml(tss_manifest_buf, tss_manifest_len, &tss_manifest);
+		if(!tss_manifest) {
+			free(tss_manifest_buf);
+			error("ERROR: Could not parse latest BuildManifest.\n");
+			return -1;
+		}
+		if (client->flags & FLAG_ERASE) {
+			client->latest_build_identity = build_manifest_get_build_identity_for_model_with_restore_behavior(tss_manifest, client->device->hardware_model, "Erase");
+			if (client->latest_build_identity == NULL) {
+				error("ERROR: Unable to find any build identities\n");
+				free(tss_manifest_buf);
+				plist_free(tss_manifest);
+				return -1;
+			}
+		} 
+		else {
+			client->latest_build_identity = build_manifest_get_build_identity_for_model_with_restore_behavior(tss_manifest, client->device->hardware_model, "Update");
+			if (!client->latest_build_identity) {
+				client->latest_build_identity = build_manifest_get_build_identity_for_model(tss_manifest, client->device->hardware_model);
+			}
+		}
+		plist_free(tss_manifest);
+		free(tss_manifest_buf);
+	}
+
 	if (client->flags & FLAG_CUSTOM) {
 		build_identity = plist_new_dict();
 		{
@@ -1081,23 +1136,32 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		if (client->flags & FLAG_QUIT) {
 			return -1;
 		}
+		if(client->flags & FLAG_DOWNGRADE && !client->tss) {
+			client->flags |= FLAG_LATEST_CHAIN;
+			client->tss_build_identity = client->latest_build_identity;
+		}
+		else {
+			client->tss_build_identity = build_identity;
+		}
 		
-		if (get_tss_response(client, build_identity, &client->tss) < 0) {
-			error("ERROR: Unable to get SHSH blobs for this device\n");
-			return -1;
-		}
-		if (client->build_major >= 20) {
-			if (get_local_policy_tss_response(client, build_identity, &client->tss_localpolicy) < 0) {
-				error("ERROR: Unable to get SHSH blobs for this device (local policy)\n");
+		if(client->flags & FLAG_DOWNGRADE && !client->tss) {
+			if (get_tss_response(client, client->tss_build_identity, &client->tss) < 0) {
+				error("ERROR: Unable to get SHSH blobs for this device\n");
 				return -1;
 			}
-			if (get_recoveryos_root_ticket_tss_response(client, build_identity, &client->tss_recoveryos_root_ticket) <
-				0) {
-				error("ERROR: Unable to get SHSH blobs for this device (recovery OS Root Ticket)\n");
-				return -1;
+			if (client->build_major >= 20) {
+				if (get_local_policy_tss_response(client, client->tss_build_identity, &client->tss_localpolicy) < 0) {
+					error("ERROR: Unable to get SHSH blobs for this device (local policy)\n");
+					return -1;
+				}
+				if (get_recoveryos_root_ticket_tss_response(client, client->tss_build_identity, &client->tss_recoveryos_root_ticket) <
+					0) {
+					error("ERROR: Unable to get SHSH blobs for this device (recovery OS Root Ticket)\n");
+					return -1;
+				}
 			}
 		}
-
+	
 		if (stashbag_commit_required) {
 			plist_t ticket = plist_dict_get_item(client->tss, "ApImg4Ticket");
 			if (!ticket || plist_get_node_type(ticket) != PLIST_DATA) {
@@ -1242,43 +1306,44 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				}
 			}
 		}
-
-		mutex_lock(&client->device_event_mutex);
-
-		/* now we load the iBEC */
-		if (recovery_send_ibec(client, build_identity) < 0) {
-			mutex_unlock(&client->device_event_mutex);
-			error("ERROR: Unable to send iBEC\n");
-			if (delete_fs && filesystem)
-				unlink(filesystem);
-			return -2;
-		}
-		recovery_client_free(client);
-
-		debug("Waiting for device to disconnect...\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-		if (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
-			mutex_unlock(&client->device_event_mutex);
-
-			if (!(client->flags & FLAG_QUIT)) {
-				error("ERROR: Device did not disconnect. Possibly invalid iBEC. Reset device and try again.\n");
+		if(!(client->flags & FLAG_DOWNGRADE)) {
+			mutex_lock(&client->device_event_mutex);
+	
+			/* now we load the iBEC */
+			if (recovery_send_ibec(client, build_identity) < 0) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Unable to send iBEC\n");
+				if (delete_fs && filesystem)
+					unlink(filesystem);
+				return -2;
 			}
-			if (delete_fs && filesystem)
-				unlink(filesystem);
-			return -2;
-		}
-		debug("Waiting for device to reconnect in recovery mode...\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-		if (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT)) {
-			mutex_unlock(&client->device_event_mutex);
-			if (!(client->flags & FLAG_QUIT)) {
-				error("ERROR: Device did not reconnect in recovery mode. Possibly invalid iBEC. Reset device and try again.\n");
+			recovery_client_free(client);
+	
+			debug("Waiting for device to disconnect...\n");
+			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
+			if (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
+				mutex_unlock(&client->device_event_mutex);
+	
+				if (!(client->flags & FLAG_QUIT)) {
+					error("ERROR: Device did not disconnect. Possibly invalid iBEC. Reset device and try again.\n");
+				}
+				if (delete_fs && filesystem)
+					unlink(filesystem);
+				return -2;
 			}
-			if (delete_fs && filesystem)
-				unlink(filesystem);
-			return -2;
+			debug("Waiting for device to reconnect in recovery mode...\n");
+			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
+			if (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT)) {
+				mutex_unlock(&client->device_event_mutex);
+				if (!(client->flags & FLAG_QUIT)) {
+					error("ERROR: Device did not reconnect in recovery mode. Possibly invalid iBEC. Reset device and try again.\n");
+				}
+				if (delete_fs && filesystem)
+					unlink(filesystem);
+				return -2;
+			}
+			mutex_unlock(&client->device_event_mutex);
 		}
-		mutex_unlock(&client->device_event_mutex);
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.5);
 	if (client->flags & FLAG_QUIT) {
@@ -1314,19 +1379,21 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		if (nonce_changed && !(client->flags & FLAG_CUSTOM)) {
 			// Welcome iOS5. We have to re-request the TSS with our nonce.
 			plist_free(client->tss);
-			if (get_tss_response(client, build_identity, &client->tss) < 0) {
-				error("ERROR: Unable to get SHSH blobs for this device\n");
-				if (delete_fs && filesystem)
-					unlink(filesystem);
-				return -1;
+			if(client->flags & FLAG_DOWNGRADE && !(client->flags & FLAG_LATEST_CHAIN)) {
+				if (get_tss_response(client, client->tss_build_identity, &client->tss) < 0) {
+					error("ERROR: Unable to get SHSH blobs for this device\n");
+					if (delete_fs && filesystem)
+						unlink(filesystem);
+					return -1;
+				}
+				if (!client->tss) {
+					error("ERROR: can't continue without TSS\n");
+					if (delete_fs && filesystem)
+						unlink(filesystem);
+					return -1;
+				}
+				fixup_tss(client->tss);
 			}
-			if (!client->tss) {
-				error("ERROR: can't continue without TSS\n");
-				if (delete_fs && filesystem)
-					unlink(filesystem);
-				return -1;
-			}
-			fixup_tss(client->tss);
 		}
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.7);
@@ -1483,6 +1550,9 @@ void idevicerestore_client_free(struct idevicerestore_client_t* client)
 	if (client->root_ticket) {
 		free(client->root_ticket);
 	}
+	if(client->latest_build_identity) {
+		plist_free(client->latest_build_identity);
+	}
 	free(client);
 }
 
@@ -1599,7 +1669,7 @@ int main(int argc, char* argv[]) {
 		client->flags |= FLAG_INTERACTIVE;
 	}
 
-	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:kyPRT:zv", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:kyPRT:zvw", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv, 0);
@@ -1703,6 +1773,13 @@ int main(int argc, char* argv[]) {
 			info("Using ApTicket found at %s length %u\n", optarg, client->root_ticket_len);
 			break;
 		}
+
+		case 'w':
+			client->flags |= FLAG_DOWNGRADE;
+			if(optarg) {
+			//	client->shsh = optarg;
+			}
+			break;
 
 		default:
 			usage(argc, argv, 1);

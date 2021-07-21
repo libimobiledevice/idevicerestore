@@ -43,6 +43,7 @@
 #include "ipsw.h"
 #include "restore.h"
 #include "common.h"
+#include "download.h"
 #include "endianness.h"
 
 #define CREATE_PARTITION_MAP          11
@@ -1120,6 +1121,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	plist_t norimage = NULL;
 	plist_t firmware_files = NULL;
 	uint32_t i;
+	int ret = 0;
 
 	info("About to send NORData...\n");
 
@@ -1129,7 +1131,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		}
 	}
 	if (llb_path == NULL) {
-		if (build_identity_get_component_path(build_identity, "LLB", &llb_path) < 0) {
+		if (build_identity_get_component_path(client->tss_build_identity, "LLB", &llb_path) < 0) {
 			error("ERROR: Unable to get component path for LLB\n");
 			return -1;
 		}
@@ -1150,8 +1152,10 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	snprintf(manifest_file, sizeof(manifest_file), "%s/manifest", firmware_path);
 
 	firmware_files = plist_new_dict();
-	if (ipsw_file_exists(client->ipsw, manifest_file)) {
-		ipsw_extract_to_memory(client->ipsw, manifest_file, &manifest_data, &manifest_size);
+	if(!(client->flags & FLAG_LATEST_CHAIN)) {
+		if (ipsw_file_exists(client->ipsw, manifest_file)) {
+			ipsw_extract_to_memory(client->ipsw, manifest_file, &manifest_data, &manifest_size);
+		}
 	}
 	if (manifest_data && manifest_size > 0) {
 		info("Getting firmware manifest from %s\n", manifest_file);
@@ -1169,7 +1173,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	} else {
 		info("Getting firmware manifest from build identity\n");
 		plist_dict_iter iter = NULL;
-		plist_t build_id_manifest = plist_dict_get_item(build_identity, "Manifest");
+		plist_t build_id_manifest = plist_dict_get_item(client->tss_build_identity, "Manifest");
 		if (build_id_manifest) {
 			plist_dict_new_iter(build_id_manifest, &iter);
 		}
@@ -1222,12 +1226,21 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	const char* component = "LLB";
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
-	int ret = extract_component(client->ipsw, llb_path, &component_data, &component_size);
-	free(llb_path);
-	if (ret < 0) {
-		error("ERROR: Unable to extract component: %s\n", component);
-		return -1;
+	if(client->flags & FLAG_LATEST_CHAIN) {
+		ret = download_firmware_component(client->latest_url, llb_path, (char**)&component_data, (size_t*)&component_size);
+		if (ret < 0) {
+			error("ERROR: Unable to download component: %s\n", component);
+			return -1;
+		}
 	}
+	else {
+		int ret = extract_component(client->ipsw, llb_path, &component_data, &component_size);
+		if (ret < 0) {
+			error("ERROR: Unable to extract component: %s\n", component);
+			return -1;
+		}
+	}
+	free(llb_path);
 
 	ret = personalize_component(component, component_data, component_size, client->tss, &llb_data, &llb_size);
 	free(component_data);
@@ -1259,38 +1272,59 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		if (!comp) {
 			break;
 		}
-		char *comppath = NULL;
-		plist_get_string_val(pcomp, &comppath);
-		if (!comppath) {
-			free(comp);
-			continue;
-		}
 
 		component = (const char*)comp;
 		if (!strcmp(component, "LLB") || !strcmp(component, "RestoreSEP")) {
 			// skip LLB, it's already passed in LlbImageData
 			// skip RestoreSEP, it's passed in RestoreSEPImageData
 			free(comp);
-			free(comppath);
 			continue;
+		}
+
+		char *comppath = NULL;
+		
+		// We always use the correct devicetree
+		if(!strcmp(component, "DeviceTree")) {
+			if (build_identity_get_component_path(build_identity, component, &comppath) < 0) {
+				free(comp);
+				error("ERROR: Unable to get component path for iBoot\n");
+				return -1;
+			}
+		}
+		else {
+			plist_get_string_val(pcomp, &comppath);
+			if (!comppath) {
+				free(comp);
+				continue;
+			}
 		}
 
 		component_data = NULL;
 		unsigned int component_size = 0;
 
-		if (extract_component(client->ipsw, comppath, &component_data, &component_size) < 0) {
-			free(iter);
-			free(comp);
-			free(comppath);
-			plist_free(firmware_files);
-			error("ERROR: Unable to extract component: %s\n", component);
-			return -1;
+		// If the component isn't the devicetree and we're to upgrade the bootchain then we download each component
+		if((client->flags & FLAG_LATEST_CHAIN) && strcmp(component, "DeviceTree")) {
+			if(download_firmware_component(client->latest_url, comppath, (char**)&component_data, (size_t*)&component_size) < 0) {
+				free(iter);
+				free(comp);
+				plist_free(firmware_files);
+				error("ERROR: Unable to download component: %s\n", component);
+				return ret;
+			}
+		}
+		else {
+			if (extract_component(client->ipsw, comppath, &component_data, &component_size) < 0) {
+				free(iter);
+				free(comp);
+				plist_free(firmware_files);
+				error("ERROR: Unable to extract component: %s\n", component);
+				return -1;
+			}
 		}
 
 		if (personalize_component(component, component_data, component_size, client->tss, &nor_data, &nor_size) < 0) {
 			free(iter);
 			free(comp);
-			free(comppath);
 			free(component_data);
 			plist_free(firmware_files);
 			error("ERROR: Unable to get personalized component: %s\n", component);
@@ -1312,7 +1346,6 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		}
 
 		free(comp);
-		free(comppath);
 		free(nor_data);
 		nor_data = NULL;
 		nor_size = 0;
@@ -1804,6 +1837,10 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 		}
 	}
 
+	if(client->flags & FLAG_DOWNGRADE) {
+		build_identity = client->latest_build_identity;
+	}
+
 	if ((bb_nonce == NULL) || (client->restore->bbtss == NULL)) {
 		/* populate parameters */
 		plist_t parameters = plist_new_dict();
@@ -1880,9 +1917,19 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 		strcpy(bbfwtmp + 5 + l, ".tmp");
 		error("WARNING: Could not generate temporary filename, using %s in current directory\n", bbfwtmp);
 	}
-	if (ipsw_extract_to_file(client->ipsw, bbfwpath, bbfwtmp) != 0) {
-		error("ERROR: Unable to extract baseband firmware from ipsw\n");
-		goto leave;
+	
+	if(client->flags & FLAG_DOWNGRADE) {
+		int ret = download_firmware_component_to_path(client->latest_url, bbfwpath, bbfwtmp);
+		if(ret != 0) {
+			error("ERROR: Failed to download latest baseband\n");
+			return -1;
+		}
+	}
+	else {
+		if (ipsw_extract_to_file(client->ipsw, bbfwpath, bbfwtmp) != 0) {
+			error("ERROR: Unable to extract baseband firmware from ipsw\n");
+			goto leave;
+		}
 	}
 
 	if (bb_nonce && !client->restore->bbtss) {

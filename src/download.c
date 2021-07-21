@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <curl/curl.h>
+#include <libfragmentzip/libfragmentzip.h>
 
 #include "download.h"
 #include "common.h"
@@ -153,4 +154,37 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 	}
 
 	return res;
+}
+
+int download_firmware_component_to_path(char* ipsw_url, char* component_path, char* out_path) {
+	int ret;
+	fragmentzip_t *ipsw = fragmentzip_open(ipsw_url);
+	if (!ipsw) {
+		return -1;
+	}
+	ret = fragmentzip_download_file(ipsw, component_path, out_path, NULL);
+
+	fragmentzip_close(ipsw);
+
+	if(ret != 0) {
+		return -1;
+	}
+	return 0;
+
+}
+
+int download_firmware_component(char* ipsw_url, char* component_path, char** out_buf, size_t* component_len) {
+	int ret;
+	fragmentzip_t *ipsw = fragmentzip_open(ipsw_url);
+	if (!ipsw) {
+		return -1;
+	}
+	ret = fragmentzip_download_to_memory(ipsw, component_path, out_buf, component_len, NULL);
+
+	fragmentzip_close(ipsw);
+
+	if(ret != 0) {
+		return -1;
+	}
+	return 0;
 }

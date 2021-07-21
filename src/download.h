@@ -30,6 +30,8 @@ extern "C" {
 
 int download_to_buffer(const char* url, char** buf, uint32_t* length);
 int download_to_file(const char* url, const char* filename, int enable_progress);
+int download_firmware_component_to_path(char* ipsw_url, char* component_path, char* out_path);
+int download_firmware_component(char* ipsw_url, char* component_path, char** out_buf, size_t* component_len);
 
 #ifdef __cplusplus
 }
