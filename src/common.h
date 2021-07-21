@@ -70,6 +70,8 @@ struct dfu_client_t;
 struct normal_client_t;
 struct restore_client_t;
 struct recovery_client_t;
+typedef void (*ibss_hook_t)(struct idevicerestore_client_t* client, void* to_load, size_t load_len);
+typedef void (*hook_t)(struct idevicerestore_client_t* client);
 
 struct idevicerestore_mode_t {
 	int index;
@@ -93,6 +95,8 @@ struct idevicerestore_client_t {
 	plist_t tss_localpolicy;
 	plist_t tss_recoveryos_root_ticket;
 	plist_t latest_build_identity;
+	ibss_hook_t ibss_load_hook;
+	hook_t ibec_post_load;
 	char* latest_url;
 	char* tss_url;
 	plist_t version_data;

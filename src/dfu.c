@@ -198,11 +198,17 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 
 	info("Sending %s (%d bytes)...\n", component, size);
 
-	irecv_error_t err = irecv_send_buffer(client->dfu->client, data, size, 1);
-	if (err != IRECV_E_SUCCESS) {
-		error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(err));
-		free(data);
-		return -1;
+	if(client->ibss_load_hook && !strcmp(component, "iBSS")) {
+		client->ibss_load_hook(client, data, size);
+	}
+	else {
+
+		irecv_error_t err = irecv_send_buffer(client->dfu->client, data, size, 1);
+		if (err != IRECV_E_SUCCESS) {
+			error("ERROR: Unable to send %s component: %s\n", component, irecv_strerror(err));
+			free(data);
+			return -1;
+		}
 	}
 
 	free(data);
@@ -466,7 +472,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		if (nonce_changed && !(client->flags & FLAG_CUSTOM)) {
 			// Welcome iOS5. We have to re-request the TSS with our nonce.
 			plist_free(client->tss);
-			if (get_tss_response(client, build_identity, &client->tss) < 0) {
+			if (get_tss_response(client, client->tss_build_identity, &client->tss) < 0) {
 				error("ERROR: Unable to get SHSH blobs for this device\n");
 				return -1;
 			}
@@ -602,6 +608,10 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 			client->recovery->client = NULL;
 		}
 		return -1;
+	}
+
+	if(client->ibec_post_load) {
+		client->ibec_post_load(client);
 	}
 
 	return 0;
