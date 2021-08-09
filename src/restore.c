@@ -3485,6 +3485,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		}
 	}
 
+	plist_dict_set_item(opts, "SupportedDataTypes", restore_supported_data_types());
+	plist_dict_set_item(opts, "SupportedMessageTypes", restore_supported_message_types());
+
 	// FIXME: Should be adjusted for update behaviors
 	if (client->build_major >= 20) {
 		plist_dict_set_item(opts, "AddSystemPartitionPadding", plist_new_bool(1));
@@ -3512,8 +3515,6 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		plist_dict_set_item(opts, "RecoveryOSUnpack", plist_new_bool(1));
 		plist_dict_set_item(opts, "ShouldRestoreSystemImage", plist_new_bool(1));
 		plist_dict_set_item(opts, "SkipPreflightPersonalization", plist_new_bool(0));
-		plist_dict_set_item(opts, "SupportedDataTypes", restore_supported_data_types());
-		plist_dict_set_item(opts, "SupportedMessageTypes", restore_supported_message_types());
 		plist_dict_set_item(opts, "UpdateBaseband", plist_new_bool(1));
 		// FIXME: I don't know where this number comes from yet. It seems like it matches this part of the build identity:
 		// 	<key>OSVarContentSize</key>
