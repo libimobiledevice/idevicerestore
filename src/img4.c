@@ -291,6 +291,7 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "Ap,RestoreCIO", "rcio" },
 		{ "Ap,RestoreTMU", "rtmu" },
 		{ "Ap,Scorpius", "scpf" },
+		{ "Ap,SystemVolumeCanonicalMetadata", "msys" },
 		{ "Ap,TMU", "tmuf" },
 		{ "Ap,VolumeUUID", "vuid" },
 		{ "AppleLogo", "logo" },
@@ -363,6 +364,7 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "SIO", "siof" },
 		{ "StaticTrustCache", "trst" },
 		{ "SystemLocker", "lckr" },
+		{ "SystemVolume", "isys" },
 		{ "WCHFirmwareUpdater", "wchf" },
 		{ NULL, NULL }
 	};
