@@ -2115,7 +2115,7 @@ int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_
 	}
 
 	plist_t local_manifest = NULL;
-	int res = img4_create_local_manifest(request, &local_manifest);
+	int res = img4_create_local_manifest(request, build_identity, &local_manifest);
 
 	*manifest = local_manifest;
 
