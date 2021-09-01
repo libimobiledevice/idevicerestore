@@ -42,6 +42,8 @@
 #define SHA1_Final SHA1Final
 #endif
 
+#include <libimobiledevice-glue/termcolors.h>
+
 #include "ipsw.h"
 #include "locking.h"
 #include "download.h"
@@ -74,6 +76,228 @@ static char* build_path(const char* path, const char* file)
 	memcpy(fullpath+plen+1, file, flen);
 	fullpath[plen+1+flen] = '\0';
 	return fullpath;
+}
+
+int ipsw_print_info(const char* path)
+{
+	struct stat fst;
+
+	if (stat(path, &fst) != 0) {
+		error("ERROR: '%s': %s\n", path, strerror(errno));
+		return -1;
+	}
+
+	char thepath[PATH_MAX];
+
+	if (S_ISDIR(fst.st_mode)) {
+		sprintf(thepath, "%s/BuildManifest.plist", path);
+		if (stat(thepath, &fst) != 0) {
+			error("ERROR: '%s': %s\n", thepath, strerror(errno));
+			return -1;
+		}
+	} else {
+		sprintf(thepath, "%s", path);
+	}
+
+	FILE* f = fopen(thepath, "r");
+	if (!f) {
+		error("ERROR: Can't open '%s': %s\n", thepath, strerror(errno));
+		return -1;
+	}
+	uint32_t magic;
+	if (fread(&magic, 1, 4, f) != 4) {
+		fclose(f);
+		fprintf(stderr, "Failed to read from '%s'\n", path);
+		return -1;
+	}
+	fclose(f);
+
+	char* plist_buf = NULL;
+	uint32_t plist_len = 0;
+
+	if (memcmp(&magic, "PK\x03\x04", 4) == 0) {
+		unsigned int rlen = 0;
+		if (ipsw_extract_to_memory(thepath, "BuildManifest.plist", (unsigned char**)&plist_buf, &rlen) < 0) {
+			error("ERROR: Failed to extract BuildManifest.plist from IPSW!\n");
+			return -1;
+		}
+		plist_len = (uint32_t)rlen;
+	} else {
+		size_t rlen = 0;
+		if (read_file(thepath, (void**)&plist_buf, &rlen) < 0) {
+			error("ERROR: Failed to read BuildManifest.plist!\n");
+			return -1;
+		}
+		plist_len = (uint32_t)rlen;
+	}
+
+	plist_t manifest = NULL;
+	plist_from_memory(plist_buf, plist_len, &manifest);
+	free(plist_buf);
+
+	plist_t val;
+
+	char* prod_ver = NULL;
+	char* build_ver = NULL;
+
+	val = plist_dict_get_item(manifest, "ProductVersion");
+	if (val) {
+		plist_get_string_val(val, &prod_ver);
+	}
+
+	val = plist_dict_get_item(manifest, "ProductBuildVersion");
+	if (val) {
+		plist_get_string_val(val, &build_ver);
+	}
+
+	cprintf(COLOR_WHITE "Product Version: " COLOR_BRIGHT_YELLOW "%s" COLOR_RESET COLOR_WHITE "   Build: " COLOR_BRIGHT_YELLOW "%s" COLOR_RESET "\n", prod_ver, build_ver);
+	free(prod_ver);
+	free(build_ver);
+	cprintf(COLOR_WHITE "Supported Product Types:" COLOR_RESET);
+	val = plist_dict_get_item(manifest, "SupportedProductTypes");
+	if (val) {
+		plist_array_iter iter = NULL;
+		plist_array_new_iter(val, &iter);
+		if (iter) {
+			plist_t item = NULL;
+			do {
+				plist_array_next_item(val, iter, &item);
+				if (item) {
+					char* item_str = NULL;
+					plist_get_string_val(item, &item_str);
+					cprintf(" " COLOR_BRIGHT_CYAN "%s" COLOR_RESET, item_str);
+					free(item_str);
+				}
+			} while (item);
+			free(iter);
+		}
+	}
+	cprintf("\n");
+
+	cprintf(COLOR_WHITE "Build Identities:" COLOR_RESET "\n");
+
+	plist_t build_ids_grouped = plist_new_dict();
+
+	plist_t build_ids = plist_dict_get_item(manifest, "BuildIdentities");
+	plist_array_iter build_id_iter = NULL;
+	plist_array_new_iter(build_ids, &build_id_iter);
+	if (build_id_iter) {
+		plist_t build_identity = NULL;
+		do {
+			plist_array_next_item(build_ids, build_id_iter, &build_identity);
+			if (!build_identity) {
+				break;
+			}
+			plist_t node;
+			char* variant_str = NULL;
+
+			node = plist_access_path(build_identity, 2, "Info", "Variant");
+			plist_get_string_val(node, &variant_str);
+
+			plist_t entries = NULL;
+			plist_t group = plist_dict_get_item(build_ids_grouped, variant_str);
+			if (!group) {
+				group = plist_new_dict();
+				node = plist_access_path(build_identity, 2, "Info", "RestoreBehavior");
+				plist_dict_set_item(group, "RestoreBehavior", plist_copy(node));
+				entries = plist_new_array();
+				plist_dict_set_item(group, "Entries", entries);
+				plist_dict_set_item(build_ids_grouped, variant_str, group);
+			} else {
+				entries = plist_dict_get_item(group, "Entries");
+			}
+			free(variant_str);
+			plist_array_append_item(entries, plist_copy(build_identity));
+		} while (build_identity);
+		free(build_id_iter);
+	}
+
+	plist_dict_iter build_ids_group_iter = NULL;
+	plist_dict_new_iter(build_ids_grouped, &build_ids_group_iter);
+	if (build_ids_group_iter) {
+		plist_t group = NULL;
+		int group_no = 0;
+		do {
+			group = NULL;
+			char* key = NULL;
+			plist_dict_next_item(build_ids_grouped, build_ids_group_iter, &key, &group);
+			if (!key) {
+				break;
+			}
+			plist_t node;
+			char* rbehavior = NULL;
+
+			group_no++;
+			node = plist_dict_get_item(group, "RestoreBehavior");
+			plist_get_string_val(node, &rbehavior);
+			cprintf("  " COLOR_WHITE "[%d] Variant: " COLOR_BRIGHT_CYAN "%s" COLOR_WHITE "   Behavior: " COLOR_BRIGHT_CYAN "%s" COLOR_RESET "\n", group_no, key, rbehavior);
+			free(key);
+			free(rbehavior);
+
+			build_ids = plist_dict_get_item(group, "Entries");
+			if (!build_ids) {
+				continue;
+			}
+			build_id_iter = NULL;
+			plist_array_new_iter(build_ids, &build_id_iter);
+			if (!build_id_iter) {
+				continue;
+			}
+			plist_t build_id;
+			do {
+				build_id = NULL;
+				plist_array_next_item(build_ids, build_id_iter, &build_id);
+				if (!build_id) {
+					break;
+				}
+				uint64_t chip_id = 0;
+				uint64_t board_id = 0;
+				char* hwmodel = NULL;
+
+				node = plist_dict_get_item(build_id, "ApChipID");
+				if (PLIST_IS_STRING(node)) {
+					char* strval = NULL;
+					plist_get_string_val(node, &strval);
+					if (strval) {
+						chip_id = strtoull(strval, NULL, 0);
+						free(strval);
+					}
+				} else {
+					plist_get_uint_val(node, &chip_id);
+				}
+
+				node = plist_dict_get_item(build_id, "ApBoardID");
+				if (PLIST_IS_STRING(node)) {
+					char* strval = NULL;
+					plist_get_string_val(node, &strval);
+					if (strval) {
+						board_id = strtoull(strval, NULL, 0);
+						free(strval);
+					}
+				} else {
+					plist_get_uint_val(node, &board_id);
+				}
+
+				node = plist_access_path(build_id, 2, "Info", "DeviceClass");
+				plist_get_string_val(node, &hwmodel);
+
+				irecv_device_t irecvdev = NULL;
+				if (irecv_devices_get_device_by_hardware_model(hwmodel, &irecvdev) == 0) {
+					cprintf("    ChipID: " COLOR_GREEN "%04x" COLOR_RESET "   BoardID: " COLOR_GREEN "%02x" COLOR_RESET "   Model: " COLOR_YELLOW "%-8s" COLOR_RESET "  " COLOR_MAGENTA "%s" COLOR_RESET "\n", (int)chip_id, (int)board_id, hwmodel, irecvdev->display_name);
+				} else {
+					cprintf("    ChipID: " COLOR_GREEN "%04x" COLOR_RESET "   BoardID: " COLOR_GREEN "%02x" COLOR_RESET "   Model: " COLOR_YELLOW "%s" COLOR_RESET "\n", (int)chip_id, (int)board_id, hwmodel);
+				}
+				free(hwmodel);
+			} while (build_id);
+			free(build_id_iter);
+		} while (group);
+		free(build_ids_group_iter);
+	}
+	plist_free(build_ids_grouped);
+
+	plist_free(manifest);
+
+	return 0;
 }
 
 ipsw_archive* ipsw_open(const char* ipsw)

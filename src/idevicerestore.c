@@ -85,6 +85,7 @@ static struct option longopts[] = {
 	{ "ticket",         required_argument, NULL, 'T' },
 	{ "no-restore",     no_argument,       NULL, 'z' },
 	{ "version",        no_argument,       NULL, 'v' },
+	{ "ipsw-info",      no_argument,       NULL, 'I' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -120,6 +121,7 @@ static void usage(int argc, char* argv[], int err)
 	"  -n, --no-action       Do not perform any restore action. If combined with -l\n" \
 	"                        option the on-demand ipsw download is performed before\n" \
 	"                        exiting.\n" \
+	"  --ipsw-info           Print information about the IPSW at PATH and exit.\n" \
 	"  -h, --help            Prints this usage information\n" \
 	"  -C, --cache-path DIR  Use specified directory for caching extracted or other\n" \
 	"                        reused files.\n" \
@@ -146,8 +148,8 @@ static void usage(int argc, char* argv[], int err)
 
 const uint8_t lpol_file[22] = {
 		0x30, 0x14, 0x16, 0x04, 0x49, 0x4d, 0x34, 0x50,
-		0x16, 0x04,	0x6c, 0x70,	0x6f, 0x6c,	0x16, 0x03,
-		0x31, 0x2e, 0x30, 0x04,	0x01, 0x00
+		0x16, 0x04, 0x6c, 0x70, 0x6f, 0x6c, 0x16, 0x03,
+		0x31, 0x2e, 0x30, 0x04, 0x01, 0x00
 };
 const uint32_t lpol_file_length = 22;
 
@@ -1568,6 +1570,7 @@ int main(int argc, char* argv[]) {
 	int opt = 0;
 	int optindex = 0;
 	char* ipsw = NULL;
+	int ipsw_info = 0;
 	int result = 0;
 
 	struct idevicerestore_client_t* client = idevicerestore_client_new();
@@ -1704,10 +1707,23 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 
+		case 'I':
+			ipsw_info = 1;
+			break;
+
 		default:
 			usage(argc, argv, 1);
 			return EXIT_FAILURE;
 		}
+	}
+
+	if (ipsw_info) {
+		if (argc-optind != 1) {
+			error("ERROR: --ipsw-info requires an IPSW path.\n");
+			usage(argc, argv, 1);
+			return EXIT_FAILURE;
+		}
+		return (ipsw_print_info(*(argv + optind)) == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 	}
 
 	if (((argc-optind) == 1) || (client->flags & FLAG_PWN) || (client->flags & FLAG_LATEST)) {
