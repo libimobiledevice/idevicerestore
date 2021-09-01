@@ -28,8 +28,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <libimobiledevice/libimobiledevice.h>
+#include <libimobiledevice-glue/socket.h>
 
-#include "socket.h" /* from libimobiledevice/common */
 #include "common.h"
 #include "idevicerestore.h"
 #include "fdr.h"
@@ -415,7 +415,7 @@ static int fdr_handle_sync_cmd(fdr_client_t fdr_ctrl)
 {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	fdr_client_t fdr;
-	thread_t fdr_thread = (thread_t)NULL;
+	THREAD_T fdr_thread = THREAD_T_NULL;
 	int res = 0;
 	uint32_t bytes = 0;
 	char buf[4096];
