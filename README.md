@@ -2,6 +2,8 @@
 
 *A command-line application to restore firmware files to iOS devices.*
 
+![](https://github.com/libimobiledevice/idevicerestore/actions/workflows/build.yml/badge.svg)
+
 ## Features
 
 The idevicerestore application is a full reimplementation of all granular steps

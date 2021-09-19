@@ -1,0 +1,288 @@
+name: build
+
+on: [push]
+
+jobs:
+  build-linux-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install dependencies
+      run: |
+          sudo apt-get update
+          sudo apt-get install libzip-dev libcurl4-openssl-dev libusb-1.0-0-dev
+    - name: prepare environment
+      run: |
+          echo "target_triplet=`gcc -dumpmachine`" >> $GITHUB_ENV
+    - name: fetch libirecovery
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libirecovery-latest_${{env.target_triplet}}
+        repo: libimobiledevice/libirecovery
+    - name: fetch libplist
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libplist-latest_${{env.target_triplet}}
+        repo: libimobiledevice/libplist
+    - name: fetch libusbmuxd
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libusbmuxd-latest_${{env.target_triplet}}
+        repo: libimobiledevice/libusbmuxd
+    - name: fetch libimobiledevice-glue
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libimobiledevice-glue-latest_${{env.target_triplet}}
+        repo: libimobiledevice/libimobiledevice-glue
+    - name: fetch libimobiledevice
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libimobiledevice-latest_${{env.target_triplet}}
+        repo: libimobiledevice/libimobiledevice
+    - name: install external dependencies
+      run: |
+          mkdir extract
+          for I in *.tar; do
+            tar -C extract -xvf $I
+          done
+          rm -rf extract/lib
+          sudo cp -r extract/* /
+          sudo ldconfig
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: autogen
+      run: ./autogen.sh PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
+    - name: make
+      run: make
+    - name: make install
+      run: sudo make install
+    - name: prepare artifact
+      run: |
+          mkdir -p dest
+          DESTDIR=`pwd`/dest make install
+          tar -C dest -cf idevicerestore.tar usr
+    - name: publish artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: idevicerestore-latest_${{env.target_triplet}}
+        path: idevicerestore.tar
+  build-macOS:
+    runs-on: macOS-latest
+    steps:
+    - name: install dependencies
+      run: |
+          if test -x "`which port`"; then
+            sudo port install libtool autoconf automake pkgconfig
+          else
+            brew install libtool autoconf automake pkgconfig
+          fi
+      shell: bash
+    - name: fetch libirecovery
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libirecovery-latest_macOS
+        repo: libimobiledevice/libirecovery
+    - name: fetch libplist
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libplist-latest_macOS
+        repo: libimobiledevice/libplist
+    - name: fetch libusbmuxd
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libusbmuxd-latest_macOS
+        repo: libimobiledevice/libusbmuxd
+    - name: fetch libimobiledevice-glue
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libimobiledevice-glue-latest_macOS
+        repo: libimobiledevice/libimobiledevice-glue
+    - name: fetch libimobiledevice
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libimobiledevice-latest_macOS
+        repo: libimobiledevice/libimobiledevice
+    - name: install external dependencies
+      run: |
+          mkdir extract
+          for I in *.tar; do
+            tar -C extract -xvf $I
+          done
+          sudo cp -r extract/* /
+    - uses: actions/checkout@v2
+    - name: install additional requirements
+      run: |
+          SDKDIR=`xcrun --sdk macosx --show-sdk-path 2>/dev/null`
+          echo "SDKDIR=$SDKDIR" >> $GITHUB_ENV
+          TESTARCHS="arm64 x86_64"
+          USEARCHS=
+          for ARCH in $TESTARCHS; do
+            if echo "int main(int argc, char **argv) { return 0; }" |clang -arch $ARCH -o /dev/null -isysroot $SDKDIR -x c - 2>/dev/null; then
+              USEARCHS="$USEARCHS -arch $ARCH"
+            fi
+          done
+          export CFLAGS="$USEARCHS -isysroot $SDKDIR"
+          echo "Using CFLAGS: $CFLAGS"
+          echo "BUILD_CFLAGS=$CFLAGS" >> $GITHUB_ENV
+          mkdir -p lib
+          curl -o lib/libcrypto.35.tbd -Ls \
+              https://gist.github.com/nikias/94c99fd145a75a5104415e5117b0cafa/raw/5209dfbff5a871a14272afe4794e76eb4cf6f062/libcrypto.35.tbd
+          curl -o lib/libssl.35.tbd -Ls \
+              https://gist.github.com/nikias/94c99fd145a75a5104415e5117b0cafa/raw/5209dfbff5a871a14272afe4794e76eb4cf6f062/libssl.35.tbd
+          LIBRESSL_VER=2.2.7
+          FILENAME="libressl-$LIBRESSL_VER.tar.gz"
+          curl -o $FILENAME -Ls "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/$FILENAME"
+          mkdir -p deps
+          tar -C deps -xzf $FILENAME
+          echo "LIBRESSL_CFLAGS=-I`pwd`/deps/libressl-$LIBRESSL_VER/include" >> $GITHUB_ENV
+          echo "LIBRESSL_LIBS=-Xlinker `pwd`/lib/libssl.35.tbd -Xlinker `pwd`/lib/libcrypto.35.tbd" >> $GITHUB_ENV
+          FILENAME="libzip-static.tar.bz2"
+          curl -o $FILENAME.b64 -Ls "https://gist.github.com/nikias/3da15d03120382f87b44029cd8495a02/raw/99cd8138fed99e8f6530b6f179f787342c698e1f/libzip-1.7.1_static_macOS.tar.bz2"
+          base64 -D < $FILENAME.b64 > $FILENAME
+          tar -C deps -xjf $FILENAME
+          echo "LIBZIP_CFLAGS=-I`pwd`/deps/include" >> $GITHUB_ENV
+          echo "LIBZIP_LIBS=`pwd`/deps/lib/libzip.a -Xlinker /usr/lib/libbz2.dylib -Xlinker /usr/lib/liblzma.dylib -lz" >> $GITHUB_ENV
+    - name: autogen
+      run: |
+          export CFLAGS="${{env.BUILD_CFLAGS}} -Wno-nullability-completeness -Wno-expansion-to-defined"
+          echo "Using CFLAGS: $CFLAGS"
+          ./autogen.sh PKG_CONFIG_PATH=/usr/local/lib/pkgconfig \
+              openssl_CFLAGS="$LIBRESSL_CFLAGS" openssl_LIBS="$LIBRESSL_LIBS" \
+              libcurl_CFLAGS="-I${{env.SDKDIR}}/usr/include" libcurl_LIBS="-lcurl" \
+              libzip_CFLAGS="$LIBZIP_CFLAGS" libzip_LIBS="$LIBZIP_LIBS" \
+              zlib_CFLAGS="-I${{env.SDKDIR}}/usr/include" zlib_LIBS="-lz" \
+              libimobiledevice_CFLAGS="-I/usr/local/include" libimobiledevice_LIBS="-L/usr/local/lib -lusbmuxd-2.0 -limobiledevice-glue-1.0 -limobiledevice-1.0"
+    - name: make
+      run: make
+    - name: make install
+      run: sudo make install
+    - name: prepare artifact
+      run: |
+          mkdir -p dest
+          DESTDIR=`pwd`/dest make install
+          tar -C dest -cf idevicerestore.tar usr
+    - name: publish artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: idevicerestore-latest_macOS
+        path: idevicerestore.tar
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: [
+          { msystem: MINGW64, arch: x86_64 },
+          { msystem: MINGW32, arch: i686   }
+        ]
+    steps:
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{ matrix.msystem }}
+        release: false
+        update: false
+        install: >-
+          base-devel
+          git
+          mingw-w64-${{ matrix.arch }}-gcc
+          make
+          libtool
+          autoconf
+          automake-wrapper
+          liblzma
+    - name: prepare environment
+      run: |
+          dest=`echo ${{ matrix.msystem }} |tr [:upper:] [:lower:]`
+          echo "dest=$dest" >> $GITHUB_ENV
+          echo "target_triplet=`gcc -dumpmachine`" >> $GITHUB_ENV
+    - name: fetch libirecovery
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libirecovery-latest_${{ matrix.arch }}-${{ env.dest }}
+        repo: libimobiledevice/libirecovery
+    - name: fetch libplist
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libplist-latest_${{ matrix.arch }}-${{ env.dest }}
+        repo: libimobiledevice/libplist
+    - name: fetch libusbmuxd
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libusbmuxd-latest_${{ matrix.arch }}-${{ env.dest }}
+        repo: libimobiledevice/libusbmuxd
+    - name: fetch libimobiledevice-glue
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libimobiledevice-glue-latest_${{ matrix.arch }}-${{ env.dest }}
+        repo: libimobiledevice/libimobiledevice-glue
+    - name: fetch libimobiledevice
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libimobiledevice-latest_${{ matrix.arch }}-${{ env.dest }}
+        repo: libimobiledevice/libimobiledevice
+    - name: install external dependencies
+      run: |
+          mkdir extract
+          for I in *.tar; do
+            tar -C extract -xvf $I
+          done
+          cp -r extract/* /
+    - uses: actions/checkout@v2
+    - name: install additional requirements
+      run: |
+          FILENAME="libzip-1.7.1-static.tar.bz2"
+          curl -o $FILENAME.b64 -Ls "https://gist.github.com/nikias/3da15d03120382f87b44029cd8495a02/raw/99cd8138fed99e8f6530b6f179f787342c698e1f/libzip-1.7.1_static_${{matrix.arch}}-${{env.dest}}.tar.bz2"
+          base64 -d < $FILENAME.b64 > $FILENAME
+          mkdir deps
+          tar -C deps -xjf $FILENAME
+          echo "LIBZIP_CFLAGS=-I`pwd`/deps/include" >> $GITHUB_ENV
+          echo "LIBZIP_LIBS=`pwd`/deps/lib/libzip.a /${{env.dest}}/lib/libbz2.a /${{env.dest}}/lib/liblzma.a " >> $GITHUB_ENV
+    - name: autogen
+      run: ./autogen.sh CC=gcc CXX=g++ --without-openssl libzip_CFLAGS="${{env.LIBZIP_CFLAGS}}" libzip_LIBS="${{env.LIBZIP_LIBS}}" zlib_LIBS="/${{env.dest}}/lib/libz.a"
+    - name: make
+      run: make
+    - name: make install
+      run: make install
+    - name: prepare artifact
+      run: |
+          mkdir -p dest
+          DESTDIR=`pwd`/dest make install
+          tar -C dest -cf idevicerestore.tar ${{ env.dest }}
+    - name: publish artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: idevicerestore-latest_${{ matrix.arch }}-${{ env.dest }}
+        path: idevicerestore.tar
