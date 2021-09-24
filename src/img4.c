@@ -332,6 +332,7 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "LowPowerWallet1", "lpw1" },
 		{ "LowPowerWallet2", "lpw2" },
 		{ "MacEFI", "mefi" },
+		{ "MtpFirmware", "mtpf" },
 		{ "Multitouch", "mtfw" },
 		{ "NeedService", "nsrv" },
 		{ "OS", "OS\0\0" },
