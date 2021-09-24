@@ -346,11 +346,13 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	// check which mode the device is currently in so we know where to start
 	mutex_lock(&client->device_event_mutex);
-	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-	if (client->mode == MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
-		mutex_unlock(&client->device_event_mutex);
-		error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
-		return -1;
+	if (client->mode == MODE_UNKNOWN) {
+		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
+		if (client->mode == MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
+			mutex_unlock(&client->device_event_mutex);
+			error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
+			return -1;
+		}
 	}
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.1);
 	info("Found device in %s mode\n", client->mode->string);
