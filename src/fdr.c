@@ -593,12 +593,14 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 			}
 		}
 		bytes_ret = socket_receive_timeout(sockfd, buf, bufsize, 0, 100);
-		if (bytes_ret < 0) {
-			if (errno)
-				error("ERROR: FDR %p receiving proxy payload failed: %s\n",
-				      fdr, strerror(errno));
-			else
-				res = 1; /* close connection if no data with no error */
+		if (bytes_ret == -ETIMEDOUT) {
+			bytes_ret = 0;
+		} else if (bytes_ret == -ECONNRESET) {
+			res = 1;
+			break;
+		} else if (bytes_ret < 0) {
+			error("ERROR: FDR %p receiving proxy payload failed: %d (%s)\n",
+			      fdr, bytes_ret, strerror(-bytes_ret));
 			break;
 		}
 
