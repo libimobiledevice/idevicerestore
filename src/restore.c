@@ -107,6 +107,7 @@
 #define INSTALLING_RECOVERY_OS_IMAGE  71
 #define REQUESTING_EAN_DATA           74
 #define SEALING_SYSTEM_VOLUME         77
+#define UPDATING_APPLETCON            81
 
 static int restore_finished = 0;
 
@@ -625,6 +626,8 @@ const char* restore_progress_string(unsigned int operation)
 		return "Requesting EAN Data";
 	case SEALING_SYSTEM_VOLUME:
 		return "Sealing System Volume";
+	case UPDATING_APPLETCON:
+		return "Updating AppleTCON";
 	default:
 		return "Unknown operation";
 	}
@@ -2602,6 +2605,77 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 	return response;
 }
 
+static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+{
+	char *comp_name = "Baobab,TCON";
+	char *comp_path = NULL;
+	plist_t comp_node = NULL;
+	unsigned char* component_data = NULL;
+	unsigned int component_size = 0;
+	plist_t parameters = NULL;
+	plist_t request = NULL;
+	plist_t response = NULL;
+	plist_t node = NULL;
+	int ret;
+
+	/* create Baobab request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create Baobab TSS request\n");
+		free(component_data);
+		return NULL;
+	}
+
+	parameters = plist_new_dict();
+
+	/* add manifest for current build_identity to parameters */
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	/* add Baobab,* tags from info dictionary to parameters */
+	plist_dict_merge(&parameters, p_info);
+
+	/* add required tags for Baobab TSS request */
+	tss_request_add_tcon_tags(request, parameters, NULL);
+
+	plist_free(parameters);
+
+	info("Sending Baobab TSS request...\n");
+	response = tss_request_send(request, client->tss_url);
+	plist_free(request);
+	if (response == NULL) {
+		error("ERROR: Unable to fetch Baobab ticket\n");
+		free(component_data);
+		return NULL;
+	}
+
+	if (plist_dict_get_item(response, "Baobab,Ticket")) {
+		info("Received Baobab ticket\n");
+	} else {
+		error("ERROR: No 'Baobab,Ticket' in TSS response, this might not work\n");
+	}
+
+	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+		error("ERROR: Unable to get path for '%s' component\n", comp_name);
+		return NULL;
+	}
+
+	/* now get actual component data */
+	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	free(comp_path);
+	comp_path = NULL;
+	if (ret < 0) {
+		error("ERROR: Unable to extract '%s' component\n", comp_name);
+		return NULL;
+	}
+
+	plist_dict_set_item(response, "FirmwareData", plist_new_data((char *)component_data, (uint64_t)component_size));
+	free(component_data);
+	component_data = NULL;
+	component_size = 0;
+
+	return response;
+}
+
 static int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
 {
 	plist_t arguments;
@@ -2687,6 +2761,12 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 		fwdict = restore_get_veridian_firmware_data(restore, client, build_identity, p_info);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get Veridian firmware data\n", __func__);
+			goto error_out;
+		}
+	} else if (strcmp(s_updater_name, "AppleTCON") == 0) {
+		fwdict = restore_get_tcon_firmware_data(restore, client, build_identity, p_info);
+		if (fwdict == NULL) {
+			error("ERROR: %s: Couldn't get AppleTCON firmware data\n", __func__);
 			goto error_out;
 		}
 	} else {

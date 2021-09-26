@@ -443,6 +443,34 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	}
 	node = NULL;
 
+	/* add Baobab,BoardID */
+	node = plist_dict_get_item(build_identity, "Baobab,BoardID");
+	if (node) {
+		plist_dict_set_item(parameters, "Baobab,BoardID", plist_copy(node));
+	}
+	node = NULL;
+
+	/* add Baobab,ChipID */
+	node = plist_dict_get_item(build_identity, "Baobab,ChipID");
+	if (node) {
+		plist_dict_set_item(parameters, "Baobab,ChipID", plist_copy(node));
+	}
+	node = NULL;
+
+	/* add Baobab,ManifestEpoch */
+	node = plist_dict_get_item(build_identity, "Baobab,ManifestEpoch");
+	if (node) {
+		plist_dict_set_item(parameters, "Baobab,ManifestEpoch", plist_copy(node));
+	}
+	node = NULL;
+
+	/* add Baobab,SecurityDomain */
+	node = plist_dict_get_item(build_identity, "Baobab,SecurityDomain");
+	if (node) {
+		plist_dict_set_item(parameters, "Baobab,SecurityDomain", plist_copy(node));
+	}
+	node = NULL;
+
 	/* add eUICC,ChipID */
 	node = plist_dict_get_item(build_identity, "eUICC,ChipID");
 	if (node) {
@@ -1696,6 +1724,83 @@ int tss_request_add_veridian_tags(plist_t request, plist_t parameters, plist_t o
 		plist_dict_merge(&request, overrides);
 	}
 
+	return 0;
+}
+
+int tss_request_add_tcon_tags(plist_t request, plist_t parameters, plist_t overrides)
+{
+	plist_t node = NULL;
+
+	plist_t manifest_node = plist_dict_get_item(parameters, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: %s: Unable to get restore manifest from parameters\n", __func__);
+		return -1;
+	}
+
+	/* add tags indicating we want to get the Rap,Ticket */
+	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
+	plist_dict_set_item(request, "@Baobab,Ticket", plist_new_bool(1));
+
+	uint64_t u64val = 0;
+	uint8_t bval = 0;
+	uint8_t isprod = 0;
+
+	u64val = _plist_dict_get_uint(parameters, "Baobab,BoardID");
+	plist_dict_set_item(request, "Baobab,BoardID", plist_new_uint(u64val));
+
+	u64val = _plist_dict_get_uint(parameters, "Baobab,ChipID");
+	plist_dict_set_item(request, "Baobab,ChipID", plist_new_uint(u64val));
+
+	node = plist_dict_get_item(parameters, "Baobab,ECID");
+	if (node) {
+		plist_dict_set_item(request, "Baobab,ECID", plist_copy(node));
+	}
+
+	u64val = _plist_dict_get_uint(parameters, "Baobab,Life");
+	plist_dict_set_item(request, "Baobab,Life", plist_new_uint(u64val));
+
+	u64val = _plist_dict_get_uint(parameters, "Baobab,ManifestEpoch");
+	plist_dict_set_item(request, "Baobab,ManifestEpoch", plist_new_uint(u64val));
+
+	isprod = _plist_dict_get_bool(parameters, "Baobab,ProductionMode");
+	plist_dict_set_item(request, "Baobab,ProductionMode", plist_new_bool(isprod));
+
+	u64val = _plist_dict_get_uint(parameters, "Baobab,SecurityDomain");
+	plist_dict_set_item(request, "Baobab,SecurityDomain", plist_new_uint(u64val));
+
+	node = plist_dict_get_item(parameters, "Baobab,UpdateNonce");
+	if (node) {
+		plist_dict_set_item(request, "Baobab,UpdateNonce", plist_copy(node));
+	}
+
+	char *comp_name = NULL;
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(manifest_node, &iter);
+	while (iter) {
+		node = NULL;
+		comp_name = NULL;
+		plist_dict_next_item(manifest_node, iter, &comp_name, &node);
+		if (comp_name == NULL) {
+			node = NULL;
+			break;
+		}
+		if (strncmp(comp_name, "Baobab,", 7) == 0) {
+			plist_t manifest_entry = plist_copy(node);
+
+			plist_dict_remove_item(manifest_entry, "Info");
+			plist_dict_set_item(manifest_entry, "EPRO", plist_new_bool(isprod));
+
+			/* finally add entry to request */
+			plist_dict_set_item(request, comp_name, manifest_entry);
+		}
+		free(comp_name);
+	}
+	free(iter);
+
+	/* apply overrides */
+	if (overrides) {
+		plist_dict_merge(&request, overrides);
+	}
 	return 0;
 }
 
