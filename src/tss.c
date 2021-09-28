@@ -35,7 +35,13 @@
 
 #include "endianness.h"
 
-#define TSS_CLIENT_VERSION_STRING "libauthinstall-776.60.1"
+#define AUTH_VERSION "850.0.2"
+
+#ifdef WIN32
+#define TSS_CLIENT_VERSION_STRING "libauthinstall_Win-"AUTH_VERSION"" 
+#else
+#define TSS_CLIENT_VERSION_STRING "libauthinstall-"AUTH_VERSION""
+#endif
 #define ECID_STRSIZE 0x20
 
 typedef struct {
