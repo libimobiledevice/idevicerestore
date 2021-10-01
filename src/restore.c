@@ -3764,7 +3764,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		else if (!strcmp(type, "CheckpointMsg")) {
 			uint64_t ckpt_id;
 			uint64_t ckpt_res;
-			uint8_t ckpt_complete;
+			uint8_t ckpt_complete = 0;
 			// Get checkpoint id
 			node = plist_dict_get_item(message, "CHECKPOINT_ID");
 			if (!node || plist_get_node_type(node) != PLIST_UINT) {
@@ -3781,11 +3781,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			plist_get_uint_val(node, &ckpt_res);
 			// Get checkpoint complete
 			node = plist_dict_get_item(message, "CHECKPOINT_COMPLETE");
-			if (!node || plist_get_node_type(node) != PLIST_BOOLEAN) {
-				debug("Failed to parse checkpoint result from checkpoint plist\n");
-				return -1;
+			if (PLIST_IS_BOOLEAN(node)) {
+				plist_get_bool_val(node, &ckpt_complete);
 			}
-			plist_get_bool_val(node, &ckpt_complete);
 			if (ckpt_complete)
 				info("Checkpoint %" PRIu64 " complete with code %" PRIu64 "\n", ckpt_id, ckpt_res);
 		}
