@@ -65,26 +65,27 @@
 
 #ifndef IDEVICERESTORE_NOMAIN
 static struct option longopts[] = {
-	{ "ecid",		required_argument,	NULL, 'i' },
-	{ "udid",		required_argument,	NULL, 'u' },
-	{ "debug",		no_argument,		NULL, 'd' },
-	{ "help",		no_argument,		NULL, 'h' },
-	{ "erase",		no_argument,		NULL, 'e' },
-	{ "custom",		no_argument,		NULL, 'c' },
-	{ "latest",		no_argument,		NULL, 'l' },
-	{ "cydia",		no_argument,		NULL, 's' },
-	{ "exclude",		no_argument,		NULL, 'x' },
-	{ "shsh",		no_argument,		NULL, 't' },
-	{ "keep-pers",		no_argument,		NULL, 'k' },
-	{ "pwn",		no_argument,		NULL, 'p' },
-	{ "no-action",		no_argument,		NULL, 'n' },
-	{ "cache-path",		required_argument,	NULL, 'C' },
-	{ "no-input",		no_argument,		NULL, 'y' },
-	{ "plain-progress",	no_argument,		NULL, 'P' },
-	{ "restore-mode",	no_argument,		NULL, 'R' },
-	{ "ticket",		required_argument,	NULL, 'T' },
-	{ "no-restore",		no_argument,		NULL, 'z' },
-	{ "version",		no_argument,		NULL, 'v' },
+	{ "ecid",           required_argument, NULL, 'i' },
+	{ "udid",           required_argument, NULL, 'u' },
+	{ "debug",          no_argument,       NULL, 'd' },
+	{ "help",           no_argument,       NULL, 'h' },
+	{ "erase",          no_argument,       NULL, 'e' },
+	{ "custom",         no_argument,       NULL, 'c' },
+	{ "latest",         no_argument,       NULL, 'l' },
+	{ "cydia",          no_argument,       NULL, 's' },
+	{ "exclude",        no_argument,       NULL, 'x' },
+	{ "shsh",           no_argument,       NULL, 't' },
+	{ "keep-pers",      no_argument,       NULL, 'k' },
+	{ "pwn",            no_argument,       NULL, 'p' },
+	{ "no-action",      no_argument,       NULL, 'n' },
+	{ "cache-path",     required_argument, NULL, 'C' },
+	{ "no-input",       no_argument,       NULL, 'y' },
+	{ "plain-progress", no_argument,       NULL, 'P' },
+	{ "restore-mode",   no_argument,       NULL, 'R' },
+	{ "ticket",         required_argument, NULL, 'T' },
+	{ "no-restore",     no_argument,       NULL, 'z' },
+	{ "version",        no_argument,       NULL, 'v' },
+	{ "ipsw-info",      no_argument,       NULL, 'I' },
 	{ "downgrade",		no_argument,		NULL, 'w' },
 	{ NULL, 0, NULL, 0 }
 };
@@ -121,6 +122,7 @@ static void usage(int argc, char* argv[], int err)
 	"  -n, --no-action       Do not perform any restore action. If combined with -l\n" \
 	"                        option the on-demand ipsw download is performed before\n" \
 	"                        exiting.\n" \
+	"  --ipsw-info           Print information about the IPSW at PATH and exit.\n" \
 	"  -h, --help            Prints this usage information\n" \
 	"  -C, --cache-path DIR  Use specified directory for caching extracted or other\n" \
 	"                        reused files.\n" \
@@ -148,8 +150,8 @@ static void usage(int argc, char* argv[], int err)
 
 const uint8_t lpol_file[22] = {
 		0x30, 0x14, 0x16, 0x04, 0x49, 0x4d, 0x34, 0x50,
-		0x16, 0x04,	0x6c, 0x70,	0x6f, 0x6c,	0x16, 0x03,
-		0x31, 0x2e, 0x30, 0x04,	0x01, 0x00
+		0x16, 0x04, 0x6c, 0x70, 0x6f, 0x6c, 0x16, 0x03,
+		0x31, 0x2e, 0x30, 0x04, 0x01, 0x00
 };
 const uint32_t lpol_file_length = 22;
 
@@ -346,11 +348,13 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	// check which mode the device is currently in so we know where to start
 	mutex_lock(&client->device_event_mutex);
-	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-	if (client->mode == MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
-		mutex_unlock(&client->device_event_mutex);
-		error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
-		return -1;
+	if (client->mode == MODE_UNKNOWN) {
+		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
+		if (client->mode == MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
+			mutex_unlock(&client->device_event_mutex);
+			error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
+			return -1;
+		}
 	}
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.1);
 	info("Found device in %s mode\n", client->mode->string);
@@ -1638,6 +1642,7 @@ int main(int argc, char* argv[]) {
 	int opt = 0;
 	int optindex = 0;
 	char* ipsw = NULL;
+	int ipsw_info = 0;
 	int result = 0;
 
 	struct idevicerestore_client_t* client = idevicerestore_client_new();
@@ -1780,11 +1785,23 @@ int main(int argc, char* argv[]) {
 			//	client->shsh = optarg;
 			}
 			break;
+		case 'I':
+			ipsw_info = 1;
+			break;
 
 		default:
 			usage(argc, argv, 1);
 			return EXIT_FAILURE;
 		}
+	}
+
+	if (ipsw_info) {
+		if (argc-optind != 1) {
+			error("ERROR: --ipsw-info requires an IPSW path.\n");
+			usage(argc, argv, 1);
+			return EXIT_FAILURE;
+		}
+		return (ipsw_print_info(*(argv + optind)) == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 	}
 
 	if (((argc-optind) == 1) || (client->flags & FLAG_PWN) || (client->flags & FLAG_LATEST)) {
@@ -2192,7 +2209,7 @@ int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_
 	}
 
 	plist_t local_manifest = NULL;
-	int res = img4_create_local_manifest(request, &local_manifest);
+	int res = img4_create_local_manifest(request, build_identity, &local_manifest);
 
 	*manifest = local_manifest;
 

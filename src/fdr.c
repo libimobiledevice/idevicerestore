@@ -28,8 +28,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <libimobiledevice/libimobiledevice.h>
+#include <libimobiledevice-glue/socket.h>
 
-#include "socket.h" /* from libimobiledevice/common */
 #include "common.h"
 #include "idevicerestore.h"
 #include "fdr.h"
@@ -415,7 +415,7 @@ static int fdr_handle_sync_cmd(fdr_client_t fdr_ctrl)
 {
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 	fdr_client_t fdr;
-	thread_t fdr_thread = (thread_t)NULL;
+	THREAD_T fdr_thread = THREAD_T_NULL;
 	int res = 0;
 	uint32_t bytes = 0;
 	char buf[4096];
@@ -593,12 +593,14 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 			}
 		}
 		bytes_ret = socket_receive_timeout(sockfd, buf, bufsize, 0, 100);
-		if (bytes_ret < 0) {
-			if (errno)
-				error("ERROR: FDR %p receiving proxy payload failed: %s\n",
-				      fdr, strerror(errno));
-			else
-				res = 1; /* close connection if no data with no error */
+		if (bytes_ret == -ETIMEDOUT) {
+			bytes_ret = 0;
+		} else if (bytes_ret == -ECONNRESET) {
+			res = 1;
+			break;
+		} else if (bytes_ret < 0) {
+			error("ERROR: FDR %p receiving proxy payload failed: %d (%s)\n",
+			      fdr, bytes_ret, strerror(-bytes_ret));
 			break;
 		}
 

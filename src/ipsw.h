@@ -31,6 +31,8 @@ extern "C" {
 #include <stdint.h>
 #include <plist/plist.h>
 
+int ipsw_print_info(const char* ipsw);
+
 int ipsw_is_directory(const char* ipsw);
 int ipsw_file_exists(const char* ipsw, const char* infile);
 int ipsw_get_file_size(const char* ipsw, const char* infile, uint64_t* size);

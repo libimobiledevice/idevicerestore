@@ -27,7 +27,7 @@ extern "C" {
 #endif
 
 int img4_stitch_component(const char* component_name, const unsigned char* component_data, unsigned int component_size, const unsigned char* blob, unsigned int blob_size, unsigned char** img4_data, unsigned int *img4_size);
-int img4_create_local_manifest(plist_t request, plist_t* manifest);
+int img4_create_local_manifest(plist_t request, plist_t build_identity, plist_t* manifest);
 
 #ifdef __cplusplus
 }

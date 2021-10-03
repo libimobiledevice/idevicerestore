@@ -4,6 +4,7 @@ AM_CFLAGS = \
 	$(libirecovery_CFLAGS) \
 	$(libimobiledevice_CFLAGS) \
 	$(libplist_CFLAGS) \
+	$(limd_glue_CFLAGS) \
 	$(libzip_CFLAGS) \
 	$(zlib_CFLAGS) \
 	$(openssl_CFLAGS) \
@@ -15,6 +16,7 @@ AM_LDFLAGS = \
 	$(libirecovery_LIBS) \
 	$(libimobiledevice_LIBS) \
 	$(libplist_LIBS) \
+	$(limd_glue_LIBS) \
 	$(libzip_LIBS) \
 	$(zlib_LIBS) \
 	$(openssl_LIBS) \
@@ -46,8 +48,6 @@ idevicerestore_SOURCES = \
 	limera1n.c limera1n.h \
 	download.c download.h \
 	locking.c locking.h \
-	socket.c socket.h \
-	thread.c thread.h \
 	jsmn.c jsmn.h \
 	json_plist.c json_plist.h
 if USE_INTERNAL_SHA

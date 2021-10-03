@@ -37,9 +37,9 @@ extern "C" {
 
 #include <plist/plist.h>
 #include <libirecovery.h>
+#include <libimobiledevice-glue/thread.h>
 
 #include "idevicerestore.h"
-#include "thread.h"
 
 #define _MODE_UNKNOWN         0
 #define _MODE_WTF             1

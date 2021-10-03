@@ -108,6 +108,7 @@
 #define INSTALLING_RECOVERY_OS_IMAGE  71
 #define REQUESTING_EAN_DATA           74
 #define SEALING_SYSTEM_VOLUME         77
+#define UPDATING_APPLETCON            81
 
 static int restore_finished = 0;
 
@@ -626,6 +627,8 @@ const char* restore_progress_string(unsigned int operation)
 		return "Requesting EAN Data";
 	case SEALING_SYSTEM_VOLUME:
 		return "Sealing System Volume";
+	case UPDATING_APPLETCON:
+		return "Updating AppleTCON";
 	default:
 		return "Unknown operation";
 	}
@@ -2649,6 +2652,77 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 	return response;
 }
 
+static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+{
+	char *comp_name = "Baobab,TCON";
+	char *comp_path = NULL;
+	plist_t comp_node = NULL;
+	unsigned char* component_data = NULL;
+	unsigned int component_size = 0;
+	plist_t parameters = NULL;
+	plist_t request = NULL;
+	plist_t response = NULL;
+	plist_t node = NULL;
+	int ret;
+
+	/* create Baobab request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create Baobab TSS request\n");
+		free(component_data);
+		return NULL;
+	}
+
+	parameters = plist_new_dict();
+
+	/* add manifest for current build_identity to parameters */
+	tss_parameters_add_from_manifest(parameters, build_identity);
+
+	/* add Baobab,* tags from info dictionary to parameters */
+	plist_dict_merge(&parameters, p_info);
+
+	/* add required tags for Baobab TSS request */
+	tss_request_add_tcon_tags(request, parameters, NULL);
+
+	plist_free(parameters);
+
+	info("Sending Baobab TSS request...\n");
+	response = tss_request_send(request, client->tss_url);
+	plist_free(request);
+	if (response == NULL) {
+		error("ERROR: Unable to fetch Baobab ticket\n");
+		free(component_data);
+		return NULL;
+	}
+
+	if (plist_dict_get_item(response, "Baobab,Ticket")) {
+		info("Received Baobab ticket\n");
+	} else {
+		error("ERROR: No 'Baobab,Ticket' in TSS response, this might not work\n");
+	}
+
+	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+		error("ERROR: Unable to get path for '%s' component\n", comp_name);
+		return NULL;
+	}
+
+	/* now get actual component data */
+	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	free(comp_path);
+	comp_path = NULL;
+	if (ret < 0) {
+		error("ERROR: Unable to extract '%s' component\n", comp_name);
+		return NULL;
+	}
+
+	plist_dict_set_item(response, "FirmwareData", plist_new_data((char *)component_data, (uint64_t)component_size));
+	free(component_data);
+	component_data = NULL;
+	component_size = 0;
+
+	return response;
+}
+
 static int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
 {
 	plist_t arguments;
@@ -2734,6 +2808,12 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 		fwdict = restore_get_veridian_firmware_data(restore, client, build_identity, p_info);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get Veridian firmware data\n", __func__);
+			goto error_out;
+		}
+	} else if (strcmp(s_updater_name, "AppleTCON") == 0) {
+		fwdict = restore_get_tcon_firmware_data(restore, client, build_identity, p_info);
+		if (fwdict == NULL) {
+			error("ERROR: %s: Couldn't get AppleTCON firmware data\n", __func__);
 			goto error_out;
 		}
 	} else {
@@ -3419,7 +3499,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
-	thread_t fdr_thread = (thread_t)NULL;
+	THREAD_T fdr_thread = THREAD_T_NULL;
 
 	restore_finished = 0;
 
@@ -3505,7 +3585,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	if (!fdr_connect(device, FDR_CTRL, &fdr_control_channel)) {
 		if(thread_new(&fdr_thread, fdr_listener_thread, fdr_control_channel)) {
 			error("ERROR: Failed to start FDR listener thread\n");
-			fdr_thread = (thread_t)NULL; /* undefined after failure */
+			fdr_thread = THREAD_T_NULL; /* undefined after failure */
 		}
 	} else {
 		error("ERROR: Failed to start FDR Ctrl channel\n");
@@ -3531,6 +3611,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			plist_dict_set_item(opts, "BasebandNonce", plist_copy(node));
 		}
 	}
+
+	plist_dict_set_item(opts, "SupportedDataTypes", restore_supported_data_types());
+	plist_dict_set_item(opts, "SupportedMessageTypes", restore_supported_message_types());
 
 	// FIXME: Should be adjusted for update behaviors
 	if (client->build_major >= 20) {
@@ -3559,8 +3642,6 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		plist_dict_set_item(opts, "RecoveryOSUnpack", plist_new_bool(1));
 		plist_dict_set_item(opts, "ShouldRestoreSystemImage", plist_new_bool(1));
 		plist_dict_set_item(opts, "SkipPreflightPersonalization", plist_new_bool(0));
-		plist_dict_set_item(opts, "SupportedDataTypes", restore_supported_data_types());
-		plist_dict_set_item(opts, "SupportedMessageTypes", restore_supported_message_types());
 		plist_dict_set_item(opts, "UpdateBaseband", plist_new_bool(1));
 		// FIXME: I don't know where this number comes from yet. It seems like it matches this part of the build identity:
 		// 	<key>OSVarContentSize</key>
@@ -3730,7 +3811,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		else if (!strcmp(type, "CheckpointMsg")) {
 			uint64_t ckpt_id;
 			uint64_t ckpt_res;
-			uint8_t ckpt_complete;
+			uint8_t ckpt_complete = 0;
 			// Get checkpoint id
 			node = plist_dict_get_item(message, "CHECKPOINT_ID");
 			if (!node || plist_get_node_type(node) != PLIST_UINT) {
@@ -3747,11 +3828,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			plist_get_uint_val(node, &ckpt_res);
 			// Get checkpoint complete
 			node = plist_dict_get_item(message, "CHECKPOINT_COMPLETE");
-			if (!node || plist_get_node_type(node) != PLIST_BOOLEAN) {
-				debug("Failed to parse checkpoint result from checkpoint plist\n");
-				return -1;
+			if (PLIST_IS_BOOLEAN(node)) {
+				plist_get_bool_val(node, &ckpt_complete);
 			}
-			plist_get_bool_val(node, &ckpt_complete);
 			if (ckpt_complete)
 				info("Checkpoint %" PRIu64 " complete with code %" PRIu64 "\n", ckpt_id, ckpt_res);
 		}

@@ -291,6 +291,7 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "Ap,RestoreCIO", "rcio" },
 		{ "Ap,RestoreTMU", "rtmu" },
 		{ "Ap,Scorpius", "scpf" },
+		{ "Ap,SystemVolumeCanonicalMetadata", "msys" },
 		{ "Ap,TMU", "tmuf" },
 		{ "Ap,VolumeUUID", "vuid" },
 		{ "AppleLogo", "logo" },
@@ -331,6 +332,7 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "LowPowerWallet1", "lpw1" },
 		{ "LowPowerWallet2", "lpw2" },
 		{ "MacEFI", "mefi" },
+		{ "MtpFirmware", "mtpf" },
 		{ "Multitouch", "mtfw" },
 		{ "NeedService", "nsrv" },
 		{ "OS", "OS\0\0" },
@@ -363,6 +365,7 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "SIO", "siof" },
 		{ "StaticTrustCache", "trst" },
 		{ "SystemLocker", "lckr" },
+		{ "SystemVolume", "isys" },
 		{ "WCHFirmwareUpdater", "wchf" },
 		{ NULL, NULL }
 	};
@@ -613,7 +616,7 @@ static void _manifest_write_component(unsigned char **p, unsigned int *length, c
 	*p += this_length + outer_length + inner_length;
 }
 
-int img4_create_local_manifest(plist_t request, plist_t* manifest)
+int img4_create_local_manifest(plist_t request, plist_t build_identity, plist_t* manifest)
 {
 	if (!request || !manifest) {
 		return -1;
@@ -653,6 +656,11 @@ int img4_create_local_manifest(plist_t request, plist_t* manifest)
 	/* create manifest properties set */
 	_manifest_write_key_value(&p, &length, "MANP", ASN1_SET | ASN1_CONSTRUCTED, tmp_, tmp_len);
 
+	plist_t component_manifest = NULL;
+	if (build_identity) {
+		component_manifest = plist_dict_get_item(build_identity, "Manifest");
+	}
+
 	/* now write the components */
 	plist_dict_iter iter = NULL;
 	plist_dict_new_iter(request, &iter);
@@ -661,7 +669,17 @@ int img4_create_local_manifest(plist_t request, plist_t* manifest)
 	do {
 		plist_dict_next_item(request, iter, &key, &val);
 		if (val && plist_get_node_type(val) == PLIST_DICT) {
-			const char *comp = _img4_get_component_tag(key);
+			const char *comp = NULL;
+			/* check if component has Img4PayloadType */
+			if (component_manifest) {
+				plist_t img4_comp = plist_access_path(component_manifest, 3, key, "Info", "Img4PayloadType");
+				if (img4_comp) {
+					comp = plist_get_string_ptr(img4_comp, NULL);
+				}
+			}
+			if (!comp) {
+				comp = _img4_get_component_tag(key);
+			}
 			if (!comp) {
 				error("ERROR: %s: Unhandled component '%s' - can't create manifest\n", __func__, key);
 				free(iter);
