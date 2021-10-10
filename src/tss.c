@@ -1654,7 +1654,7 @@ int tss_request_add_veridian_tags(plist_t request, plist_t parameters, plist_t o
 		return -1;
 	}
 
-	/* add tags indicating we want to get the Rap,Ticket */
+	/* add tags indicating we want to get the BMU,Ticket */
 	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
 	plist_dict_set_item(request, "@BMU,Ticket", plist_new_bool(1));
 
@@ -1737,7 +1737,7 @@ int tss_request_add_tcon_tags(plist_t request, plist_t parameters, plist_t overr
 		return -1;
 	}
 
-	/* add tags indicating we want to get the Rap,Ticket */
+	/* add tags indicating we want to get the Baobab,Ticket */
 	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
 	plist_dict_set_item(request, "@Baobab,Ticket", plist_new_bool(1));
 
