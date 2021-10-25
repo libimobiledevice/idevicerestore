@@ -735,6 +735,7 @@ int ipsw_get_signed_firmwares(const char* product, plist_t* firmwares)
 	plist_t dict = NULL;
 	plist_t node = NULL;
 	plist_t fws = NULL;
+	const char* product_type = NULL;
 	uint32_t count = 0;
 	uint32_t i = 0;
 
@@ -743,7 +744,7 @@ int ipsw_get_signed_firmwares(const char* product, plist_t* firmwares)
 	}
 
 	*firmwares = NULL;
-	snprintf(url, sizeof(url), "https://api.ipsw.me/v3/device/%s", product);
+	snprintf(url, sizeof(url), "https://api.ipsw.me/v4/device/%s", product);
 
 	if (download_to_buffer(url, &jdata, &jsize) < 0) {
 		error("ERROR: Download from %s failed.\n", url);
@@ -757,15 +758,21 @@ int ipsw_get_signed_firmwares(const char* product, plist_t* firmwares)
 		return -1;
 	}
 
-	node = plist_dict_get_item(dict, product);
-	if (!node || plist_get_node_type(node) != PLIST_DICT) {
-		error("ERROR: Unexpected json data returned?!\n");
+	node = plist_dict_get_item(dict, "identifier");
+	if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		error("ERROR: Unexpected json data returned - missing 'identifier'\n");
 		plist_free(dict);
 		return -1;
 	}
-	fws = plist_dict_get_item(node, "firmwares");
+	product_type = plist_get_string_ptr(node, NULL);
+	if (!product_type || strcmp(product_type, product) != 0) {
+		error("ERROR: Unexpected json data returned - failed to read identifier\n");
+		plist_free(dict);
+		return -1;
+	}
+	fws = plist_dict_get_item(dict, "firmwares");
 	if (!fws || plist_get_node_type(fws) != PLIST_ARRAY) {
-		error("ERROR: Unexpected json data returned?!\n");
+		error("ERROR: Unexpected json data returned - missing 'firmwares'\n");
 		plist_free(dict);
 		return -1;
 	}
