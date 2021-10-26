@@ -45,6 +45,7 @@ extern "C" {
 #define FLAG_INTERACTIVE     (1 << 9)
 #define FLAG_ALLOW_RESTORE_MODE (1 << 10)
 #define FLAG_NO_RESTORE      (1 << 11)
+#define FLAG_IGNORE_ERRORS   (1 << 12)
 
 struct idevicerestore_client_t;
 

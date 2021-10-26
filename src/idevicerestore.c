@@ -86,6 +86,7 @@ static struct option longopts[] = {
 	{ "no-restore",     no_argument,       NULL, 'z' },
 	{ "version",        no_argument,       NULL, 'v' },
 	{ "ipsw-info",      no_argument,       NULL, 'I' },
+	{ "ignore-errors",  no_argument,       NULL,  1  },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -139,6 +140,10 @@ static void usage(int argc, char* argv[], int err)
 	"  -P, --plain-progress  Print progress as plain step and progress\n" \
 	"  -R, --restore-mode    Allow restoring from Restore mode\n" \
 	"  -T, --ticket PATH     Use file at PATH to send as AP ticket\n" \
+	"  --ignore-errors       Try to continue the restore process after certain\n" \
+	"                        errors (like a failed baseband update)\n" \
+	"                        WARNING: This might render the device unable to boot\n" \
+	"                        or only partially functioning. Use with caution.\n" \
 	"\n" \
 	"Homepage:    <" PACKAGE_URL ">\n" \
 	"Bug Reports: <" PACKAGE_BUGREPORT ">\n",
@@ -1711,6 +1716,10 @@ int main(int argc, char* argv[]) {
 
 		case 'I':
 			ipsw_info = 1;
+			break;
+
+		case 1:
+			client->flags |= FLAG_IGNORE_ERRORS;
 			break;
 
 		default:
