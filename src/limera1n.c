@@ -65,19 +65,37 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 	irecv_devices_get_device_by_product_type("iPhone2,1", &iphone3gs);
 	irecv_devices_get_device_by_product_type("iPod3,1", &ipod3g);
 
-	if (device->chip_id == iphone4->chip_id) {
+	// if (device->chip_id == iphone4->chip_id) {
+	// 	max_size = 0x2C000;
+	// 	stack_address = 0x8403BF9C;
+	// 	shellcode_address = 0x8402B001;
+	// } else if (device->chip_id == iphone3gs->chip_id) {
+	// 	max_size = 0x24000;
+	// 	stack_address = 0x84033FA4;
+	// 	shellcode_address = 0x84023001;
+	// } else if (device->chip_id == ipod3g->chip_id) {
+	// 	max_size = 0x24000;
+	// 	stack_address = 0x84033F98;
+	// 	shellcode_address = 0x84023001;
+	// } else {
+	// 	error("Unsupported ChipID 0x%04x. Can't exploit with limera1n.\n", device->chip_id);
+	// 	return -1;
+	// }
+
+	switch device->chip_id {
+		case iphone4->chip_id:
 		max_size = 0x2C000;
 		stack_address = 0x8403BF9C;
 		shellcode_address = 0x8402B001;
-	} else if (device->chip_id == iphone3gs->chip_id) {
+		case iphone3gs->chip_id:
 		max_size = 0x24000;
 		stack_address = 0x84033FA4;
 		shellcode_address = 0x84023001;
-	} else if (device->chip_id == ipod3g->chip_id) {
+		case ipod3g->chip_id:
 		max_size = 0x24000;
 		stack_address = 0x84033F98;
 		shellcode_address = 0x84023001;
-	} else {
+		default:
 		error("Unsupported ChipID 0x%04x. Can't exploit with limera1n.\n", device->chip_id);
 		return -1;
 	}
