@@ -649,9 +649,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.8);
 
 	/* check if device type is supported by the given build manifest */
-	if (build_manifest_check_compatibility(buildmanifest, client->device->product_type) < 0) {
-		error("ERROR: Could not make sure this firmware is suitable for the current device. Refusing to continue.\n");
-		return -1;
+
 	}
 
 	/* print iOS information from the manifest */
