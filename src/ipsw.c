@@ -629,41 +629,51 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 		zip_fclose(zfile);
 	} else {
 		char *filepath = build_path(archive->path, infile);
-		FILE *f = fopen(filepath, "rb");
-		if (!f) {
-			error("ERROR: %s: fopen failed for %s: %s\n", __func__, filepath, strerror(errno));
-			free(filepath);
-			ipsw_close(archive);
-			return -2;
-		}
 		struct stat fst;
-		if (fstat(fileno(f), &fst) != 0) {
-			fclose(f);
+		if (lstat(filepath, &fst) != 0) {
 			error("ERROR: %s: fstat failed for %s: %s\n", __func__, filepath, strerror(errno));
 			free(filepath);
 			ipsw_close(archive);
 			return -1;
 		}
-
 		size = fst.st_size;
 		buffer = (unsigned char*)malloc(size+1);
 		if (buffer == NULL) {
 			error("ERROR: Out of memory\n");
-			fclose(f);
 			free(filepath);
 			ipsw_close(archive);
 			return -1;
 		}
-		if (fread(buffer, 1, size, f) != size) {
+
+		if (S_ISLNK(fst.st_mode)) {
+			if (readlink(filepath, buffer, size) < 0) {
+				error("ERROR: %s: readlink failed for %s: %s\n", __func__, filepath, strerror(errno));
+				free(filepath);
+				free(buffer);
+				ipsw_close(archive);
+				return -1;
+			}
+		} else {
+			FILE *f = fopen(filepath, "rb");
+			if (!f) {
+				error("ERROR: %s: fopen failed for %s: %s\n", __func__, filepath, strerror(errno));
+				free(filepath);
+				free(buffer);
+				ipsw_close(archive);
+				return -2;
+			}
+			if (fread(buffer, 1, size, f) != size) {
+				fclose(f);
+				error("ERROR: %s: fread failed for %s: %s\n", __func__, filepath, strerror(errno));
+				free(filepath);
+				free(buffer);
+				ipsw_close(archive);
+				return -1;
+			}
 			fclose(f);
-			error("ERROR: %s: fread failed for %s: %s\n", __func__, filepath, strerror(errno));
-			free(filepath);
-			ipsw_close(archive);
-			return -1;
 		}
 		buffer[size] = '\0';
 
-		fclose(f);
 		free(filepath);
 	}
 	ipsw_close(archive);
