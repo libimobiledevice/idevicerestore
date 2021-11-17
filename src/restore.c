@@ -2802,16 +2802,23 @@ plist_t restore_get_build_identity(struct idevicerestore_client_t* client, uint8
 {
 	unsigned int size = 0;
 	unsigned char* data = NULL;
+	const char *variant;
 	plist_t buildmanifest = NULL;
 	ipsw_extract_to_memory(client->ipsw, "BuildManifest.plist", &data, &size);
 	plist_from_xml((char*)data, size, &buildmanifest);
 	free(data);
 
-	plist_t build_identity = build_manifest_get_build_identity_for_model_with_restore_behavior_and_global_signing(
+	if (is_recover_os)
+		variant = "macOS Customer";
+	else if (client->flags & FLAG_ERASE)
+		variant = "Customer Erase Install (IPSW)";
+	else
+		variant = "Customer Upgrade Install (IPSW)";
+
+	plist_t build_identity = build_manifest_get_build_identity_for_model_with_variant(
 			buildmanifest,
 			client->device->hardware_model,
-			client->flags & FLAG_ERASE ? "Erase": "Update",
-			is_recover_os);
+			variant);
 
 	plist_t unique_id_node = plist_dict_get_item(buildmanifest, "UniqueBuildID");
 	debug_plist(unique_id_node);
