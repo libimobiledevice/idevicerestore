@@ -31,6 +31,8 @@
 #include <errno.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <dirent.h>
 #include <zip.h>
 #ifdef HAVE_OPENSSL
 #include <openssl/sha.h>
@@ -713,6 +715,124 @@ int ipsw_extract_restore_plist(const char* ipsw, plist_t* restore_plist)
 	}
 
 	return -1;
+}
+
+static int ipsw_list_contents_recurse(ipsw_archive *archive, const char *path, ipsw_list_cb cb, void *ctx)
+{
+	int ret = 0;
+	char *base = build_path(archive->path, path);
+
+	DIR *dirp = opendir(base);
+
+	if (!dirp) {
+		error("ERROR: failed to open directory %s\n", base);
+		free(base);
+		return -1;
+	}
+
+	while (ret >= 0) {
+		struct dirent *dir = readdir(dirp);
+		if (!dir)
+			break;
+
+		if (!strcmp(dir->d_name, ".") || !strcmp(dir->d_name, ".."))
+			continue;
+
+		char *fpath = build_path(base, dir->d_name);
+		char *subpath;
+		if (*path)
+			subpath = build_path(path, dir->d_name);
+		else
+			subpath = strdup(dir->d_name);
+
+		struct stat st;
+		ret = lstat(fpath, &st);
+		if (ret != 0) {
+			error("ERROR: failed to stat %s\n", fpath);
+			free(fpath);
+			free(subpath);
+			break;
+		}
+
+		ret = cb(ctx, archive->path, subpath, &st);
+
+		if (ret >= 0 && S_ISDIR(st.st_mode))
+			ipsw_list_contents_recurse(archive, subpath, cb, ctx);
+
+		free(fpath);
+		free(subpath);
+	}
+
+	closedir(dirp);
+	free(base);
+	return ret;
+}
+
+int ipsw_list_contents(const char* ipsw, ipsw_list_cb cb, void *ctx)
+{
+	int ret = 0;
+
+	ipsw_archive* archive = ipsw_open(ipsw);
+	if (archive == NULL) {
+		error("ERROR: Invalid archive\n");
+		return -1;
+	}
+
+	if (archive->zip) {
+        int64_t entries = zip_get_num_entries(archive->zip, 0);
+		if (entries < 0) {
+			error("ERROR: zip_get_num_entries failed\n");
+			ipsw_close(archive);
+			return -1;
+		}
+
+		for (int64_t index = 0; index < entries; index++) {
+			zip_stat_t stat;
+
+			zip_stat_init(&stat);
+			if (zip_stat_index(archive->zip, index, 0, &stat) < 0) {
+				error("ERROR: zip_stat_index failed for %s\n", stat.name);
+				ret = -1;
+				continue;
+			}
+
+			uint8_t opsys;
+			uint32_t attributes;
+			if (zip_file_get_external_attributes(archive->zip, index, 0, &opsys, &attributes) < 0) {
+				error("ERROR: zip_file_get_external_attributes failed for %s\n", stat.name);
+				ret = -1;
+				continue;
+			}
+			if (opsys != ZIP_OPSYS_UNIX) {
+				error("ERROR: File %s does not have UNIX attributes\n", stat.name);
+				ret = -1;
+				continue;
+			}
+
+			struct stat st;
+			memset(&st, 0, sizeof(st));
+			st.st_ino = 1 + index;
+			st.st_nlink = 1;
+			st.st_mode = attributes >> 16;
+			st.st_size = stat.size;
+
+			char *name = strdup(stat.name);
+			if (name[strlen(name) - 1] == '/')
+				name[strlen(name) - 1] = '\0';
+
+			ret = cb(ctx, ipsw, name, &st);
+
+			free(name);
+
+			if (ret < 0)
+				break;
+		}
+	} else {
+		ret = ipsw_list_contents_recurse(archive, "", cb, ctx);
+	}
+
+	ipsw_close(archive);
+	return ret;
 }
 
 void ipsw_close(ipsw_archive* archive)
