@@ -2798,6 +2798,153 @@ error_out:
 	return -1;
 }
 
+struct cpio_odc_header {
+	char c_magic[6];
+	char c_dev[6];
+	char c_ino[6];
+	char c_mode[6];
+	char c_uid[6];
+	char c_gid[6];
+	char c_nlink[6];
+	char c_rdev[6];
+	char c_mtime[11];
+	char c_namesize[6];
+	char c_filesize[11];
+};
+
+static void octal(char *p, int width, int v)
+{
+	char buf[32];
+	snprintf(buf, 32, "%0*o", width, v);
+	memcpy(p, buf, width);
+}
+
+static int cpio_send_file(idevice_connection_t connection, const char *name, struct stat *st, void *data)
+{
+	struct cpio_odc_header hdr;
+
+	memset(&hdr, '0', sizeof(hdr));
+	memcpy(hdr.c_magic, "070707", 6);
+	octal(hdr.c_dev, 6, st->st_dev);
+	octal(hdr.c_ino, 6, st->st_ino);
+	octal(hdr.c_mode, 6, st->st_mode);
+	octal(hdr.c_uid, 6, st->st_uid);
+	octal(hdr.c_gid, 6, st->st_gid);
+	octal(hdr.c_nlink, 6, st->st_nlink);
+	octal(hdr.c_rdev, 6, st->st_rdev);
+	octal(hdr.c_mtime, 11, st->st_mtime);
+	octal(hdr.c_namesize, 6, strlen(name) + 1);
+	if (data)
+		octal(hdr.c_filesize, 11, st->st_size);
+
+	uint32_t bytes = 0;
+	int name_len = strlen(name) + 1;
+	idevice_error_t device_error;
+
+	device_error = idevice_connection_send(connection, (void *)&hdr, sizeof(hdr), &bytes);
+	if (device_error != IDEVICE_E_SUCCESS || bytes != sizeof(hdr)) {
+		error("ERROR: BootabilityBundle unable to send header. (%d) Sent %u of %lu bytes.\n", device_error, bytes, (long)sizeof(hdr));
+		return -1;
+	}
+
+	device_error = idevice_connection_send(connection, (void *)name, name_len, &bytes);
+	if (device_error != IDEVICE_E_SUCCESS || bytes != name_len) {
+		error("ERROR: BootabilityBundle unable to send filename. (%d) Sent %u of %u bytes.\n", device_error, bytes, name_len);
+		return -1;
+	}
+
+	if (st->st_size && data) {
+		device_error = idevice_connection_send(connection, data, st->st_size, &bytes);
+		if (device_error != IDEVICE_E_SUCCESS || bytes != st->st_size) {
+			error("ERROR: BootabilityBundle unable to send data. (%d) Sent %u of %lu bytes.\n", device_error, bytes, (long)st->st_size);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static int restore_bootability_send_one(void *ctx, const char *ipsw, const char *name, struct stat *stat)
+{
+	idevice_connection_t connection = (idevice_connection_t)ctx;
+	const char *prefix = "BootabilityBundle/Restore/Bootability/";
+	const char *subpath;
+
+	if (!strcmp(name, "BootabilityBundle/Restore/Firmware/Bootability.dmg.trustcache")) {
+		subpath = "Bootability.trustcache";
+	} else if (strncmp(name, prefix, strlen(prefix))) {
+		return 0;
+	} else {
+		subpath = name + strlen(prefix);
+	}
+
+	debug("DEBUG: BootabilityBundle send m=%07o s=%10ld %s\n", stat->st_mode, stat->st_size, subpath);
+
+	unsigned char *buf = NULL;
+	unsigned int size = 0;
+
+	if ((S_ISLNK(stat->st_mode) || S_ISREG(stat->st_mode)) && stat->st_size != 0) {
+		ipsw_extract_to_memory(ipsw, name, &buf, &size);
+		if (size != stat->st_size) {
+			error("ERROR: expected %ld bytes but got %d for file %s\n", stat->st_size, size, name);
+			free(buf);
+			return -1;
+		}
+	}
+
+	stat->st_uid = stat->st_gid = 0;
+
+	int ret = cpio_send_file(connection, subpath, stat, buf);
+
+	free(buf);
+	return ret;
+}
+
+static int restore_send_bootability_bundle_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message, idevice_t device)
+{
+	if (idevicerestore_debug) {
+		debug("DEBUG: %s: Got BootabilityBundle request:\n", __func__);
+		debug_plist(message);
+	}
+
+	plist_t node = plist_dict_get_item(message, "DataPort");
+	uint64_t u64val = 0;
+	plist_get_uint_val(node, &u64val);
+	uint16_t data_port = (uint16_t)u64val;
+
+	int attempts = 10;
+	idevice_connection_t connection = NULL;
+	idevice_error_t device_error = IDEVICE_E_SUCCESS;
+
+	debug("Connecting to BootabilityBundle data port\n");
+	while (--attempts > 0) {
+		device_error = idevice_connect(device, data_port, &connection);
+		if (device_error == IDEVICE_E_SUCCESS) {
+			break;
+		}
+		sleep(1);
+		debug("Retrying connection...\n");
+	}
+	if (device_error != IDEVICE_E_SUCCESS) {
+		error("ERROR: Unable to connect to BootabilityBundle data port\n");
+		return -1;
+	}
+
+	int ret = ipsw_list_contents(client->ipsw, restore_bootability_send_one, connection);
+
+	if (ret < 0) {
+		error("ERROR: Failed to send BootabilityBundle\n");
+		return ret;
+	}
+
+	struct stat st = {.st_nlink = 1};
+	cpio_send_file(connection, "TRAILER!!!", &st, NULL);
+
+	idevice_disconnect(connection);
+
+    return 0;
+}
+
 plist_t restore_get_build_identity(struct idevicerestore_client_t* client, uint8_t is_recover_os)
 {
 	unsigned int size = 0;
@@ -3358,6 +3505,13 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 			}
 		}
 
+		else if (!strcmp(type, "BootabilityBundle")) {
+			if (restore_send_bootability_bundle_data(restore, client, build_identity, message, device) < 0) {
+				error("ERROR: Unable to send BootabilityBundle data\n");
+				return -1;
+			}
+		}
+
 		else {
 			// Unknown DataType!!
 			error("Unknown data request '%s' received\n", type);
@@ -3376,6 +3530,7 @@ plist_t restore_supported_data_types()
 	plist_dict_set_item(dict, "BasebandData", plist_new_bool(0));
 	plist_dict_set_item(dict, "BasebandStackData", plist_new_bool(0));
 	plist_dict_set_item(dict, "BasebandUpdaterOutputData", plist_new_bool(0));
+	plist_dict_set_item(dict, "BootabilityBundle", plist_new_bool(0));
 	plist_dict_set_item(dict, "BuildIdentityDict", plist_new_bool(0));
 	plist_dict_set_item(dict, "BuildIdentityDictV2", plist_new_bool(0));
 	plist_dict_set_item(dict, "DataType", plist_new_bool(0));
