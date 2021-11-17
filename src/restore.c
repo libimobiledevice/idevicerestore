@@ -3127,7 +3127,7 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 	}
 
 	// Make plist
-	info("Sending %s now...", component_name);
+	info("Sending %s now...\n", component_name);
 
 	int64_t i = size;
 	while (i > 0) {
@@ -3237,7 +3237,7 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 	}
 
 	// Make plist
-	info("Sending %s now...", component_name);
+	info("Sending %s now...\n", component_name);
 
 	int64_t i = size;
 	while (i > 0) {
