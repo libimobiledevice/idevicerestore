@@ -2878,7 +2878,7 @@ static int restore_bootability_send_one(void *ctx, const char *ipsw, const char 
 		subpath = name + strlen(prefix);
 	}
 
-	debug("DEBUG: BootabilityBundle send m=%07o s=%10ld %s\n", stat->st_mode, stat->st_size, subpath);
+	debug("DEBUG: BootabilityBundle send m=%07o s=%10ld %s\n", stat->st_mode, (long)stat->st_size, subpath);
 
 	unsigned char *buf = NULL;
 	unsigned int size = 0;
@@ -2886,7 +2886,7 @@ static int restore_bootability_send_one(void *ctx, const char *ipsw, const char 
 	if ((S_ISLNK(stat->st_mode) || S_ISREG(stat->st_mode)) && stat->st_size != 0) {
 		ipsw_extract_to_memory(ipsw, name, &buf, &size);
 		if (size != stat->st_size) {
-			error("ERROR: expected %ld bytes but got %d for file %s\n", stat->st_size, size, name);
+			error("ERROR: expected %ld bytes but got %d for file %s\n", (long)stat->st_size, size, name);
 			free(buf);
 			return -1;
 		}

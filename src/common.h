@@ -156,6 +156,13 @@ char *generate_guid(void);
 #define __usleep(x) usleep(x)
 #endif
 
+#ifndef S_IFLNK
+#define S_IFLNK 0120000
+#endif
+#ifndef S_ISLNK
+#define S_ISLNK(m) (((m) & S_IFMT) == S_IFLNK)
+#endif
+
 int mkdir_with_parents(const char *dir, int mode);
 
 char *get_temp_filename(const char *prefix);

@@ -630,8 +630,12 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 	} else {
 		char *filepath = build_path(archive->path, infile);
 		struct stat fst;
+#ifdef WIN32
+		if (stat(filepath, &fst) != 0) {
+#else
 		if (lstat(filepath, &fst) != 0) {
-			error("ERROR: %s: fstat failed for %s: %s\n", __func__, filepath, strerror(errno));
+#endif
+			error("ERROR: %s: stat failed for %s: %s\n", __func__, filepath, strerror(errno));
 			free(filepath);
 			ipsw_close(archive);
 			return -1;
@@ -645,8 +649,9 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 			return -1;
 		}
 
+#ifndef WIN32
 		if (S_ISLNK(fst.st_mode)) {
-			if (readlink(filepath, buffer, size) < 0) {
+			if (readlink(filepath, (char*)buffer, size) < 0) {
 				error("ERROR: %s: readlink failed for %s: %s\n", __func__, filepath, strerror(errno));
 				free(filepath);
 				free(buffer);
@@ -654,6 +659,7 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 				return -1;
 			}
 		} else {
+#endif
 			FILE *f = fopen(filepath, "rb");
 			if (!f) {
 				error("ERROR: %s: fopen failed for %s: %s\n", __func__, filepath, strerror(errno));
@@ -671,7 +677,9 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 				return -1;
 			}
 			fclose(f);
+#ifndef WIN32
 		}
+#endif
 		buffer[size] = '\0';
 
 		free(filepath);
@@ -756,9 +764,13 @@ static int ipsw_list_contents_recurse(ipsw_archive *archive, const char *path, i
 			subpath = strdup(dir->d_name);
 
 		struct stat st;
+#ifdef WIN32
+		ret = stat(fpath, &st);
+#else
 		ret = lstat(fpath, &st);
+#endif
 		if (ret != 0) {
-			error("ERROR: failed to stat %s\n", fpath);
+			error("ERROR: %s: stat failed for %s: %s\n", __func__, fpath, strerror(errno));
 			free(fpath);
 			free(subpath);
 			break;
