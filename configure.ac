@@ -113,9 +113,21 @@ AC_CACHE_CHECK(for enum idevice_connection_type, ac_cv_enum_idevice_connection_t
 	]], [[
 		enum idevice_connection_type conn_type = CONNECTION_USBMUXD;
 	]])],[ac_cv_enum_idevice_connection_type=yes],[ac_cv_enum_idevice_connection_type=no]))
-
-if (test "$ac_cv_enum_idevice_connection_type" = "yes"); then
+if test "$ac_cv_enum_idevice_connection_type" = "yes"; then
 	AC_DEFINE(HAVE_ENUM_IDEVICE_CONNECTION_TYPE, 1, [Define if enum idevice_connection_type is available])
+fi
+
+# check if libimobiledevice has reverse proxy support
+AC_CACHE_CHECK(for reverse proxy support in libimobiledevice, ac_cv_reverse_proxy,
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+		#include <libimobiledevice/reverse_proxy.h>
+		#include <stdlib.h>
+	]], [[
+		reverse_proxy_client_t rp = NULL;
+		reverse_proxy_client_create_with_port(NULL, &rp, REVERSE_PROXY_DEFAULT_PORT);
+	]])],[ac_cv_reverse_proxy=yes],[ac_cv_reverse_proxy=no]))
+if test "$ac_cv_reverse_proxy" = "yes"; then
+	AC_DEFINE(HAVE_REVERSE_PROXY, 1, [Define if libimobiledevice has a reverse proxy implementation])
 fi
 
 CFLAGS="$CACHED_CFLAGS"

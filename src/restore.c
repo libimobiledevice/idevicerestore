@@ -30,6 +30,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <libimobiledevice/restore.h>
+#ifdef HAVE_REVERSE_PROXY
+#include <libimobiledevice/reverse_proxy.h>
+#else
+#warning Linking against libimobiledevice without reverse proxy support. Please update to a newer version of libimobiledevice, the legacy code used will be removed in a future version of idevicerestore.
+#endif
 #include <zip.h>
 #include <libirecovery.h>
 
@@ -3604,6 +3609,18 @@ plist_t restore_supported_message_types()
 	return dict;
 }
 
+#ifdef HAVE_REVERSE_PROXY
+static void rp_log_cb(reverse_proxy_client_t client, const char* log_msg, void* user_data)
+{
+	info("ReverseProxy[%s]: %s\n", (reverse_proxy_get_type(client) == RP_TYPE_CTRL) ? "Ctrl" : "Conn", log_msg);
+}
+
+static void rp_status_cb(reverse_proxy_client_t client, reverse_proxy_status_t status, const char* status_msg, void* user_data)
+{
+	info("ReverseProxy[%s]: (status=%d) %s\n", (reverse_proxy_get_type(client) == RP_TYPE_CTRL) ? "Ctrl" : "Conn", status, status_msg);
+}
+#endif
+
 int restore_device(struct idevicerestore_client_t* client, plist_t build_identity, const char* filesystem)
 {
 	int err = 0;
@@ -3614,7 +3631,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	idevice_t device = NULL;
 	restored_client_t restore = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
+#ifndef HAVE_REVERSE_PROXY
 	THREAD_T fdr_thread = THREAD_T_NULL;
+#endif
 
 	restore_finished = 0;
 
@@ -3695,6 +3714,34 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		client->restore->bbtss = plist_copy(client->tss);
 	}
 
+#ifdef HAVE_REVERSE_PROXY
+	info("Starting Reverse Proxy\n");
+	reverse_proxy_client_t rproxy = NULL;
+	if (reverse_proxy_client_create_with_port(device, &rproxy, REVERSE_PROXY_DEFAULT_PORT) != REVERSE_PROXY_E_SUCCESS) {
+		error("Could not create Reverse Proxy\n");
+	} else {
+		if (client->flags & FLAG_DEBUG) {
+			reverse_proxy_client_set_log_callback(rproxy, rp_log_cb, NULL);
+		}
+		reverse_proxy_client_set_status_callback(rproxy, rp_status_cb, NULL);
+		if (reverse_proxy_client_start_proxy(rproxy, 2) != REVERSE_PROXY_E_SUCCESS) {
+			error("Device didn't accept new reverse proxy protocol, trying to use old one\n");
+			reverse_proxy_client_free(rproxy);
+			rproxy = NULL;
+			if (reverse_proxy_client_create_with_port(device, &rproxy, REVERSE_PROXY_DEFAULT_PORT) != REVERSE_PROXY_E_SUCCESS) {
+				error("Could not create Reverse Proxy\n");
+			} else {
+				if (client->flags & FLAG_DEBUG) {
+					reverse_proxy_client_set_log_callback(rproxy, rp_log_cb, NULL);
+				}
+				reverse_proxy_client_set_status_callback(rproxy, rp_status_cb, NULL);
+				if (reverse_proxy_client_start_proxy(rproxy, 1) != REVERSE_PROXY_E_SUCCESS) {
+					error("ReverseProxy: Device didn't accept old protocol, giving up\n");
+				}
+			}
+		}
+	}
+#else
 	fdr_client_t fdr_control_channel = NULL;
 	info("Starting FDR listener thread\n");
 	if (!fdr_connect(device, FDR_CTRL, &fdr_control_channel)) {
@@ -3706,6 +3753,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		error("ERROR: Failed to start FDR Ctrl channel\n");
 		// FIXME: We might want to return failure here as it will likely fail
 	}
+#endif
 
 	plist_t opts = plist_new_dict();
 	// FIXME: required?
@@ -3977,6 +4025,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		message = NULL;
 	}
 
+#ifdef HAVE_REVERSE_PROXY
+	reverse_proxy_client_free(rproxy);
+#else
 	if (thread_alive(fdr_thread)) {
 		if (fdr_control_channel) {
 			fdr_disconnect(fdr_control_channel);
@@ -3984,6 +4035,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			fdr_control_channel = NULL;
 		}
 	}
+#endif
 
 	restore_client_free(client);
 	return err;
