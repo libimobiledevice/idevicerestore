@@ -47,6 +47,10 @@ extern "C" {
 #define FLAG_NO_RESTORE      (1 << 11)
 #define FLAG_IGNORE_ERRORS   (1 << 12)
 
+#define RESTORE_VARIANT_CUSTOMER_ERASE     "Customer Erase Install (IPSW)"
+#define RESTORE_VARIANT_CUSTOMER_UPGRADE   "Customer Upgrade Install (IPSW)"
+#define RESTORE_VARIANT_MACOS_RECOVERY_OS  "macOS Customer"
+
 struct idevicerestore_client_t;
 
 enum {

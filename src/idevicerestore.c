@@ -816,20 +816,20 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			// add info
 			inf = plist_new_dict();
 			plist_dict_set_item(inf, "RestoreBehavior", plist_new_string((client->flags & FLAG_ERASE) ? "Erase" : "Update"));
-			plist_dict_set_item(inf, "Variant", plist_new_string((client->flags & FLAG_ERASE) ? "Customer Erase Install (IPSW)" : "Customer Upgrade Install (IPSW)"));
+			plist_dict_set_item(inf, "Variant", plist_new_string((client->flags & FLAG_ERASE) ? RESTORE_VARIANT_CUSTOMER_ERASE : RESTORE_VARIANT_CUSTOMER_UPGRADE));
 			plist_dict_set_item(build_identity, "Info", inf);
 
 			// finally add manifest
 			plist_dict_set_item(build_identity, "Manifest", manifest);
 		}
 	} else if (client->flags & FLAG_ERASE) {
-		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, "Customer Erase Install (IPSW)");
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_CUSTOMER_ERASE);
 		if (build_identity == NULL) {
 			error("ERROR: Unable to find any build identities\n");
 			return -1;
 		}
 	} else {
-		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, "Customer Upgrade Install (IPSW)");
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_CUSTOMER_UPGRADE);
 		if (!build_identity) {
 			build_identity = build_manifest_get_build_identity_for_model(client->build_manifest, client->device->hardware_model);
 		}
