@@ -2952,13 +2952,7 @@ static int restore_send_bootability_bundle_data(restored_client_t restore, struc
 
 plist_t restore_get_build_identity(struct idevicerestore_client_t* client, uint8_t is_recover_os)
 {
-	unsigned int size = 0;
-	unsigned char* data = NULL;
 	const char *variant;
-	plist_t buildmanifest = NULL;
-	ipsw_extract_to_memory(client->ipsw, "BuildManifest.plist", &data, &size);
-	plist_from_xml((char*)data, size, &buildmanifest);
-	free(data);
 
 	if (is_recover_os)
 		variant = "macOS Customer";
@@ -2968,11 +2962,11 @@ plist_t restore_get_build_identity(struct idevicerestore_client_t* client, uint8
 		variant = "Customer Upgrade Install (IPSW)";
 
 	plist_t build_identity = build_manifest_get_build_identity_for_model_with_variant(
-			buildmanifest,
+			client->build_manifest,
 			client->device->hardware_model,
 			variant);
 
-	plist_t unique_id_node = plist_dict_get_item(buildmanifest, "UniqueBuildID");
+	plist_t unique_id_node = plist_dict_get_item(client->build_manifest, "UniqueBuildID");
 	debug_plist(unique_id_node);
 
 	return build_identity;

@@ -632,16 +632,15 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	// extract buildmanifest
-	plist_t buildmanifest = NULL;
 	if (client->flags & FLAG_CUSTOM) {
 		info("Extracting Restore.plist from IPSW\n");
-		if (ipsw_extract_restore_plist(client->ipsw, &buildmanifest) < 0) {
+		if (ipsw_extract_restore_plist(client->ipsw, &client->build_manifest) < 0) {
 			error("ERROR: Unable to extract Restore.plist from %s. Firmware file might be corrupt.\n", client->ipsw);
 			return -1;
 		}
 	} else {
 		info("Extracting BuildManifest from IPSW\n");
-		if (ipsw_extract_build_manifest(client->ipsw, &buildmanifest, &tss_enabled) < 0) {
+		if (ipsw_extract_build_manifest(client->ipsw, &client->build_manifest, &tss_enabled) < 0) {
 			error("ERROR: Unable to extract BuildManifest from %s. Firmware file might be corrupt.\n", client->ipsw);
 			return -1;
 		}
@@ -649,13 +648,13 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.8);
 
 	/* check if device type is supported by the given build manifest */
-	if (build_manifest_check_compatibility(buildmanifest, client->device->product_type) < 0) {
+	if (build_manifest_check_compatibility(client->build_manifest, client->device->product_type) < 0) {
 		error("ERROR: Could not make sure this firmware is suitable for the current device. Refusing to continue.\n");
 		return -1;
 	}
 
 	/* print iOS information from the manifest */
-	build_manifest_get_version_information(buildmanifest, client);
+	build_manifest_get_version_information(client->build_manifest, client);
 
 	info("Product Version: %s\n", client->version);
 	info("Product Build: %s Major: %d\n", client->build, client->build_major);
@@ -757,7 +756,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			// add kernel cache
 			plist_t kdict = NULL;
 
-			node = plist_dict_get_item(buildmanifest, "KernelCachesByTarget");
+			node = plist_dict_get_item(client->build_manifest, "KernelCachesByTarget");
 			if (node && (plist_get_node_type(node) == PLIST_DICT)) {
 				char tt[4];
 				strncpy(tt, lcmodel, 3);
@@ -765,7 +764,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				kdict = plist_dict_get_item(node, tt);
 			} else {
 				// Populated in older iOS IPSWs
-				kdict = plist_dict_get_item(buildmanifest, "RestoreKernelCaches");
+				kdict = plist_dict_get_item(client->build_manifest, "RestoreKernelCaches");
 			}
 			if (kdict && (plist_get_node_type(kdict) == PLIST_DICT)) {
 				plist_t kc = plist_dict_get_item(kdict, "Release");
@@ -780,7 +779,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			}
 
 			// add ramdisk
-			node = plist_dict_get_item(buildmanifest, "RestoreRamDisks");
+			node = plist_dict_get_item(client->build_manifest, "RestoreRamDisks");
 			if (node && (plist_get_node_type(node) == PLIST_DICT)) {
 				plist_t rd = plist_dict_get_item(node, (client->flags & FLAG_ERASE) ? "User" : "Update");
 				// if no "Update" ram disk entry is found try "User" ram disk instead
@@ -799,7 +798,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			}
 
 			// add OS filesystem
-			node = plist_dict_get_item(buildmanifest, "SystemRestoreImages");
+			node = plist_dict_get_item(client->build_manifest, "SystemRestoreImages");
 			if (!node) {
 				error("ERROR: missing SystemRestoreImages in Restore.plist\n");
 			}
@@ -824,16 +823,15 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			plist_dict_set_item(build_identity, "Manifest", manifest);
 		}
 	} else if (client->flags & FLAG_ERASE) {
-		build_identity = build_manifest_get_build_identity_for_model_with_variant(buildmanifest, client->device->hardware_model, "Customer Erase Install (IPSW)");
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, "Customer Erase Install (IPSW)");
 		if (build_identity == NULL) {
 			error("ERROR: Unable to find any build identities\n");
-			plist_free(buildmanifest);
 			return -1;
 		}
 	} else {
-		build_identity = build_manifest_get_build_identity_for_model_with_variant(buildmanifest, client->device->hardware_model, "Customer Upgrade Install (IPSW)");
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, "Customer Upgrade Install (IPSW)");
 		if (!build_identity) {
-			build_identity = build_manifest_get_build_identity_for_model(buildmanifest, client->device->hardware_model);
+			build_identity = build_manifest_get_build_identity_for_model(client->build_manifest, client->device->hardware_model);
 		}
 	}
 
@@ -1011,7 +1009,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			error("ERROR: Unable to extract filesystem from IPSW\n");
 			if (client->tss)
 				plist_free(client->tss);
-			plist_free(buildmanifest);
 			info("Removing %s\n", filesystem);
 			unlink(filesystem);
 			return -1;
@@ -1134,7 +1131,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 		if (!client->tss) {
 			error("ERROR: could not fetch TSS record\n");
-			plist_free(buildmanifest);
 			return -1;
 		} else {
 			char *bin = NULL;
@@ -1164,7 +1160,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				error("ERROR: could not get TSS record data\n");
 			}
 			plist_free(client->tss);
-			plist_free(buildmanifest);
 			return 0;
 		}
 	}
@@ -1172,7 +1167,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	/* verify if we have tss records if required */
 	if ((tss_enabled) && (client->tss == NULL)) {
 		error("ERROR: Unable to proceed without a TSS record.\n");
-		plist_free(buildmanifest);
 		return -1;
 	}
 
@@ -1194,7 +1188,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			error("ERROR: Unable to place device into recovery mode from normal mode\n");
 			if (client->tss)
 				plist_free(client->tss);
-			plist_free(buildmanifest);
 			return -5;
 		}
 	}
@@ -1231,7 +1224,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 		if (dfu_enter_recovery(client, build_identity) < 0) {
 			error("ERROR: Unable to place device into recovery mode from DFU mode\n");
-			plist_free(buildmanifest);
 			if (client->tss)
 				plist_free(client->tss);
 			if (delete_fs && filesystem)
@@ -1355,7 +1347,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 		if (recovery_enter_restore(client, build_identity) < 0) {
 			error("ERROR: Unable to place device into restore mode\n");
-			plist_free(buildmanifest);
 			if (client->tss)
 				plist_free(client->tss);
 			if (delete_fs && filesystem)
@@ -1420,9 +1411,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	if (result == 0) {
 		idevicerestore_progress(client, RESTORE_NUM_STEPS-1, 1.0);
 	}
-
-	if (buildmanifest)
-		plist_free(buildmanifest);
 
 	if (build_identity)
 		plist_free(build_identity);
@@ -1491,6 +1479,12 @@ void idevicerestore_client_free(struct idevicerestore_client_t* client)
 	}
 	if (client->root_ticket) {
 		free(client->root_ticket);
+	}
+	if (client->build_manifest) {
+		plist_free(client->build_manifest);
+	}
+	if (client->preflight_info) {
+		plist_free(client->preflight_info);
 	}
 	free(client);
 }
