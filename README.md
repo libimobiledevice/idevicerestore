@@ -88,7 +88,7 @@ idevicerestore is available in the [AUR](https://aur.archlinux.org/packages/idev
 
 Install Dependencies: 
 ```shell
-sudo pacman --needed -S git curl libimobiledevice libirecovery libplist libzip openssl zlib
+sudo pacman --needed -S git curl libimobiledevice libirecovery libplist libzip openssl zlib usbmuxd
 ```
 Install idevicerestore from AUR:
 ```shell
