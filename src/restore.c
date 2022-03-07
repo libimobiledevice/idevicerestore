@@ -379,8 +379,8 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 	if (!client) {
 		return 0;
 	}
-	if (!client->srnm) {
-		error("ERROR: %s: no SerialNumber given in client data\n", __func__);
+	if (!client->ecid) {
+		error("ERROR: %s: no ECID given in client data\n", __func__);
 		return 0;
 	}
 
@@ -413,29 +413,31 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 		return 0;
 	}
 
-	plist_t node = NULL;
-	restore_error = restored_get_value(restored, "SerialNumber", &node);
-	if ((restore_error != RESTORE_E_SUCCESS) || !node || (plist_get_node_type(node) != PLIST_STRING)) {
-		error("ERROR: %s: Unable to get SerialNumber from restored\n", __func__);
+	plist_t hwinfo = NULL;
+	restore_error = restored_query_value(restored, "HardwareInfo", &hwinfo);
+	if ((restore_error != RESTORE_E_SUCCESS) || !hwinfo) {
+		error("ERROR: %s: Unable to get HardwareInfo from restored\n", __func__);
 		restored_client_free(restored);
 		idevice_free(device);
-		if (node) {
-			plist_free(node);
-		}
+		plist_free(hwinfo);
 		return 0;
 	}
 	restored_client_free(restored);
 	idevice_free(device);
 
-	char* this_srnm = NULL;
-	plist_get_string_val(node, &this_srnm);
-	plist_free(node);
+	uint64_t this_ecid = 0;
+	plist_t node = plist_dict_get_item(hwinfo, "UniqueChipID");
+	if (node && plist_get_node_type(node) == PLIST_UINT) {
+		plist_get_uint_val(node, &this_ecid);
+	}
+	plist_free(hwinfo);
 
-	if (!this_srnm) {
+	if (this_ecid == 0) {
+		error("ERROR: %s: Unable to get ECID from restored\n", __func__);
 		return 0;
 	}
 
-	return (strcasecmp(this_srnm, client->srnm) == 0);
+	return (this_ecid == client->ecid);
 }
 
 int restore_open_with_timeout(struct idevicerestore_client_t* client)
