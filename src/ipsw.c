@@ -45,13 +45,13 @@
 #endif
 
 #include <libimobiledevice-glue/termcolors.h>
+#include <plist/plist.h>
 
 #include "ipsw.h"
 #include "locking.h"
 #include "download.h"
 #include "common.h"
 #include "idevicerestore.h"
-#include "json_plist.h"
 
 #define BUFSIZE 0x100000
 
@@ -892,7 +892,7 @@ int ipsw_get_signed_firmwares(const char* product, plist_t* firmwares)
 		error("ERROR: Download from %s failed.\n", url);
 		return -1;
 	}
-	dict = json_to_plist(jdata);
+	plist_from_json(jdata, jsize, &dict);
 	free(jdata);
 	if (!dict || plist_get_node_type(dict) != PLIST_DICT) {
 		error("ERROR: Failed to parse json data.\n");
