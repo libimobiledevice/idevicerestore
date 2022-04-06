@@ -442,8 +442,6 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 
 int restore_open_with_timeout(struct idevicerestore_client_t* client)
 {
-	int i = 0;
-	int attempts = 180;
 	char *type = NULL;
 	uint64_t version = 0;
 	idevice_t device = NULL;
@@ -1129,7 +1127,6 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	unsigned char* nor_data = NULL;
 	plist_t norimage = NULL;
 	plist_t firmware_files = NULL;
-	uint32_t i;
 
 	info("About to send NORData...\n");
 
@@ -2209,7 +2206,6 @@ static plist_t restore_get_savage_firmware_data(restored_client_t restore, struc
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
-	plist_t node = NULL;
 	int ret;
 
 	/* create Savage request */
@@ -2295,13 +2291,11 @@ static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, stru
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
-	plist_t comp_node = NULL;
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
-	plist_t node = NULL;
 	int ret;
 
 	/* create Yonkers request */
@@ -2381,7 +2375,6 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
-	plist_t comp_node = NULL;
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
 	ftab_t ftab = NULL;
@@ -2390,7 +2383,6 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
-	plist_t node = NULL;
 	int ret;
 
 	/* create Rose request */
@@ -2518,13 +2510,11 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 {
 	char *comp_name = "BMU,FirmwareMap";
 	char *comp_path = NULL;
-	plist_t comp_node = NULL;
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
-	plist_t node = NULL;
 	int ret;
 
 	/* create Veridian request */
@@ -2616,13 +2606,11 @@ static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct 
 {
 	char *comp_name = "Baobab,TCON";
 	char *comp_path = NULL;
-	plist_t comp_node = NULL;
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
-	plist_t node = NULL;
 	int ret;
 
 	/* create Baobab request */
@@ -2687,7 +2675,6 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 {
 	char comp_name[64];
 	char *comp_path = NULL;
-	plist_t comp_node = NULL;
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
 	ftab_t ftab = NULL;
@@ -2696,7 +2683,6 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
-	plist_t node = NULL;
 	const char* ticket_name = NULL;
 	uint32_t tag = 0;
 	int ret;
@@ -2730,8 +2716,6 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 	} else {
 		plist_t info_dict = plist_array_get_item(info_array, 0);
 		plist_t hwid = plist_dict_get_item(info_dict, "HardwareID");
-		uint64_t u64val;
-		uint8_t bval;
 		tag = (uint32_t)_plist_dict_get_uint(info_dict, "TagNumber");
 		char key[64];
 
@@ -2743,34 +2727,25 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 		}
 
 		sprintf(key, "Timer,ChipID,%u", tag);
-		u64val = _plist_dict_get_uint(hwid, "ChipID");
-		plist_dict_set_item(parameters, key, plist_new_uint(u64val));
+		_plist_dict_copy_uint(parameters, hwid, key, "ChipID");
 
 		sprintf(key, "Timer,BoardID,%u", tag);
-		u64val = _plist_dict_get_uint(hwid, "BoardID");
-		plist_dict_set_item(parameters, key, plist_new_uint(u64val));
+		_plist_dict_copy_uint(parameters, hwid, key, "BoardID");
 
 		sprintf(key, "Timer,ECID,%u", tag);
-		u64val = _plist_dict_get_uint(hwid, "ECID");
-		plist_dict_set_item(parameters, key, plist_new_uint(u64val));
+		_plist_dict_copy_uint(parameters, hwid, key, "ECID");
 
-		plist_t p_nonce = plist_dict_get_item(hwid, "Nonce");
-		if (p_nonce) {
-			sprintf(key, "Timer,Nonce,%u", tag);
-			plist_dict_set_item(parameters, key, plist_copy(p_nonce));
-		}
+		sprintf(key, "Timer,Nonce,%u", tag);
+		_plist_dict_copy_data(parameters, hwid, key, "Nonce");
 
 		sprintf(key, "Timer,SecurityMode,%u", tag);
-		bval = _plist_dict_get_bool(hwid, "SecurityMode");
-		plist_dict_set_item(parameters, key, plist_new_bool(bval));
+		_plist_dict_copy_bool(parameters, hwid, key, "SecurityMode");
 
 		sprintf(key, "Timer,SecurityDomain,%u", tag);
-		u64val = _plist_dict_get_uint(hwid, "SecurityDomain");
-		plist_dict_set_item(parameters, key, plist_new_uint(u64val));
+		_plist_dict_copy_uint(parameters, hwid, key, "SecurityDomain");
 
 		sprintf(key, "Timer,ProductionMode,%u", tag);
-		u64val = _plist_dict_get_uint(hwid, "ProductionStatus");
-		plist_dict_set_item(parameters, key, plist_new_uint(u64val));
+		_plist_dict_copy_uint(parameters, hwid, key, "ProductionStatus");
 	}
 	plist_t ap_info = plist_dict_get_item(p_info, "APInfo");
 	if (!ap_info) {

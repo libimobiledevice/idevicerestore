@@ -645,3 +645,53 @@ uint8_t _plist_dict_get_bool(plist_t dict, const char *key)
 	}
 	return bval;
 }
+
+int _plist_dict_copy_uint(plist_t target_dict, plist_t source_dict, const char *key, const char *alt_source_key)
+{
+	if (plist_dict_get_item(source_dict, (alt_source_key) ? alt_source_key : key) == NULL) {
+		return -1;
+	}
+	uint64_t u64val = _plist_dict_get_uint(source_dict, (alt_source_key) ? alt_source_key : key);
+	plist_dict_set_item(target_dict, key, plist_new_uint(u64val));
+	return 0;
+}
+
+int _plist_dict_copy_bool(plist_t target_dict, plist_t source_dict, const char *key, const char *alt_source_key)
+{
+	if (plist_dict_get_item(source_dict, (alt_source_key) ? alt_source_key : key) == NULL) {
+		return -1;
+	}
+	uint64_t bval = _plist_dict_get_bool(source_dict, (alt_source_key) ? alt_source_key : key);
+	plist_dict_set_item(target_dict, key, plist_new_bool(bval));
+	return 0;
+}
+
+int _plist_dict_copy_data(plist_t target_dict, plist_t source_dict, const char *key, const char *alt_source_key)
+{
+	plist_t node = plist_dict_get_item(source_dict, (alt_source_key) ? alt_source_key : key);
+	if (!PLIST_IS_DATA(node)) {
+		return -1;
+	}
+	plist_dict_set_item(target_dict, key, plist_copy(node));
+	return 0;
+}
+
+int _plist_dict_copy_string(plist_t target_dict, plist_t source_dict, const char *key, const char *alt_source_key)
+{
+	plist_t node = plist_dict_get_item(source_dict, (alt_source_key) ? alt_source_key : key);
+	if (!PLIST_IS_STRING(node)) {
+		return -1;
+	}
+	plist_dict_set_item(target_dict, key, plist_copy(node));
+	return 0;
+}
+
+int _plist_dict_copy_item(plist_t target_dict, plist_t source_dict, const char *key, const char *alt_source_key)
+{
+	plist_t node = plist_dict_get_item(source_dict, (alt_source_key) ? alt_source_key : key);
+	if (!node) {
+		return -1;
+	}
+	plist_dict_set_item(target_dict, key, plist_copy(node));
+	return 0;
+}
