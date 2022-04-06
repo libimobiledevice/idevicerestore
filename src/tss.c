@@ -490,6 +490,48 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	}
 	node = NULL;
 
+	/* add Timer,BoardID,1 */
+	node = plist_dict_get_item(build_identity, "Timer,BoardID,1");
+	if (node) {
+		plist_dict_set_item(parameters, "Timer,BoardID,1", plist_copy(node));
+	}
+	node = NULL;
+
+	/* add Timer,BoardID,2 */
+	node = plist_dict_get_item(build_identity, "Timer,BoardID,2");
+	if (node) {
+		plist_dict_set_item(parameters, "Timer,BoardID,2", plist_copy(node));
+	}
+	node = NULL;
+
+	/* add Timer,ChipID,1 */
+	node = plist_dict_get_item(build_identity, "Timer,ChipID,1");
+	if (node) {
+		plist_dict_set_item(parameters, "Timer,ChipID,1", plist_copy(node));
+	}
+	node = NULL;
+
+	/* add Timer,ChipID,2 */
+	node = plist_dict_get_item(build_identity, "Timer,ChipID,2");
+	if (node) {
+		plist_dict_set_item(parameters, "Timer,ChipID,2", plist_copy(node));
+	}
+	node = NULL;
+
+	/* add Timer,SecurityDomain,1 */
+	node = plist_dict_get_item(build_identity, "Timer,SecurityDomain,1");
+	if (node) {
+		plist_dict_set_item(parameters, "Timer,SecurityDomain,1", plist_copy(node));
+	}
+	node = NULL;
+
+	/* add Timer,SecurityDomain,2 */
+	node = plist_dict_get_item(build_identity, "Timer,SecurityDomain,2");
+	if (node) {
+		plist_dict_set_item(parameters, "Timer,SecurityDomain,2", plist_copy(node));
+	}
+	node = NULL;
+
 	/* add build identity manifest dictionary */
 	node = plist_dict_get_item(build_identity, "Manifest");
 	if (!node || plist_get_node_type(node) != PLIST_DICT) {
@@ -1807,6 +1849,112 @@ int tss_request_add_tcon_tags(plist_t request, plist_t parameters, plist_t overr
 	if (overrides) {
 		plist_dict_merge(&request, overrides);
 	}
+	return 0;
+}
+
+int tss_request_add_timer_tags(plist_t request, plist_t parameters, plist_t overrides)
+{
+	plist_t node = NULL;
+	uint64_t u64val = 0;
+	uint8_t bval = 0;
+	uint32_t tag = 0;
+	char *ticket_name = NULL;
+
+	plist_t manifest_node = plist_dict_get_item(parameters, "Manifest");
+	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
+		error("ERROR: %s: Unable to get restore manifest from parameters\n", __func__);
+		return -1;
+	}
+
+	/* add tags indicating we want to get the Timer ticket */
+	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
+
+	node = plist_dict_get_item(parameters, "TicketName");
+	if (!node) {
+		error("ERROR: %s: Missing TicketName\n", __func__);
+		return -1;
+	}
+	char key[64];
+	sprintf(key, "@%s", plist_get_string_ptr(node, NULL));
+
+	plist_dict_set_item(request, key, plist_new_bool(1));
+
+	tag = (uint32_t)_plist_dict_get_uint(parameters, "TagNumber");
+
+	sprintf(key, "Timer,BoardID,%u", tag);
+	u64val = _plist_dict_get_uint(parameters, key);
+	plist_dict_set_item(request, key, plist_new_uint(u64val));
+
+	sprintf(key, "Timer,ChipID,%u", tag);
+	u64val = _plist_dict_get_uint(parameters, key);
+	plist_dict_set_item(request, key, plist_new_uint(u64val));
+
+	sprintf(key, "Timer,SecurityDomain,%u", tag);
+	u64val = _plist_dict_get_uint(parameters, key);
+	plist_dict_set_item(request, key, plist_new_uint(u64val));
+
+	sprintf(key, "Timer,SecurityMode,%u", tag);
+	bval = _plist_dict_get_bool(parameters, key);
+	plist_dict_set_item(request, key, plist_new_bool(bval));
+
+	sprintf(key, "Timer,ProductionMode,%u", tag);
+	bval = _plist_dict_get_bool(parameters, key);
+	plist_dict_set_item(request, key, plist_new_bool(bval));
+
+	sprintf(key, "Timer,ECID,%u", tag);
+	u64val = _plist_dict_get_uint(parameters, key);
+	plist_dict_set_item(request, key, plist_new_uint(u64val));
+
+	sprintf(key, "Timer,Nonce,%u", tag);
+	plist_t p_nonce = plist_dict_get_item(parameters, key);
+	plist_dict_set_item(request, key, plist_copy(p_nonce));
+
+	char *comp_name = NULL;
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(manifest_node, &iter);
+	while (iter) {
+		node = NULL;
+		comp_name = NULL;
+		plist_dict_next_item(manifest_node, iter, &comp_name, &node);
+		if (comp_name == NULL) {
+			node = NULL;
+			break;
+		}
+		if (!strncmp(comp_name, "Timer,", 6)) {
+			plist_t manifest_entry = plist_copy(node);
+
+			/* handle RestoreRequestRules */
+			plist_t rules = plist_access_path(manifest_entry, 2, "Info", "RestoreRequestRules");
+			if (rules) {
+				debug("DEBUG: Applying restore request rules for entry %s\n", comp_name);
+				tss_entry_apply_restore_request_rules(manifest_entry, parameters, rules);
+			}
+
+			/* Make sure we have a Digest key for Trusted items even if empty */
+			plist_t node = plist_dict_get_item(manifest_entry, "Trusted");
+			if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
+				uint8_t trusted;
+				plist_get_bool_val(node, &trusted);
+				if (trusted && !plist_access_path(manifest_entry, 1, "Digest")) {
+					debug("DEBUG: No Digest data, using empty value for entry %s\n", comp_name);
+					plist_dict_set_item(manifest_entry, "Digest", plist_new_data(NULL, 0));
+				}
+			}
+
+			plist_dict_remove_item(manifest_entry, "Info");
+
+			/* finally add entry to request */
+			plist_dict_set_item(request, comp_name, manifest_entry);
+		}
+		free(comp_name);
+	}
+	free(iter);
+
+	/* apply overrides */
+	if (overrides) {
+		plist_dict_merge(&request, overrides);
+	}
+
 	return 0;
 }
 
