@@ -268,7 +268,7 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters)
 		}
 	}
 
-	_plist_dict_copy_data(request, parameters, "ApSepNonce", NULL);
+	_plist_dict_copy_data(request, parameters, "SepNonce", "ApSepNonce");
 	_plist_dict_copy_data(request, parameters, "PearlCertificationRootPub", NULL);
 
 	return 0;
