@@ -377,12 +377,24 @@ int normal_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid)
 
 int normal_get_preflight_info(struct idevicerestore_client_t* client, plist_t *preflight_info)
 {
-	plist_t node = normal_get_lockdown_value(client, NULL, "FirmwarePreflightInfo");
-	if (!node || plist_get_node_type(node) != PLIST_DICT) {
-		error("ERROR: Unable to get FirmwarePreflightInfo\n");
-		return -1;
+	uint8_t has_telephony_capability = 0;
+	plist_t node;
+
+	node = normal_get_lockdown_value(client, NULL, "TelephonyCapability");
+	plist_get_bool_val(node, &has_telephony_capability);
+	plist_free(node);
+
+	if (has_telephony_capability) {
+		node = normal_get_lockdown_value(client, NULL, "FirmwarePreflightInfo");
+		if (!node || plist_get_node_type(node) != PLIST_DICT) {
+			error("ERROR: Unable to get FirmwarePreflightInfo\n");
+			return -1;
+		}
+		*preflight_info = node;
+	} else {
+		debug("DEBUG: Device does not have TelephonyCapability, no FirmwarePreflightInfo\n");
+		*preflight_info = NULL;
 	}
-	*preflight_info = node;
 
 	return 0;
 }
@@ -577,7 +589,6 @@ int normal_handle_commit_stashbag(struct idevicerestore_client_t* client, plist_
 	if (perr != PREBOARD_E_SUCCESS) {
 		error("ERROR: could not receive from preboard service (%d)\n", perr);
 	} else {
-		int commit_complete = 0;
 		plist_t node = plist_dict_get_item(pl, "Error");
 		if (node) {
 			char *strval = NULL;
