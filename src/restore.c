@@ -1109,7 +1109,7 @@ int restore_send_component(restored_client_t restore, struct idevicerestore_clie
 	return 0;
 }
 
-int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity)
+int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
 {
 	char* llb_path = NULL;
 	char* llb_filename = NULL;
@@ -1127,8 +1127,14 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	unsigned char* nor_data = NULL;
 	plist_t norimage = NULL;
 	plist_t firmware_files = NULL;
+	int flash_version_1 = 0;
 
 	info("About to send NORData...\n");
+
+	plist_t arguments = plist_dict_get_item(message, "Arguments");
+	if (arguments && plist_get_node_type(arguments) == PLIST_DICT) {
+		flash_version_1 = plist_dict_get_item(arguments, "FlashVersion1") ? 1 : 0;
+	}
 
 	if (client->tss) {
 		if (tss_response_get_path_by_entry(client->tss, "LLB", &llb_path) < 0) {
@@ -1249,9 +1255,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	plist_dict_set_item(dict, "LlbImageData", plist_new_data((char*)llb_data, (uint64_t) llb_size));
 	free(llb_data);
 
-	if (client->build_major >= 20) {
-		// Starting with M1 macs, it seems that NorImageData is now a dict.
-		// Sending an array like previous versions results in restore success but the machine will SOS after rebooting.
+	if (flash_version_1) {
 		norimage = plist_new_dict();
 	} else {
 		norimage = plist_new_array();
@@ -1307,7 +1311,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		component_data = NULL;
 		component_size = 0;
 
-		if (client->build_major >= 20) {
+		if (flash_version_1) {
 			plist_dict_set_item(norimage, component, plist_new_data((char*)nor_data, (uint64_t)nor_size));
 		} else {
 			/* make sure iBoot is the first entry in the array */
@@ -3633,7 +3637,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		else if (!strcmp(type, "NORData")) {
 			if((client->flags & FLAG_EXCLUDE) == 0) {
-				if(restore_send_nor(restore, client, build_identity) < 0) {
+				if(restore_send_nor(restore, client, build_identity, message) < 0) {
 					error("ERROR: Unable to send NOR data\n");
 					return -1;
 				}
