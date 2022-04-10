@@ -3142,9 +3142,9 @@ plist_t restore_get_build_identity(struct idevicerestore_client_t* client, uint8
 	if (is_recover_os)
 		variant = RESTORE_VARIANT_MACOS_RECOVERY_OS;
 	else if (client->flags & FLAG_ERASE)
-		variant = RESTORE_VARIANT_CUSTOMER_ERASE;
+		variant = RESTORE_VARIANT_ERASE_INSTALL;
 	else
-		variant = RESTORE_VARIANT_CUSTOMER_UPGRADE;
+		variant = RESTORE_VARIANT_UPGRADE_INSTALL;
 
 	plist_t build_identity = build_manifest_get_build_identity_for_model_with_variant(
 			client->build_manifest,

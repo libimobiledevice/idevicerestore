@@ -816,20 +816,20 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			// add info
 			inf = plist_new_dict();
 			plist_dict_set_item(inf, "RestoreBehavior", plist_new_string((client->flags & FLAG_ERASE) ? "Erase" : "Update"));
-			plist_dict_set_item(inf, "Variant", plist_new_string((client->flags & FLAG_ERASE) ? RESTORE_VARIANT_CUSTOMER_ERASE : RESTORE_VARIANT_CUSTOMER_UPGRADE));
+			plist_dict_set_item(inf, "Variant", plist_new_string((client->flags & FLAG_ERASE) ? "Customer " RESTORE_VARIANT_ERASE_INSTALL : "Customer " RESTORE_VARIANT_UPGRADE_INSTALL));
 			plist_dict_set_item(build_identity, "Info", inf);
 
 			// finally add manifest
 			plist_dict_set_item(build_identity, "Manifest", manifest);
 		}
 	} else if (client->flags & FLAG_ERASE) {
-		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_CUSTOMER_ERASE);
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_ERASE_INSTALL);
 		if (build_identity == NULL) {
 			error("ERROR: Unable to find any build identities\n");
 			return -1;
 		}
 	} else {
-		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_CUSTOMER_UPGRADE);
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_UPGRADE_INSTALL);
 		if (!build_identity) {
 			build_identity = build_manifest_get_build_identity_for_model(client->build_manifest, client->device->hardware_model);
 		}
@@ -1978,28 +1978,25 @@ plist_t build_manifest_get_build_identity_for_model_with_variant(plist_t build_m
 		if (!devclass || plist_get_node_type(devclass) != PLIST_STRING) {
 			continue;
 		}
-		char *str = NULL;
-		plist_get_string_val(devclass, &str);
+		const char *str = plist_get_string_ptr(devclass, NULL);
 		if (strcasecmp(str, hardware_model) != 0) {
-			free(str);
 			continue;
 		}
-		free(str);
-		str = NULL;
 		if (variant) {
 			plist_t rvariant = plist_dict_get_item(info_dict, "Variant");
 			if (!rvariant || plist_get_node_type(rvariant) != PLIST_STRING) {
 				continue;
 			}
-			plist_get_string_val(rvariant, &str);
-			if (strcasecmp(str, variant) != 0) {
-				free(str);
+			str = plist_get_string_ptr(rvariant, NULL);
+			if (strcmp(str, variant) != 0) {
+				/* if it's not a full match, let's try a partial match */
+				if (strstr(str, variant)) {
+					return plist_copy(ident);
+				}
 				continue;
 			} else {
-				free(str);
 				return plist_copy(ident);
 			}
-			free(str);
 		} else {
 			return plist_copy(ident);
 		}
