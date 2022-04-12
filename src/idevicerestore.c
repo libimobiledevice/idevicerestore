@@ -2220,50 +2220,20 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		plist_t pinfo = NULL;
 		normal_get_preflight_info(client, &pinfo);
 		if (pinfo) {
-			plist_t node;
-			node = plist_dict_get_item(pinfo, "Nonce");
-			if (node) {
-				plist_dict_set_item(parameters, "BbNonce", plist_copy(node));
-			}
-			node = plist_dict_get_item(pinfo, "ChipID");
-			if (node) {
-				plist_dict_set_item(parameters, "BbChipID", plist_copy(node));
-			}
-			node = plist_dict_get_item(pinfo, "CertID");
-			if (node) {
-				plist_dict_set_item(parameters, "BbGoldCertId", plist_copy(node));
-			}
-			node = plist_dict_get_item(pinfo, "ChipSerialNo");
-			if (node) {
-				plist_dict_set_item(parameters, "BbSNUM", plist_copy(node));
-			}
+			_plist_dict_copy_data(parameters, pinfo, "BbNonce", "Nonce");
+			_plist_dict_copy_uint(parameters, pinfo, "BbChipID", "ChipID");
+			_plist_dict_copy_uint(parameters, pinfo, "BbGoldCertId", "CertID");
+			_plist_dict_copy_data(parameters, pinfo, "BbSNUM", "ChipSerialNo");
 
 			/* add baseband parameters */
 			tss_request_add_baseband_tags(request, parameters, NULL);
 
-			node = plist_dict_get_item(pinfo, "EUICCChipID");
-			uint64_t euiccchipid = 0;
-			if (node && plist_get_node_type(node) == PLIST_UINT) {
-				plist_get_uint_val(node, &euiccchipid);
-				plist_dict_set_item(parameters, "eUICC,ChipID", plist_copy(node));
-			}
-			if (euiccchipid >= 5) {
-				node = plist_dict_get_item(pinfo, "EUICCCSN");
-				if (node) {
-					plist_dict_set_item(parameters, "eUICC,EID", plist_copy(node));
-				}
-				node = plist_dict_get_item(pinfo, "EUICCCertIdentifier");
-				if (node) {
-					plist_dict_set_item(parameters, "eUICC,RootKeyIdentifier", plist_copy(node));
-				}
-				node = plist_dict_get_item(pinfo, "EUICCGoldNonce");
-				if (node) {
-					plist_dict_set_item(parameters, "EUICCGoldNonce", plist_copy(node));
-				}
-				node = plist_dict_get_item(pinfo, "EUICCMainNonce");
-				if (node) {
-					plist_dict_set_item(parameters, "EUICCMainNonce", plist_copy(node));
-				}
+			_plist_dict_copy_uint(parameters, pinfo, "eUICC,ChipID", "EUICCChipID");
+			if (_plist_dict_get_uint(parameters, "eUICC,ChipID") >= 5) {
+				_plist_dict_copy_data(parameters, pinfo, "eUICC,EID", "EUICCCSN");
+				_plist_dict_copy_data(parameters, pinfo, "eUICC,RootKeyIdentifier", "EUICCCertIdentifier");
+				_plist_dict_copy_data(parameters, pinfo, "EUICCGoldNonce", NULL);
+				_plist_dict_copy_data(parameters, pinfo, "EUICCMainNonce", NULL);
 
 				/* add vinyl parameters */
 				tss_request_add_vinyl_tags(request, parameters, NULL);
@@ -2419,11 +2389,8 @@ int get_recovery_os_local_policy_tss_response(
 	plist_dict_set_item(lpol, "Trusted", plist_new_bool(1));
 	plist_dict_set_item(parameters, "Ap,LocalPolicy", lpol);
 
-	plist_t im4m_hash = plist_dict_get_item(args, "Ap,NextStageIM4MHash");
-	plist_dict_set_item(parameters, "Ap,NextStageIM4MHash", plist_copy(im4m_hash));
-
-	plist_t nonce_hash = plist_dict_get_item(args, "Ap,RecoveryOSPolicyNonceHash");
-	plist_dict_set_item(parameters, "Ap,RecoveryOSPolicyNonceHash", plist_copy(nonce_hash));
+	_plist_dict_copy_data(parameters, args, "Ap,NextStageIM4MHash", NULL);
+	_plist_dict_copy_data(parameters, args, "Ap,RecoveryOSPolicyNonceHash", NULL);
 
 	plist_t vol_uuid_node = plist_dict_get_item(args, "Ap,VolumeUUID");
 	char* vol_uuid_str = NULL;

@@ -3936,7 +3936,6 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	plist_dict_set_item(opts, "AutoBootDelay", plist_new_uint(0));
 
 	if (client->preflight_info) {
-		plist_t node;
 		plist_t bbus = plist_copy(client->preflight_info);
 
 		plist_dict_remove_item(bbus, "FusingStatus");
@@ -3944,10 +3943,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 		plist_dict_set_item(opts, "BBUpdaterState", bbus);
 
-		node = plist_dict_get_item(client->preflight_info, "Nonce");
-		if (node) {
-			plist_dict_set_item(opts, "BasebandNonce", plist_copy(node));
-		}
+		_plist_dict_copy_data(opts, client->preflight_info, "BasebandNonce", "Nonce");
 	}
 
 	plist_dict_set_item(opts, "SupportedDataTypes", restore_supported_data_types());

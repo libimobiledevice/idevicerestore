@@ -627,8 +627,6 @@ int img4_create_local_manifest(plist_t request, plist_t build_identity, plist_t*
 	unsigned int length = 0;
 	uint64_t uintval = 0;
 	unsigned int boolval = 0;
-	char *strval = NULL;
-	plist_t node = NULL;
 
 	unsigned char tmp_[1024];
 	unsigned char *tmp = &tmp_[0];
