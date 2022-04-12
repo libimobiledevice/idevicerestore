@@ -124,7 +124,7 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 {
 	if (client->build_major >= 8) {
 		client->restore_boot_args = strdup("rd=md0 nand-enable-reformat=1 -progress");
-	} else if (client->build_major >= 20) {
+	} else if (client->macos_variant) {
 		client->restore_boot_args = strdup("rd=md0 nand-enable-reformat=1 -progress -restore");
 	}
 

@@ -671,8 +671,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	// choose whether this is an upgrade or a restore (default to upgrade)
 	client->tss = NULL;
 	plist_t build_identity = NULL;
+	int build_identity_needs_free = 0;
 	if (client->flags & FLAG_CUSTOM) {
 		build_identity = plist_new_dict();
+		build_identity_needs_free = 1;
 		{
 			plist_t node;
 			plist_t comp;
@@ -699,6 +701,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			uint32_t msize = 0;
 			if (ipsw_extract_to_memory(client->ipsw, tmpstr, (unsigned char**)&fmanifest, &msize) < 0) {
 				error("ERROR: could not extract %s from IPSW\n", tmpstr);
+				free(build_identity);
 				return -1;
 			}
 
@@ -835,8 +838,14 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 	}
 
+	client->macos_variant = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_MACOS_RECOVERY_OS);
+
 	/* print information about current build identity */
 	build_identity_print_information(build_identity);
+
+	if (client->macos_variant) {
+		info("Performing macOS restore\n");
+	}
 
 	if (client->mode == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
 		plist_t pver = normal_get_lockdown_value(client, NULL, "ProductVersion");
@@ -1092,7 +1101,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
 		}
-		if (client->build_major >= 20) {
+		if (client->macos_variant) {
 			if (get_local_policy_tss_response(client, build_identity, &client->tss_localpolicy) < 0) {
 				error("ERROR: Unable to get SHSH blobs for this device (local policy)\n");
 				return -1;
@@ -1412,7 +1421,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		idevicerestore_progress(client, RESTORE_NUM_STEPS-1, 1.0);
 	}
 
-	if (build_identity)
+	if (build_identity_needs_free)
 		plist_free(build_identity);
 
 	return result;
@@ -1991,14 +2000,14 @@ plist_t build_manifest_get_build_identity_for_model_with_variant(plist_t build_m
 			if (strcmp(str, variant) != 0) {
 				/* if it's not a full match, let's try a partial match */
 				if (strstr(str, variant)) {
-					return plist_copy(ident);
+					return ident;
 				}
 				continue;
 			} else {
-				return plist_copy(ident);
+				return ident;
 			}
 		} else {
-			return plist_copy(ident);
+			return ident;
 		}
 	}
 
@@ -2591,8 +2600,6 @@ int build_manifest_get_identity_count(plist_t build_manifest)
 		error("ERROR: Unable to find build identities node\n");
 		return -1;
 	}
-
-	// check and make sure this identity exists in buildmanifest
 	return plist_array_get_size(build_identities_array);
 }
 

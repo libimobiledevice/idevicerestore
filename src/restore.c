@@ -3135,11 +3135,11 @@ static int restore_send_bootability_bundle_data(restored_client_t restore, struc
     return 0;
 }
 
-plist_t restore_get_build_identity(struct idevicerestore_client_t* client, uint8_t is_recover_os)
+plist_t restore_get_build_identity(struct idevicerestore_client_t* client, uint8_t is_recovery_os)
 {
 	const char *variant;
 
-	if (is_recover_os)
+	if (is_recovery_os)
 		variant = RESTORE_VARIANT_MACOS_RECOVERY_OS;
 	else if (client->flags & FLAG_ERASE)
 		variant = RESTORE_VARIANT_ERASE_INSTALL;
@@ -3160,11 +3160,7 @@ plist_t restore_get_build_identity(struct idevicerestore_client_t* client, uint8
 plist_t restore_get_build_identity_from_request(struct idevicerestore_client_t* client, plist_t msg)
 {
 	plist_t args = plist_dict_get_item(msg, "Arguments");
-	plist_t is_recovery_node = plist_dict_get_item(args, "IsRecoveryOS");
-	uint8_t is_recovery = 0;
-	plist_get_bool_val(is_recovery_node, &is_recovery);
-
-	return restore_get_build_identity(client, is_recovery);
+	return restore_get_build_identity(client, _plist_dict_get_bool(args, "IsRecoveryOS"));
 }
 
 int extract_macos_variant(plist_t build_identity, char** output)
@@ -3958,7 +3954,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	plist_dict_set_item(opts, "SupportedMessageTypes", restore_supported_message_types());
 
 	// FIXME: Should be adjusted for update behaviors
-	if (client->build_major >= 20) {
+	if (client->macos_variant) {
 		plist_dict_set_item(opts, "AddSystemPartitionPadding", plist_new_bool(1));
 		plist_dict_set_item(opts, "AllowUntetheredRestore", plist_new_bool(0));
 		plist_dict_set_item(opts, "AuthInstallEnableSso", plist_new_bool(0));

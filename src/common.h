@@ -123,6 +123,7 @@ struct idevicerestore_client_t {
 	mutex_t device_event_mutex;
 	cond_t device_event_cond;
 	int ignore_device_add_events;
+	plist_t macos_variant;
 };
 
 extern struct idevicerestore_mode_t idevicerestore_modes[];

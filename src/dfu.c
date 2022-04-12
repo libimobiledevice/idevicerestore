@@ -484,7 +484,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		mutex_lock(&client->device_event_mutex);
 
 		// Now, before sending iBEC, we must send necessary firmwares on new versions.
-		if (client->build_major >= 20) {
+		if (client->macos_variant) {
 			// Without this empty policy file & its special signature, iBEC won't start.
 			if (dfu_send_component_and_command(client, build_identity, "Ap,LocalPolicy", "lpolrestore") < 0) {
 				mutex_unlock(&client->device_event_mutex);
