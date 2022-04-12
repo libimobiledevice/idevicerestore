@@ -1755,6 +1755,8 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
+	info("%s %s\n", PACKAGE_NAME, PACKAGE_VERSION);
+
 	if (ipsw) {
 		client->ipsw = strdup(ipsw);
 	}
