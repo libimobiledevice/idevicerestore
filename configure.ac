@@ -2,17 +2,17 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([idevicerestore],[1.0.1],[https://github.com/libimobiledevice/idevicerestore/issues],[],[https://libimobiledevice.org])
-
-AC_CANONICAL_TARGET
+AC_INIT([idevicerestore], [m4_esyscmd(./git-version-gen $RELEASE_VERSION)], [https://github.com/libimobiledevice/idevicerestore/issues], [], [https://libimobiledevice.org])
 AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip])
-
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
-
 AC_CONFIG_SRCDIR([src/])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
+# Check if we have a version defined
+if test -z $PACKAGE_VERSION; then
+  AC_MSG_ERROR([PACKAGE_VERSION is not defined. Make sure to configure a source tree checked out from git or that .tarball-version is present.])
+fi
 
 # Minimum package versions
 LIBIRECOVERY_VERSION=1.0.1
@@ -48,39 +48,52 @@ PKG_CHECK_MODULES(zlib, zlib)
 # optional
 PKG_CHECK_MODULES(openssl, openssl >= $OPENSSL_VERSION, have_openssl=yes, have_openssl=no)
 
-# Checking endianness
-AC_C_BIGENDIAN([AC_DEFINE([__BIG_ENDIAN__], [1], [big endian])],
-               [AC_DEFINE([__LITTLE_ENDIAN__], [1], [little endian])])
-
-GLOBAL_CFLAGS="-Wno-multichar -O2"
-AC_LDADD=""
-AC_LDFLAGS=""
-AC_MSG_CHECKING([whether we need platform-specific build settings])
-case ${host_os} in
-  *mingw32*|*cygwin*)
-    AC_MSG_RESULT([yes])
-    win32=true
-    GLOBAL_CFLAGS+=" -DWIN32 -D__LITTLE_ENDIAN__=1"
-    AC_LDFLAGS+=" -static-libgcc"
-    ;;
-  darwin*)
-    AC_MSG_RESULT([yes])
-    AC_DEFINE([_DARWIN_BETTER_REALPATH], [1], [Use better method for realpath])
-    AX_PTHREAD([], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
-    ;;
-  *)
-    AC_MSG_RESULT([yes])
-    AX_PTHREAD([], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
-    ;;
-esac
-AM_CONDITIONAL(WIN32, test x$win32 = xtrue)
-
 AC_CHECK_FUNCS([strsep strcspn mkstemp realpath])
 if test x$ac_cv_func_strsep != xyes; then
   if test x$ac_cv_func_strcspn != xyes; then
     AC_MSG_ERROR([You need either strsep or strcspn to build $PACKAGE])
   fi
 fi
+
+
+AC_CHECK_HEADER(endian.h, [ac_cv_have_endian_h="yes"], [ac_cv_have_endian_h="no"])
+if test "x$ac_cv_have_endian_h" = "xno"; then
+  AC_DEFINE(__LITTLE_ENDIAN,1234,[little endian])
+  AC_DEFINE(__BIG_ENDIAN,4321,[big endian])
+  AC_C_BIGENDIAN([ac_cv_c_bigendian="yes"], [ac_cv_c_bigendian="no"], [], [])
+  if test "x$ac_cv_c_bigendian" = "xyes"; then
+    AC_DEFINE(__BYTE_ORDER,4321,[big endian byte order])
+  else
+    AC_DEFINE(__BYTE_ORDER,1234,[little endian byte order])
+  fi
+fi
+
+GLOBAL_CFLAGS="-Wno-multichar -O2"
+AC_LDADD=""
+AC_LDFLAGS=""
+
+AC_CHECK_DECL([plist_from_json], [], [AC_MSG_ERROR([libplist with JSON format support required to build $PACKAGE_NAME])], [[#include <plist/plist.h>]])
+
+# Check for operating system
+AC_MSG_CHECKING([for platform-specific build settings])
+case ${host_os} in
+  *mingw32*|*cygwin*)
+    AC_MSG_RESULT([${host_os}])
+    win32=true
+    GLOBAL_CFLAGS+=" -DWIN32 -D__LITTLE_ENDIAN__=1"
+    AC_LDFLAGS+=" -static-libgcc"
+    ;;
+  darwin*)
+    AC_MSG_RESULT([${host_os}])
+    AC_DEFINE([_DARWIN_BETTER_REALPATH], [1], [Use better method for realpath])
+    AX_PTHREAD([], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
+    ;;
+  *)
+    AC_MSG_RESULT([${host_os}])
+    AX_PTHREAD([], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
+    ;;
+esac
+AM_CONDITIONAL(WIN32, test x$win32 = xtrue)
 
 CACHED_CFLAGS="$CFLAGS"
 CFLAGS+=" $libimobiledevice_CFLAGS"
