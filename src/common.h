@@ -89,7 +89,6 @@ struct idevicerestore_entry_t {
 struct idevicerestore_client_t {
 	int flags;
 	plist_t tss;
-	plist_t tss_localpolicy;
 	plist_t tss_recoveryos_root_ticket;
 	char* tss_url;
 	plist_t version_data;

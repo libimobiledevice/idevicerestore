@@ -129,40 +129,31 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 
 	// Use a specific TSS ticket for the Ap,LocalPolicy component
 	plist_t tss = client->tss;
-	if (strcmp(component, "Ap,LocalPolicy") == 0) {
-		tss = client->tss_localpolicy;
-	}
 
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
 
-	if (strcmp(component, "Ap,LocalPolicy") == 0) {
-		// If Ap,LocalPolicy => Inject an empty policy
-		component_data = malloc(sizeof(lpol_file));
-		component_size = sizeof(lpol_file);
-		memcpy(component_data, lpol_file, component_size);
-	} else {
-		if (tss) {
-			if (tss_response_get_path_by_entry(tss, component, &path) < 0) {
-				debug("NOTE: No path for component %s in TSS, will fetch from build_identity\n", component);
-			}
-		}
-		if (!path) {
-			if (build_identity_get_component_path(build_identity, component, &path) < 0) {
-				error("ERROR: Unable to get path for component '%s'\n", component);
-				free(path);
-				return -1;
-			}
-		}
+    if (tss) {
+        if (tss_response_get_path_by_entry(tss, component, &path) < 0) {
+            debug("NOTE: No path for component %s in TSS, will fetch from build_identity\n", component);
+        }
+    }
+    if (!path) {
+        if (build_identity_get_component_path(build_identity, component, &path) < 0) {
+            error("ERROR: Unable to get path for component '%s'\n", component);
+            free(path);
+            return -1;
+        }
+    }
 
-		if (extract_component(client->ipsw, path, &component_data, &component_size) < 0) {
-			error("ERROR: Unable to extract component: %s\n", component);
-			free(path);
-			return -1;
-		}
-		free(path);
-		path = NULL;
-	}
+    if (extract_component(client->ipsw, path, &component_data, &component_size) < 0) {
+        error("ERROR: Unable to extract component: %s\n", component);
+        free(path);
+        return -1;
+    }
+    free(path);
+    path = NULL;
+
 
 	unsigned char* data = NULL;
 	uint32_t size = 0;

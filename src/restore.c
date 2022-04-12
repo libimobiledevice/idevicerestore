@@ -3477,13 +3477,13 @@ int restore_send_restore_local_policy(restored_client_t restore, struct idevicer
 	// The Update mode does not have a specific build identity for the recovery os.
 	plist_t build_identity = restore_get_build_identity(client, client->flags & FLAG_ERASE ? 1 : 0);
 
-	int ret = get_recovery_os_local_policy_tss_response(client, build_identity, &client->tss_localpolicy, plist_dict_get_item(msg, "Arguments"));
+	int ret = get_recovery_os_local_policy_tss_response(client, build_identity, &client->tss, plist_dict_get_item(msg, "Arguments"));
 	if (ret < 0) {
 		error("ERROR: Unable to get recovery os local policy tss response\n");
 		return -1;
 	}
 
-	ret = personalize_component(component, component_data, component_size, client->tss_localpolicy, &data, &size);
+	ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
 	free(component_data);
 	component_data = NULL;
 	if (ret < 0) {

@@ -151,13 +151,6 @@ static void usage(int argc, char* argv[], int err)
 }
 #endif
 
-const uint8_t lpol_file[22] = {
-		0x30, 0x14, 0x16, 0x04, 0x49, 0x4d, 0x34, 0x50,
-		0x16, 0x04, 0x6c, 0x70, 0x6f, 0x6c, 0x16, 0x03,
-		0x31, 0x2e, 0x30, 0x04, 0x01, 0x00
-};
-const uint32_t lpol_file_length = 22;
-
 static int idevicerestore_keep_pers = 0;
 
 static int load_version_data(struct idevicerestore_client_t* client)
@@ -1093,7 +1086,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return -1;
 		}
 		if (client->build_major >= 20) {
-			if (get_local_policy_tss_response(client, build_identity, &client->tss_localpolicy) < 0) {
+			if (get_local_policy_tss_response(client, build_identity, &client->tss) < 0) {
 				error("ERROR: Unable to get SHSH blobs for this device (local policy)\n");
 				return -1;
 			}
