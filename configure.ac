@@ -72,6 +72,7 @@ GLOBAL_CFLAGS="-Wno-multichar -O2"
 AC_LDADD=""
 AC_LDFLAGS=""
 
+CFLAGS="$CFLAGS $libplist_CFLAGS"
 AC_CHECK_DECL([plist_from_json], [], [AC_MSG_ERROR([libplist with JSON format support required to build $PACKAGE_NAME])], [[#include <plist/plist.h>]])
 
 # Check for operating system
