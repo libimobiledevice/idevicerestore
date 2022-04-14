@@ -87,14 +87,18 @@ case ${host_os} in
   darwin*)
     AC_MSG_RESULT([${host_os}])
     AC_DEFINE([_DARWIN_BETTER_REALPATH], [1], [Use better method for realpath])
-    AX_PTHREAD([], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
     ;;
   *)
     AC_MSG_RESULT([${host_os}])
-    AX_PTHREAD([], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
     ;;
 esac
 AM_CONDITIONAL(WIN32, test x$win32 = xtrue)
+
+if test x$win32 != xtrue; then
+  if test "x$ac_cv_func_mkstemp" != xyes; then
+    AC_CHECK_LIB(pthread, [pthread_self], [], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
+  fi
+fi
 
 CACHED_CFLAGS="$CFLAGS"
 CFLAGS+=" $libimobiledevice_CFLAGS"
