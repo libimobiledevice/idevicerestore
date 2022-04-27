@@ -564,7 +564,7 @@ uint64_t _plist_dict_get_uint(plist_t dict, const char *key)
 	uint64_t strsz = 0;
 	plist_t node = plist_dict_get_item(dict, key);
 	if (!node) {
-		return (uint64_t)-1LL;
+		return uintval;
 	}
 	switch (plist_get_node_type(node)) {
 	case PLIST_UINT:
