@@ -1826,7 +1826,7 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 		plist_dict_set_item(parameters, "BbGoldCertId", plist_new_uint(bb_cert_id));
 		plist_dict_set_item(parameters, "BbSNUM", plist_new_data((const char*)bb_snum, bb_snum_size));
 
-		tss_parameters_add_from_manifest(parameters, build_identity);
+		tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 		/* create baseband request */
 		plist_t request = tss_request_new(NULL);
@@ -2167,7 +2167,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	/* add SE,* tags from info dictionary to parameters */
 	plist_dict_merge(&parameters, p_info);
@@ -2222,7 +2222,7 @@ static plist_t restore_get_savage_firmware_data(restored_client_t restore, struc
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	/* add Savage,* tags from info dictionary to parameters */
 	plist_dict_merge(&parameters, p_info);
@@ -2314,7 +2314,7 @@ static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, stru
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	/* add Yonkers,* tags from info dictionary to parameters */
 	plist_dict_merge(&parameters, p_info);
@@ -2400,7 +2400,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
 	if (client->image4supported) {
@@ -2532,7 +2532,7 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	/* add BMU,* tags from info dictionary to parameters */
 	plist_dict_merge(&parameters, p_info);
@@ -2628,7 +2628,7 @@ static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct 
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	/* add Baobab,* tags from info dictionary to parameters */
 	plist_dict_merge(&parameters, p_info);
@@ -2701,7 +2701,7 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
 	if (client->image4supported) {
@@ -2860,6 +2860,63 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 	return response;
 }
 
+static plist_t restore_get_cryptex1_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info, plist_t arguments)
+{
+	plist_t parameters = NULL;
+	plist_t request = NULL;
+	plist_t response = NULL;
+
+	/* create Timer request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create Cryptex1 TSS request\n");
+		return NULL;
+	}
+
+	parameters = plist_new_dict();
+
+	/* add manifest for current build_identity to parameters (Cryptex1 will require the manifest in a seperate message) */
+	tss_parameters_add_from_manifest(parameters, build_identity, false);
+
+	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
+	plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(1));
+
+	/* add Timer,* tags from info dictionary to parameters */
+	plist_t device_generated_request = plist_dict_get_item(arguments, "DeviceGeneratedRequest");
+	if (!device_generated_request) {
+		error("ERROR: Could not find DeviceGeneratedRequest in arguments dictionary\n");
+		plist_free(parameters);
+		return NULL;
+	}
+
+	plist_dict_merge(&parameters, device_generated_request);
+
+	/* add common tags */
+	tss_request_add_common_tags(request, p_info, NULL);
+
+	/* add Cryptex1 tags */
+	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
+	plist_dict_merge(&request, parameters);
+
+	plist_free(parameters);
+
+	info("Sending Cryptex1 TSS request...\n");
+	response = tss_request_send(request, client->tss_url);
+	plist_free(request);
+	if (response == NULL) {
+		error("ERROR: Unable to fetch Cryptex1\n");
+		return NULL;
+	}
+
+	if (plist_dict_get_item(response, "Cryptex1,Ticket")) {
+		info("Received Cryptex1,Ticket\n");
+	} else {
+		error("ERROR: No 'Cryptex1,Ticket' in TSS response, this might not work\n");
+	}
+
+	return response;
+}
+
 static int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
 {
 	plist_t arguments;
@@ -2959,6 +3016,12 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 			error("ERROR: %s: Couldn't get AppleTypeCRetimer firmware data\n", __func__);
 			goto error_out;
 		}
+	} else if (strcmp(s_updater_name, "Cryptex1") == 0) {
+		fwdict = restore_get_cryptex1_firmware_data(restore, client, build_identity, p_info, arguments);
+		if (fwdict == NULL) {
+			error("ERROR: %s: Couldn't get AppleTypeCRetimer firmware data\n", __func__);
+			goto error_out;
+		}
 	} else {
 		error("ERROR: %s: Got unknown updater name '%s'.\n", __func__, s_updater_name);
 		goto error_out;
@@ -2987,6 +3050,37 @@ error_out:
 	plist_free(loop_count_dict);
 	return -1;
 }
+
+static int restore_send_receipt_manifest(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity)
+{
+	plist_t dict;
+	int restore_error;
+
+	plist_t manifest = plist_dict_get_item(build_identity, "Manifest");
+	if (!manifest) {
+		error("failed to get Manifest node from build_identity");
+		goto error_out;
+	}
+
+	dict = plist_new_dict();
+	plist_dict_set_item(dict, "ReceiptManifest", plist_copy(manifest));
+
+	info("Sending ReceiptManifest data now...\n");
+	restore_error = restored_send(restore, dict);
+	plist_free(dict);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: Couldn't send ReceiptManifest data (%d)\n", restore_error);
+		goto error_out;
+	}
+
+	info("Done sending ReceiptManifest data\n");
+
+	return 0;
+
+error_out:
+	return -1;
+}
+
 
 struct cpio_odc_header {
 	char c_magic[6];
@@ -3692,6 +3786,20 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 			}
 		}
 
+		else if (!strcmp(type, "ReceiptManifest")) {
+			if (restore_send_receipt_manifest(restore, client, build_identity) < 0) {
+				error("ERROR: Unable to send ReceiptManifest data\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "BasebandUpdaterOutputData")) {
+			if (restore_handle_baseband_updater_output_data(restore, client, device, message) < 0) {
+				error("ERROR: Unable to send BasebandUpdaterOutputData data\n");
+				return -1;
+			}
+		}
+
 		else {
 			// Unknown DataType!!
 			error("Unknown data request '%s' received\n", type);
@@ -3761,6 +3869,12 @@ plist_t restore_supported_data_types()
 	plist_dict_set_item(dict, "SystemImageRootHash", plist_new_bool(0));
 	plist_dict_set_item(dict, "USBCFWData", plist_new_bool(0));
 	plist_dict_set_item(dict, "USBCOverride", plist_new_bool(0));
+	plist_dict_set_item(dict, "FirmwareUpdaterPreflight", plist_new_bool(1));
+	plist_dict_set_item(dict, "ReceiptManifest", plist_new_bool(1));
+	plist_dict_set_item(dict, "FirmwareUpdaterDataV2", plist_new_bool(0));
+	plist_dict_set_item(dict, "RestoreLocalPolicy", plist_new_bool(1));
+	plist_dict_set_item(dict, "AuthInstallCACert", plist_new_bool(1));
+	plist_dict_set_item(dict, "OverlayRootDataForKeyIndex", plist_new_bool(1));
 	return dict;
 }
 

@@ -2042,7 +2042,7 @@ int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_
 	plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(0));
 	plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(1));
 
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	/* create basic request */
 	request = tss_request_new(NULL);
@@ -2173,7 +2173,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
 	}
 
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	/* create basic request */
 	request = tss_request_new(NULL);
@@ -2301,7 +2301,7 @@ int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* clie
 		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
 	}
 
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	/* create basic request */
 	/* Adds @BBTicket, @HostPlatformInfo, @VersionInfo, @UUID */
@@ -2381,7 +2381,7 @@ int get_recovery_os_local_policy_tss_response(
 		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
 	}
 
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	// Add Ap,LocalPolicy
 	uint8_t digest[SHA384_DIGEST_LENGTH];
@@ -2476,7 +2476,7 @@ int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_
 		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
 	}
 
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	// Add Ap,LocalPolicy
 	uint8_t digest[SHA384_DIGEST_LENGTH];

@@ -134,7 +134,7 @@ int tss_request_add_local_policy_tags(plist_t request, plist_t parameters)
 	return 0;
 }
 
-int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
+int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity, bool include_manifest)
 {
 	plist_t node = NULL;
 
@@ -226,13 +226,34 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	_plist_dict_copy_uint(parameters, build_identity, "Timer,SecurityDomain,1", NULL);
 	_plist_dict_copy_uint(parameters, build_identity, "Timer,SecurityDomain,2", NULL);
 
-	/* add build identity manifest dictionary */
-	node = plist_dict_get_item(build_identity, "Manifest");
-	if (!node || plist_get_node_type(node) != PLIST_DICT) {
-		error("ERROR: Unable to find Manifest node\n");
-		return -1;
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,ChipID", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,Type", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,SubType", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,ProductClass", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,UseProductClass", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,NonceDomain", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,Version", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,PreauthorizationVersion", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,FakeRoot", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,SystemOS", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,SystemVolume", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,SystemTrustCache", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,AppOS", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,AppVolume", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,AppTrustCache", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,MobileAssetBrainOS", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,MobileAssetBrainVolume", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,MobileAssetBrainTrustCache", NULL);
+
+	if (include_manifest) {
+		/* add build identity manifest dictionary */
+		node = plist_dict_get_item(build_identity, "Manifest");
+		if (!node || plist_get_node_type(node) != PLIST_DICT) {
+			error("ERROR: Unable to find Manifest node\n");
+			return -1;
+		}
+		plist_dict_set_item(parameters, "Manifest", plist_copy(node));
 	}
-	plist_dict_set_item(parameters, "Manifest", plist_copy(node));
 
 	return 0;
 }
