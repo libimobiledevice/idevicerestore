@@ -29,9 +29,10 @@ extern "C" {
 #endif
 
 #include <plist/plist.h>
+#include <stdbool.h>
 
 /* parameters */
-int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity);
+int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity, bool include_manifest);
 
 /* request */
 plist_t tss_request_new(plist_t overrides);
