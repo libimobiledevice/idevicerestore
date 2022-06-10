@@ -2757,7 +2757,7 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 		plist_free(parameters);
 		return NULL;
 	} else {
-		plist_dict_merge(parameters, ap_info);
+		plist_dict_merge(&parameters, ap_info);
 	}
 
 	/* add required tags for Timer TSS request */
