@@ -5,8 +5,8 @@ if test -n "$1"; then
 else
   if test -d "${SRCDIR}/.git" && test -x "`which git`" ; then
     git update-index -q --refresh
-    if ! VER=`git describe --tags --dirty 2>/dev/null`; then
-      COMMIT=`git rev-parse --short HEAD`
+    if ! VER=`git describe -c core.abbrev=7 --tags --dirty 2>/dev/null`; then
+      COMMIT=`git rev-parse  -c core.abbrev=7 --short HEAD`
       DIRTY=`git diff --quiet HEAD || echo "-dirty"`
       VER=`sed -n '1,/RE/s/Version \(.*\)/\1/p' ${SRCDIR}/NEWS`-git-${COMMIT}${DIRTY}
     fi
