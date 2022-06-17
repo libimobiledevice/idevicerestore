@@ -2819,42 +2819,38 @@ int build_identity_get_component_path(plist_t build_identity, const char* compon
 
 const char* get_component_name(const char* filename)
 {
-	if (!strncmp(filename, "LLB", 3)) {
-		return "LLB";
-	} else if (!strncmp(filename, "iBoot", 5)) {
-		return "iBoot";
-	} else if (!strncmp(filename, "DeviceTree", 10)) {
-		return "DeviceTree";
-	} else if (!strncmp(filename, "applelogo", 9)) {
-		return "AppleLogo";
-	} else if (!strncmp(filename, "liquiddetect", 12)) {
-		return "Liquid";
-	} else if (!strncmp(filename, "lowpowermode", 12)) {
-		return "LowPowerWallet0";
-	} else if (!strncmp(filename, "recoverymode", 12)) {
-		return "RecoveryMode";
-	} else if (!strncmp(filename, "batterylow0", 11)) {
-		return "BatteryLow0";
-	} else if (!strncmp(filename, "batterylow1", 11)) {
-		return "BatteryLow1";
-	} else if (!strncmp(filename, "glyphcharging", 13)) {
-		return "BatteryCharging";
-	} else if (!strncmp(filename, "glyphplugin", 11)) {
-		return "BatteryPlugin";
-	} else if (!strncmp(filename, "batterycharging0", 16)) {
-		return "BatteryCharging0";
-	} else if (!strncmp(filename, "batterycharging1", 16)) {
-		return "BatteryCharging1";
-	} else if (!strncmp(filename, "batteryfull", 11)) {
-		return "BatteryFull";
-	} else if (!strncmp(filename, "needservice", 11)) {
-		return "NeedService";
-	} else if (!strncmp(filename, "SCAB", 4)) {
-		return "SCAB";
-	} else if (!strncmp(filename, "sep-firmware", 12)) {
-		return "RestoreSEP";
-	} else {
-		error("WARNING: Unhandled component '%s'", filename);
-		return NULL;
+	struct filename_component_map {
+		const char *fnprefix;
+		int matchlen;
+		const char *compname;
+	};
+	struct filename_component_map fn_comp_map[] = {
+		{ "LLB", 3, "LLB" },
+		{ "iBoot", 5, "iBoot" },
+		{ "DeviceTree", 10, "DeviceTree" },
+		{ "applelogo", 9, "AppleLogo" },
+		{ "liquiddetect", 12, "Liquid" },
+		{ "lowpowermode", 12, "LowPowerWallet0" },
+		{ "recoverymode", 12, "RecoveryMode" },
+		{ "batterylow0", 11, "BatteryLow0" },
+		{ "batterylow1", 11, "BatteryLow1" },
+		{ "glyphcharging", 13, "BatteryCharging" },
+		{ "glyphplugin", 11, "BatteryPlugin" },
+		{ "batterycharging0", 16, "BatteryCharging0" },
+		{ "batterycharging1", 16, "BatteryCharging1" },
+		{ "batteryfull", 11, "BatteryFull" },
+		{ "needservice", 11, "NeedService" },
+		{ "SCAB", 4, "SCAB" },
+		{ "sep-firmware", 12, "RestoreSEP" },
+		{ NULL, 0, NULL }
+	};
+	int i = 0;
+	while (fn_comp_map[i].fnprefix) {
+		if (!strncmp(filename, fn_comp_map[i].fnprefix, fn_comp_map[i].matchlen)) {
+			return fn_comp_map[i].compname;
+		}
+		i++;
 	}
+	error("WARNING: Unhandled component '%s'", filename);
+	return NULL;
 }
