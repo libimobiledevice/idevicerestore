@@ -122,7 +122,7 @@ int restore_client_new(struct idevicerestore_client_t* client)
 {
 	struct restore_client_t* restore = (struct restore_client_t*) malloc(sizeof(struct restore_client_t));
 	if (restore == NULL) {
-		error("ERROR: Out of memory\n");
+		error("ERROR: %s: Out of memory\n", __func__);
 		return -1;
 	}
 
@@ -463,7 +463,7 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client)
 	if(client->restore == NULL) {
 		client->restore = (struct restore_client_t*) malloc(sizeof(struct restore_client_t));
 		if(client->restore == NULL) {
-			error("ERROR: Out of memory\n");
+			error("ERROR: %s: Out of memory\n", __func__);
 			return -1;
 		}
 		memset(client->restore, '\0', sizeof(struct restore_client_t));
@@ -1526,7 +1526,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 
 			buffer = (unsigned char*) malloc(zstat.size + 1);
 			if (buffer == NULL) {
-				error("ERROR: Out of memory\n");
+				error("ERROR: %s: Out of memory\n", __func__);
 				goto leave;
 			}
 
@@ -1666,7 +1666,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 
 			buffer = (unsigned char*) malloc(zstat.size + 1);
 			if (buffer == NULL) {
-				error("ERROR: Out of memory\n");
+				error("ERROR: %s: Out of memory\n", __func__);
 				goto leave;
 			}
 
