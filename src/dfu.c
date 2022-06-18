@@ -50,7 +50,7 @@ int dfu_client_new(struct idevicerestore_client_t* client)
 		client->dfu = (struct dfu_client_t*)malloc(sizeof(struct dfu_client_t));
 		memset(client->dfu, 0, sizeof(struct dfu_client_t));
 		if (client->dfu == NULL) {
-			error("ERROR: Out of memory\n");
+			error("ERROR: %s: Out of memory\n", __func__);
 			return -1;
 		}
 	}

@@ -320,7 +320,7 @@ int asr_handle_oob_data_request(asr_client_t asr, plist_t packet, FILE* file)
 
 	oob_data = (char*) malloc(oob_length);
 	if (oob_data == NULL) {
-		error("ERROR: Out of memory\n");
+		error("ERROR: %s: Out of memory\n", __func__);
 		return -1;
 	}
 

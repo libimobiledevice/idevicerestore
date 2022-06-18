@@ -203,7 +203,7 @@ int read_file(const char* filename, void** data, size_t* size) {
 
 	buffer = (char*) malloc(length);
 	if (buffer == NULL) {
-		error("ERROR: Out of memory\n");
+		error("ERROR: %s: Out of memory\n", __func__);
 		fclose(file);
 		return -1;
 	}

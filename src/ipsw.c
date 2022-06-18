@@ -307,7 +307,7 @@ ipsw_archive* ipsw_open(const char* ipsw)
 	int err = 0;
 	ipsw_archive* archive = (ipsw_archive*) malloc(sizeof(ipsw_archive));
 	if (archive == NULL) {
-		error("ERROR: Out of memory\n");
+		error("ERROR: %s: Out of memory\n", __func__);
 		return NULL;
 	}
 
@@ -344,7 +344,7 @@ int ipsw_get_file_size(const char* ipsw, const char* infile, uint64_t* size)
 {
 	ipsw_archive* archive = ipsw_open(ipsw);
 	if (archive == NULL) {
-		error("ERROR: Invalid archive\n");
+		error("ERROR: %s: Invalid archive\n", __func__);
 		return -1;
 	}
 
@@ -387,7 +387,7 @@ int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, con
 	int ret = 0;
 	ipsw_archive* archive = ipsw_open(ipsw);
 	if (archive == NULL) {
-		error("ERROR: Invalid archive\n");
+		error("ERROR: %s: Invalid archive\n", __func__);
 		return -1;
 	}
 
@@ -580,7 +580,7 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 	unsigned char* buffer = NULL;
 	ipsw_archive* archive = ipsw_open(ipsw);
 	if (archive == NULL) {
-		error("ERROR: Invalid archive\n");
+		error("ERROR: %s: Invalid archive\n", __func__);
 		return -1;
 	}
 
@@ -610,7 +610,7 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 		size = zstat.size;
 		buffer = (unsigned char*) malloc(size+1);
 		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
+			error("ERROR: %s: Out of memory\n", __func__);
 			zip_fclose(zfile);
 			ipsw_close(archive);
 			return -1;
@@ -643,7 +643,7 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 		size = fst.st_size;
 		buffer = (unsigned char*)malloc(size+1);
 		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
+			error("ERROR: %s: Out of memory\n", __func__);
 			free(filepath);
 			ipsw_close(archive);
 			return -1;
@@ -796,7 +796,7 @@ int ipsw_list_contents(const char* ipsw, ipsw_list_cb cb, void *ctx)
 
 	ipsw_archive* archive = ipsw_open(ipsw);
 	if (archive == NULL) {
-		error("ERROR: Invalid archive\n");
+		error("ERROR: %s: Invalid archive\n", __func__);
 		return -1;
 	}
 
