@@ -455,8 +455,7 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client)
 	}
 
 	if(client->srnm == NULL) {
-		error("ERROR: no SerialNumber in client data!\n");
-		return -1;
+		info("No SerialNumber in client data!\n");
 	}
 
 	// create our restore client if it doesn't yet exist

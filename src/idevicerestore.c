@@ -1349,10 +1349,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	// now finally do the magic to put the device into restore mode
 	if (client->mode == MODE_RECOVERY) {
 		if (client->srnm == NULL) {
-			error("ERROR: could not retrieve device serial number. Can't continue.\n");
-			if (delete_fs && filesystem)
-				unlink(filesystem);
-			return -1;
+			info("Could not retrieve device serial number.\n");
 		}
 		if (recovery_enter_restore(client, build_identity) < 0) {
 			error("ERROR: Unable to place device into restore mode\n");
