@@ -2917,6 +2917,30 @@ static plist_t restore_get_cryptex1_firmware_data(restored_client_t restore, str
 	return response;
 }
 
+static int restore_send_firmware_updater_preflight(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
+{
+	plist_t dict = NULL;
+	int restore_error;
+
+	if (idevicerestore_debug) {
+		debug("DEBUG: %s: Got FirmwareUpdaterPreflight request:\n", __func__);
+		debug_plist(message);
+	}
+
+	dict = plist_new_dict();
+
+	info("Sending FirmwareResponsePreflight now...\n");
+	restore_error = restored_send(restore, dict);
+	plist_free(dict);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: Couldn't send FirmwareResponsePreflight data (%d)\n", restore_error);
+		return -1;
+	}
+
+	info("Done sending FirmwareUpdaterPreflight response\n");
+	return 0;
+}
+
 static int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
 {
 	plist_t arguments;
@@ -3754,6 +3778,13 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		else if (!strcmp(type, "FUDData")) {
 			if(restore_send_image_data(restore, client, build_identity, message, "FUDImageList", "IsFUDFirmware", "FUDImageData") < 0) {
 				error("ERROR: Unable to send FUD data\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "FirmwareUpdaterPreflight")) {
+			if(restore_send_firmware_updater_preflight(restore, client, build_identity, message) < 0) {
+				error("ERROR: Unable to send FirmwareUpdaterPreflight\n");
 				return -1;
 			}
 		}
