@@ -507,24 +507,6 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t bu
 	return 0;
 }
 
-int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid)
-{
-	if(client->recovery == NULL) {
-		if (recovery_client_new(client) < 0) {
-			return -1;
-		}
-	}
-
-	const struct irecv_device_info *device_info = irecv_get_device_info(client->recovery->client);
-	if (!device_info) {
-		return -1;
-	}
-
-	*ecid = device_info->ecid;
-
-	return 0;
-}
-
 int recovery_is_image4_supported(struct idevicerestore_client_t* client)
 {
 	if(client->recovery == NULL) {

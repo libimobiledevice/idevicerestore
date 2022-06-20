@@ -453,6 +453,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		error("ERROR: Unable to discover device type\n");
 		return -1;
 	}
+	if (client->ecid == 0) {
+		error("ERROR: Unable to determine ECID\n");
+		return -1;
+	}
+	info("ECID: %" PRIu64 "\n", client->ecid);
+
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.2);
 	info("Identified device as %s, %s\n", client->device->hardware_model, client->device->product_type);
 
@@ -1037,13 +1043,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	/* retrieve shsh blobs if required */
 	if (tss_enabled) {
 		int stashbag_commit_required = 0;
-		debug("Getting device's ECID for TSS request\n");
-		/* fetch the device's ECID for the TSS request */
-		if (get_ecid(client, &client->ecid) < 0) {
-			error("ERROR: Unable to find device ECID\n");
-			return -1;
-		}
-		info("Found ECID %" PRIu64 "\n", client->ecid);
 
 		if (client->mode == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
 			plist_t node = normal_get_lockdown_value(client, NULL, "HasSiDP");
@@ -1348,12 +1347,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	// now finally do the magic to put the device into restore mode
 	if (client->mode == MODE_RECOVERY) {
-		if (client->srnm == NULL) {
-			error("ERROR: could not retrieve device serial number. Can't continue.\n");
-			if (delete_fs && filesystem)
-				unlink(filesystem);
-			return -1;
-		}
 		if (recovery_enter_restore(client, build_identity) < 0) {
 			error("ERROR: Unable to place device into restore mode\n");
 			if (client->tss)
@@ -1824,45 +1817,6 @@ int is_image4_supported(struct idevicerestore_client_t* client)
 		return 0;
 	}
 	return res;
-}
-
-int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid)
-{
-	int mode = _MODE_UNKNOWN;
-
-	if (client->mode) {
-		mode = client->mode->index;
-	}
-
-	switch (mode) {
-	case _MODE_NORMAL:
-		if (normal_get_ecid(client, ecid) < 0) {
-			*ecid = 0;
-			return -1;
-		}
-		break;
-
-	case _MODE_DFU:
-		if (dfu_get_ecid(client, ecid) < 0) {
-			*ecid = 0;
-			return -1;
-		}
-		break;
-
-	case _MODE_RECOVERY:
-		if (recovery_get_ecid(client, ecid) < 0) {
-			*ecid = 0;
-			return -1;
-		}
-		break;
-
-	default:
-		error("ERROR: Device is in an invalid state\n");
-		*ecid = 0;
-		return -1;
-	}
-
-	return 0;
 }
 
 int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)

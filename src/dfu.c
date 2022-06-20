@@ -42,8 +42,6 @@ static int dfu_progress_callback(irecv_client_t client, const irecv_event_t* eve
 
 int dfu_client_new(struct idevicerestore_client_t* client)
 {
-	int i = 0;
-	int attempts = 10;
 	irecv_client_t dfu = NULL;
 
 	if (client->dfu == NULL) {
@@ -55,18 +53,9 @@ int dfu_client_new(struct idevicerestore_client_t* client)
 		}
 	}
 
-	for (i = 1; i <= attempts; i++) {
-		if (irecv_open_with_ecid(&dfu, client->ecid) == IRECV_E_SUCCESS) {
-			break;
-		}
-
-		if (i >= attempts) {
-			error("ERROR: Unable to connect to device in DFU mode\n");
-			return -1;
-		}
-
-		sleep(1);
-		debug("Retrying connection...\n");
+	if (irecv_open_with_ecid_and_attempts(&dfu, client->ecid, 10) != IRECV_E_SUCCESS) {
+		error("ERROR: Unable to connect to device in DFU mode\n");
+		return -1;
 	}
 
 	irecv_event_subscribe(dfu, IRECV_PROGRESS, &dfu_progress_callback, NULL);
@@ -95,11 +84,17 @@ irecv_device_t dfu_get_irecv_device(struct idevicerestore_client_t* client)
 	irecv_device_t device = NULL;
 
 	irecv_init();
-	if (irecv_open_with_ecid(&dfu, client->ecid) != IRECV_E_SUCCESS) {
+	if (irecv_open_with_ecid_and_attempts(&dfu, client->ecid, 10) != IRECV_E_SUCCESS) {
 		return NULL;
 	}
 
 	dfu_error = irecv_devices_get_device_by_client(dfu, &device);
+	if (dfu_error == IRECV_E_SUCCESS) {
+		if (client->ecid == 0) {
+			const struct irecv_device_info *device_info = irecv_get_device_info(dfu);
+			client->ecid = device_info->ecid;
+		}
+	}
 	irecv_close(dfu);
 	if (dfu_error != IRECV_E_SUCCESS) {
 		return NULL;
@@ -223,24 +218,6 @@ int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid)
 	}
 
 	*cpid = device_info->cpid;
-
-	return 0;
-}
-
-int dfu_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid)
-{
-	if(client->dfu == NULL) {
-		if (dfu_client_new(client) < 0) {
-			return -1;
-		}
-	}
-
-	const struct irecv_device_info *device_info = irecv_get_device_info(client->dfu->client);
-	if (!device_info) {
-		return -1;
-	}
-
-	*ecid = device_info->ecid;
 
 	return 0;
 }
