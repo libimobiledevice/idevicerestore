@@ -476,6 +476,7 @@ int recovery_send_ramdisk(struct idevicerestore_client_t* client, plist_t build_
 int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t build_identity)
 {
 	const char* component = "RestoreKernelCache";
+	int ioctl_error = 0;
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	if (client->recovery == NULL) {
@@ -489,7 +490,15 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t bu
 		return -1;
 	}
 
-	irecv_usb_control_transfer(client->recovery->client, 0x21, 1, 0, 0, 0, 0, 5000);
+	ioctl_error = irecv_usb_control_transfer(client->recovery->client, 0x21, 1, 0, 0, 0, 0, 5000);
+#if defined(_WIN32)
+	if(ioctl_error < 0) {
+		ioctl_error = irecv_usb_control_transfer(client->recovery->client, 0xA1, 3, 0, 0, 0, 0, 5000);
+		if(ioctl_error < 0) {
+			irecv_usb_control_transfer(client->recovery->client, 0x41, 3, 0, 0, 0, 0, 5000);
+		}
+	}
+#endif
 
 	if (client->restore_boot_args) {
 		char setba[256];
