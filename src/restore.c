@@ -3846,6 +3846,7 @@ plist_t restore_supported_data_types()
 	plist_dict_set_item(dict, "BootabilityBundle", plist_new_bool(0));
 	plist_dict_set_item(dict, "BuildIdentityDict", plist_new_bool(0));
 	plist_dict_set_item(dict, "BuildIdentityDictV2", plist_new_bool(0));
+	plist_dict_set_item(dict, "Cryptex1LocalPolicy", plist_new_bool(1));
 	plist_dict_set_item(dict, "DataType", plist_new_bool(0));
 	plist_dict_set_item(dict, "DiagData", plist_new_bool(0));
 	plist_dict_set_item(dict, "EANData", plist_new_bool(0));
