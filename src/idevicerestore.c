@@ -2660,20 +2660,13 @@ void build_identity_print_information(plist_t build_identity)
 	plist_get_string_val(node, &value);
 
 	info("Variant: %s\n", value);
-	free(value);
 
-	node = plist_dict_get_item(info_node, "RestoreBehavior");
-	if (!node || plist_get_node_type(node) != PLIST_STRING) {
-		error("ERROR: Unable to find RestoreBehavior node\n");
-		return;
-	}
-	plist_get_string_val(node, &value);
-
-	if (!strcmp(value, "Erase"))
-		info("This restore will erase your device data.\n");
-
-	if (!strcmp(value, "Update"))
-		info("This restore will update your device without erasing user data.\n");
+	if (strstr(value, RESTORE_VARIANT_UPGRADE_INSTALL))
+		info("This restore will update the device without erasing user data.\n");
+	else if (strstr(value, RESTORE_VARIANT_ERASE_INSTALL))
+		info("This restore will erase all device data.\n");
+	else
+		info("Unknown Variant '%s'\n", value);
 
 	free(value);
 
