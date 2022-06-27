@@ -87,6 +87,7 @@ static struct option longopts[] = {
 	{ "version",        no_argument,       NULL, 'v' },
 	{ "ipsw-info",      no_argument,       NULL, 'I' },
 	{ "ignore-errors",  no_argument,       NULL,  1  },
+	{ "variant",        required_argument, NULL,  2  },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -140,6 +141,8 @@ static void usage(int argc, char* argv[], int err)
 	"  -P, --plain-progress  Print progress as plain step and progress\n" \
 	"  -R, --restore-mode    Allow restoring from Restore mode\n" \
 	"  -T, --ticket PATH     Use file at PATH to send as AP ticket\n" \
+	"  --variant VARIANT     Use given VARIANT to match the build identity to use,\n" \
+        "                        e.g. 'Customer Erase Install (IPSW)'\n" \
 	"  --ignore-errors       Try to continue the restore process after certain\n" \
 	"                        errors (like a failed baseband update)\n" \
 	"                        WARNING: This might render the device unable to boot\n" \
@@ -831,17 +834,19 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			// finally add manifest
 			plist_dict_set_item(build_identity, "Manifest", manifest);
 		}
+	} else if (client->restore_variant) {
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, client->restore_variant);
 	} else if (client->flags & FLAG_ERASE) {
 		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_ERASE_INSTALL);
-		if (build_identity == NULL) {
-			error("ERROR: Unable to find any build identities\n");
-			return -1;
-		}
 	} else {
 		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_UPGRADE_INSTALL);
 		if (!build_identity) {
 			build_identity = build_manifest_get_build_identity_for_model(client->build_manifest, client->device->hardware_model);
 		}
+	}
+	if (build_identity == NULL) {
+		error("ERROR: Unable to find a matching build identity\n");
+		return -1;
 	}
 
 	client->macos_variant = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_MACOS_RECOVERY_OS);
@@ -1488,6 +1493,7 @@ void idevicerestore_client_free(struct idevicerestore_client_t* client)
 	if (client->preflight_info) {
 		plist_free(client->preflight_info);
 	}
+	free(client->restore_variant);
 	free(client);
 }
 
@@ -1716,6 +1722,11 @@ int main(int argc, char* argv[]) {
 
 		case 1:
 			client->flags |= FLAG_IGNORE_ERRORS;
+			break;
+
+		case 2:
+			free(client->restore_variant);
+			client->restore_variant = strdup(optarg);
 			break;
 
 		default:
