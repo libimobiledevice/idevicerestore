@@ -442,7 +442,7 @@ int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, con
 				break;
 			}
 			if (fwrite(buffer, 1, count, fd) != count) {
-				error("ERROR: frite: %s\n", outfile);
+				error("ERROR: Writing to '%s' failed: %s\n", outfile, strerror(errno));
 				ret = -1;
 				break;
 			}
@@ -515,7 +515,7 @@ int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, con
 						break;
 					}
 					if (fwrite(buffer, 1, r, fo) != r) {
-						error("ERROR: fwrite failed\n");
+						error("ERROR: Writing to '%s' failed: %s\n", actual_outfile, strerror(errno));
 						ret = -1;
 						break;
 					}
