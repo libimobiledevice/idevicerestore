@@ -1954,8 +1954,8 @@ plist_t build_manifest_get_build_identity_for_model_with_variant(plist_t build_m
 			}
 			str = plist_get_string_ptr(rvariant, NULL);
 			if (strcmp(str, variant) != 0) {
-				/* if it's not a full match, let's try a partial match */
-				if (strstr(str, variant)) {
+				/* if it's not a full match, let's try a partial match, but ignore "*Research*" */
+				if (strstr(str, variant) && !strstr(str, "Research")) {
 					return ident;
 				}
 				continue;
