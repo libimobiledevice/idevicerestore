@@ -201,7 +201,15 @@ int ipsw_print_info(const char* path)
 			if (!group) {
 				group = plist_new_dict();
 				node = plist_access_path(build_identity, 2, "Info", "RestoreBehavior");
-				plist_dict_set_item(group, "RestoreBehavior", plist_copy(node));
+				if (node) {
+					plist_dict_set_item(group, "RestoreBehavior", plist_copy(node));
+				} else {
+					if (strstr(variant_str, "Upgrade")) {
+						plist_dict_set_item(group, "RestoreBehavior", plist_new_string("Update"));
+					} else if (strstr(variant_str, "Erase")) {
+						plist_dict_set_item(group, "RestoreBehavior", plist_new_string("Erase"));
+					}
+				}
 				entries = plist_new_array();
 				plist_dict_set_item(group, "Entries", entries);
 				plist_dict_set_item(build_ids_grouped, variant_str, group);
