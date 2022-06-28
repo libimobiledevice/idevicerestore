@@ -835,11 +835,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			plist_dict_set_item(build_identity, "Manifest", manifest);
 		}
 	} else if (client->restore_variant) {
-		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, client->restore_variant);
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, client->restore_variant, 1);
 	} else if (client->flags & FLAG_ERASE) {
-		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_ERASE_INSTALL);
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_ERASE_INSTALL, 0);
 	} else {
-		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_UPGRADE_INSTALL);
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_UPGRADE_INSTALL, 0);
 		if (!build_identity) {
 			build_identity = build_manifest_get_build_identity_for_model(client->build_manifest, client->device->hardware_model);
 		}
@@ -849,7 +849,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		return -1;
 	}
 
-	client->macos_variant = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_MACOS_RECOVERY_OS);
+	client->macos_variant = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_MACOS_RECOVERY_OS, 1);
 
 	/* print information about current build identity */
 	build_identity_print_information(build_identity);
@@ -1932,7 +1932,7 @@ int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce,
 	return 0;
 }
 
-plist_t build_manifest_get_build_identity_for_model_with_variant(plist_t build_manifest, const char *hardware_model, const char *variant)
+plist_t build_manifest_get_build_identity_for_model_with_variant(plist_t build_manifest, const char *hardware_model, const char *variant, int exact)
 {
 	plist_t build_identities_array = plist_dict_get_item(build_manifest, "BuildIdentities");
 	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
@@ -1966,7 +1966,7 @@ plist_t build_manifest_get_build_identity_for_model_with_variant(plist_t build_m
 			str = plist_get_string_ptr(rvariant, NULL);
 			if (strcmp(str, variant) != 0) {
 				/* if it's not a full match, let's try a partial match, but ignore "*Research*" */
-				if (strstr(str, variant) && !strstr(str, "Research")) {
+				if (!exact && strstr(str, variant) && !strstr(str, "Research")) {
 					return ident;
 				}
 				continue;
@@ -1983,7 +1983,7 @@ plist_t build_manifest_get_build_identity_for_model_with_variant(plist_t build_m
 
 plist_t build_manifest_get_build_identity_for_model(plist_t build_manifest, const char *hardware_model)
 {
-	return build_manifest_get_build_identity_for_model_with_variant(build_manifest, hardware_model, NULL);
+	return build_manifest_get_build_identity_for_model_with_variant(build_manifest, hardware_model, NULL, 0);
 }
 
 int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* manifest)

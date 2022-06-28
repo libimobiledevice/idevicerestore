@@ -3261,7 +3261,7 @@ plist_t restore_get_build_identity(struct idevicerestore_client_t* client, uint8
 	plist_t build_identity = build_manifest_get_build_identity_for_model_with_variant(
 			client->build_manifest,
 			client->device->hardware_model,
-			variant);
+			variant, 0);
 
 	plist_t unique_id_node = plist_dict_get_item(client->build_manifest, "UniqueBuildID");
 	debug_plist(unique_id_node);
