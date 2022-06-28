@@ -46,11 +46,11 @@ int dfu_client_new(struct idevicerestore_client_t* client)
 
 	if (client->dfu == NULL) {
 		client->dfu = (struct dfu_client_t*)malloc(sizeof(struct dfu_client_t));
-		memset(client->dfu, 0, sizeof(struct dfu_client_t));
 		if (client->dfu == NULL) {
-			error("ERROR: Out of memory\n");
+			error("ERROR: %s: Out of memory: size(%" PRIu64 ")\n", __func__, (uint64_t)sizeof(struct dfu_client_t));
 			return -1;
 		}
+		memset(client->dfu, 0, sizeof(struct dfu_client_t));
 	}
 
 	if (irecv_open_with_ecid_and_attempts(&dfu, client->ecid, 10) != IRECV_E_SUCCESS) {

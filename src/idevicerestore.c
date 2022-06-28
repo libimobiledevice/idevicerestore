@@ -1429,7 +1429,7 @@ struct idevicerestore_client_t* idevicerestore_client_new(void)
 {
 	struct idevicerestore_client_t* client = (struct idevicerestore_client_t*) malloc(sizeof(struct idevicerestore_client_t));
 	if (client == NULL) {
-		error("ERROR: Out of memory\n");
+		error("ERROR: %s: Out of memory: size(%" PRIu64 ")\n", __func__, (uint64_t)sizeof(struct idevicerestore_client_t));
 		return NULL;
 	}
 	memset(client, '\0', sizeof(struct idevicerestore_client_t));

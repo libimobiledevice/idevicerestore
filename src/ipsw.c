@@ -315,7 +315,7 @@ ipsw_archive* ipsw_open(const char* ipsw)
 	int err = 0;
 	ipsw_archive* archive = (ipsw_archive*) malloc(sizeof(ipsw_archive));
 	if (archive == NULL) {
-		error("ERROR: Out of memory\n");
+		error("ERROR: %s: Out of memory: size(%" PRIu64 ")\n", __func__, (uint64_t)sizeof(ipsw_archive));
 		return NULL;
 	}
 
@@ -618,7 +618,7 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 		size = zstat.size;
 		buffer = (unsigned char*) malloc(size+1);
 		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
+			error("ERROR: %s: Out of memory: size(%" PRIu64 ")\n", __func__, (uint64_t)size + 1);
 			zip_fclose(zfile);
 			ipsw_close(archive);
 			return -1;
@@ -651,7 +651,7 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 		size = fst.st_size;
 		buffer = (unsigned char*)malloc(size+1);
 		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
+			error("ERROR: %s: Out of memory: size(%" PRIu64 ")\n", __func__, (uint64_t)size + 1);
 			free(filepath);
 			ipsw_close(archive);
 			return -1;

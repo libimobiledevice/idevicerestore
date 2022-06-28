@@ -67,7 +67,7 @@ int recovery_client_new(struct idevicerestore_client_t* client)
 	if(client->recovery == NULL) {
 		client->recovery = (struct recovery_client_t*)malloc(sizeof(struct recovery_client_t));
 		if (client->recovery == NULL) {
-			error("ERROR: Out of memory\n");
+			error("ERROR: %s: Out of memory: size(%" PRIu64 ")\n", __func__, (uint64_t)sizeof(struct recovery_client_t));
 			return -1;
 		}
 		memset(client->recovery, 0, sizeof(struct recovery_client_t));
