@@ -4213,7 +4213,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	// this is the restore process loop, it reads each message in from
 	// restored and passes that data on to it's specific handler
 	while (!(client->flags & FLAG_QUIT)) {
-		if (client->flags & FLAG_IGNORE_ERRORS) {
+		if (err != 0 && client->flags & FLAG_IGNORE_ERRORS) {
 			error("WARNING: Attempting to continue after critical error, restore might fail...\n");
 			err = 0;
 		}
