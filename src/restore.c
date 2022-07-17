@@ -3293,7 +3293,7 @@ int extract_macos_variant(plist_t build_identity, char** output)
 	return 0;
 }
 
-int extract_global_manifest(struct idevicerestore_client_t* client, plist_t build_identity, unsigned char** pbuffer, unsigned int* psize)
+int extract_global_manifest(struct idevicerestore_client_t* client, plist_t build_identity, char *variant, unsigned char** pbuffer, unsigned int* psize)
 {
 	plist_t build_info = plist_dict_get_item(build_identity, "Info");
 	if (!build_info) {
@@ -3310,10 +3310,15 @@ int extract_global_manifest(struct idevicerestore_client_t* client, plist_t buil
 	plist_get_string_val(device_class_node, &device_class);
 
 	char *macos_variant = NULL;
-	int ret = extract_macos_variant(build_identity, &macos_variant);
-	if (ret != 0) {
-		free(device_class);
-		return -1;
+	int ret;
+	if (variant) {
+		macos_variant = variant;
+	} else {
+		ret = extract_macos_variant(build_identity, &macos_variant);
+		if (ret != 0) {
+			free(device_class);
+			return -1;
+		}
 	}
 
 	// The path of the global manifest is hardcoded. There's no pointer to in the build manifest.
@@ -3362,7 +3367,7 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 	info("About to send %s...\n", component_name);
 
 	if (strcmp(image_name, "__GlobalManifest__") == 0) {
-		int ret = extract_global_manifest(client, build_identity, &data, &size);
+		int ret = extract_global_manifest(client, build_identity, NULL, &data, &size);
 		if (ret != 0) {
 			return -1;
 		}
@@ -3488,7 +3493,19 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 	info("About to send %s...\n", component_name);
 
 	if (strcmp(image_name, "__GlobalManifest__") == 0) {
-		int ret = extract_global_manifest(client, build_identity, &data, &size);
+		char *variant = NULL;
+		plist_t node = plist_access_path(msg, 2, "Arguments", "Variant");
+		if (!node || plist_get_node_type(node) != PLIST_STRING) {
+			debug("Failed to parse arguments from SourceBootObjectV4 plist\n");
+			return -1;
+		}
+		plist_get_string_val(node, &variant);
+		if (!variant) {
+			debug("Failed to parse arguments from SourceBootObjectV4 as string\n");
+			return -1;
+		}
+
+		int ret = extract_global_manifest(client, build_identity, variant, &data, &size);
 		if (ret != 0) {
 			return -1;
 		}
