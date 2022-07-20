@@ -468,12 +468,22 @@ int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, con
 		char *filepath = build_path(archive->path, infile);
 		char actual_filepath[PATH_MAX+1];
 		char actual_outfile[PATH_MAX+1];
+		if(filepath == NULL || filepath == (const char *)-1) {
+		    error("ERROR: filepath is NULL\n");
+		    ret = -1;
+		    goto leave;
+		}
 		if (!realpath(filepath, actual_filepath)) {
 			error("ERROR: realpath failed on %s: %s\n", filepath, strerror(errno));
 			ret = -1;
 			goto leave;
 		} else {
 			actual_outfile[0] = '\0';
+			if(outfile == NULL || outfile == (const char *)-1) {
+                		error("ERROR: outfile is NULL\n");
+                		ret = -1;
+                		goto leave;
+			}
 			if (realpath(outfile, actual_outfile) && (strcmp(actual_filepath, actual_outfile) == 0)) {
 				/* files are identical */
 				ret = 0;
