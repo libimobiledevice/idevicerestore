@@ -2537,28 +2537,6 @@ int build_manifest_get_identity_count(plist_t build_manifest)
 	return plist_array_get_size(build_identities_array);
 }
 
-int extract_component(const char* ipsw, const char* path, unsigned char** component_data, unsigned int* component_size)
-{
-	char* component_name = NULL;
-	if (!ipsw || !path || !component_data || !component_size) {
-		return -1;
-	}
-
-	component_name = strrchr(path, '/');
-	if (component_name != NULL)
-		component_name++;
-	else
-		component_name = (char*) path;
-
-	info("Extracting %s (%s)...\n", component_name, path);
-	if (ipsw_extract_to_memory(ipsw, path, component_data, component_size) < 0) {
-		error("ERROR: Unable to extract %s from %s\n", component_name, ipsw);
-		return -1;
-	}
-
-	return 0;
-}
-
 int personalize_component(const char *component_name, const unsigned char* component_data, unsigned int component_size, plist_t tss_response, unsigned char** personalized_component, unsigned int* personalized_component_size)
 {
 	unsigned char* component_blob = NULL;

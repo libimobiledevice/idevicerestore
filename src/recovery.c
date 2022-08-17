@@ -32,6 +32,7 @@
 #include "idevicerestore.h"
 #include "tss.h"
 #include "img3.h"
+#include "ipsw.h"
 #include "restore.h"
 #include "recovery.h"
 
@@ -283,7 +284,7 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
-	int ret = extract_component(client->ipsw, path, &component_data, &component_size);
+	int ret = ipsw_extract_component(client->ipsw, path, &component_data, &component_size);
 	free(path);
 	if (ret < 0) {
 		error("ERROR: Unable to extract component: %s\n", component);
@@ -291,7 +292,7 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 	}
 
 	ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
-	free(component_data);
+	ipsw_free_component(client->ipsw, component_data, component_size);
 	if (ret < 0) {
 		error("ERROR: Unable to get personalized component: %s\n", component);
 		return -1;

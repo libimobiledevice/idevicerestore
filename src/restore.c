@@ -1068,7 +1068,7 @@ int restore_send_component(restored_client_t restore, struct idevicerestore_clie
 
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
-	int ret = extract_component(client->ipsw, path, &component_data, &component_size);
+	int ret = ipsw_extract_component(client->ipsw, path, &component_data, &component_size);
 	free(path);
 	path = NULL;
 	if (ret < 0) {
@@ -1077,7 +1077,7 @@ int restore_send_component(restored_client_t restore, struct idevicerestore_clie
 	}
 
 	ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
-	free(component_data);
+	ipsw_free_component(client->ipsw, component_data, component_size);
 	component_data = NULL;
 	if (ret < 0) {
 		error("ERROR: Unable to get personalized component %s\n", component);
@@ -1229,7 +1229,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	const char* component = "LLB";
 	unsigned char* component_data = NULL;
 	unsigned int component_size = 0;
-	int ret = extract_component(client->ipsw, llb_path, &component_data, &component_size);
+	int ret = ipsw_extract_component(client->ipsw, llb_path, &component_data, &component_size);
 	free(llb_path);
 	if (ret < 0) {
 		error("ERROR: Unable to extract component: %s\n", component);
@@ -1237,7 +1237,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	}
 
 	ret = personalize_component(component, component_data, component_size, client->tss, &llb_data, &llb_size);
-	free(component_data);
+	ipsw_free_component(client->ipsw, component_data, component_size);
 	component_data = NULL;
 	component_size = 0;
 	if (ret < 0) {
@@ -1283,7 +1283,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		component_data = NULL;
 		unsigned int component_size = 0;
 
-		if (extract_component(client->ipsw, comppath, &component_data, &component_size) < 0) {
+		if (ipsw_extract_component(client->ipsw, comppath, &component_data, &component_size) < 0) {
 			free(iter);
 			free(comp);
 			free(comppath);
@@ -1301,7 +1301,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 			error("ERROR: Unable to get personalized component: %s\n", component);
 			return -1;
 		}
-		free(component_data);
+		ipsw_free_component(client->ipsw, component_data, component_size);
 		component_data = NULL;
 		component_size = 0;
 
@@ -1332,7 +1332,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	if (build_identity_has_component(build_identity, "RestoreSEP") &&
 	    build_identity_get_component_path(build_identity, "RestoreSEP", &restore_sep_path) == 0) {
 		component = "RestoreSEP";
-		ret = extract_component(client->ipsw, restore_sep_path, &component_data, &component_size);
+		ret = ipsw_extract_component(client->ipsw, restore_sep_path, &component_data, &component_size);
 		free(restore_sep_path);
 		if (ret < 0) {
 			error("ERROR: Unable to extract component: %s\n", component);
@@ -1340,7 +1340,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		}
 
 		ret = personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
-		free(component_data);
+		ipsw_free_component(client->ipsw, component_data, component_size);
 		component_data = NULL;
 		component_size = 0;
 		if (ret < 0) {
@@ -1357,7 +1357,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	if (build_identity_has_component(build_identity, "SEP") &&
 	    build_identity_get_component_path(build_identity, "SEP", &sep_path) == 0) {
 		component = "SEP";
-		ret = extract_component(client->ipsw, sep_path, &component_data, &component_size);
+		ret = ipsw_extract_component(client->ipsw, sep_path, &component_data, &component_size);
 		free(sep_path);
 		if (ret < 0) {
 			error("ERROR: Unable to extract component: %s\n", component);
@@ -1365,7 +1365,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		}
 
 		ret = personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
-		free(component_data);
+		ipsw_free_component(client->ipsw, component_data, component_size);
 		component_data = NULL;
 		component_size = 0;
 		if (ret < 0) {
@@ -2035,7 +2035,7 @@ static int restore_send_image_data(restored_client_t restore, struct idevicerest
 						}
 						build_identity_get_component_path(build_identity, component, &path);
 						if (path) {
-							ret = extract_component(client->ipsw, path, &component_data, &component_size);
+							ret = ipsw_extract_component(client->ipsw, path, &component_data, &component_size);
 						}
 						free(path);
 						path = NULL;
@@ -2044,7 +2044,7 @@ static int restore_send_image_data(restored_client_t restore, struct idevicerest
 						}
 
 						ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
-						free(component_data);
+						ipsw_free_component(client->ipsw, component_data, component_size);
 						component_data = NULL;
 						if (ret < 0) {
 							error("ERROR: Unable to get personalized component: %s\n", component);
@@ -2142,7 +2142,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 		return NULL;
 	}
 
-	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	ret = ipsw_extract_component(client->ipsw, comp_path, &component_data, &component_size);
 	free(comp_path);
 	comp_path = NULL;
 	if (ret < 0) {
@@ -2187,7 +2187,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 	}
 
 	plist_dict_set_item(response, "FirmwareData", plist_new_data((char*)component_data, (uint64_t) component_size));
-	free(component_data);
+	ipsw_free_component(client->ipsw, component_data, component_size);
 	component_data = NULL;
 	component_size = 0;
 
@@ -2255,7 +2255,7 @@ static plist_t restore_get_savage_firmware_data(restored_client_t restore, struc
 		return NULL;
 	}
 
-	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	ret = ipsw_extract_component(client->ipsw, comp_path, &component_data, &component_size);
 	free(comp_path);
 	comp_path = NULL;
 	if (ret < 0) {
@@ -2278,7 +2278,7 @@ static plist_t restore_get_savage_firmware_data(restored_client_t restore, struc
 	component_size += 16;
 
 	plist_dict_set_item(response, "FirmwareData", plist_new_data((char*)component_data, (uint64_t) component_size));
-	free(component_data);
+	ipsw_free_component(client->ipsw, component_data, component_size);
 	component_data = NULL;
 	component_size = 0;
 
@@ -2347,7 +2347,7 @@ static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, stru
 	}
 
 	/* now get actual component data */
-	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	ret = ipsw_extract_component(client->ipsw, comp_path, &component_data, &component_size);
 	free(comp_path);
 	comp_path = NULL;
 	if (ret < 0) {
@@ -2362,7 +2362,7 @@ static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, stru
 	plist_dict_set_item(firmware_data, "YonkersFirmware", plist_new_data((char *)component_data, (uint64_t)component_size));
 	plist_dict_set_item(response, "FirmwareData", firmware_data);
 
-	free(component_data);
+	ipsw_free_component(client->ipsw, component_data, component_size);
 	component_data = NULL;
 	component_size = 0;
 
@@ -2432,7 +2432,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		return NULL;
 	}
-	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	ret = ipsw_extract_component(client->ipsw, comp_path, &component_data, &component_size);
 	free(comp_path);
 	comp_path = NULL;
 	if (ret < 0) {
@@ -2444,7 +2444,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 		error("ERROR: Failed to parse '%s' component data.\n", comp_name);
 		return NULL;
 	}
-	free(component_data);
+	ipsw_free_component(client->ipsw, component_data, component_size);
 	component_data = NULL;
 	component_size = 0;
 	if (ftag != 'rkos') {
@@ -2458,7 +2458,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 			error("ERROR: Unable to get path for '%s' component\n", comp_name);
 			return NULL;
 		}
-		ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+		ret = ipsw_extract_component(client->ipsw, comp_path, &component_data, &component_size);
 		free(comp_path);
 		comp_path = NULL;
 		if (ret < 0) {
@@ -2474,7 +2474,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 			error("ERROR: Failed to parse '%s' component data.\n", comp_name);
 			return NULL;
 		}
-		free(component_data);
+		ipsw_free_component(client->ipsw, component_data, component_size);
 		component_data = NULL;
 		component_size = 0;
 		if (ftag != 'rkos') {
@@ -2557,7 +2557,7 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 	}
 
 	/* now get actual component data */
-	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	ret = ipsw_extract_component(client->ipsw, comp_path, &component_data, &component_size);
 	free(comp_path);
 	comp_path = NULL;
 	if (ret < 0) {
@@ -2571,7 +2571,7 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 	} else {
 		plist_from_xml((const char*)component_data, component_size, &fw_map);
 	}
-	free(component_data);
+	ipsw_free_component(client->ipsw, component_data, component_size);
 	component_data = NULL;
 	component_size = 0;
 
@@ -2653,7 +2653,7 @@ static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct 
 	}
 
 	/* now get actual component data */
-	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	ret = ipsw_extract_component(client->ipsw, comp_path, &component_data, &component_size);
 	free(comp_path);
 	comp_path = NULL;
 	if (ret < 0) {
@@ -2662,7 +2662,7 @@ static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct 
 	}
 
 	plist_dict_set_item(response, "FirmwareData", plist_new_data((char *)component_data, (uint64_t)component_size));
-	free(component_data);
+	ipsw_free_component(client->ipsw, component_data, component_size);
 	component_data = NULL;
 	component_size = 0;
 
@@ -2779,7 +2779,7 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 			error("ERROR: Unable to get path for '%s' component\n", comp_name);
 			return NULL;
 		}
-		ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+		ret = ipsw_extract_component(client->ipsw, comp_path, &component_data, &component_size);
 		free(comp_path);
 		comp_path = NULL;
 		if (ret < 0) {
@@ -2791,7 +2791,7 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 			error("ERROR: Failed to parse '%s' component data.\n", comp_name);
 			return NULL;
 		}
-		free(component_data);
+		ipsw_free_component(client->ipsw, component_data, component_size);
 		component_data = NULL;
 		component_size = 0;
 		if (ftag != 'rkos') {
@@ -2808,7 +2808,7 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 			error("ERROR: Unable to get path for '%s' component\n", comp_name);
 			return NULL;
 		}
-		ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+		ret = ipsw_extract_component(client->ipsw, comp_path, &component_data, &component_size);
 		free(comp_path);
 		comp_path = NULL;
 		if (ret < 0) {
@@ -2824,7 +2824,7 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 			error("ERROR: Failed to parse '%s' component data.\n", comp_name);
 			return NULL;
 		}
-		free(component_data);
+		ipsw_free_component(client->ipsw, component_data, component_size);
 		component_data = NULL;
 		component_size = 0;
 		if (ftag != 'rkos') {
@@ -3400,7 +3400,7 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 		// Extract component
 		unsigned char *component_data = NULL;
 		unsigned int component_size = 0;
-		int ret = extract_component(client->ipsw, path, &component_data, &component_size);
+		int ret = ipsw_extract_component(client->ipsw, path, &component_data, &component_size);
 		free(path);
 		path = NULL;
 		if (ret < 0) {
@@ -3410,7 +3410,7 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 
 		// Personalize IMG40
 		ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
-		free(component_data);
+		ipsw_free_component(client->ipsw, component_data, component_size);
 		component_data = NULL;
 		if (ret < 0) {
 			error("ERROR: Unable to get personalized component %s\n", component);
@@ -3519,7 +3519,7 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 			}
 		}
 
-		int ret = extract_component(client->ipsw, path, &data, &size);
+		int ret = ipsw_extract_component(client->ipsw, path, &data, &size);
 		free(path);
 		path = NULL;
 		if (ret < 0) {
@@ -3562,7 +3562,7 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 	}
 
 	plist_free(dict);
-	free(data);
+	ipsw_free_component(client->ipsw, data, size);
 
 	info("Done sending %s\n", component_name);
 	return 0;

@@ -31,6 +31,7 @@
 #include "tss.h"
 #include "recovery.h"
 #include "idevicerestore.h"
+#include "ipsw.h"
 #include "common.h"
 
 static int dfu_progress_callback(irecv_client_t client, const irecv_event_t* event) {
@@ -150,7 +151,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 			}
 		}
 
-		if (extract_component(client->ipsw, path, &component_data, &component_size) < 0) {
+		if (ipsw_extract_component(client->ipsw, path, &component_data, &component_size) < 0) {
 			error("ERROR: Unable to extract component: %s\n", component);
 			free(path);
 			return -1;
@@ -164,10 +165,10 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 
 	if (personalize_component(component, component_data, component_size, tss, &data, &size) < 0) {
 		error("ERROR: Unable to get personalized component: %s\n", component);
-		free(component_data);
+		ipsw_free_component(client->ipsw, component_data, component_size);
 		return -1;
 	}
-	free(component_data);
+	ipsw_free_component(client->ipsw, component_data, component_size);
 	component_data = NULL;
 
 	if (!client->image4supported && client->build_major > 8 && !(client->flags & FLAG_CUSTOM) && !strcmp(component, "iBEC")) {

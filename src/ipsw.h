@@ -54,6 +54,9 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 
 void ipsw_cancel(void);
 
+int ipsw_extract_component(const char* ipsw, const char* path, unsigned char** component_data, unsigned int* component_size);
+int ipsw_free_component(const char* ipsw, char *component_data, unsigned int component_size);
+
 #ifdef __cplusplus
 }
 #endif

@@ -30,6 +30,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <limits.h>
+#ifndef WIN32
+#include <sys/mman.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -64,6 +67,56 @@ static int cancel_flag = 0;
 
 ipsw_archive* ipsw_open(const char* ipsw);
 void ipsw_close(ipsw_archive* archive);
+
+int zip_extract_to_memory(struct zip* zip, const char* infile, unsigned char** pbuffer, size_t* psize)
+{
+	size_t size = 0;
+	unsigned char* buffer = NULL;
+
+	int zindex = zip_name_locate(zip, infile, 0);
+	if (zindex < 0) {
+		debug("NOTE: zip_name_locate: '%s' not found in archive.\n", infile);
+		return -1;
+	}
+
+	struct zip_stat zstat;
+	zip_stat_init(&zstat);
+	if (zip_stat_index(zip, zindex, 0, &zstat) != 0) {
+		error("ERROR: zip_stat_index: %s\n", infile);
+		return -1;
+	}
+
+	struct zip_file* zfile = zip_fopen_index(zip, zindex, 0);
+	if (zfile == NULL) {
+		error("ERROR: zip_fopen_index: %s\n", infile);
+		return -1;
+	}
+
+	size = zstat.size;
+	info("%lu\n", size);
+	buffer = (unsigned char*)malloc(size+1);
+	if (buffer == NULL) {
+		error("ERROR: Out of memory\n");
+		zip_fclose(zfile);
+		return -1;
+	}
+
+	if (zip_fread(zfile, buffer, size) != size) {
+		error("ERROR: zip_fread: %s\n", infile);
+		free(buffer);
+		zip_fclose(zfile);
+		return -1;
+	}
+
+	buffer[size] = '\0';
+
+	*pbuffer = buffer;
+	*psize = size;
+
+	zip_fclose(zfile);
+
+	return 0;
+}
 
 static char* build_path(const char* path, const char* file)
 {
@@ -593,48 +646,11 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 	}
 
 	if (archive->zip) {
-		int zindex = zip_name_locate(archive->zip, infile, 0);
-		if (zindex < 0) {
-			debug("NOTE: zip_name_locate: '%s' not found in archive.\n", infile);
+		if (zip_extract_to_memory(archive->zip, infile, &buffer, &size)) {
+			error("ERROR: failed to extract %s from zip archive\n", infile);
 			ipsw_close(archive);
 			return -1;
 		}
-
-		struct zip_stat zstat;
-		zip_stat_init(&zstat);
-		if (zip_stat_index(archive->zip, zindex, 0, &zstat) != 0) {
-			error("ERROR: zip_stat_index: %s\n", infile);
-			ipsw_close(archive);
-			return -1;
-		}
-
-		struct zip_file* zfile = zip_fopen_index(archive->zip, zindex, 0);
-		if (zfile == NULL) {
-			error("ERROR: zip_fopen_index: %s\n", infile);
-			ipsw_close(archive);
-			return -1;
-		}
-
-		size = zstat.size;
-		buffer = (unsigned char*) malloc(size+1);
-		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
-			zip_fclose(zfile);
-			ipsw_close(archive);
-			return -1;
-		}
-
-		if (zip_fread(zfile, buffer, size) != size) {
-			error("ERROR: zip_fread: %s\n", infile);
-			zip_fclose(zfile);
-			free(buffer);
-			ipsw_close(archive);
-			return -1;
-		}
-
-		buffer[size] = '\0';
-
-		zip_fclose(zfile);
 	} else {
 		char *filepath = build_path(archive->path, infile);
 		struct stat fst;
@@ -1199,4 +1215,122 @@ int ipsw_download_latest_fw(plist_t version_data, const char* product, const cha
 void ipsw_cancel(void)
 {
 	cancel_flag++;
+}
+
+int ipsw_extract_component(const char* ipsw, const char* path, unsigned char** component_data, unsigned int* component_size)
+{
+	char* component_name = NULL;
+	size_t size = 0;
+        unsigned char* buffer = NULL;
+	ipsw_archive* archive = NULL;
+
+	if (!ipsw || !path || !component_data || !component_size) {
+		return -1;
+	}
+
+	component_name = strrchr(path, '/');
+	if (component_name != NULL)
+		component_name++;
+	else
+		component_name = (char*) path;
+
+	info("Extracting %s (%s)...\n", component_name, path);
+
+	archive = ipsw_open(ipsw);
+	if (archive == NULL) {
+		error("ERROR: Invalid archive\n");
+		return -1;
+	}
+
+	if (archive->zip) {
+		if (zip_extract_to_memory(archive->zip, path, &buffer, &size)) {
+			error("ERROR: failed to extract %s from zip archive\n", path);
+			ipsw_close(archive);
+			return -1;
+		}
+	} else {
+		char *filepath = build_path(archive->path, path);
+
+		FILE *f = fopen(filepath, "rb");
+		if (!f) {
+			error("ERROR: %s: fopen failed for %s: %s\n", __func__, filepath, strerror(errno));
+			free(filepath);
+			ipsw_close(archive);
+			return -1;
+		}
+
+		struct stat fst;
+		if (fstat(fileno(f), &fst) != 0) {
+			error("ERROR: %s: fstat failed for %s: %s\n", __func__, filepath, strerror(errno));
+			fclose(f);
+			free(filepath);
+			ipsw_close(archive);
+			return -1;
+		}
+
+		size = fst.st_size;
+#ifdef WIN32
+		buffer = (unsigned char*)malloc(size);
+		if (buffer == NULL) {
+			error("ERROR: Out of memory\n");
+			flcose(f);
+			free(filepath);
+			ipsw_close(archive);
+			return -1;
+		}
+
+		if (fread(buffer, 1, size, f) != size) {
+			error("ERROR: %s: fread failed for %s: %s\n", __func__, filepath, strerror(errno));
+			free(buffer);
+			fclose(f);
+			free(filepath);
+			ipsw_close(archive);
+			return -1;
+		}
+#else
+		buffer = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fileno(f), 0);
+		if (buffer == NULL) {
+			error("ERROR: Failed to map %s\n", filepath);
+			fclose(f);
+			free(filepath);
+			ipsw_close(archive);
+			return -1;
+		}
+#endif
+
+		fclose(f);
+		free(filepath);
+	}
+
+	*component_data = buffer;
+	*component_size = size;
+
+	ipsw_close(archive);
+
+	return 0;
+}
+
+int ipsw_free_component(const char* ipsw, char *component_data, unsigned int component_size)
+{
+#ifdef WIN32
+	free(component_data);
+#else
+	ipsw_archive *archive = NULL;
+
+	archive = ipsw_open(ipsw);
+	if (!archive) {
+		error("ERROR: Invalid archive\n");
+		return -1;
+	}
+
+	if (archive->zip) {
+		free(component_data);
+	} else {
+		munmap(component_data, component_size);
+	}
+
+	ipsw_close(archive);
+#endif
+
+	return 0;
 }
