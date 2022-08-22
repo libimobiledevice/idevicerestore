@@ -29,9 +29,10 @@ extern "C" {
 #endif
 
 #include <plist/plist.h>
+#include <stdbool.h>
 
 /* parameters */
-int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity);
+int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity, bool include_manifest);
 
 /* request */
 plist_t tss_request_new(plist_t overrides);
@@ -48,6 +49,7 @@ int tss_request_add_vinyl_tags(plist_t request, plist_t parameters, plist_t over
 int tss_request_add_rose_tags(plist_t request, plist_t parameters, plist_t overrides);
 int tss_request_add_veridian_tags(plist_t request, plist_t parameters, plist_t overrides);
 int tss_request_add_tcon_tags(plist_t request, plist_t parameters, plist_t overrides);
+int tss_request_add_timer_tags(plist_t request, plist_t parameters, plist_t overrides);
 
 int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters);
 int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters);

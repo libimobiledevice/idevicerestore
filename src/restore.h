@@ -53,7 +53,7 @@ const char* restore_progress_string(unsigned int operation);
 int restore_handle_status_msg(restored_client_t client, plist_t msg);
 int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t msg);
 int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t build_identity, const char* filesystem);
-int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity);
+int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message);
 int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_client_t* client);
 int restore_send_component(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, const char* component, const char* component_name);
 int restore_device(struct idevicerestore_client_t* client, plist_t build_identity, const char* filesystem);

@@ -45,9 +45,7 @@ idevicerestore_SOURCES = \
 	limera1n_payload.h \
 	limera1n.c limera1n.h \
 	download.c download.h \
-	locking.c locking.h \
-	jsmn.c jsmn.h \
-	json_plist.c json_plist.h
+	locking.c locking.h
 if USE_INTERNAL_SHA
 idevicerestore_SOURCES += sha1.c sha1.h sha512.c sha512.h fixedint.h
 endif

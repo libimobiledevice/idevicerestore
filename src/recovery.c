@@ -124,7 +124,7 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 {
 	if (client->build_major >= 8) {
 		client->restore_boot_args = strdup("rd=md0 nand-enable-reformat=1 -progress");
-	} else if (client->build_major >= 20) {
+	} else if (client->macos_variant) {
 		client->restore_boot_args = strdup("rd=md0 nand-enable-reformat=1 -progress -restore");
 	}
 
@@ -503,24 +503,6 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t bu
 		error("ERROR: Unable to execute %s\n", component);
 		return -1;
 	}
-
-	return 0;
-}
-
-int recovery_get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid)
-{
-	if(client->recovery == NULL) {
-		if (recovery_client_new(client) < 0) {
-			return -1;
-		}
-	}
-
-	const struct irecv_device_info *device_info = irecv_get_device_info(client->recovery->client);
-	if (!device_info) {
-		return -1;
-	}
-
-	*ecid = device_info->ecid;
 
 	return 0;
 }

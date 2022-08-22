@@ -87,6 +87,7 @@ static struct option longopts[] = {
 	{ "version",        no_argument,       NULL, 'v' },
 	{ "ipsw-info",      no_argument,       NULL, 'I' },
 	{ "ignore-errors",  no_argument,       NULL,  1  },
+	{ "variant",        required_argument, NULL,  2  },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -140,6 +141,8 @@ static void usage(int argc, char* argv[], int err)
 	"  -P, --plain-progress  Print progress as plain step and progress\n" \
 	"  -R, --restore-mode    Allow restoring from Restore mode\n" \
 	"  -T, --ticket PATH     Use file at PATH to send as AP ticket\n" \
+	"  --variant VARIANT     Use given VARIANT to match the build identity to use,\n" \
+        "                        e.g. 'Customer Erase Install (IPSW)'\n" \
 	"  --ignore-errors       Try to continue the restore process after certain\n" \
 	"                        errors (like a failed baseband update)\n" \
 	"                        WARNING: This might render the device unable to boot\n" \
@@ -453,6 +456,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		error("ERROR: Unable to discover device type\n");
 		return -1;
 	}
+	if (client->ecid == 0) {
+		error("ERROR: Unable to determine ECID\n");
+		return -1;
+	}
+	info("ECID: %" PRIu64 "\n", client->ecid);
+
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.2);
 	info("Identified device as %s, %s\n", client->device->hardware_model, client->device->product_type);
 
@@ -671,8 +680,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	// choose whether this is an upgrade or a restore (default to upgrade)
 	client->tss = NULL;
 	plist_t build_identity = NULL;
+	int build_identity_needs_free = 0;
 	if (client->flags & FLAG_CUSTOM) {
 		build_identity = plist_new_dict();
+		build_identity_needs_free = 1;
 		{
 			plist_t node;
 			plist_t comp;
@@ -699,6 +710,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			uint32_t msize = 0;
 			if (ipsw_extract_to_memory(client->ipsw, tmpstr, (unsigned char**)&fmanifest, &msize) < 0) {
 				error("ERROR: could not extract %s from IPSW\n", tmpstr);
+				free(build_identity);
 				return -1;
 			}
 
@@ -816,27 +828,35 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			// add info
 			inf = plist_new_dict();
 			plist_dict_set_item(inf, "RestoreBehavior", plist_new_string((client->flags & FLAG_ERASE) ? "Erase" : "Update"));
-			plist_dict_set_item(inf, "Variant", plist_new_string((client->flags & FLAG_ERASE) ? RESTORE_VARIANT_CUSTOMER_ERASE : RESTORE_VARIANT_CUSTOMER_UPGRADE));
+			plist_dict_set_item(inf, "Variant", plist_new_string((client->flags & FLAG_ERASE) ? "Customer " RESTORE_VARIANT_ERASE_INSTALL : "Customer " RESTORE_VARIANT_UPGRADE_INSTALL));
 			plist_dict_set_item(build_identity, "Info", inf);
 
 			// finally add manifest
 			plist_dict_set_item(build_identity, "Manifest", manifest);
 		}
+	} else if (client->restore_variant) {
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, client->restore_variant, 1);
 	} else if (client->flags & FLAG_ERASE) {
-		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_CUSTOMER_ERASE);
-		if (build_identity == NULL) {
-			error("ERROR: Unable to find any build identities\n");
-			return -1;
-		}
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_ERASE_INSTALL, 0);
 	} else {
-		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_CUSTOMER_UPGRADE);
+		build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_UPGRADE_INSTALL, 0);
 		if (!build_identity) {
 			build_identity = build_manifest_get_build_identity_for_model(client->build_manifest, client->device->hardware_model);
 		}
 	}
+	if (build_identity == NULL) {
+		error("ERROR: Unable to find a matching build identity\n");
+		return -1;
+	}
+
+	client->macos_variant = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_MACOS_RECOVERY_OS, 1);
 
 	/* print information about current build identity */
 	build_identity_print_information(build_identity);
+
+	if (client->macos_variant) {
+		info("Performing macOS restore\n");
+	}
 
 	if (client->mode == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
 		plist_t pver = normal_get_lockdown_value(client, NULL, "ProductVersion");
@@ -1028,13 +1048,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	/* retrieve shsh blobs if required */
 	if (tss_enabled) {
 		int stashbag_commit_required = 0;
-		debug("Getting device's ECID for TSS request\n");
-		/* fetch the device's ECID for the TSS request */
-		if (get_ecid(client, &client->ecid) < 0) {
-			error("ERROR: Unable to find device ECID\n");
-			return -1;
-		}
-		info("Found ECID %" PRIu64 "\n", client->ecid);
 
 		if (client->mode == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
 			plist_t node = normal_get_lockdown_value(client, NULL, "HasSiDP");
@@ -1092,7 +1105,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			error("ERROR: Unable to get SHSH blobs for this device\n");
 			return -1;
 		}
-		if (client->build_major >= 20) {
+		if (client->macos_variant) {
 			if (get_local_policy_tss_response(client, build_identity, &client->tss_localpolicy) < 0) {
 				error("ERROR: Unable to get SHSH blobs for this device (local policy)\n");
 				return -1;
@@ -1257,7 +1270,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		recovery_client_free(client);
 
 		debug("Waiting for device to disconnect...\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
+		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
 		if (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 
@@ -1269,7 +1282,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return -2;
 		}
 		debug("Waiting for device to reconnect in recovery mode...\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
+		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
 		if (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			if (!(client->flags & FLAG_QUIT)) {
@@ -1339,12 +1352,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	// now finally do the magic to put the device into restore mode
 	if (client->mode == MODE_RECOVERY) {
-		if (client->srnm == NULL) {
-			error("ERROR: could not retrieve device serial number. Can't continue.\n");
-			if (delete_fs && filesystem)
-				unlink(filesystem);
-			return -1;
-		}
 		if (recovery_enter_restore(client, build_identity) < 0) {
 			error("ERROR: Unable to place device into restore mode\n");
 			if (client->tss)
@@ -1412,7 +1419,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		idevicerestore_progress(client, RESTORE_NUM_STEPS-1, 1.0);
 	}
 
-	if (build_identity)
+	if (build_identity_needs_free)
 		plist_free(build_identity);
 
 	return result;
@@ -1486,6 +1493,7 @@ void idevicerestore_client_free(struct idevicerestore_client_t* client)
 	if (client->preflight_info) {
 		plist_free(client->preflight_info);
 	}
+	free(client->restore_variant);
 	free(client);
 }
 
@@ -1716,6 +1724,11 @@ int main(int argc, char* argv[]) {
 			client->flags |= FLAG_IGNORE_ERRORS;
 			break;
 
+		case 2:
+			free(client->restore_variant);
+			client->restore_variant = strdup(optarg);
+			break;
+
 		default:
 			usage(argc, argv, 1);
 			return EXIT_FAILURE;
@@ -1745,6 +1758,8 @@ int main(int argc, char* argv[]) {
 		error("ERROR: You can't use --custom and --latest options at the same time.\n");
 		return EXIT_FAILURE;
 	}
+
+	info("%s %s\n", PACKAGE_NAME, PACKAGE_VERSION);
 
 	if (ipsw) {
 		client->ipsw = strdup(ipsw);
@@ -1813,45 +1828,6 @@ int is_image4_supported(struct idevicerestore_client_t* client)
 		return 0;
 	}
 	return res;
-}
-
-int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid)
-{
-	int mode = _MODE_UNKNOWN;
-
-	if (client->mode) {
-		mode = client->mode->index;
-	}
-
-	switch (mode) {
-	case _MODE_NORMAL:
-		if (normal_get_ecid(client, ecid) < 0) {
-			*ecid = 0;
-			return -1;
-		}
-		break;
-
-	case _MODE_DFU:
-		if (dfu_get_ecid(client, ecid) < 0) {
-			*ecid = 0;
-			return -1;
-		}
-		break;
-
-	case _MODE_RECOVERY:
-		if (recovery_get_ecid(client, ecid) < 0) {
-			*ecid = 0;
-			return -1;
-		}
-		break;
-
-	default:
-		error("ERROR: Device is in an invalid state\n");
-		*ecid = 0;
-		return -1;
-	}
-
-	return 0;
 }
 
 int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
@@ -1956,7 +1932,7 @@ int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce,
 	return 0;
 }
 
-plist_t build_manifest_get_build_identity_for_model_with_variant(plist_t build_manifest, const char *hardware_model, const char *variant)
+plist_t build_manifest_get_build_identity_for_model_with_variant(plist_t build_manifest, const char *hardware_model, const char *variant, int exact)
 {
 	plist_t build_identities_array = plist_dict_get_item(build_manifest, "BuildIdentities");
 	if (!build_identities_array || plist_get_node_type(build_identities_array) != PLIST_ARRAY) {
@@ -1978,30 +1954,27 @@ plist_t build_manifest_get_build_identity_for_model_with_variant(plist_t build_m
 		if (!devclass || plist_get_node_type(devclass) != PLIST_STRING) {
 			continue;
 		}
-		char *str = NULL;
-		plist_get_string_val(devclass, &str);
+		const char *str = plist_get_string_ptr(devclass, NULL);
 		if (strcasecmp(str, hardware_model) != 0) {
-			free(str);
 			continue;
 		}
-		free(str);
-		str = NULL;
 		if (variant) {
 			plist_t rvariant = plist_dict_get_item(info_dict, "Variant");
 			if (!rvariant || plist_get_node_type(rvariant) != PLIST_STRING) {
 				continue;
 			}
-			plist_get_string_val(rvariant, &str);
-			if (strcasecmp(str, variant) != 0) {
-				free(str);
+			str = plist_get_string_ptr(rvariant, NULL);
+			if (strcmp(str, variant) != 0) {
+				/* if it's not a full match, let's try a partial match, but ignore "*Research*" */
+				if (!exact && strstr(str, variant) && !strstr(str, "Research")) {
+					return ident;
+				}
 				continue;
 			} else {
-				free(str);
-				return plist_copy(ident);
+				return ident;
 			}
-			free(str);
 		} else {
-			return plist_copy(ident);
+			return ident;
 		}
 	}
 
@@ -2010,7 +1983,7 @@ plist_t build_manifest_get_build_identity_for_model_with_variant(plist_t build_m
 
 plist_t build_manifest_get_build_identity_for_model(plist_t build_manifest, const char *hardware_model)
 {
-	return build_manifest_get_build_identity_for_model_with_variant(build_manifest, hardware_model, NULL);
+	return build_manifest_get_build_identity_for_model_with_variant(build_manifest, hardware_model, NULL, 0);
 }
 
 int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* manifest)
@@ -2034,7 +2007,7 @@ int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_
 	plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(0));
 	plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(1));
 
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	/* create basic request */
 	request = tss_request_new(NULL);
@@ -2165,7 +2138,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
 	}
 
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	/* create basic request */
 	request = tss_request_new(NULL);
@@ -2214,50 +2187,20 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		plist_t pinfo = NULL;
 		normal_get_preflight_info(client, &pinfo);
 		if (pinfo) {
-			plist_t node;
-			node = plist_dict_get_item(pinfo, "Nonce");
-			if (node) {
-				plist_dict_set_item(parameters, "BbNonce", plist_copy(node));
-			}
-			node = plist_dict_get_item(pinfo, "ChipID");
-			if (node) {
-				plist_dict_set_item(parameters, "BbChipID", plist_copy(node));
-			}
-			node = plist_dict_get_item(pinfo, "CertID");
-			if (node) {
-				plist_dict_set_item(parameters, "BbGoldCertId", plist_copy(node));
-			}
-			node = plist_dict_get_item(pinfo, "ChipSerialNo");
-			if (node) {
-				plist_dict_set_item(parameters, "BbSNUM", plist_copy(node));
-			}
+			_plist_dict_copy_data(parameters, pinfo, "BbNonce", "Nonce");
+			_plist_dict_copy_uint(parameters, pinfo, "BbChipID", "ChipID");
+			_plist_dict_copy_uint(parameters, pinfo, "BbGoldCertId", "CertID");
+			_plist_dict_copy_data(parameters, pinfo, "BbSNUM", "ChipSerialNo");
 
 			/* add baseband parameters */
 			tss_request_add_baseband_tags(request, parameters, NULL);
 
-			node = plist_dict_get_item(pinfo, "EUICCChipID");
-			uint64_t euiccchipid = 0;
-			if (node && plist_get_node_type(node) == PLIST_UINT) {
-				plist_get_uint_val(node, &euiccchipid);
-				plist_dict_set_item(parameters, "eUICC,ChipID", plist_copy(node));
-			}
-			if (euiccchipid >= 5) {
-				node = plist_dict_get_item(pinfo, "EUICCCSN");
-				if (node) {
-					plist_dict_set_item(parameters, "eUICC,EID", plist_copy(node));
-				}
-				node = plist_dict_get_item(pinfo, "EUICCCertIdentifier");
-				if (node) {
-					plist_dict_set_item(parameters, "eUICC,RootKeyIdentifier", plist_copy(node));
-				}
-				node = plist_dict_get_item(pinfo, "EUICCGoldNonce");
-				if (node) {
-					plist_dict_set_item(parameters, "EUICCGoldNonce", plist_copy(node));
-				}
-				node = plist_dict_get_item(pinfo, "EUICCMainNonce");
-				if (node) {
-					plist_dict_set_item(parameters, "EUICCMainNonce", plist_copy(node));
-				}
+			_plist_dict_copy_uint(parameters, pinfo, "eUICC,ChipID", "EUICCChipID");
+			if (_plist_dict_get_uint(parameters, "eUICC,ChipID") >= 5) {
+				_plist_dict_copy_data(parameters, pinfo, "eUICC,EID", "EUICCCSN");
+				_plist_dict_copy_data(parameters, pinfo, "eUICC,RootKeyIdentifier", "EUICCCertIdentifier");
+				_plist_dict_copy_data(parameters, pinfo, "EUICCGoldNonce", NULL);
+				_plist_dict_copy_data(parameters, pinfo, "EUICCMainNonce", NULL);
 
 				/* add vinyl parameters */
 				tss_request_add_vinyl_tags(request, parameters, NULL);
@@ -2323,7 +2266,7 @@ int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* clie
 		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
 	}
 
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	/* create basic request */
 	/* Adds @BBTicket, @HostPlatformInfo, @VersionInfo, @UUID */
@@ -2403,7 +2346,7 @@ int get_recovery_os_local_policy_tss_response(
 		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
 	}
 
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	// Add Ap,LocalPolicy
 	uint8_t digest[SHA384_DIGEST_LENGTH];
@@ -2413,11 +2356,8 @@ int get_recovery_os_local_policy_tss_response(
 	plist_dict_set_item(lpol, "Trusted", plist_new_bool(1));
 	plist_dict_set_item(parameters, "Ap,LocalPolicy", lpol);
 
-	plist_t im4m_hash = plist_dict_get_item(args, "Ap,NextStageIM4MHash");
-	plist_dict_set_item(parameters, "Ap,NextStageIM4MHash", plist_copy(im4m_hash));
-
-	plist_t nonce_hash = plist_dict_get_item(args, "Ap,RecoveryOSPolicyNonceHash");
-	plist_dict_set_item(parameters, "Ap,RecoveryOSPolicyNonceHash", plist_copy(nonce_hash));
+	_plist_dict_copy_data(parameters, args, "Ap,NextStageIM4MHash", NULL);
+	_plist_dict_copy_data(parameters, args, "Ap,RecoveryOSPolicyNonceHash", NULL);
 
 	plist_t vol_uuid_node = plist_dict_get_item(args, "Ap,VolumeUUID");
 	char* vol_uuid_str = NULL;
@@ -2501,7 +2441,7 @@ int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_
 		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
 	}
 
-	tss_parameters_add_from_manifest(parameters, build_identity);
+	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	// Add Ap,LocalPolicy
 	uint8_t digest[SHA384_DIGEST_LENGTH];
@@ -2594,8 +2534,6 @@ int build_manifest_get_identity_count(plist_t build_manifest)
 		error("ERROR: Unable to find build identities node\n");
 		return -1;
 	}
-
-	// check and make sure this identity exists in buildmanifest
 	return plist_array_get_size(build_identities_array);
 }
 
@@ -2733,20 +2671,13 @@ void build_identity_print_information(plist_t build_identity)
 	plist_get_string_val(node, &value);
 
 	info("Variant: %s\n", value);
-	free(value);
 
-	node = plist_dict_get_item(info_node, "RestoreBehavior");
-	if (!node || plist_get_node_type(node) != PLIST_STRING) {
-		error("ERROR: Unable to find RestoreBehavior node\n");
-		return;
-	}
-	plist_get_string_val(node, &value);
-
-	if (!strcmp(value, "Erase"))
-		info("This restore will erase your device data.\n");
-
-	if (!strcmp(value, "Update"))
-		info("This restore will update your device without erasing user data.\n");
+	if (strstr(value, RESTORE_VARIANT_UPGRADE_INSTALL))
+		info("This restore will update the device without erasing user data.\n");
+	else if (strstr(value, RESTORE_VARIANT_ERASE_INSTALL))
+		info("This restore will erase all device data.\n");
+	else
+		info("Unknown Variant '%s'\n", value);
 
 	free(value);
 
@@ -2846,42 +2777,38 @@ int build_identity_get_component_path(plist_t build_identity, const char* compon
 
 const char* get_component_name(const char* filename)
 {
-	if (!strncmp(filename, "LLB", 3)) {
-		return "LLB";
-	} else if (!strncmp(filename, "iBoot", 5)) {
-		return "iBoot";
-	} else if (!strncmp(filename, "DeviceTree", 10)) {
-		return "DeviceTree";
-	} else if (!strncmp(filename, "applelogo", 9)) {
-		return "AppleLogo";
-	} else if (!strncmp(filename, "liquiddetect", 12)) {
-		return "Liquid";
-	} else if (!strncmp(filename, "lowpowermode", 12)) {
-		return "LowPowerWallet0";
-	} else if (!strncmp(filename, "recoverymode", 12)) {
-		return "RecoveryMode";
-	} else if (!strncmp(filename, "batterylow0", 11)) {
-		return "BatteryLow0";
-	} else if (!strncmp(filename, "batterylow1", 11)) {
-		return "BatteryLow1";
-	} else if (!strncmp(filename, "glyphcharging", 13)) {
-		return "BatteryCharging";
-	} else if (!strncmp(filename, "glyphplugin", 11)) {
-		return "BatteryPlugin";
-	} else if (!strncmp(filename, "batterycharging0", 16)) {
-		return "BatteryCharging0";
-	} else if (!strncmp(filename, "batterycharging1", 16)) {
-		return "BatteryCharging1";
-	} else if (!strncmp(filename, "batteryfull", 11)) {
-		return "BatteryFull";
-	} else if (!strncmp(filename, "needservice", 11)) {
-		return "NeedService";
-	} else if (!strncmp(filename, "SCAB", 4)) {
-		return "SCAB";
-	} else if (!strncmp(filename, "sep-firmware", 12)) {
-		return "RestoreSEP";
-	} else {
-		error("WARNING: Unhandled component '%s'", filename);
-		return NULL;
+	struct filename_component_map {
+		const char *fnprefix;
+		int matchlen;
+		const char *compname;
+	};
+	struct filename_component_map fn_comp_map[] = {
+		{ "LLB", 3, "LLB" },
+		{ "iBoot", 5, "iBoot" },
+		{ "DeviceTree", 10, "DeviceTree" },
+		{ "applelogo", 9, "AppleLogo" },
+		{ "liquiddetect", 12, "Liquid" },
+		{ "lowpowermode", 12, "LowPowerWallet0" },
+		{ "recoverymode", 12, "RecoveryMode" },
+		{ "batterylow0", 11, "BatteryLow0" },
+		{ "batterylow1", 11, "BatteryLow1" },
+		{ "glyphcharging", 13, "BatteryCharging" },
+		{ "glyphplugin", 11, "BatteryPlugin" },
+		{ "batterycharging0", 16, "BatteryCharging0" },
+		{ "batterycharging1", 16, "BatteryCharging1" },
+		{ "batteryfull", 11, "BatteryFull" },
+		{ "needservice", 11, "NeedService" },
+		{ "SCAB", 4, "SCAB" },
+		{ "sep-firmware", 12, "RestoreSEP" },
+		{ NULL, 0, NULL }
+	};
+	int i = 0;
+	while (fn_comp_map[i].fnprefix) {
+		if (!strncmp(filename, fn_comp_map[i].fnprefix, fn_comp_map[i].matchlen)) {
+			return fn_comp_map[i].compname;
+		}
+		i++;
 	}
+	error("WARNING: Unhandled component '%s'", filename);
+	return NULL;
 }

@@ -123,6 +123,8 @@ struct idevicerestore_client_t {
 	mutex_t device_event_mutex;
 	cond_t device_event_cond;
 	int ignore_device_add_events;
+	plist_t macos_variant;
+	char* restore_variant;
 };
 
 extern struct idevicerestore_mode_t idevicerestore_modes[];
@@ -182,6 +184,11 @@ void get_user_input(char *buf, int maxlen, int secure);
 
 uint8_t _plist_dict_get_bool(plist_t dict, const char *key);
 uint64_t _plist_dict_get_uint(plist_t dict, const char *key);
+int _plist_dict_copy_uint(plist_t target_dict, plist_t source_dict, const char *key, const char *alt_source_key);
+int _plist_dict_copy_bool(plist_t target_dict, plist_t source_dict, const char *key, const char *alt_source_key);
+int _plist_dict_copy_data(plist_t target_dict, plist_t source_dict, const char *key, const char *alt_source_key);
+int _plist_dict_copy_string(plist_t target_dict, plist_t source_dict, const char *key, const char *alt_source_key);
+int _plist_dict_copy_item(plist_t target_dict, plist_t source_dict, const char *key, const char *alt_source_key);
 
 #ifdef __cplusplus
 }
