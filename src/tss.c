@@ -667,6 +667,12 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 			}
 		}
 
+		/* skip components with IsFTAB:true */
+		if (_plist_dict_get_bool(info_dict, "IsFTAB")) {
+			debug("DEBUG: %s: Skipping FTAB component '%s'\n", __func__, key);
+			continue;
+		}
+
 		/* copy this entry */
 		plist_t tss_entry = plist_copy(manifest_entry);
 
