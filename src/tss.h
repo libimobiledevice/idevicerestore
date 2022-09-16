@@ -50,6 +50,7 @@ int tss_request_add_rose_tags(plist_t request, plist_t parameters, plist_t overr
 int tss_request_add_veridian_tags(plist_t request, plist_t parameters, plist_t overrides);
 int tss_request_add_tcon_tags(plist_t request, plist_t parameters, plist_t overrides);
 int tss_request_add_timer_tags(plist_t request, plist_t parameters, plist_t overrides);
+int tss_request_add_cryptex_tags(plist_t request, plist_t parameters, plist_t overrides);
 
 int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters);
 int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters);

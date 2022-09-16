@@ -1381,6 +1381,44 @@ int tss_request_add_timer_tags(plist_t request, plist_t parameters, plist_t over
 	return 0;
 }
 
+int tss_request_add_cryptex_tags(plist_t request, plist_t parameters, plist_t overrides)
+{
+	tss_request_add_common_tags(request, parameters, NULL);
+
+	if (plist_dict_get_item(parameters, "Ap,LocalPolicy")) {
+		/* Cryptex1LocalPolicy */
+		tss_request_add_local_policy_tags(request, parameters);
+		_plist_dict_copy_data(request, parameters, "Ap,NextStageCryptex1IM4MHash", NULL);
+	} else {
+		/* Cryptex1 */
+		plist_dict_set_item(request, "@Cryptex1,Ticket", plist_new_bool(1));
+
+		_plist_dict_copy_bool(request, parameters, "ApSecurityMode", NULL);
+		_plist_dict_copy_bool(request, parameters, "ApProductionMode", NULL);
+
+		plist_dict_iter iter = NULL;
+		plist_dict_new_iter(parameters, &iter);
+		plist_t value = NULL;
+		while (1) {
+			char *key = NULL;
+			plist_dict_next_item(parameters, iter, &key, &value);
+			if (key == NULL)
+				break;
+			if (strncmp(key, "Cryptex1", 8) == 0) {
+				plist_dict_set_item(request, key, plist_copy(value));
+			}
+			free(key);
+		}
+	}
+
+	/* apply overrides */
+	if (overrides) {
+		plist_dict_merge(&request, overrides);
+	}
+
+	return 0;
+}
+
 static size_t tss_write_callback(char* data, size_t size, size_t nmemb, tss_response* response)
 {
 	size_t total = size * nmemb;
