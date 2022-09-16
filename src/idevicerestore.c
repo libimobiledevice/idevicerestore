@@ -2269,7 +2269,7 @@ int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* clie
 	tss_parameters_add_from_manifest(parameters, build_identity, true);
 
 	/* create basic request */
-	/* Adds @BBTicket, @HostPlatformInfo, @VersionInfo, @UUID */
+	/* Adds @HostPlatformInfo, @VersionInfo, @UUID */
 	request = tss_request_new(NULL);
 	if (request == NULL) {
 		error("ERROR: Unable to create TSS request\n");

@@ -65,7 +65,6 @@ plist_t tss_request_new(plist_t overrides)
 {
 	plist_t request = plist_new_dict();
 
-	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
 	plist_dict_set_item(request, "@HostPlatformInfo",
 #ifdef WIN32
 		plist_new_string("windows")
