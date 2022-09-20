@@ -393,7 +393,14 @@ int ipsw_get_file_size(const char* ipsw, const char* infile, uint64_t* size)
 int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, const char* outfile, int print_progress)
 {
 	int ret = 0;
-	ipsw_archive* archive = ipsw_open(ipsw);
+	ipsw_archive* archive = NULL;
+
+	if (!ipsw || !infile || !outfile) {
+		error("ERROR: Invalid argument\n");
+		return -1;
+	}
+
+	archive = ipsw_open(ipsw);
 	if (archive == NULL) {
 		error("ERROR: Invalid archive\n");
 		return -1;
@@ -468,6 +475,10 @@ int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, con
 		char *filepath = build_path(archive->path, infile);
 		char actual_filepath[PATH_MAX+1];
 		char actual_outfile[PATH_MAX+1];
+		if (!filepath) {
+			ret = -1;
+			goto leave;
+		}
 		if (!realpath(filepath, actual_filepath)) {
 			error("ERROR: realpath failed on %s: %s\n", filepath, strerror(errno));
 			ret = -1;
