@@ -1075,9 +1075,28 @@ int tss_request_add_vinyl_tags(plist_t request, plist_t parameters, plist_t over
 	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
 	plist_dict_set_item(request, "@eUICC,Ticket", plist_new_bool(1));
 
+	_plist_dict_copy_bool(request, parameters, "eUICC,ApProductionMode", "ApProductionMode");
 	_plist_dict_copy_uint(request, parameters, "eUICC,ChipID", NULL);
 	_plist_dict_copy_data(request, parameters, "eUICC,EID", NULL);
 	_plist_dict_copy_data(request, parameters, "eUICC,RootKeyIdentifier", NULL);
+
+	if (!plist_dict_get_item(request, "eUICC,Gold")) {
+		plist_t n = plist_access_path(parameters, 2, "Manifest", "eUICC,Gold");
+		if (n) {
+			plist_t p = plist_new_dict();
+			_plist_dict_copy_data(p, n, "Digest", NULL);
+			plist_dict_set_item(request, "eUICC,Gold", p);
+		}
+	}
+
+	if (!plist_dict_get_item(request, "eUICC,Main")) {
+		plist_t n = plist_access_path(parameters, 2, "Manifest", "eUICC,Main");
+		if (n) {
+			plist_t p = plist_new_dict();
+			_plist_dict_copy_data(p, n, "Digest", NULL);
+			plist_dict_set_item(request, "eUICC,Main", p);
+		}
+	}
 
 	/* set Nonce for eUICC,Gold component */
 	node = plist_dict_get_item(parameters, "EUICCGoldNonce");
