@@ -35,6 +35,7 @@ extern "C" {
 int ipsw_print_info(const char* ipsw);
 
 typedef int (*ipsw_list_cb)(void *ctx, const char* ipsw, const char *name, struct stat *stat);
+typedef int (*ipsw_send_cb)(void *ctx, void *data, size_t size);
 
 int ipsw_is_directory(const char* ipsw);
 int ipsw_file_exists(const char* ipsw, const char* infile);
@@ -42,6 +43,7 @@ int ipsw_get_file_size(const char* ipsw, const char* infile, uint64_t* size);
 int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfile);
 int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, const char* outfile, int print_progress);
 int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char** pbuffer, unsigned int* psize);
+int ipsw_extract_send(const char* ipsw, const char* infile, int blocksize, ipsw_send_cb send_callback, void* ctx);
 int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest, int *tss_enabled);
 int ipsw_extract_restore_plist(const char* ipsw, plist_t* restore_plist);
 int ipsw_list_contents(const char* ipsw, ipsw_list_cb cb, void *ctx);

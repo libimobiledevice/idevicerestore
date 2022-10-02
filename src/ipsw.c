@@ -710,6 +710,147 @@ int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char**
 	return 0;
 }
 
+int ipsw_extract_send(const char* ipsw, const char* infile, int blocksize, ipsw_send_cb send_callback, void* ctx)
+{
+	unsigned char* buffer = NULL;
+	size_t done = 0;
+	size_t total_size = 0;
+
+	ipsw_archive* archive = ipsw_open(ipsw);
+	if (archive == NULL) {
+		error("ERROR: Invalid archive\n");
+		return -1;
+	}
+
+	if (archive->zip) {
+		int zindex = zip_name_locate(archive->zip, infile, 0);
+		if (zindex < 0) {
+			debug("NOTE: zip_name_locate: '%s' not found in archive.\n", infile);
+			ipsw_close(archive);
+			return -1;
+		}
+
+		struct zip_stat zstat;
+		zip_stat_init(&zstat);
+		if (zip_stat_index(archive->zip, zindex, 0, &zstat) != 0) {
+			error("ERROR: zip_stat_index: %s\n", infile);
+			ipsw_close(archive);
+			return -1;
+		}
+
+		struct zip_file* zfile = zip_fopen_index(archive->zip, zindex, 0);
+		if (zfile == NULL) {
+			error("ERROR: zip_fopen_index: %s\n", infile);
+			ipsw_close(archive);
+			return -1;
+		}
+
+		total_size = zstat.size;
+		buffer = (unsigned char*) malloc(blocksize);
+		if (buffer == NULL) {
+			error("ERROR: Out of memory\n");
+			zip_fclose(zfile);
+			ipsw_close(archive);
+			return -1;
+		}
+
+		while (done < total_size) {
+			size_t size = total_size-done;
+			if (size > blocksize) size = blocksize;
+			zip_int64_t zr = zip_fread(zfile, buffer, size);
+			if (zr < 0) {
+				error("ERROR: %s: zip_fread: %s\n", __func__, infile);
+				break;
+			} else if (zr == 0) {
+				// EOF
+				break;
+			}
+			if (send_callback(ctx, buffer, zr) < 0) {
+				error("ERROR: %s: send failed\n", __func__);
+				break;
+			}
+			done += zr;
+		}
+		zip_fclose(zfile);
+		free(buffer);
+	} else {
+		char *filepath = build_path(archive->path, infile);
+		struct stat fst;
+#ifdef WIN32
+		if (stat(filepath, &fst) != 0) {
+#else
+		if (lstat(filepath, &fst) != 0) {
+#endif
+			error("ERROR: %s: stat failed for %s: %s\n", __func__, filepath, strerror(errno));
+			free(filepath);
+			ipsw_close(archive);
+			return -1;
+		}
+		total_size = fst.st_size;
+		buffer = (unsigned char*)malloc(blocksize);
+		if (buffer == NULL) {
+			error("ERROR: Out of memory\n");
+			free(filepath);
+			ipsw_close(archive);
+			return -1;
+		}
+
+#ifndef WIN32
+		if (S_ISLNK(fst.st_mode)) {
+			ssize_t rl = readlink(filepath, (char*)buffer, (total_size > blocksize) ? blocksize : total_size);
+			if (rl < 0) {
+				error("ERROR: %s: readlink failed for %s: %s\n", __func__, filepath, strerror(errno));
+				free(filepath);
+				free(buffer);
+				ipsw_close(archive);
+				return -1;
+			}
+			send_callback(ctx, buffer, (size_t)rl);
+		} else {
+#endif
+			FILE *f = fopen(filepath, "rb");
+			if (!f) {
+				error("ERROR: %s: fopen failed for %s: %s\n", __func__, filepath, strerror(errno));
+				free(filepath);
+				free(buffer);
+				ipsw_close(archive);
+				return -2;
+			}
+
+			while (done < total_size) {
+				size_t size = total_size-done;
+				if (size > blocksize) size = blocksize;
+				size_t fr = fread(buffer, 1, size, f);
+				if (fr != size) {
+					error("ERROR: %s: fread failed for %s: %s\n", __func__, filepath, strerror(errno));
+					break;
+				}
+				if (send_callback(ctx, buffer, fr) < 0) {
+					error("ERROR: %s: send failed\n", __func__);
+					break;
+				}
+				done += fr;
+			}
+			fclose(f);
+#ifndef WIN32
+		}
+#endif
+		free(filepath);
+		free(buffer);
+	}
+	ipsw_close(archive);
+
+	if (done < total_size) {
+		error("ERROR: %s: Sending file data for %s failed (sent %" PRIu64 "/%" PRIu64 ")\n", __func__, infile, (uint64_t)done, (uint64_t)total_size);
+		return -1;
+	}
+
+	// send a NULL buffer to mark end of transfer
+	send_callback(ctx, NULL, 0);
+
+	return 0;
+}
+
 int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest, int *tss_enabled)
 {
 	unsigned int size = 0;

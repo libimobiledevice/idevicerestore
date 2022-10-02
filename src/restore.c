@@ -3326,18 +3326,18 @@ int extract_macos_variant(plist_t build_identity, char** output)
 	return 0;
 }
 
-int extract_global_manifest(struct idevicerestore_client_t* client, plist_t build_identity, char *variant, unsigned char** pbuffer, unsigned int* psize)
+static char* extract_global_manifest_path(plist_t build_identity, char *variant)
 {
 	plist_t build_info = plist_dict_get_item(build_identity, "Info");
 	if (!build_info) {
 		error("ERROR: build identity does not contain an 'Info' element\n");
-		return -1;
+		return NULL;
 	}
 
 	plist_t device_class_node = plist_dict_get_item(build_info, "DeviceClass");
 	if (!device_class_node) {
 		error("ERROR: build identity info does not contain a DeviceClass\n");
-		return -1;
+		return NULL;
 	}
 	char *device_class = NULL;
 	plist_get_string_val(device_class_node, &device_class);
@@ -3350,7 +3350,7 @@ int extract_global_manifest(struct idevicerestore_client_t* client, plist_t buil
 		ret = extract_macos_variant(build_identity, &macos_variant);
 		if (ret != 0) {
 			free(device_class);
-			return -1;
+			return NULL;
 		}
 	}
 
@@ -3361,7 +3361,17 @@ int extract_global_manifest(struct idevicerestore_client_t* client, plist_t buil
 	free(device_class);
 	free(macos_variant);
 
-	ret = ipsw_extract_to_memory(client->ipsw, ticket_path, pbuffer, psize);
+	return ticket_path;
+}
+
+int extract_global_manifest(struct idevicerestore_client_t* client, plist_t build_identity, char *variant, unsigned char** pbuffer, unsigned int* psize)
+{
+	char* ticket_path = extract_global_manifest_path(build_identity, variant);
+	if (!ticket_path) {
+		error("ERROR: failed to get global manifest path\n");
+		return -1;
+	}
+	int ret = ipsw_extract_to_memory(client->ipsw, ticket_path, pbuffer, psize);
 	if (ret != 0) {
 		free(ticket_path);
 		error("ERROR: failed to read global manifest\n");
@@ -3369,6 +3379,26 @@ int extract_global_manifest(struct idevicerestore_client_t* client, plist_t buil
 	}
 	free(ticket_path);
 
+	return 0;
+}
+
+static int _restore_send_file_data(restored_client_t restore, void* data, size_t size)
+{
+	plist_t dict = plist_new_dict();
+	if (data != NULL) {
+		// Send a chunk of file data
+		plist_dict_set_item(dict, "FileData", plist_new_data((char*)data, size));
+	} else {
+		// Send FileDataDone to mark end of transfer
+		plist_dict_set_item(dict, "FileDataDone", plist_new_bool(1));
+	}
+	restored_error_t restore_error = restored_send(restore, dict);
+	if (restore_error != RESTORE_E_SUCCESS) {
+		plist_free(dict);
+		error("ERROR: %s: Failed to send data (%d)\n", __func__, restore_error);
+		return -1;
+	}
+	plist_free(dict);
 	return 0;
 }
 
@@ -3395,9 +3425,8 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 	plist_t blob = NULL;
 	plist_t dict = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
-	char *component_name = component;
 
-	info("About to send %s...\n", component_name);
+	info("About to send %s...\n", component);
 
 	if (strcmp(image_name, "__GlobalManifest__") == 0) {
 		int ret = extract_global_manifest(client, build_identity, NULL, &data, &size);
@@ -3446,7 +3475,7 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 			return -1;
 		}
 
-		// Personalize IMG40
+		// Personalize IMG4
 		ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
 		free(component_data);
 		component_data = NULL;
@@ -3456,43 +3485,23 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 		}
 	}
 
-	// Make plist
-	info("Sending %s now...\n", component_name);
+	info("Sending %s now...\n", component);
 
 	int64_t i = size;
 	while (i > 0) {
 		int blob_size = i > 8192 ? 8192 : i;
-
-		dict = plist_new_dict();
-		blob = plist_new_data((char *) (data + size - i), blob_size);
-		plist_dict_set_item(dict, "FileData", blob);
-
-		restore_error = restored_send(restore, dict);
-		if (restore_error != RESTORE_E_SUCCESS) {
-			error("ERROR: Unable to send component %s data\n", component_name);
+		if (_restore_send_file_data(restore, (data + size - i), blob_size) < 0) {
+			free(data);
+			error("ERROR: Unable to send component %s data\n", component);
 			return -1;
 		}
-
-		plist_free(dict);
-
 		i -= blob_size;
 	}
-	debug("\n");
-
-	// Send FileDataDone
-	dict = plist_new_dict();
-	plist_dict_set_item(dict, "FileDataDone", plist_new_bool(1));
-
-	restore_error = restored_send(restore, dict);
-	if (restore_error != RESTORE_E_SUCCESS) {
-		error("ERROR: Unable to send component %s data\n", component_name);
-		return -1;
-	}
-
-	plist_free(dict);
 	free(data);
 
-	info("Done sending %s\n", component_name);
+	_restore_send_file_data(restore, NULL, 0);
+
+	info("Done sending %s\n", component);
 	return 0;
 }
 
@@ -3521,9 +3530,8 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 	plist_t blob = NULL;
 	plist_t dict = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
-	char *component_name = component;
 
-	info("About to send %s...\n", component_name);
+	info("About to send %s...\n", component);
 
 	if (strcmp(image_name, "__GlobalManifest__") == 0) {
 		char *variant = NULL;
@@ -3538,22 +3546,11 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 			return -1;
 		}
 
-		int ret = extract_global_manifest(client, build_identity, variant, &data, &size);
-		if (ret != 0) {
-			return -1;
-		}
+		path = extract_global_manifest_path(build_identity, variant);
 	} else if (strcmp(image_name, "__RestoreVersion__") == 0) {
-		int ret = ipsw_extract_to_memory(client->ipsw, "RestoreVersion.plist", &data, &size);
-		if (ret != 0) {
-			error("ERROR: failed to read global manifest\n");
-			return -1;
-		}
+		path = strdup("RestoreVersion.plist");
 	} else if (strcmp(image_name, "__SystemVersion__") == 0) {
-		int ret = ipsw_extract_to_memory(client->ipsw, "SystemVersion.plist", &data, &size);
-		if (ret != 0) {
-			error("ERROR: failed to read global manifest\n");
-			return -1;
-		}
+		path = strdup("SystemVersion.plist");
 	} else {
 		// Get component path
 		if (client->tss) {
@@ -3568,53 +3565,23 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 				return -1;
 			}
 		}
-
-		int ret = extract_component(client->ipsw, path, &data, &size);
-		free(path);
-		path = NULL;
-		if (ret < 0) {
-			error("ERROR: Unable to extract component %s\n", component);
-			return -1;
-		}
 	}
 
-	// Make plist
-	info("Sending %s now...\n", component_name);
-
-	int64_t i = size;
-	while (i > 0) {
-		int blob_size = i > 8192 ? 8192 : i;
-
-		dict = plist_new_dict();
-		blob = plist_new_data((char *) (data + size - i), blob_size);
-		plist_dict_set_item(dict, "FileData", blob);
-
-		restore_error = restored_send(restore, dict);
-		if (restore_error != RESTORE_E_SUCCESS) {
-			error("ERROR: Unable to send component %s data\n", component_name);
-			return -1;
-		}
-
-		plist_free(dict);
-
-		i -= blob_size;
-	}
-	debug("\n");
-
-	// Send FileDataDone
-	dict = plist_new_dict();
-	plist_dict_set_item(dict, "FileDataDone", plist_new_bool(1));
-
-	restore_error = restored_send(restore, dict);
-	if (restore_error != RESTORE_E_SUCCESS) {
-		error("ERROR: Unable to send component %s data\n", component_name);
+	if (!path) {
+		error("ERROR: Failed to get path for component %s\n", component);
 		return -1;
 	}
 
-	plist_free(dict);
-	free(data);
+	info("Sending %s now...\n", component);
 
-	info("Done sending %s\n", component_name);
+	if (ipsw_extract_send(client->ipsw, path, 8192, (ipsw_send_cb)_restore_send_file_data, restore) < 0) {
+		free(path);
+		error("ERROR: Failed to send component %s\n", component);
+		return -1;
+	}
+	free(path);
+
+	info("Done sending %s\n", component);
 	return 0;
 }
 

@@ -2278,7 +2278,7 @@ int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* clie
 	}
 
 	/* add common tags from manifest */
-	/* Adds Ap,OSLongVersion, AppNonce, @ApImg4Ticket */
+	/* Adds Ap,OSLongVersion, ApNonce, @ApImg4Ticket */
 	if (tss_request_add_ap_img4_tags(request, parameters) < 0) {
 		error("ERROR: Unable to add AP IMG4 tags to TSS request\n");
 		plist_free(request);
