@@ -498,7 +498,7 @@ int recovery_send_kernelcache(struct idevicerestore_client_t* client, plist_t bu
 		recovery_error = irecv_send_command(client->recovery->client, setba);
 	}
 
-	recovery_error = irecv_send_command(client->recovery->client, "bootx");
+	recovery_error = irecv_send_command_breq(client->recovery->client, "bootx", client->macos_variant ? 1 : 0);
 	if (recovery_error != IRECV_E_SUCCESS) {
 		error("ERROR: Unable to execute %s\n", component);
 		return -1;
