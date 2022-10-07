@@ -271,7 +271,7 @@ jobs:
           echo "LIBZIP_CFLAGS=-I`pwd`/deps/include" >> $GITHUB_ENV
           echo "LIBZIP_LIBS=`pwd`/deps/lib/libzip.a /${{env.dest}}/lib/libbz2.a /${{env.dest}}/lib/liblzma.a " >> $GITHUB_ENV
     - name: autogen
-      run: ./autogen.sh CC=gcc CXX=g++ --without-openssl libzip_CFLAGS="${{env.LIBZIP_CFLAGS}}" libzip_LIBS="${{env.LIBZIP_LIBS}}" zlib_LIBS="/${{env.dest}}/lib/libz.a"
+      run: ./autogen.sh CC=gcc CXX=g++ --without-openssl libzip_VERSION=1.7.1 libzip_CFLAGS="${{env.LIBZIP_CFLAGS}}" libzip_LIBS="${{env.LIBZIP_LIBS}}" zlib_LIBS="/${{env.dest}}/lib/libz.a"
     - name: make
       run: make
     - name: make install
