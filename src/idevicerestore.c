@@ -523,7 +523,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 		
 		else if (checkm8Vuln == 1) {
-			//gaster();
+			gaster_main();
 		}
 		
 		else {
