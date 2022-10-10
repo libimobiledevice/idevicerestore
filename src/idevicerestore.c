@@ -478,13 +478,15 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return -1;
 		}
 
-		unsigned int cpid = 0;
-		dfu_get_cpid(client, &cpid);
+		
 
 		info("connecting to DFU\n");
 		if (dfu_client_new(client) < 0) {
 			return -1;
 		}
+
+		unsigned int cpid = 0;
+		dfu_get_cpid(client, &cpid);
 
 		int limera1nDevices[] = {8920, 8922, 8930};
 		int checkm8Devices[] = {8950, 8955, 8947, 8960, 7001, 7000, 7002, 8003, 8000, 8001, 8002, 8010, 8011, 8015, 8012};
@@ -521,11 +523,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 		
 		else if (checkm8Vuln == 1) {
-			//gaster_main();
+			//gaster();
 		}
 		
 		else {
-			error("ERROR: There are no available BootROM exploits for your device");
+			error("ERROR: There are no available BootROM exploits for your device\n");
 			return -1;
 		}
     }

@@ -44,6 +44,7 @@ idevicerestore_SOURCES = \
 	fdr.c fdr.h \
 	limera1n_payload.h \
 	limera1n.c limera1n.h \
+	gaster/gaster.c gaster/gaster.h \
 	download.c download.h \
 	locking.c locking.h
 if USE_INTERNAL_SHA
