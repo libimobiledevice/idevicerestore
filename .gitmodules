@@ -1,0 +1,3 @@
+[submodule "gaster"]
+	path = src/gaster
+	url = https://github.com/alfiecg24/gaster.git

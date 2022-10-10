@@ -58,6 +58,7 @@
 #include "idevicerestore.h"
 
 #include "limera1n.h"
+#include "gaster/gaster.h"
 
 #include "locking.h"
 
@@ -137,7 +138,7 @@ static void usage(int argc, char* argv[], int err)
 	"  -t, --shsh            Fetch TSS record and save to .shsh file, then exit\n" \
 	"  -z, --no-restore      Do not restore and end after booting to the ramdisk\n" \
 	"  -k, --keep-pers       Write personalized components to files for debugging\n" \
-	"  -p, --pwn             Put device in pwned DFU mode and exit (limera1n devices)\n" \
+	"  -p, --pwn             Put device in pwned DFU mode and exit (limera1n/checkm8 devices)\n" \
 	"  -P, --plain-progress  Print progress as plain step and progress\n" \
 	"  -R, --restore-mode    Allow restoring from Restore mode\n" \
 	"  -T, --ticket PATH     Use file at PATH to send as AP ticket\n" \
@@ -160,7 +161,6 @@ const uint8_t lpol_file[22] = {
 		0x31, 0x2e, 0x30, 0x04, 0x01, 0x00
 };
 const uint32_t lpol_file_length = 22;
-
 static int idevicerestore_keep_pers = 0;
 
 static int load_version_data(struct idevicerestore_client_t* client)
@@ -478,22 +478,57 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return -1;
 		}
 
+		unsigned int cpid = 0;
+		dfu_get_cpid(client, &cpid);
+
 		info("connecting to DFU\n");
 		if (dfu_client_new(client) < 0) {
 			return -1;
 		}
-		info("exploiting with limera1n...\n");
-		// TODO: check for non-limera1n device and fail
-		if (limera1n_exploit(client->device, &client->dfu->client) != 0) {
-			error("ERROR: limera1n exploit failed\n");
+
+		int limera1nDevices[] = {8920, 8922, 8930};
+		int checkm8Devices[] = {8950, 8955, 8947, 8960, 7001, 7000, 7002, 8003, 8000, 8001, 8002, 8010, 8011, 8015, 8012};
+		int limera1nDevicesLen = sizeof limera1nDevices / sizeof limera1nDevices[0];
+		int checkm8DevicesLen = sizeof checkm8Devices / sizeof checkm8Devices[0];
+		int limera1nVuln = 0;
+		int checkm8Vuln = 0;
+
+		for (int i = 0; i < limera1nDevicesLen; i++) {
+			if (limera1nDevices[i] == cpid) {
+				limera1nVuln = 1;
+				break;
+			}
+		}
+		for (int i = 0; i < checkm8DevicesLen; i++) {
+			if (checkm8Devices[i] == cpid) {
+				checkm8Vuln = 1;
+				break;
+			}
+		}
+
+		if (limera1nVuln == 1) {
+			info("exploiting with limera1n...\n");
+
+			if (limera1n_exploit(client->device, &client->dfu->client) != 0) {
+				error("ERROR: limera1n exploit failed\n");
+				dfu_client_free(client);
+				return -1;
+			}
 			dfu_client_free(client);
+			info("Device should be in pwned DFU state now.\n");
+
+			return 0;
+		}
+		
+		else if (checkm8Vuln == 1) {
+			//gaster_main();
+		}
+		
+		else {
+			error("ERROR: There are no available BootROM exploits for your device");
 			return -1;
 		}
-		dfu_client_free(client);
-		info("Device should be in pwned DFU state now.\n");
-
-		return 0;
-	}
+    }
 
 	if (client->flags & FLAG_LATEST) {
 		char *fwurl = NULL;
