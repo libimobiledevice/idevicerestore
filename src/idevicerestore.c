@@ -1245,25 +1245,51 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 					unlink(filesystem);
 				return -1;
 			}
-			info("exploiting with limera1n\n");
-			// TODO: check for non-limera1n device and fail
-			if (limera1n_exploit(client->device, &client->dfu->client) != 0) {
-				error("ERROR: limera1n exploit failed\n");
+
+			// Check if device is vulnerable to limera1n
+			unsigned int cpid = 0;
+			dfu_get_cpid(client, &cpid);
+
+			int limera1nDevices[] = {8920, 8922, 8930};
+			int limera1nDevicesLen = sizeof limera1nDevices / sizeof limera1nDevices[0];
+			int limera1nVuln = 0;
+
+			for (int i = 0; i < limera1nDevicesLen; i++) {
+				if (limera1nDevices[i] == cpid) {
+					limera1nVuln = 1;
+					break;
+				}
+			}
+
+			if (limera1nVuln == 1) {
+				info("exploiting with limera1n...\n");
+				if (limera1n_exploit(client->device, &client->dfu->client) != 0) {
+					error("ERROR: limera1n exploit failed\n");
+					dfu_client_free(client);
+					if (delete_fs && filesystem) {
+						unlink(filesystem)
+					}
+					return -1;
+				}
 				dfu_client_free(client);
-				if (delete_fs && filesystem)
-					unlink(filesystem);
+				info("exploited.\n");
+	
+				return 0;
+			}
+			
+			else {
+				dfu_client_free(client);
+				error("ERROR: This device is not supported by the limera1n exploit");
 				return -1;
 			}
-			dfu_client_free(client);
-			info("exploited\n");
-		}
-		if (dfu_enter_recovery(client, build_identity) < 0) {
-			error("ERROR: Unable to place device into recovery mode from DFU mode\n");
-			if (client->tss)
-				plist_free(client->tss);
-			if (delete_fs && filesystem)
-				unlink(filesystem);
-			return -2;
+			if (dfu_enter_recovery(client, build_identity) < 0) {
+				error("ERROR: Unable to place device into recovery mode from DFU mode\n");
+				if (client->tss)
+					plist_free(client->tss);
+				if (delete_fs && filesystem)
+					unlink(filesystem);
+				return -2;
+			}
 		}
 	} else if (client->mode == MODE_RECOVERY) {
 		// device is in recovery mode
