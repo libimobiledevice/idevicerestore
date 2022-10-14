@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.ejs": "html",
+        "algorithm": "c",
+        "complex": "c",
+        "cmath": "c"
+    }
+}
