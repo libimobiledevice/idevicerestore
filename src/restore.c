@@ -3404,7 +3404,10 @@ static int _restore_send_file_data(restored_client_t restore, void* data, size_t
 
 int restore_send_personalized_boot_object_v3(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg, plist_t build_identity)
 {
-	debug_plist(msg);
+	if (idevicerestore_debug) {
+		debug("DEBUG: %s: Got PersonalizedBootObjectV3 request:\n", __func__);
+		debug_plist(message);
+	}
 
 	char *image_name = NULL;
 	plist_t node = plist_access_path(msg, 2, "Arguments", "ImageName");
@@ -3507,7 +3510,10 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 
 int restore_send_source_boot_object_v4(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg, plist_t build_identity)
 {
-	debug_plist(msg);
+	if (idevicerestore_debug) {
+		debug("DEBUG: %s: Got SourceBootObjectV4 request:\n", __func__);
+		debug_plist(message);
+	}
 
 	char *image_name = NULL;
 	plist_t node = plist_access_path(msg, 2, "Arguments", "ImageName");
