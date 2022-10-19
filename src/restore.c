@@ -3406,7 +3406,7 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 {
 	if (idevicerestore_debug) {
 		debug("DEBUG: %s: Got PersonalizedBootObjectV3 request:\n", __func__);
-		debug_plist(message);
+		debug_plist(msg);
 	}
 
 	char *image_name = NULL;
@@ -3512,7 +3512,7 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 {
 	if (idevicerestore_debug) {
 		debug("DEBUG: %s: Got SourceBootObjectV4 request:\n", __func__);
-		debug_plist(message);
+		debug_plist(msg);
 	}
 
 	char *image_name = NULL;
