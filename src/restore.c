@@ -2105,7 +2105,7 @@ static int restore_send_image_data(restored_client_t restore, struct idevicerest
 	return 0;
 }
 
-static plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+static plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info, plist_t p_dgr)
 {
 	const char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2167,7 +2167,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 	plist_dict_merge(&parameters, p_info);
 
 	/* add required tags for SE TSS request */
-	tss_request_add_se_tags(request, parameters, NULL);
+	tss_request_add_se_tags(request, parameters, p_dgr);
 
 	plist_free(parameters);
 
@@ -2180,10 +2180,12 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 		return NULL;
 	}
 
-	if (plist_dict_get_item(response, "SE,Ticket")) {
-		info("Received SE ticket\n");
+	if (plist_dict_get_item(response, "SE2,Ticket")) {
+		info("Received SE2,Ticket\n");
+	} else if (plist_dict_get_item(response, "SE,Ticket")) {
+		info("Received SE,Ticket\n");
 	} else {
-		error("ERROR: No 'SE,Ticket' in TSS response, this might not work\n");
+		error("ERROR: No 'SE ticket' in TSS response, this might not work\n");
 	}
 
 	plist_dict_set_item(response, "FirmwareData", plist_new_data((char*)component_data, (uint64_t) component_size));
@@ -2971,7 +2973,7 @@ static int restore_send_firmware_updater_preflight(restored_client_t restore, st
 static int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
 {
 	plist_t arguments;
-	plist_t p_type, p_updater_name, p_loop_count, p_info;
+	plist_t p_type, p_updater_name, p_loop_count, p_info, p_dgr;
 	plist_t loop_count_dict = NULL;
 	char *s_type = NULL;
 	plist_t dict = NULL;
@@ -3022,10 +3024,16 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 		goto error_out;
 	}
 
+	p_dgr = plist_dict_get_item(arguments, "DeviceGeneratedRequest");
+	if (!p_dgr|| (plist_get_node_type(p_dgr) != PLIST_DICT)) {
+		error("ERROR: %s: DeviceGeneratedRequest missing or has invalid type!\n", __func__);
+		goto error_out;
+	}
+
 	plist_get_string_val(p_updater_name, &s_updater_name);
 
 	if (strcmp(s_updater_name, "SE") == 0) {
-		fwdict = restore_get_se_firmware_data(restore, client, build_identity, p_info);
+		fwdict = restore_get_se_firmware_data(restore, client, build_identity, p_info, p_dgr);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get SE firmware data\n", __func__);
 			goto error_out;

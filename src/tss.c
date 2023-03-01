@@ -786,9 +786,7 @@ int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrid
 		return -1;
 	}
 
-	/* add tags indicating we want to get the SE,Ticket */
 	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
-	plist_dict_set_item(request, "@SE,Ticket", plist_new_bool(1));
 
 	if (_plist_dict_copy_uint(request, parameters, "SE,ChipID", NULL) < 0) {
 		error("ERROR: %s: Unable to find required SE,ChipID in parameters\n", __func__);
