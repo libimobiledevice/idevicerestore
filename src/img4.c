@@ -394,37 +394,6 @@ static const char *_img4_get_component_tag(const char *compname)
 	return NULL;
 }
 
-static void hexdump(char* data, int length)
-{
-        int i;
-        int j;
-        unsigned char c;
-
-                for (i = 0; i < length; i += 16) {
-                        fprintf(stderr, "%04x: ", i);
-                        for (j = 0; j < 16; j++) {
-                                if (i + j >= length) {
-                                        fprintf(stderr, "   ");
-                                        continue;
-                                }
-                                fprintf(stderr, "%02x ", *(data + i + j) & 0xff);
-                        }
-                        fprintf(stderr, "  | ");
-                        for (j = 0; j < 16; j++) {
-                                if (i + j >= length)
-                                        break;
-                                c = *(data + i + j);
-                                if ((c < 32) || (c > 127)) {
-                                        fprintf(stderr, ".");
-                                        continue;
-                                }
-                                fprintf(stderr, "%c", c);
-                        }
-                        fprintf(stderr, "\n");
-                }
-                fprintf(stderr, "\n");
-}
-
 int img4_stitch_component(const char* component_name, const unsigned char* component_data, unsigned int component_size, plist_t tss_response, unsigned char** img4_data, unsigned int *img4_size)
 {
 	unsigned char* magic_header = NULL;
