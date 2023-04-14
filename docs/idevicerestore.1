@@ -1,66 +1,111 @@
 .TH "idevicerestore" 1
 .SH NAME
-idevicerestore \- Restore IPSW firmware FILE to an iOS device
+idevicerestore \- Restore IPSW firmware at PATH to an iOS device
 .SH SYNOPSIS
 .B idevicerestore
-[OPTIONS] FILE
+[OPTIONS] PATH
 
 .SH DESCRIPTION
 
 Restore firmware files to iOS devices while either erasing the device or 
 updating to preserve content and settings.
 
+\f[B]PATH\f[] can be a compressed .ipsw file or a directory containing all files extracted from an IPSW.
+
 .SH OPTIONS
 .TP
 .B \-i, \-\-ecid ECID
-target specific device by its hexadecimal ECID e.g. 0xaabb123456 or 00000012AABBCCDD.
+Target specific device by its ECID, e.g. 0xaabb123456 (hex) or 1234567890 (decimal).
 .TP
 .B \-u, \-\-udid UDID
-target specific device by its 40-digit device UDID.
-NOTE: only works with devices in normal mode.
-.TP 
-.B \-e, \-\-erase
-perform a full restore, erasing all data (defaults to update).
-.TP 
-.B \-c, \-\-custom
-restore with a custom firmware.
+Target specific device by its device UDID.
+
+\f[B]NOTE\f[]: only works with devices in normal mode.
 .TP 
 .B \-l, \-\-latest
-use latest available firmware (with download on demand). \
-DO NOT USE if you need to preserve the baseband (unlock)! \
-USE WITH CARE if you want to keep a jailbreakable firmware! \
-The FILE argument is ignored when using this option.
+Use latest available firmware (with download on demand).
+Before performing any action it will interactively ask
+to select one of the currently signed firmware versions,
+unless \f[B]\-y\f[] has been given too.
+
+The PATH argument is ignored when using this option.
+
+\f[B]DO NOT USE\f[] if you need to preserve the baseband/unlock!
+
+\f[B]USE WITH CARE\f[] if you want to keep a jailbreakable firmware!
 .TP
-.B \-s, \-\-cydia
-use Cydia's signature service instead of Apple's.
+.B \-e, \-\-erase
+Perform full restore instead of update, erasing all data
+
+\f[B]DO NOT USE\f[] if you want to preserve user data on the device!
 .TP
-.B \-x, \-\-exclude
-exclude nor/baseband upgrade.
-.TP
-.B \-t, \-\-shsh
-fetch TSS record and save to .shsh file, then exit.
-.TP
-.B \-p, \-\-pwn
-put device in pwned DFU mode and exit (limera1n devices only).
+.B \-y, \-\-no\-input
+Non-interactive mode, do not ask for any input.
+
+\f[B]WARNING\f[]: This will disable certain checks/prompts that are supposed
+to prevent DATA LOSS. \f[B]Use with caution\f[].
 .TP
 .B \-n, \-\-no\-action
-do not perform any restore action. If combined with -l option the on demand
-IPSW download is performed before exiting.
+Do not perform any restore action. If combined with \f[B]\-l\f[] option
+the on-demand ipsw download is performed before exiting.
 .TP
 .B \-\-ipsw\-info
 Print information about the IPSW at PATH and exit.
 .TP
+.B \-h, \-\-help
+Prints usage information.
+.TP
 .B \-C, \-\-cache\-path DIR
-use specified directory for caching extracted or other reused files.
+Use specified directory for caching extracted or other reused files.
 .TP
 .B \-d, \-\-debug
-enable communication debugging.
-.TP
-.B \-h, \-\-help
-prints usage information.
+Enable communication debugging.
 .TP
 .B \-v, \-\-version
-prints version information.
+Prints version information.
+
+.SH ADVANCED/EXPERIMENTAL OPTIONS
+.TP 
+.B \-c, \-\-custom
+Restore with a custom firmware (requires bootrom exploit)
+.TP
+.B \-s, \-\-server URL
+Override the default signing server request URL. If the URL doesn't contain
+a path component, the default path \f[B]/TSS/controller?action=2\f[] will be added.
+.TP
+.B \-x, \-\-exclude
+Exclude nor/baseband upgrade.
+
+\f[B]NOTE\f[]: This option only works with legacy devices and/or custom firmware.
+.TP
+.B \-t, \-\-shsh
+Fetch TSS record and save to .shsh file, then exit.
+.TP
+.B \-z, \-\-no\-restore
+Do not restore and end after booting to the ramdisk.
+.TP
+.B \-k, \-\-keep\-pers
+Write personalized components to files for debugging.
+.TP
+.B \-p, \-\-pwn
+Put device in pwned DFU mode and exit (limera1n devices only).
+.TP
+.B \-P, --plain-progress
+Print progress as plain step and progress
+.TP
+.B \-R, \-\-restore\-mode
+Allow restoring from Restore mode
+.TP
+.B \-T, \-\-ticket PATH
+Use file at PATH to send as AP ticket
+.TP
+.B \-\-variant VARIANT
+Use given VARIANT to match the build identity to use, e.g. 'Customer Erase Install (IPSW)'
+.TP
+.B \-\-ignore\-errors
+Try to continue the restore process after certain errors (like a failed baseband update).
+
+\f[B]WARNING\f[]: This might render the device unable to boot or only partially functioning. \f[B]Use with caution\f[].
 
 .SH AUTHORS
 Martin Szulecki
