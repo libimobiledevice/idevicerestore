@@ -72,7 +72,7 @@ static struct option longopts[] = {
 	{ "erase",          no_argument,       NULL, 'e' },
 	{ "custom",         no_argument,       NULL, 'c' },
 	{ "latest",         no_argument,       NULL, 'l' },
-	{ "cydia",          no_argument,       NULL, 's' },
+	{ "server",         required_argument, NULL, 's' },
 	{ "exclude",        no_argument,       NULL, 'x' },
 	{ "shsh",           no_argument,       NULL, 't' },
 	{ "keep-pers",      no_argument,       NULL, 'k' },
@@ -132,8 +132,8 @@ static void usage(int argc, char* argv[], int err)
 	"\n" \
 	"Advanced/experimental options:\n"
 	"  -c, --custom          Restore with a custom firmware (requires bootrom exploit)\n" \
-	"  -s, --cydia           Use Cydia's signature service instead of Apple's\n" \
-	"  -x, --exclude         Exclude nor/baseband upgrade\n" \
+	"  -s, --server URL      Override default signing server request URL\n" \
+	"  -x, --exclude         Exclude nor/baseband upgrade (legacy devices)\n" \
 	"  -t, --shsh            Fetch TSS record and save to .shsh file, then exit\n" \
 	"  -z, --no-restore      Do not restore and end after booting to the ramdisk\n" \
 	"  -k, --keep-pers       Write personalized components to files for debugging\n" \
@@ -1617,7 +1617,7 @@ int main(int argc, char* argv[]) {
 		client->flags |= FLAG_INTERACTIVE;
 	}
 
-	while ((opt = getopt_long(argc, argv, "dhcesxtpli:u:nC:kyPRT:zv", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhces:xtpli:u:nC:kyPRT:zv", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv, 0);
@@ -1635,8 +1635,35 @@ int main(int argc, char* argv[]) {
 			client->flags |= FLAG_CUSTOM;
 			break;
 
-		case 's':
-			client->tss_url = strdup("http://cydia.saurik.com/TSS/controller?action=2");
+		case 's': {
+			if (!*optarg) {
+				error("ERROR: URL argument for --server must not be empty!\n");
+				usage(argc, argv, 1);
+				return EXIT_FAILURE;
+			}
+			char *baseurl = NULL;
+			if (!strncmp(optarg, "http://", 7) && (strlen(optarg) > 7) && (optarg[7] != '/')) {
+				baseurl = optarg+7;
+			} else if (!strncmp(optarg, "https://", 8) && (strlen(optarg) > 8) && (optarg[8] != '/')) {
+				baseurl = optarg+8;
+			}
+			if (baseurl) {
+				char *p = strchr(baseurl, '/');
+				if (!p || *(p+1) == '\0') {
+					// no path component, add default path
+					const char default_path[] = "/TSS/controller?action=2";
+					char* newurl = malloc(strlen(optarg)+sizeof(default_path));
+					sprintf(newurl, "%s%s", optarg, (p) ? default_path+1 : default_path);
+					client->tss_url = newurl;
+				} else {
+					client->tss_url = strdup(optarg);
+				}
+			} else {
+				error("ERROR: URL argument for --server is invalid, must start with http:// or https://\n");
+				usage(argc, argv, 1);
+				return EXIT_FAILURE;
+			}
+		}
 			break;
 
 		case 'x':

@@ -1524,6 +1524,7 @@ plist_t tss_request_send(plist_t tss_request, const char* server_url_string)
 		curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, strlen(request));
 		if (server_url_string) {
 			curl_easy_setopt(handle, CURLOPT_URL, server_url_string);
+			info("Request URL set to %s\n", server_url_string);
 		} else {
 			int url_index = (retry - 1) % 6;
 			curl_easy_setopt(handle, CURLOPT_URL, urls[url_index]);
