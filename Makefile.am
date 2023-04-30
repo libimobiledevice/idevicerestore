@@ -4,4 +4,8 @@ SUBDIRS = src docs
 
 EXTRA_DIST = \
 	docs \
-	README.md
+	README.md \
+	git-version-gen
+
+dist-hook:
+	echo $(VERSION) > $(distdir)/.tarball-version
