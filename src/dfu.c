@@ -349,11 +349,13 @@ int dfu_send_iboot_stage1_components(struct idevicerestore_client_t* client, pli
 			uint8_t b = 0;
 			plist_get_bool_val(iboot_node, &b);
 			if (b) {
-				debug("DEBUG: %s is loaded by iBoot Stage 1.\n", key);
-				if (dfu_send_component_and_command(client, build_identity, key, "firmware") < 0) {
-					error("ERROR: Unable to send component '%s' to device.\n", key);
-					err++;
-				}
+				debug("DEBUG: %s is loaded by iBoot Stage 1 and iBoot.\n", key);
+			} else {
+				debug("DEBUG: %s is loaded by iBoot Stage 1 but not iBoot...\n", key);
+			}
+			if (dfu_send_component_and_command(client, build_identity, key, "firmware") < 0) {
+				error("ERROR: Unable to send component '%s' to device.\n", key);
+				err++;
 			}
 		}
 		free(key);
