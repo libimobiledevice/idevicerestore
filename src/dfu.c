@@ -473,6 +473,21 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 				return -1;
 			}
 
+			char *value = NULL;
+			unsigned long boot_stage = 0;
+			irecv_getenv(client->dfu->client, "boot-stage", &value);
+			if (value) {
+				boot_stage = strtoul(value, NULL, 0);
+			}
+			if (boot_stage > 0) {
+				info("iBoot boot-stage=%s\n", value);
+				free(value);
+				value = NULL;
+				if (boot_stage != 1) {
+					error("ERROR: iBoot should be at boot stage 1, continuing anyway...\n");
+				}
+			}
+
 			if (dfu_send_iboot_stage1_components(client, build_identity) < 0) {
 				mutex_unlock(&client->device_event_mutex);
 				error("ERROR: Unable to send iBoot stage 1 components to device\n");
