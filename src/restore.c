@@ -2611,6 +2611,61 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 	return response;
 }
 
+static plist_t restore_get_generic_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info, plist_t arguments)
+{
+	plist_t request = NULL;
+	plist_t response = NULL;
+
+	plist_t p_updater_name = plist_dict_get_item(arguments, "MessageArgUpdaterName");
+	const char* s_updater_name = plist_get_string_ptr(p_updater_name, NULL);
+
+	plist_t response_tags = plist_access_path(arguments, 2, "DeviceGeneratedTags", "ResponseTags");
+	const char* response_ticket = NULL;
+	if (PLIST_IS_ARRAY(response_tags)) {
+		plist_t tag0 = plist_array_get_item(response_tags, 0);
+		if (tag0) {
+			response_ticket = plist_get_string_ptr(tag0, NULL);
+		}
+	}
+	if (response_ticket == NULL) {
+		error("ERROR: Unable to determine response ticket from device generated tags");
+		return NULL;
+	}
+
+	/* create TSS request */
+	request = tss_request_new(NULL);
+	if (request == NULL) {
+		error("ERROR: Unable to create %s TSS request\n", s_updater_name);
+		return NULL;
+	}
+
+	/* add device generated request data to request */
+	plist_t device_generated_request = plist_dict_get_item(arguments, "DeviceGeneratedRequest");
+	if (!device_generated_request) {
+		error("ERROR: Could not find DeviceGeneratedRequest in arguments dictionary\n");
+		plist_free(request);
+		return NULL;
+	}
+	plist_dict_merge(&request, device_generated_request);
+
+	info("Sending %s TSS request...\n", s_updater_name);
+	response = tss_request_send(request, client->tss_url);
+	plist_free(request);
+	if (response == NULL) {
+		error("ERROR: Unable to fetch %s ticket\n", s_updater_name);
+		return NULL;
+	}
+
+	if (plist_dict_get_item(response, response_ticket)) {
+		info("Received %s\n", response_ticket);
+	} else {
+		error("ERROR: No '%s' in TSS response, this might not work\n", response_ticket);
+		debug_plist(response);
+	}
+
+	return response;
+}
+
 static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
 {
 	char *comp_name = "Baobab,TCON";
@@ -3072,6 +3127,12 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 			error("ERROR: %s: Couldn't get AppleTCON firmware data\n", __func__);
 			goto error_out;
 		}
+	} else if (strcmp(s_updater_name, "PS190") == 0) {
+		fwdict = restore_get_generic_firmware_data(restore, client, build_identity, p_info, arguments);
+		if (fwdict == NULL) {
+			error("ERROR: %s: Couldn't get PCON1 firmware data\n", __func__);
+			goto error_out;
+		}
 	} else if (strcmp(s_updater_name, "AppleTypeCRetimer") == 0) {
 		fwdict = restore_get_timer_firmware_data(restore, client, build_identity, p_info);
 		if (fwdict == NULL) {
@@ -3085,8 +3146,12 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 			goto error_out;
 		}
 	} else {
-		error("ERROR: %s: Got unknown updater name '%s'.\n", __func__, s_updater_name);
-		goto error_out;
+		error("ERROR: %s: Got unknown updater name '%s', trying to discover from device generated request.\n", __func__, s_updater_name);
+		fwdict = restore_get_generic_firmware_data(restore, client, build_identity, p_info, arguments);
+		if (fwdict == NULL) {
+			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, s_updater_name);
+			goto error_out;
+		}
 	}
 	free(s_updater_name);
 	s_updater_name = NULL;
