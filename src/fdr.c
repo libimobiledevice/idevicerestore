@@ -575,7 +575,7 @@ static int fdr_handle_proxy_cmd(fdr_client_t fdr)
 			break;
 		}
 		if (bytes) {
-			debug("FDR %p got payload of %u bytes, now try to proxy it\n", fdr, bytes);
+			debug("FDR %p got payload of %u bytes, now trying to proxy it\n", fdr, bytes);
 			debug("Sending %u bytes of data\n", bytes);
 			sent = 0;
 			while (sent < bytes) {
