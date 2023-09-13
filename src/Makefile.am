@@ -3,6 +3,7 @@ AM_CFLAGS = \
 	$(LFS_CFLAGS) \
 	$(libirecovery_CFLAGS) \
 	$(libimobiledevice_CFLAGS) \
+	$(libusbmuxd_CFLAGS) \
 	$(libplist_CFLAGS) \
 	$(limd_glue_CFLAGS) \
 	$(libzip_CFLAGS) \
@@ -14,6 +15,7 @@ AM_LDFLAGS = \
 	$(AC_LDFLAGS) \
 	$(libirecovery_LIBS) \
 	$(libimobiledevice_LIBS) \
+	$(libusbmuxd_LIBS) \
 	$(libplist_LIBS) \
 	$(limd_glue_LIBS) \
 	$(libzip_LIBS) \
