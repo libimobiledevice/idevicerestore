@@ -72,7 +72,7 @@ jobs:
           DESTDIR=`pwd`/dest make install
           tar -C dest -cf idevicerestore.tar usr
     - name: publish artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: idevicerestore-latest_${{env.target_triplet}}
         path: idevicerestore.tar
@@ -182,7 +182,7 @@ jobs:
           DESTDIR=`pwd`/dest make install
           tar -C dest -cf idevicerestore.tar usr
     - name: publish artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: idevicerestore-latest_macOS
         path: idevicerestore.tar
@@ -282,7 +282,7 @@ jobs:
           DESTDIR=`pwd`/dest make install
           tar -C dest -cf idevicerestore.tar ${{ env.dest }}
     - name: publish artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: idevicerestore-latest_${{ matrix.arch }}-${{ env.dest }}
         path: idevicerestore.tar
