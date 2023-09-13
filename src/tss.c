@@ -316,8 +316,7 @@ int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters)
 	}
 
 	if (_plist_dict_copy_data(request, parameters, "ApNonce", NULL) < 0) {
-		error("ERROR: Unable to find required ApNonce in parameters\n");
-		return -1;
+		error("WARNING: Unable to find ApNonce in parameters\n");
 	}
 
 	plist_dict_set_item(request, "@APTicket", plist_new_bool(1));
