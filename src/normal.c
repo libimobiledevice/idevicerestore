@@ -29,6 +29,7 @@
 #include <libimobiledevice/libimobiledevice.h>
 #include <libimobiledevice/lockdown.h>
 #include <libimobiledevice/preboard.h>
+#include <usbmuxd.h>
 
 #include "common.h"
 #include "normal.h"
@@ -233,12 +234,6 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 		return -1;
 	}
 
-	/* unpair the device */
-	lockdown_error = lockdownd_unpair(lockdown, NULL);
-	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-		error("WARNING: Could not unpair device\n");
-	}
-
 	lockdown_error = lockdownd_enter_recovery(lockdown);
 	if (lockdown_error == LOCKDOWN_E_SESSION_INACTIVE) {
 		lockdownd_client_free(lockdown);
@@ -284,6 +279,9 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 		error("ERROR: Unable to enter recovery mode\n");
 		return -1;
 	}
+
+	/* remove pair record for given device */
+	usbmuxd_delete_pair_record(client->udid);
 
 	return 0;
 }
