@@ -57,7 +57,7 @@ jobs:
           rm -rf extract/lib
           sudo cp -r extract/* /
           sudo ldconfig
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: autogen
@@ -129,7 +129,7 @@ jobs:
             tar -C extract -xvf $I
           done
           sudo cp -r extract/* /
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: install additional requirements
       run: |
           SDKDIR=`xcrun --sdk macosx --show-sdk-path 2>/dev/null`
@@ -260,7 +260,7 @@ jobs:
             tar -C extract -xvf $I
           done
           cp -r extract/* /
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: install additional requirements
       run: |
           FILENAME="libzip-1.7.1-static.tar.bz2"
