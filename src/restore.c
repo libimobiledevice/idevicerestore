@@ -896,13 +896,26 @@ static void restore_asr_progress_cb(double progress, void* userdata)
 	}
 }
 
-int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t device, const char* filesystem)
+int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t device, plist_t build_identity)
 {
 	asr_client_t asr = NULL;
 
 	info("About to send filesystem...\n");
 
+	ipsw_file_handle_t file = NULL;
+	char* fsname = NULL;
+	if (build_identity_get_component_path(build_identity, "OS", &fsname) < 0) {
+		error("ERROR: Unable to get path for filesystem component\n");
+		return -1;
+	}
+	file = ipsw_file_open(client->ipsw, fsname);
+	if (!file) {
+		error("ERROR: Unable to open '%s' in ipsw\n", fsname);
+		free(fsname);
+	}
+
 	if (asr_open_with_timeout(device, &asr) < 0) {
+		ipsw_file_close(file);
 		error("ERROR: Unable to connect to ASR\n");
 		return -1;
 	}
@@ -913,7 +926,8 @@ int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t de
 	// this step sends requested chunks of data from various offsets to asr so
 	// it can validate the filesystem before installing it
 	info("Validating the filesystem\n");
-	if (asr_perform_validation(asr, filesystem) < 0) {
+	if (asr_perform_validation(asr, file) < 0) {
+		ipsw_file_close(file);
 		error("ERROR: ASR was unable to validate the filesystem\n");
 		asr_free(asr);
 		return -1;
@@ -923,11 +937,14 @@ int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t de
 	// once the target filesystem has been validated, ASR then requests the
 	// entire filesystem to be sent.
 	info("Sending filesystem now...\n");
-	if (asr_send_payload(asr, filesystem) < 0) {
+	if (asr_send_payload(asr, file) < 0) {
+		ipsw_file_close(file);
 		error("ERROR: Unable to send payload to ASR\n");
 		asr_free(asr);
 		return -1;
 	}
+	ipsw_file_close(file);
+
 	info("Done sending filesystem\n");
 
 	asr_free(asr);
@@ -3275,7 +3292,7 @@ static int cpio_send_file(idevice_connection_t connection, const char *name, str
 	return 0;
 }
 
-static int restore_bootability_send_one(void *ctx, const char *ipsw, const char *name, struct stat *stat)
+static int restore_bootability_send_one(void *ctx, ipsw_archive_t ipsw, const char *name, struct stat *stat)
 {
 	idevice_connection_t connection = (idevice_connection_t)ctx;
 	const char *prefix = "BootabilityBundle/Restore/Bootability/";
@@ -3747,7 +3764,7 @@ int restore_send_buildidentity(restored_client_t restore, struct idevicerestore_
 	return 0;
 }
 
-int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t build_identity, const char* filesystem)
+int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t build_identity)
 {
 	plist_t node = NULL;
 
@@ -3759,7 +3776,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		// this request is sent when restored is ready to receive the filesystem
 		if (!strcmp(type, "SystemImageData")) {
-			if(restore_send_filesystem(client, device, filesystem) < 0) {
+			if(restore_send_filesystem(client, device, build_identity) < 0) {
 				error("ERROR: Unable to send filesystem\n");
 				return -2;
 			}
@@ -3795,7 +3812,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		// this request is sent when restored is ready to receive the filesystem
 		else if (!strcmp(type, "RecoveryOSASRImage")) {
-			if(restore_send_filesystem(client, device, filesystem) < 0) {
+			if(restore_send_filesystem(client, device, build_identity) < 0) {
 				error("ERROR: Unable to send filesystem\n");
 				return -2;
 			}
@@ -4038,7 +4055,7 @@ static void rp_status_cb(reverse_proxy_client_t client, reverse_proxy_status_t s
 }
 #endif
 
-int restore_device(struct idevicerestore_client_t* client, plist_t build_identity, const char* filesystem)
+int restore_device(struct idevicerestore_client_t* client, plist_t build_identity)
 {
 	int err = 0;
 	char* type = NULL;
@@ -4361,7 +4378,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// files sent to the server by the client. these data requests include
 		// SystemImageData, RootTicket, KernelCache, NORData and BasebandData requests
 		if (!strcmp(type, "DataRequestMsg")) {
-			err = restore_handle_data_request_msg(client, device, restore, message, build_identity, filesystem);
+			err = restore_handle_data_request_msg(client, device, restore, message, build_identity);
 		}
 
 		// restore logs are available if a previous restore failed

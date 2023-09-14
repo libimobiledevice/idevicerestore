@@ -43,6 +43,7 @@
 #include "asr.h"
 #include "idevicerestore.h"
 #include "common.h"
+#include "ipsw.h"
 
 #define ASR_VERSION 1
 #define ASR_STREAM_ID 1
@@ -205,9 +206,8 @@ void asr_free(asr_client_t asr)
 	}
 }
 
-int asr_perform_validation(asr_client_t asr, const char* filesystem)
+int asr_perform_validation(asr_client_t asr, ipsw_file_handle_t file)
 {
-	FILE* file = NULL;
 	uint64_t length = 0;
 	char* command = NULL;
 	plist_t node = NULL;
@@ -216,20 +216,9 @@ int asr_perform_validation(asr_client_t asr, const char* filesystem)
 	plist_t payload_info = NULL;
 	int attempts = 0;
 
-	file = fopen(filesystem, "rb");
-	if (file == NULL) {
-		return -1;
-	}
-
-#ifdef WIN32
-	length = _lseeki64(fileno(file), 0, SEEK_END);
-	_lseeki64(fileno(file), 0, SEEK_SET);
-	rewind(file);
-#else
-	fseeko(file, 0, SEEK_END);
-	length = ftello(file);
-	fseeko(file, 0, SEEK_SET);
-#endif
+	ipsw_file_seek(file, 0, SEEK_END);
+	length = ipsw_file_tell(file);
+	ipsw_file_seek(file, 0, SEEK_SET);
 
 	payload_info = plist_new_dict();
 	plist_dict_set_item(payload_info, "Port", plist_new_uint(1));
@@ -296,7 +285,7 @@ int asr_perform_validation(asr_client_t asr, const char* filesystem)
 	return 0;
 }
 
-int asr_handle_oob_data_request(asr_client_t asr, plist_t packet, FILE* file)
+int asr_handle_oob_data_request(asr_client_t asr, plist_t packet, ipsw_file_handle_t file)
 {
 	char* oob_data = NULL;
 	uint64_t oob_offset = 0;
@@ -324,13 +313,8 @@ int asr_handle_oob_data_request(asr_client_t asr, plist_t packet, FILE* file)
 		return -1;
 	}
 
-#ifdef WIN32
-	rewind(file);
-	_lseeki64(fileno(file), oob_offset, SEEK_SET);
-#else
-	fseeko(file, oob_offset, SEEK_SET);
-#endif
-	if (fread(oob_data, 1, oob_length, file) != oob_length) {
+	ipsw_file_seek(file, oob_offset, SEEK_SET);
+	if (ipsw_file_read(file, oob_data, oob_length) != oob_length) {
 		error("ERROR: Unable to read OOB data from filesystem offset: %s\n", strerror(errno));
 		free(oob_data);
 		return -1;
@@ -345,28 +329,15 @@ int asr_handle_oob_data_request(asr_client_t asr, plist_t packet, FILE* file)
 	return 0;
 }
 
-int asr_send_payload(asr_client_t asr, const char* filesystem)
+int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 {
 	char *data = NULL;
-	FILE* file = NULL;
 	uint64_t i, length, bytes = 0;
 	double progress = 0;
 
-	file = fopen(filesystem, "rb");
-	if (file == NULL) {
-		error("ERROR: Unable to open filesystem image %s: %s\n", filesystem, strerror(errno));
-		return -1;
-	}
-
-#ifdef WIN32
-	length = _lseeki64(fileno(file), 0, SEEK_END);
-	_lseeki64(fileno(file), 0, SEEK_SET);
-	rewind(file);
-#else
-	fseeko(file, 0, SEEK_END);
-	length = ftello(file);
-	fseeko(file, 0, SEEK_SET);
-#endif
+	ipsw_file_seek(file, 0, SEEK_END);
+	length = ipsw_file_tell(file);
+	ipsw_file_seek(file, 0, SEEK_SET);
 
 	data = (char*)malloc(ASR_PAYLOAD_CHUNK_SIZE + 20);
 
@@ -385,7 +356,7 @@ int asr_send_payload(asr_client_t asr, const char* filesystem)
 			size = i;
 		}
 
-		if (fread(data, 1, size, file) != (size_t)size) {
+		if (ipsw_file_read(file, data, size) != (int64_t)size) {
 			error("Error reading filesystem\n");
 			retry--;
 			continue;
@@ -412,6 +383,5 @@ int asr_send_payload(asr_client_t asr, const char* filesystem)
 	}
 
 	free(data);
-	fclose(file);
 	return 0;
 }

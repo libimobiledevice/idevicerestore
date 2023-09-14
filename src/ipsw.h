@@ -32,21 +32,44 @@ extern "C" {
 #include <plist/plist.h>
 #include <sys/stat.h>
 
+struct ipsw_archive {
+	struct zip* zip;
+	char *path;
+};
+typedef struct ipsw_archive* ipsw_archive_t;
+
+ipsw_archive_t ipsw_open(const char* ipsw);
+void ipsw_close(ipsw_archive_t ipsw);
+
 int ipsw_print_info(const char* ipsw);
 
-typedef int (*ipsw_list_cb)(void *ctx, const char* ipsw, const char *name, struct stat *stat);
+typedef int (*ipsw_list_cb)(void *ctx, ipsw_archive_t ipsw, const char *name, struct stat *stat);
 typedef int (*ipsw_send_cb)(void *ctx, void *data, size_t size);
 
+struct ipsw_file_handle {
+	FILE* file;
+	struct zip_file* zfile;
+};
+typedef struct ipsw_file_handle* ipsw_file_handle_t;
+
+ipsw_file_handle_t ipsw_file_open(ipsw_archive_t, const char* path);
+void ipsw_file_close(ipsw_file_handle_t handle);
+
+int64_t ipsw_file_read(ipsw_file_handle_t handle, void* buffer, size_t size);
+int ipsw_file_seek(ipsw_file_handle_t handle, int64_t offset, int whence);
+int64_t ipsw_file_tell(ipsw_file_handle_t handle);
+
 int ipsw_is_directory(const char* ipsw);
-int ipsw_file_exists(const char* ipsw, const char* infile);
-int ipsw_get_file_size(const char* ipsw, const char* infile, uint64_t* size);
-int ipsw_extract_to_file(const char* ipsw, const char* infile, const char* outfile);
-int ipsw_extract_to_file_with_progress(const char* ipsw, const char* infile, const char* outfile, int print_progress);
-int ipsw_extract_to_memory(const char* ipsw, const char* infile, unsigned char** pbuffer, unsigned int* psize);
-int ipsw_extract_send(const char* ipsw, const char* infile, int blocksize, ipsw_send_cb send_callback, void* ctx);
-int ipsw_extract_build_manifest(const char* ipsw, plist_t* buildmanifest, int *tss_enabled);
-int ipsw_extract_restore_plist(const char* ipsw, plist_t* restore_plist);
-int ipsw_list_contents(const char* ipsw, ipsw_list_cb cb, void *ctx);
+
+int ipsw_file_exists(ipsw_archive_t ipsw, const char* infile);
+int ipsw_get_file_size(ipsw_archive_t ipsw, const char* infile, uint64_t* size);
+int ipsw_extract_to_file(ipsw_archive_t ipsw, const char* infile, const char* outfile);
+int ipsw_extract_to_file_with_progress(ipsw_archive_t ipsw, const char* infile, const char* outfile, int print_progress);
+int ipsw_extract_to_memory(ipsw_archive_t ipsw, const char* infile, unsigned char** pbuffer, unsigned int* psize);
+int ipsw_extract_send(ipsw_archive_t ipsw, const char* infile, int blocksize, ipsw_send_cb send_callback, void* ctx);
+int ipsw_extract_build_manifest(ipsw_archive_t ipsw, plist_t* buildmanifest, int *tss_enabled);
+int ipsw_extract_restore_plist(ipsw_archive_t ipsw, plist_t* restore_plist);
+int ipsw_list_contents(ipsw_archive_t ipsw, ipsw_list_cb cb, void *ctx);
 
 int ipsw_get_signed_firmwares(const char* product, plist_t* firmwares);
 int ipsw_download_fw(const char *fwurl, unsigned char* isha1, const char* todir, char** ipswfile);

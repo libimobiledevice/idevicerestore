@@ -320,6 +320,8 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 	}
 }
 
+int build_identity_check_components_in_ipsw(plist_t build_identity, ipsw_archive_t ipsw);
+
 int idevicerestore_start(struct idevicerestore_client_t* client)
 {
 	int tss_enabled = 0;
@@ -424,7 +426,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				download_to_file(s_wtfurl, wtfipsw, 0);
 			}
 
-			ipsw_extract_to_memory(wtfipsw, wtfname, &wtftmp, &wtfsize);
+			ipsw_archive_t wtf_ipsw = ipsw_open(wtfipsw);
+			ipsw_extract_to_memory(wtf_ipsw, wtfname, &wtftmp, &wtfsize);
+			ipsw_close(wtf_ipsw);
 			if (!wtftmp) {
 				error("ERROR: Could not extract WTF\n");
 			}
@@ -601,12 +605,16 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		char* ipsw = NULL;
 		res = ipsw_download_fw(fwurl, p_fwsha1, client->cache_dir, &ipsw);
 		if (res != 0) {
-			if (ipsw) {
-				free(ipsw);
-			}
+			free(ipsw);
 			return res;
 		} else {
-			client->ipsw = ipsw;
+			client->ipsw = ipsw_open(ipsw);
+			if (!client->ipsw) {
+				error("ERROR: Failed to open ipsw '%s'\n", ipsw);
+				free(ipsw);
+				return -1;
+			}
+			free(ipsw);
 		}
 	}
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.6);
@@ -641,23 +649,17 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 	}
 
-	// verify if ipsw file exists
-	if (access(client->ipsw, F_OK) < 0) {
-		error("ERROR: Firmware file %s does not exist.\n", client->ipsw);
-		return -1;
-	}
-
 	// extract buildmanifest
 	if (client->flags & FLAG_CUSTOM) {
 		info("Extracting Restore.plist from IPSW\n");
 		if (ipsw_extract_restore_plist(client->ipsw, &client->build_manifest) < 0) {
-			error("ERROR: Unable to extract Restore.plist from %s. Firmware file might be corrupt.\n", client->ipsw);
+			error("ERROR: Unable to extract Restore.plist from %s. Firmware file might be corrupt.\n", client->ipsw->path);
 			return -1;
 		}
 	} else {
 		info("Extracting BuildManifest from IPSW\n");
 		if (ipsw_extract_build_manifest(client->ipsw, &client->build_manifest, &tss_enabled) < 0) {
-			error("ERROR: Unable to extract BuildManifest from %s. Firmware file might be corrupt.\n", client->ipsw);
+			error("ERROR: Unable to extract BuildManifest from %s. Firmware file might be corrupt.\n", client->ipsw->path);
 			return -1;
 		}
 	}
@@ -941,114 +943,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	/* check if all components we need are actually there */
 	info("Checking IPSW for required components...\n");
 	if (build_identity_check_components_in_ipsw(build_identity, client->ipsw) < 0) {
-		error("ERROR: Could not find all required components in IPSW %s\n", client->ipsw);
+		error("ERROR: Could not find all required components in IPSW %s\n", client->ipsw->path);
 		return -1;
 	}
 	info("All required components found in IPSW\n");
-
-	// Get filesystem name from build identity
-	char* fsname = NULL;
-	if (build_identity_get_component_path(build_identity, "OS", &fsname) < 0) {
-		error("ERROR: Unable to get path for filesystem component\n");
-		return -1;
-	}
-
-	// check if we already have an extracted filesystem
-	int delete_fs = 0;
-	char* filesystem = NULL;
-	struct stat st;
-	memset(&st, '\0', sizeof(struct stat));
-	char tmpf[1024];
-	if (client->cache_dir) {
-		if (stat(client->cache_dir, &st) < 0) {
-			mkdir_with_parents(client->cache_dir, 0755);
-		}
-		strcpy(tmpf, client->cache_dir);
-		strcat(tmpf, "/");
-		char *ipswtmp = strdup(client->ipsw);
-		strcat(tmpf, basename(ipswtmp));
-		free(ipswtmp);
-	} else {
-		strcpy(tmpf, client->ipsw);
-	}
-
-	if (!ipsw_is_directory(client->ipsw)) {
-		// strip off file extension if given ipsw is not a directory
-		char* s = tmpf + strlen(tmpf) - 1;
-		char* p = s;
-		while (*p != '\0' && *p != '.' && *p != '/' && *p != '\\') p--;
-		if (s - p < 6) {
-			if (*p == '.') {
-				*p = '\0';
-			}
-		}
-	}
-
-	if (stat(tmpf, &st) < 0) {
-		__mkdir(tmpf, 0755);
-	}
-	strcat(tmpf, "/");
-	strcat(tmpf, fsname);
-
-	memset(&st, '\0', sizeof(struct stat));
-	if (stat(tmpf, &st) == 0) {
-		uint64_t fssize = 0;
-		ipsw_get_file_size(client->ipsw, fsname, &fssize);
-		if ((fssize > 0) && ((uint64_t)st.st_size == fssize)) {
-			info("Using cached filesystem from '%s'\n", tmpf);
-			filesystem = strdup(tmpf);
-		}
-	}
-
-	if (!filesystem && !(client->flags & FLAG_SHSHONLY)) {
-		char extfn[1024];
-		strcpy(extfn, tmpf);
-		strcat(extfn, ".extract");
-		char lockfn[1024];
-		strcpy(lockfn, tmpf);
-		strcat(lockfn, ".lock");
-		lock_info_t li;
-
-		lock_file(lockfn, &li);
-		FILE* extf = NULL;
-		if (access(extfn, F_OK) != 0) {
-			extf = fopen(extfn, "wb");
-		}
-		unlock_file(&li);
-		if (!extf) {
-			// use temp filename
-			filesystem = get_temp_filename("ipsw_");
-			if (!filesystem) {
-				error("WARNING: Could not get temporary filename, using '%s' in current directory\n", fsname);
-				filesystem = strdup(fsname);
-			}
-			delete_fs = 1;
-		} else {
-			// use <fsname>.extract as filename
-			filesystem = strdup(extfn);
-			fclose(extf);
-		}
-		remove(lockfn);
-
-		// Extract filesystem from IPSW
-		info("Extracting filesystem from IPSW: %s\n", fsname);
-		if (ipsw_extract_to_file_with_progress(client->ipsw, fsname, filesystem, 1) < 0) {
-			error("ERROR: Unable to extract filesystem from IPSW\n");
-			if (client->tss)
-				plist_free(client->tss);
-			info("Removing %s\n", filesystem);
-			unlink(filesystem);
-			return -1;
-		}
-
-		if (strstr(filesystem, ".extract")) {
-			// rename <fsname>.extract to <fsname>
-			remove(tmpf);
-			rename(filesystem, tmpf);
-			free(filesystem);
-			filesystem = strdup(tmpf);
-		}
-	}
 
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.2);
 
@@ -1140,8 +1038,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	if (client->flags & FLAG_QUIT) {
-		if (delete_fs && filesystem)
-			unlink(filesystem);
 		return -1;
 	}
 	if (client->flags & FLAG_SHSHONLY) {
@@ -1196,8 +1092,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.25);
 	if (client->flags & FLAG_QUIT) {
-		if (delete_fs && filesystem)
-			unlink(filesystem);
 		return -1;
 	}
 
@@ -1214,8 +1108,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.3);
 	if (client->flags & FLAG_QUIT) {
-		if (delete_fs && filesystem)
-			unlink(filesystem);
 		return -1;
 	}
 
@@ -1226,16 +1118,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		if ((client->flags & FLAG_CUSTOM) && limera1n_is_supported(client->device)) {
 			info("connecting to DFU\n");
 			if (dfu_client_new(client) < 0) {
-				if (delete_fs && filesystem)
-					unlink(filesystem);
 				return -1;
 			}
 			info("exploiting with limera1n\n");
 			if (limera1n_exploit(client->device, &client->dfu->client) != 0) {
 				error("ERROR: limera1n exploit failed\n");
 				dfu_client_free(client);
-				if (delete_fs && filesystem)
-					unlink(filesystem);
 				return -1;
 			}
 			dfu_client_free(client);
@@ -1245,8 +1133,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			error("ERROR: Unable to place device into recovery mode from DFU mode\n");
 			if (client->tss)
 				plist_free(client->tss);
-			if (delete_fs && filesystem)
-				unlink(filesystem);
 			return -2;
 		}
 	} else if (client->mode == MODE_RECOVERY) {
@@ -1256,8 +1142,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				/* send ApTicket */
 				if (recovery_send_ticket(client) < 0) {
 					error("ERROR: Unable to send APTicket\n");
-					if (delete_fs && filesystem)
-						unlink(filesystem);
 					return -2;
 				}
 			}
@@ -1269,8 +1153,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		if (recovery_send_ibec(client, build_identity) < 0) {
 			mutex_unlock(&client->device_event_mutex);
 			error("ERROR: Unable to send iBEC\n");
-			if (delete_fs && filesystem)
-				unlink(filesystem);
 			return -2;
 		}
 		recovery_client_free(client);
@@ -1283,8 +1165,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			if (!(client->flags & FLAG_QUIT)) {
 				error("ERROR: Device did not disconnect. Possibly invalid iBEC. Reset device and try again.\n");
 			}
-			if (delete_fs && filesystem)
-				unlink(filesystem);
 			return -2;
 		}
 		debug("Waiting for device to reconnect in recovery mode...\n");
@@ -1294,16 +1174,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			if (!(client->flags & FLAG_QUIT)) {
 				error("ERROR: Device did not reconnect in recovery mode. Possibly invalid iBEC. Reset device and try again.\n");
 			}
-			if (delete_fs && filesystem)
-				unlink(filesystem);
 			return -2;
 		}
 		mutex_unlock(&client->device_event_mutex);
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.5);
 	if (client->flags & FLAG_QUIT) {
-		if (delete_fs && filesystem)
-			unlink(filesystem);
 		return -1;
 	}
 
@@ -1315,8 +1191,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		if (get_ap_nonce(client, &nonce, &nonce_size) < 0) {
 			error("ERROR: Unable to get nonce from device!\n");
 			recovery_send_reset(client);
-			if (delete_fs && filesystem)
-				unlink(filesystem);
 			return -2;
 		}
 
@@ -1336,14 +1210,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			plist_free(client->tss);
 			if (get_tss_response(client, build_identity, &client->tss) < 0) {
 				error("ERROR: Unable to get SHSH blobs for this device\n");
-				if (delete_fs && filesystem)
-					unlink(filesystem);
 				return -1;
 			}
 			if (!client->tss) {
 				error("ERROR: can't continue without TSS\n");
-				if (delete_fs && filesystem)
-					unlink(filesystem);
 				return -1;
 			}
 			fixup_tss(client->tss);
@@ -1351,8 +1221,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.7);
 	if (client->flags & FLAG_QUIT) {
-		if (delete_fs && filesystem)
-			unlink(filesystem);
 		return -1;
 	}
 
@@ -1362,8 +1230,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			error("ERROR: Unable to place device into restore mode\n");
 			if (client->tss)
 				plist_free(client->tss);
-			if (delete_fs && filesystem)
-				unlink(filesystem);
 			return -2;
 		}
 		recovery_client_free(client);
@@ -1378,8 +1244,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			mutex_unlock(&client->device_event_mutex);
 			error("ERROR: Device failed to enter restore mode.\n");
 			error("Please make sure that usbmuxd is running.\n");
-			if (delete_fs && filesystem)
-				unlink(filesystem);
 			return -1;
 		}
 		mutex_unlock(&client->device_event_mutex);
@@ -1393,18 +1257,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 		client->ignore_device_add_events = 1;
 		info("About to restore device... \n");
-		result = restore_device(client, build_identity, filesystem);
+		result = restore_device(client, build_identity);
 		if (result < 0) {
 			error("ERROR: Unable to restore device\n");
-			if (delete_fs && filesystem)
-				unlink(filesystem);
 			return result;
 		}
 	}
-
-	info("Cleaning up...\n");
-	if (delete_fs && filesystem)
-		unlink(filesystem);
 
 	/* special handling of older AppleTVs as they enter Recovery mode on boot when plugged in to USB */
 	if ((strncmp(client->device->product_type, "AppleTV", 7) == 0) && (client->device->product_type[7] < '5')) {
@@ -1476,7 +1334,7 @@ void idevicerestore_client_free(struct idevicerestore_client_t* client)
 		free(client->srnm);
 	}
 	if (client->ipsw) {
-		free(client->ipsw);
+		ipsw_close(client->ipsw);
 	}
 	if (client->version) {
 		free(client->version);
@@ -1535,11 +1393,11 @@ void idevicerestore_set_ipsw(struct idevicerestore_client_t* client, const char*
 	if (!client)
 		return;
 	if (client->ipsw) {
-		free(client->ipsw);
+		ipsw_close(client->ipsw);
 		client->ipsw = NULL;
 	}
 	if (path) {
-		client->ipsw = strdup(path);
+		client->ipsw = ipsw_open(path);
 	}
 }
 
@@ -1795,7 +1653,12 @@ int main(int argc, char* argv[]) {
 	info("%s %s\n", PACKAGE_NAME, PACKAGE_VERSION);
 
 	if (ipsw) {
-		client->ipsw = strdup(ipsw);
+		// verify if ipsw file exists
+		client->ipsw = ipsw_open(ipsw);
+		if (!client->ipsw) {
+			error("ERROR: Firmware file %s cannot be opened.\n", ipsw);
+			return -1;
+		}
 	}
 
 	curl_global_init(CURL_GLOBAL_ALL);
@@ -2570,7 +2433,7 @@ int build_manifest_get_identity_count(plist_t build_manifest)
 	return plist_array_get_size(build_identities_array);
 }
 
-int extract_component(const char* ipsw, const char* path, unsigned char** component_data, unsigned int* component_size)
+int extract_component(ipsw_archive_t ipsw, const char* path, unsigned char** component_data, unsigned int* component_size)
 {
 	char* component_name = NULL;
 	if (!ipsw || !path || !component_data || !component_size) {
@@ -2585,7 +2448,7 @@ int extract_component(const char* ipsw, const char* path, unsigned char** compon
 
 	info("Extracting %s (%s)...\n", component_name, path);
 	if (ipsw_extract_to_memory(ipsw, path, component_data, component_size) < 0) {
-		error("ERROR: Unable to extract %s from %s\n", component_name, ipsw);
+		error("ERROR: Unable to extract %s from %s\n", component_name, ipsw->path);
 		return -1;
 	}
 
@@ -2718,7 +2581,7 @@ void build_identity_print_information(plist_t build_identity)
 	node = NULL;
 }
 
-int build_identity_check_components_in_ipsw(plist_t build_identity, const char *ipsw)
+int build_identity_check_components_in_ipsw(plist_t build_identity, ipsw_archive_t ipsw)
 {
 	plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
 	if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
