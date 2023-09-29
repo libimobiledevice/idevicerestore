@@ -305,6 +305,14 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters)
 		plist_dict_set_item(request, "UID_MODE", plist_new_bool(0));
 	}
 
+	// FIXME: I didn't understand yet when this value is set, so for now we use a workaround
+	if (plist_dict_get_item(parameters, "ApSikaFuse")) {
+		_plist_dict_copy_item(request, parameters, "Ap,SikaFuse", "ApSikaFuse");
+	} else if (_plist_dict_get_bool(parameters, "RequiresUIDMode")) {
+		// Workaround: We have only seen Ap,SikaFuse together with UID_MODE
+		plist_dict_set_item(request, "Ap,SikaFuse", plist_new_int(0));
+	}
+
 	return 0;
 }
 
