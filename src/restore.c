@@ -2166,7 +2166,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 	}
 	if (chip_id == 0x20211) {
 		comp_name = "SE,Firmware";
-	} else if (chip_id == 0x73 || chip_id == 0x64 || chip_id == 0xC8 || chip_id == 0xD2 || chip_id == 0x2C) {
+	} else if (chip_id == 0x73 || chip_id == 0x64 || chip_id == 0xC8 || chip_id == 0xD2 || chip_id == 0x2C || chip_id == 0x36) {
 		comp_name = "SE,UpdatePayload";
 	} else {
 		info("WARNING: Unknown SE,ChipID 0x%" PRIx64 " detected. Restore might fail.\n", (uint64_t)chip_id);
