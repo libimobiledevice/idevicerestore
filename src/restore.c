@@ -1396,6 +1396,31 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		personalized_size = 0;
 	}
 
+	if (build_identity_has_component(build_identity, "SepStage1") &&
+	    build_identity_get_component_path(build_identity, "SepStage1", &sep_path) == 0) {
+		component = "SepStage1";
+		ret = extract_component(client->ipsw, sep_path, &component_data, &component_size);
+		free(sep_path);
+		if (ret < 0) {
+			error("ERROR: Unable to extract component: %s\n", component);
+			return -1;
+		}
+
+		ret = personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
+		free(component_data);
+		component_data = NULL;
+		component_size = 0;
+		if (ret < 0) {
+			error("ERROR: Unable to get personalized component: %s\n", component);
+			return -1;
+		}
+
+		plist_dict_set_item(dict, "SEPPatchImageData", plist_new_data((char*)personalized_data, (uint64_t) personalized_size));
+		free(personalized_data);
+		personalized_data = NULL;
+		personalized_size = 0;
+	}
+
 	if (idevicerestore_debug)
 		debug_plist(dict);
 
