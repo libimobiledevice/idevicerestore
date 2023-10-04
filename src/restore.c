@@ -4439,29 +4439,38 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 		else if (!strcmp(type, "CheckpointMsg")) {
 			uint64_t ckpt_id;
-			uint64_t ckpt_res;
+			int64_t ckpt_res;
 			uint8_t ckpt_complete = 0;
+			const char* ckpt_name = NULL;
 			// Get checkpoint id
 			node = plist_dict_get_item(message, "CHECKPOINT_ID");
-			if (!node || plist_get_node_type(node) != PLIST_UINT) {
+			if (!node || plist_get_node_type(node) != PLIST_INT) {
 				debug("Failed to parse checkpoint id from checkpoint plist\n");
 				return -1;
 			}
 			plist_get_uint_val(node, &ckpt_id);
+			// Get checkpoint_name
+			node = plist_dict_get_item(message, "CHECKPOINT_NAME");
+			ckpt_name = (node) ? plist_get_string_ptr(node, NULL) : "unknown";
 			// Get checkpoint result
 			node = plist_dict_get_item(message, "CHECKPOINT_RESULT");
-			if (!node || plist_get_node_type(node) != PLIST_UINT) {
+			if (!node || plist_get_node_type(node) != PLIST_INT) {
 				debug("Failed to parse checkpoint result from checkpoint plist\n");
 				return -1;
 			}
-			plist_get_uint_val(node, &ckpt_res);
+			plist_get_int_val(node, &ckpt_res);
 			// Get checkpoint complete
 			node = plist_dict_get_item(message, "CHECKPOINT_COMPLETE");
 			if (PLIST_IS_BOOLEAN(node)) {
 				plist_get_bool_val(node, &ckpt_complete);
 			}
-			if (ckpt_complete)
-				info("Checkpoint %" PRIu64 " complete with code %" PRIu64 "\n", ckpt_id, ckpt_res);
+
+			info("Checkpoint %s id: 0x%" PRIX64 " (%s)\n", (ckpt_complete) ? "completed" : "started  ", ckpt_id, ckpt_name);
+			if (ckpt_res != 0) {
+				node = plist_dict_get_item(message, "CHECKPOINT_ERROR");
+				const char* ckpt_error = (node) ? plist_get_string_ptr(node, NULL) : "(unknown)";
+				info("Checkpoint FAILED id: 0x%" PRIX64 " error %"PRIi64": %s\n", ckpt_id, ckpt_res, ckpt_error);
+			}
 		}
 
 		// baseband update message
