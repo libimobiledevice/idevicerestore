@@ -1167,6 +1167,7 @@ int tss_request_add_rose_tags(plist_t request, plist_t parameters, plist_t overr
 	_plist_dict_copy_bool(request, parameters, "Rap,ProductionMode", NULL);
 	_plist_dict_copy_uint(request, parameters, "Rap,SecurityDomain", NULL);
 	_plist_dict_copy_bool(request, parameters, "Rap,SecurityMode", NULL);
+	_plist_dict_copy_data(request, parameters, "Rap,FdrRootCaDigest", NULL);
 
 	char *comp_name = NULL;
 	plist_dict_iter iter = NULL;

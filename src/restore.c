@@ -2423,7 +2423,7 @@ static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, stru
 	return response;
 }
 
-static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info, plist_t arguments)
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2458,8 +2458,14 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 		plist_dict_set_item(parameters, "ApSupportsImg4", plist_new_bool(0));
 	}
 
-	/* add Rap,* tags from info dictionary to parameters */
-	plist_dict_merge(&parameters, p_info);
+	plist_t device_generated_request = plist_dict_get_item(arguments, "DeviceGeneratedRequest");
+	if (device_generated_request) {
+		/* use DeviceGeneratedRequest if present */
+		plist_dict_merge(&request, device_generated_request);
+	} else {
+		/* add Rap,* tags from info dictionary to parameters */
+		plist_dict_merge(&parameters, p_info);
+	}
 
 	/* add required tags for Rose TSS request */
 	tss_request_add_rose_tags(request, parameters, NULL);
@@ -3153,7 +3159,7 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "Rose") == 0) {
-		fwdict = restore_get_rose_firmware_data(restore, client, build_identity, p_info);
+		fwdict = restore_get_rose_firmware_data(restore, client, build_identity, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get Rose firmware data\n", __func__);
 			goto error_out;
