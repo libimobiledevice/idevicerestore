@@ -4465,11 +4465,14 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 				plist_get_bool_val(node, &ckpt_complete);
 			}
 
-			info("Checkpoint %s id: 0x%" PRIX64 " (%s)\n", (ckpt_complete) ? "completed" : "started  ", ckpt_id, ckpt_name);
-			if (ckpt_res != 0) {
-				node = plist_dict_get_item(message, "CHECKPOINT_ERROR");
-				const char* ckpt_error = (node) ? plist_get_string_ptr(node, NULL) : "(unknown)";
-				info("Checkpoint FAILED id: 0x%" PRIX64 " error %"PRIi64": %s\n", ckpt_id, ckpt_res, ckpt_error);
+			if (ckpt_complete) {
+				info("Checkpoint completed id: 0x%" PRIX64 " (%s) result=%" PRIi64 "\n", ckpt_id, ckpt_name, ckpt_res);
+			} else {
+				info("Checkpoint started   id: 0x%" PRIX64 " (%s)\n", ckpt_id, ckpt_name);
+			}
+			node = plist_dict_get_item(message, "CHECKPOINT_ERROR");
+			if (node) {
+				info("Checkpoint FAILURE id: 0x%" PRIX64 " result=%" PRIi64 ": %s\n", ckpt_id, ckpt_res, plist_get_string_ptr(node, NULL));
 			}
 		}
 
