@@ -2487,6 +2487,12 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 		error("ERROR: No 'Rap,Ticket' in TSS response, this might not work\n");
 	}
 
+	/* skip FirmwareData for newer versions */
+	if (client->build_major >= 20) {
+		debug("DEBUG: Not adding FirmwareData.\n");
+		return response;
+	}
+
 	comp_name = "Rap,RTKitOS";
 	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
