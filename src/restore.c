@@ -3200,6 +3200,12 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, s_updater_name);
 			goto error_out;
 		}
+	} else if (strcmp(s_updater_name, "Ace3") == 0) {
+		fwdict = restore_get_generic_firmware_data(restore, client, build_identity, p_info, arguments);
+		if (fwdict == NULL) {
+			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, s_updater_name);
+			goto error_out;
+		}
 	} else {
 		error("ERROR: %s: Got unknown updater name '%s', trying to discover from device generated request.\n", __func__, s_updater_name);
 		fwdict = restore_get_generic_firmware_data(restore, client, build_identity, p_info, arguments);
