@@ -4482,6 +4482,10 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			} else {
 				info("Checkpoint started   id: 0x%" PRIX64 " (%s)\n", ckpt_id, ckpt_name);
 			}
+			node = plist_dict_get_item(message, "CHECKPOINT_WARNING");
+			if (node) {
+				info("Checkpoint WARNING id: 0x%" PRIX64 " result=%" PRIi64 ": %s\n", ckpt_id, ckpt_res, plist_get_string_ptr(node, NULL));
+			}
 			node = plist_dict_get_item(message, "CHECKPOINT_ERROR");
 			if (node) {
 				info("Checkpoint FAILURE id: 0x%" PRIX64 " result=%" PRIi64 ": %s\n", ckpt_id, ckpt_res, plist_get_string_ptr(node, NULL));
