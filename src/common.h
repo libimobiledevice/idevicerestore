@@ -91,6 +91,7 @@ struct idevicerestore_entry_t {
 
 struct idevicerestore_client_t {
 	int flags;
+	int debug_level;
 	plist_t tss;
 	plist_t tss_localpolicy;
 	plist_t tss_recoveryos_root_ticket;
