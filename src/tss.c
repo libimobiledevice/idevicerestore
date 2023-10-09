@@ -245,6 +245,10 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity,
 	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,MobileAssetBrainVolume", NULL);
 	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,MobileAssetBrainTrustCache", NULL);
 
+	_plist_dict_copy_item(parameters, build_identity, "USBPortController1,BoardID", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "USBPortController1,ChipID", NULL);
+	_plist_dict_copy_item(parameters, build_identity, "USBPortController1,SecurityDomain", NULL);
+
 	node = plist_dict_get_item(build_identity, "Info");
 	if (node) {
 		_plist_dict_copy_bool(parameters, node, "RequiresUIDMode", NULL);
