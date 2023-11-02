@@ -1308,7 +1308,8 @@ ipsw_file_handle_t ipsw_file_open(ipsw_archive_t ipsw, const char* path)
 {
 	ipsw_file_handle_t handle = (ipsw_file_handle_t)calloc(1, sizeof(struct ipsw_file_handle));
 	if (ipsw->zip) {
-		int zindex = zip_name_locate(ipsw->zip, path, 0);
+		zip_stat_t zst;
+		zip_int64_t zindex = zip_name_locate(ipsw->zip, path, 0);
 		if (zindex < 0) {
 			error("ERROR: zip_name_locate: %s not found\n", path);
 			free(handle);
@@ -1320,8 +1321,12 @@ ipsw_file_handle_t ipsw_file_open(ipsw_archive_t ipsw, const char* path)
 			free(handle);
 			return NULL;
 		}
-
+		zip_stat_init(&zst);
+		zip_stat(ipsw->zip, path, 0, &zst);
+		handle->size = zst.size;
+		handle->seekable = (zst.comp_method == ZIP_CM_STORE);
 	} else {
+		struct stat st;
 		char *filepath = build_path(ipsw->path, path);
 		handle->file = fopen(filepath, "rb");
 		free(filepath);
@@ -1330,6 +1335,9 @@ ipsw_file_handle_t ipsw_file_open(ipsw_archive_t ipsw, const char* path)
 			free(handle);
 			return NULL;
 		}
+		fstat(fileno(handle->file), &st);
+		handle->size = st.st_size;
+		handle->seekable = 1;
 	}
 	return handle;
 }
@@ -1342,6 +1350,14 @@ void ipsw_file_close(ipsw_file_handle_t handle)
 		fclose(handle->file);
 	}
 	free(handle);
+}
+
+uint64_t ipsw_file_size(ipsw_file_handle_t handle)
+{
+	if (handle) {
+		return handle->size;
+	}
+	return 0;
 }
 
 int64_t ipsw_file_read(ipsw_file_handle_t handle, void* buffer, size_t size)

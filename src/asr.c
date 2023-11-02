@@ -216,9 +216,7 @@ int asr_perform_validation(asr_client_t asr, ipsw_file_handle_t file)
 	plist_t payload_info = NULL;
 	int attempts = 0;
 
-	ipsw_file_seek(file, 0, SEEK_END);
-	length = ipsw_file_tell(file);
-	ipsw_file_seek(file, 0, SEEK_SET);
+	length = ipsw_file_size(file);
 
 	payload_info = plist_new_dict();
 	plist_dict_set_item(payload_info, "Port", plist_new_uint(1));
@@ -313,9 +311,14 @@ int asr_handle_oob_data_request(asr_client_t asr, plist_t packet, ipsw_file_hand
 		return -1;
 	}
 
-	ipsw_file_seek(file, oob_offset, SEEK_SET);
-	if (ipsw_file_read(file, oob_data, oob_length) != oob_length) {
-		error("ERROR: Unable to read OOB data from filesystem offset: %s\n", strerror(errno));
+	if (ipsw_file_seek(file, oob_offset, SEEK_SET) < 0) {
+		error("ERROR: Unable to seek to OOB offset 0x%" PRIx64 "\n", oob_offset);
+		free(oob_data);
+		return -1;
+	}
+	int64_t ir = ipsw_file_read(file, oob_data, oob_length);
+	if (ir != oob_length) {
+		error("ERROR: Unable to read OOB data from filesystem offset 0x%" PRIx64 ", oob_length %" PRIu64 ", read returned %" PRIi64"\n", oob_offset, oob_length, ir);
 		free(oob_data);
 		return -1;
 	}
@@ -335,8 +338,7 @@ int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 	uint64_t i, length, bytes = 0;
 	double progress = 0;
 
-	ipsw_file_seek(file, 0, SEEK_END);
-	length = ipsw_file_tell(file);
+	length = ipsw_file_size(file);
 	ipsw_file_seek(file, 0, SEEK_SET);
 
 	data = (char*)malloc(ASR_PAYLOAD_CHUNK_SIZE + 20);

@@ -49,12 +49,15 @@ typedef int (*ipsw_send_cb)(void *ctx, void *data, size_t size);
 struct ipsw_file_handle {
 	FILE* file;
 	struct zip_file* zfile;
+	uint64_t size;
+	int seekable;
 };
 typedef struct ipsw_file_handle* ipsw_file_handle_t;
 
 ipsw_file_handle_t ipsw_file_open(ipsw_archive_t, const char* path);
 void ipsw_file_close(ipsw_file_handle_t handle);
 
+uint64_t ipsw_file_size(ipsw_file_handle_t handle);
 int64_t ipsw_file_read(ipsw_file_handle_t handle, void* buffer, size_t size);
 int ipsw_file_seek(ipsw_file_handle_t handle, int64_t offset, int whence);
 int64_t ipsw_file_tell(ipsw_file_handle_t handle);

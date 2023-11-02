@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <libgen.h>
 #include <libimobiledevice/restore.h>
 #ifdef HAVE_REVERSE_PROXY
 #include <libimobiledevice/reverse_proxy.h>
@@ -903,13 +904,23 @@ int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t de
 
 	info("About to send filesystem...\n");
 
+	ipsw_archive_t ipsw_dummy = NULL;
 	ipsw_file_handle_t file = NULL;
 	char* fsname = NULL;
 	if (build_identity_get_component_path(build_identity, "OS", &fsname) < 0) {
 		error("ERROR: Unable to get path for filesystem component\n");
 		return -1;
 	}
-	file = ipsw_file_open(client->ipsw, fsname);
+	if (client->filesystem) {
+		char* path = strdup(client->filesystem);
+		char* fsname_base = path_get_basename(path);
+		char* parent_dir = dirname(path);
+		ipsw_dummy = ipsw_open(parent_dir);
+		free(path);
+		file = ipsw_file_open(ipsw_dummy, fsname_base);
+	} else {
+		file = ipsw_file_open(client->ipsw, fsname);
+	}
 	if (!file) {
 		error("ERROR: Unable to open '%s' in ipsw\n", fsname);
 		free(fsname);
@@ -917,6 +928,7 @@ int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t de
 
 	if (asr_open_with_timeout(device, &asr) < 0) {
 		ipsw_file_close(file);
+		ipsw_close(ipsw_dummy);
 		error("ERROR: Unable to connect to ASR\n");
 		return -1;
 	}
@@ -929,6 +941,7 @@ int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t de
 	info("Validating the filesystem\n");
 	if (asr_perform_validation(asr, file) < 0) {
 		ipsw_file_close(file);
+		ipsw_close(ipsw_dummy);
 		error("ERROR: ASR was unable to validate the filesystem\n");
 		asr_free(asr);
 		return -1;
@@ -940,11 +953,13 @@ int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t de
 	info("Sending filesystem now...\n");
 	if (asr_send_payload(asr, file) < 0) {
 		ipsw_file_close(file);
+		ipsw_close(ipsw_dummy);
 		error("ERROR: Unable to send payload to ASR\n");
 		asr_free(asr);
 		return -1;
 	}
 	ipsw_file_close(file);
+	ipsw_close(ipsw_dummy);
 
 	info("Done sending filesystem\n");
 

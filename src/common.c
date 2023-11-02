@@ -695,3 +695,20 @@ int _plist_dict_copy_item(plist_t target_dict, plist_t source_dict, const char *
 	plist_dict_set_item(target_dict, key, plist_copy(node));
 	return 0;
 }
+
+char* path_get_basename(char* path)
+{
+#ifdef WIN32
+	char *p = path + strlen(path);
+	while (p > path) {
+		if ((*p == '/') || (*p == '\\')) {
+			return p+1;
+		}
+		p--;
+	}
+	return p;
+#else
+	char *p = strrchr(path, '/');
+	return p ? p + 1 : path;
+#endif
+}

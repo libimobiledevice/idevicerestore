@@ -45,6 +45,8 @@
 #define SHA384 sha384
 #endif
 
+#include <libimobiledevice-glue/utils.h>
+
 #include "dfu.h"
 #include "tss.h"
 #include "img3.h"
@@ -950,6 +952,73 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 	info("All required components found in IPSW\n");
 
+	/* Get OS (filesystem) name from build identity */
+	char* os_path = NULL;
+	if (build_identity_get_component_path(build_identity, "OS", &os_path) < 0) {
+		error("ERROR: Unable to get path for filesystem component\n");
+		return -1;
+	}
+
+	/* check if IPSW has OS component 'stored' in ZIP archive, otherwise we need to extract it */
+	int needs_os_extraction = 0;
+	if (client->ipsw->zip) {
+		ipsw_file_handle_t zfile = ipsw_file_open(client->ipsw, os_path);
+		if (zfile) {
+			if (!zfile->seekable) {
+				needs_os_extraction = 1;
+			}
+			ipsw_file_close(zfile);
+		}
+	}
+
+	if (needs_os_extraction && !(client->flags & FLAG_SHSHONLY)) {
+		char* tmpf = NULL;
+		struct stat st;
+		if (client->cache_dir) {
+			memset(&st, '\0', sizeof(struct stat));
+			if (stat(client->cache_dir, &st) < 0) {
+				mkdir_with_parents(client->cache_dir, 0755);
+			}
+			char* ipsw_basename = path_get_basename(client->ipsw->path);
+			ipsw_basename = strdup(ipsw_basename);
+			char* p = strrchr(ipsw_basename, '.');
+			if (p && isalpha(*(p+1))) {
+				*p = '\0';
+			}
+			tmpf = string_build_path(client->cache_dir, ipsw_basename, NULL);
+			mkdir_with_parents(tmpf, 0755);
+			free(tmpf);
+			tmpf = string_build_path(client->cache_dir, ipsw_basename, os_path, NULL);
+			free(ipsw_basename);
+		} else {
+			tmpf = get_temp_filename(NULL);
+			client->delete_fs = 1;
+		}
+
+		/* check if we already have it extracted */
+		uint64_t fssize = 0;
+		ipsw_get_file_size(client->ipsw, os_path, &fssize);
+		memset(&st, '\0', sizeof(struct stat));
+		if (stat(tmpf, &st) == 0) {
+			if ((fssize > 0) && ((uint64_t)st.st_size == fssize)) {
+				info("Using cached filesystem from '%s'\n", tmpf);
+				client->filesystem = tmpf;
+			}
+		}
+
+		if (!client->filesystem) {
+			info("Extracting filesystem from IPSW: %s\n", os_path);
+			if (ipsw_extract_to_file_with_progress(client->ipsw, os_path, tmpf, 1) < 0) {
+				error("ERROR: Unable to extract filesystem from IPSW\n");
+				info("Removing %s\n", tmpf);
+				unlink(tmpf);
+				free(tmpf);
+				return -1;
+			}
+			client->filesystem = tmpf;
+		}
+	}
+
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.2);
 
 	/* retrieve shsh blobs if required */
@@ -1337,6 +1406,12 @@ void idevicerestore_client_free(struct idevicerestore_client_t* client)
 	}
 	if (client->ipsw) {
 		ipsw_close(client->ipsw);
+	}
+	if (client->filesystem) {
+		if (client->delete_fs) {
+			unlink(client->filesystem);
+		}
+		free(client->filesystem);
 	}
 	if (client->version) {
 		free(client->version);
