@@ -478,6 +478,21 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		return -1;
 	}
 
+	if (client->mode == MODE_NORMAL) {
+		plist_t pver = normal_get_lockdown_value(client, NULL, "ProductVersion");
+		if (pver) {
+			plist_get_string_val(pver, &client->device_version);
+			plist_free(pver);
+		}
+		pver = normal_get_lockdown_value(client, NULL, "BuildVersion");
+		if (pver) {
+			plist_get_string_val(pver, &client->device_build);
+			plist_free(pver);
+		}
+	}
+	info("Device Product Version: %s\n", (client->device_version) ? client->device_version : "N/A");
+	info("Device Product Build: %s\n", (client->device_build) ? client->device_build : "N/A");
+
 	if (client->flags & FLAG_PWN) {
 		recovery_client_free(client);
 
@@ -678,8 +693,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	/* print iOS information from the manifest */
 	build_manifest_get_version_information(client->build_manifest, client);
 
-	info("Product Version: %s\n", client->version);
-	info("Product Build: %s Major: %d\n", client->build, client->build_major);
+	info("IPSW Product Version: %s\n", client->version);
+	info("IPSW Product Build: %s Major: %d\n", client->build, client->build_major);
 
 	client->image4supported = is_image4_supported(client);
 	info("Device supports Image4: %s\n", (client->image4supported) ? "true" : "false");
@@ -872,17 +887,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	if (client->mode == MODE_NORMAL && !(client->flags & FLAG_ERASE) && !(client->flags & FLAG_SHSHONLY)) {
-		plist_t pver = normal_get_lockdown_value(client, NULL, "ProductVersion");
-		char *device_version = NULL;
-		if (pver) {
-			plist_get_string_val(pver, &device_version);
-			plist_free(pver);
-		}
-		if (device_version && (compare_versions(device_version, client->version) > 0)) {
+		if (client->device_version && (compare_versions(client->device_version, client->version) > 0)) {
 			if (client->flags & FLAG_INTERACTIVE) {
 				char input[64];
 				char spaces[16];
-				int num_spaces = 13 - strlen(client->version) - strlen(device_version);
+				int num_spaces = 13 - strlen(client->version) - strlen(client->device_version);
 				memset(spaces, ' ', num_spaces);
 				spaces[num_spaces] = '\0';
 				printf("################################ [ WARNING ] #################################\n"
@@ -893,7 +902,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				       "# If you want to take the risk (and have a backup of your important data!)   #\n"
 				       "# type YES and press ENTER to continue. You have been warned.                #\n"
 				       "##############################################################################\n",
-				       device_version, client->version, spaces);
+				       client->device_version, client->version, spaces);
 				while (1) {
 					printf("> ");
 					fflush(stdout);
@@ -912,7 +921,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				}
 			}
 		}
-		free(device_version);
 	}
 
 	if (client->flags & FLAG_ERASE && client->flags & FLAG_INTERACTIVE) {
@@ -1413,12 +1421,10 @@ void idevicerestore_client_free(struct idevicerestore_client_t* client)
 		}
 		free(client->filesystem);
 	}
-	if (client->version) {
-		free(client->version);
-	}
-	if (client->build) {
-		free(client->build);
-	}
+	free(client->version);
+	free(client->build);
+	free(client->device_version);
+	free(client->device_build);
 	if (client->restore_boot_args) {
 		free(client->restore_boot_args);
 	}
