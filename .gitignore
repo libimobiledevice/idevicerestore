@@ -35,3 +35,4 @@ py-compile
 stamp-h1
 src/.libs
 src/idevicerestore
+src/idevicerestore.exe
