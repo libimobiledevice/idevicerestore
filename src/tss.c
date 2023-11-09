@@ -582,8 +582,15 @@ int tss_request_add_ap_recovery_tags(plist_t request, plist_t parameters, plist_
 				continue;
 			}
 
-			if (!_plist_dict_get_bool(info_dict, "IsFirmwarePayload") && !_plist_dict_get_bool(info_dict, "IsSecondaryFirmwarePayload") && !_plist_dict_get_bool(info_dict, "IsFUDFirmware")) {
-				debug("DEBUG: %s: Skipping '%s' as it is neither firmware nor secondary nor FUD firmware payload\n", __func__, key);
+			if (!_plist_dict_get_bool(info_dict, "IsFirmwarePayload")
+			 && !_plist_dict_get_bool(info_dict, "IsSecondaryFirmwarePayload")
+			 && !_plist_dict_get_bool(info_dict, "IsFUDFirmware")
+			 && !_plist_dict_get_bool(info_dict, "IsLoadedByiBoot")
+			 && !_plist_dict_get_bool(info_dict, "IsEarlyAccessFirmware")
+			 && !_plist_dict_get_bool(info_dict, "IsiBootEANFirmware")
+			 && !_plist_dict_get_bool(info_dict, "IsiBootNonEssentialFirmware"))
+			{
+				debug("DEBUG: %s: Skipping '%s' as it is not a firmware payload\n", __func__, key);
 				continue;
 			}
 		}
@@ -679,14 +686,26 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 			}
 		}
 
-		if (_plist_dict_get_bool(parameters, "_OnlyFWComponents")) {
+		int is_fw_payload = _plist_dict_get_bool(info_dict, "IsFirmwarePayload")
+				 || _plist_dict_get_bool(info_dict, "IsSecondaryFirmwarePayload")
+				 || _plist_dict_get_bool(info_dict, "IsFUDFirmware")
+				 || _plist_dict_get_bool(info_dict, "IsLoadedByiBoot")
+				 || _plist_dict_get_bool(info_dict, "IsEarlyAccessFirmware")
+				 || _plist_dict_get_bool(info_dict, "IsiBootEANFirmware")
+				 || _plist_dict_get_bool(info_dict, "IsiBootNonEssentialFirmware");
+
+		if (_plist_dict_get_bool(parameters, "_OnlyFWOrTrustedComponents")) {
+			if (!_plist_dict_get_bool(manifest_entry, "Trusted") && !is_fw_payload) {
+				debug("DEBUG: %s: Skipping '%s' as it is neither firmware payload nor trusted\n", __func__, key);
+				continue;
+			}
+		} else if (_plist_dict_get_bool(parameters, "_OnlyFWComponents")) {
 			if (!_plist_dict_get_bool(manifest_entry, "Trusted")) {
 				debug("DEBUG: %s: Skipping '%s' as it is not trusted\n", __func__, key);
 				continue;
 			}
-
-			if (!_plist_dict_get_bool(info_dict, "IsFirmwarePayload") && !_plist_dict_get_bool(info_dict, "IsSecondaryFirmwarePayload") && !_plist_dict_get_bool(info_dict, "IsFUDFirmware")) {
-				debug("DEBUG: %s: Skipping '%s' as it is neither firmware nor secondary nor FUD firmware payload\n", __func__, key);
+			if (!is_fw_payload) {
+				debug("DEBUG: %s: Skipping '%s' as it is not a firmware payload\n", __func__, key);
 				continue;
 			}
 		}

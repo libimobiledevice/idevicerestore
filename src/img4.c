@@ -844,13 +844,12 @@ int img4_create_local_manifest(plist_t request, plist_t build_identity, plist_t*
 				comp = _img4_get_component_tag(key);
 			}
 			if (!comp) {
-				error("ERROR: %s: Unhandled component '%s' - can't create manifest\n", __func__, key);
-				free(iter);
-				free(buf);
-				return -1;
+				debug("DEBUG: %s: Unhandled component '%s'\n", __func__, key);
+				_manifest_write_component(&p, &length, key, val);
+			} else {
+				debug("DEBUG: found component %s (%s)\n", comp, key);
+				_manifest_write_component(&p, &length, comp, val);
 			}
-			debug("DEBUG: found component %s (%s)\n", comp, key);
-			_manifest_write_component(&p, &length, comp, val);
 		}
 		free(key);
 	} while (val);

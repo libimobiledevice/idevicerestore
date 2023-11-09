@@ -1981,7 +1981,7 @@ int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_
 	plist_t overrides = plist_new_dict();
 	plist_dict_set_item(overrides, "@APTicket", plist_new_bool(1));
 	plist_dict_set_item(overrides, "ApProductionMode", plist_new_uint(0));
-	plist_dict_set_item(overrides, "ApSecurityDomain", plist_new_uint(0));
+	plist_dict_set_item(overrides, "ApSecurityDomain", plist_new_uint(1));
 
 	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(0));
 	plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(0));
@@ -2005,7 +2005,7 @@ int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_
 		return -1;
 	}
 
-	plist_dict_set_item(parameters, "_OnlyFWComponents", plist_new_bool(1));
+	plist_dict_set_item(parameters, "_OnlyFWOrTrustedComponents", plist_new_bool(1));
 
 	/* add tags from manifest */
 	if (tss_request_add_ap_tags(request, parameters, NULL) < 0) {
