@@ -737,7 +737,7 @@ int ipsw_extract_send(ipsw_archive_t ipsw, const char* infile, int blocksize, ip
 				// EOF
 				break;
 			}
-			if (send_callback(ctx, buffer, zr) < 0) {
+			if (send_callback(ctx, buffer, zr, done, total_size) < 0) {
 				error("ERROR: %s: send failed\n", __func__);
 				break;
 			}
@@ -773,7 +773,7 @@ int ipsw_extract_send(ipsw_archive_t ipsw, const char* infile, int blocksize, ip
 				free(buffer);
 				return -1;
 			}
-			send_callback(ctx, buffer, (size_t)rl);
+			send_callback(ctx, buffer, (size_t)rl, 0, 0);
 		} else {
 #endif
 			FILE *f = fopen(filepath, "rb");
@@ -792,7 +792,7 @@ int ipsw_extract_send(ipsw_archive_t ipsw, const char* infile, int blocksize, ip
 					error("ERROR: %s: fread failed for %s: %s\n", __func__, filepath, strerror(errno));
 					break;
 				}
-				if (send_callback(ctx, buffer, fr) < 0) {
+				if (send_callback(ctx, buffer, fr, done, total_size) < 0) {
 					error("ERROR: %s: send failed\n", __func__);
 					break;
 				}
@@ -812,7 +812,7 @@ int ipsw_extract_send(ipsw_archive_t ipsw, const char* infile, int blocksize, ip
 	}
 
 	// send a NULL buffer to mark end of transfer
-	send_callback(ctx, NULL, 0);
+	send_callback(ctx, NULL, 0, done, total_size);
 
 	return 0;
 }

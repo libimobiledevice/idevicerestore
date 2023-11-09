@@ -44,7 +44,7 @@ void ipsw_close(ipsw_archive_t ipsw);
 int ipsw_print_info(const char* ipsw);
 
 typedef int (*ipsw_list_cb)(void *ctx, ipsw_archive_t ipsw, const char *name, struct stat *stat);
-typedef int (*ipsw_send_cb)(void *ctx, void *data, size_t size);
+typedef int (*ipsw_send_cb)(void *ctx, void *data, size_t size, size_t done, size_t total_size);
 
 struct ipsw_file_handle {
 	FILE* file;

@@ -3537,7 +3537,13 @@ int extract_global_manifest(struct idevicerestore_client_t* client, plist_t buil
 	return 0;
 }
 
-static int _restore_send_file_data(restored_client_t restore, void* data, size_t size)
+struct _restore_send_file_data_ctx {
+	struct idevicerestore_client_t* client;
+	restored_client_t restore;
+	int last_progress;
+};
+
+static int _restore_send_file_data(struct _restore_send_file_data_ctx* rctx, void* data, size_t size, size_t done, size_t total_size)
 {
 	plist_t dict = plist_new_dict();
 	if (data != NULL) {
@@ -3547,13 +3553,21 @@ static int _restore_send_file_data(restored_client_t restore, void* data, size_t
 		// Send FileDataDone to mark end of transfer
 		plist_dict_set_item(dict, "FileDataDone", plist_new_bool(1));
 	}
-	restored_error_t restore_error = restored_send(restore, dict);
+	restored_error_t restore_error = restored_send(rctx->restore, dict);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		plist_free(dict);
 		error("ERROR: %s: Failed to send data (%d)\n", __func__, restore_error);
 		return -1;
 	}
 	plist_free(dict);
+	if (total_size > 0) {
+		double progress = (double)done / (double)total_size;
+		int progress_int = (int)(progress*100.0);
+		if (progress_int > rctx->last_progress) {
+			idevicerestore_progress(rctx->client, RESTORE_STEP_UPLOAD_IMG, progress);
+			rctx->last_progress = progress_int;
+		}
+	}
 	return 0;
 }
 
@@ -3643,12 +3657,17 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 		}
 	}
 
-	info("Sending %s now...\n", component);
+	info("Sending %s now (%" PRIu64 " bytes)...\n", component, (uint64_t)size);
+
+	struct _restore_send_file_data_ctx rctx;
+	rctx.client = client;
+	rctx.restore = restore;
+	rctx.last_progress = 0;
 
 	int64_t i = size;
 	while (i > 0) {
 		int blob_size = i > 8192 ? 8192 : i;
-		if (_restore_send_file_data(restore, (data + size - i), blob_size) < 0) {
+		if (_restore_send_file_data(&rctx, (data + size - i), blob_size, size-i, size) < 0) {
 			free(data);
 			error("ERROR: Unable to send component %s data\n", component);
 			return -1;
@@ -3657,7 +3676,7 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 	}
 	free(data);
 
-	_restore_send_file_data(restore, NULL, 0);
+	_restore_send_file_data(&rctx, NULL, 0, size-i, size);
 
 	info("Done sending %s\n", component);
 	return 0;
@@ -3733,9 +3752,17 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 		return -1;
 	}
 
-	info("Sending %s now...\n", component);
+	uint64_t fsize = 0;
+	ipsw_get_file_size(client->ipsw, path, &fsize);
 
-	if (ipsw_extract_send(client->ipsw, path, 8192, (ipsw_send_cb)_restore_send_file_data, restore) < 0) {
+	info("Sending %s now (%" PRIu64 " bytes)\n", component, fsize);
+
+	struct _restore_send_file_data_ctx rctx;
+	rctx.client = client;
+	rctx.restore = restore;
+	rctx.last_progress = 0;
+
+	if (ipsw_extract_send(client->ipsw, path, 8192, (ipsw_send_cb)_restore_send_file_data, &rctx) < 0) {
 		free(path);
 		error("ERROR: Failed to send component %s\n", component);
 		return -1;
