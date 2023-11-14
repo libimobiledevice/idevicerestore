@@ -349,11 +349,12 @@ int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 		SHA1_Init(&sha1);
 	}
 
-	int size = 0;
 	i = length;
 	int retry = 3;
 	while(i > 0 && retry >= 0) {
-		size = ASR_PAYLOAD_CHUNK_SIZE;
+		uint32_t size = ASR_PAYLOAD_CHUNK_SIZE;
+		uint32_t sendsize = 0;
+
 		if (i < ASR_PAYLOAD_CHUNK_SIZE) {
 			size = i;
 		}
@@ -364,11 +365,12 @@ int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 			continue;
 		}
 
+		sendsize = size;
 		if (asr->checksum_chunks) {
 			SHA1((unsigned char*)data, size, (unsigned char*)(data+size));
+			sendsize += 20;
 		}
-
-		if (asr_send_buffer(asr, data, size+20) < 0) {
+		if (asr_send_buffer(asr, data, sendsize) < 0) {
 			error("ERROR: Unable to send filesystem payload\n");
 			retry--;
 			continue;
