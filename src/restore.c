@@ -913,11 +913,11 @@ int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t de
 	}
 	if (client->filesystem) {
 		char* path = strdup(client->filesystem);
-		char* fsname_base = path_get_basename(path);
+		const char* fsname_base = path_get_basename(path);
 		char* parent_dir = dirname(path);
 		ipsw_dummy = ipsw_open(parent_dir);
-		free(path);
 		file = ipsw_file_open(ipsw_dummy, fsname_base);
+		free(path);
 	} else {
 		file = ipsw_file_open(client->ipsw, fsname);
 	}
