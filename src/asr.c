@@ -364,14 +364,18 @@ int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 			continue;
 		}
 
-		if (asr->checksum_chunks) {
-			SHA1((unsigned char*)data, size, (unsigned char*)(data+size));
-		}
 
-		if (asr_send_buffer(asr, data, size+20) < 0) {
-			error("ERROR: Unable to send filesystem payload\n");
-			retry--;
-			continue;
+		{
+			int sendsize = size;
+			if (asr->checksum_chunks) {
+				SHA1((unsigned char*)data, size, (unsigned char*)(data+size));
+				sendsize += 20;
+			}
+			if (asr_send_buffer(asr, data, sendsize) < 0) {
+				error("ERROR: Unable to send filesystem payload\n");
+				retry--;
+				continue;
+			}
 		}
 
 		bytes += size;
