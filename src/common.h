@@ -197,7 +197,7 @@ int _plist_dict_copy_data(plist_t target_dict, plist_t source_dict, const char *
 int _plist_dict_copy_string(plist_t target_dict, plist_t source_dict, const char *key, const char *alt_source_key);
 int _plist_dict_copy_item(plist_t target_dict, plist_t source_dict, const char *key, const char *alt_source_key);
 
-char* path_get_basename(char* path);
+const char* path_get_basename(char* path);
 
 #ifdef __cplusplus
 }

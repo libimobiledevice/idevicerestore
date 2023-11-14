@@ -987,8 +987,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			if (stat(client->cache_dir, &st) < 0) {
 				mkdir_with_parents(client->cache_dir, 0755);
 			}
-			char* ipsw_basename = path_get_basename(client->ipsw->path);
-			ipsw_basename = strdup(ipsw_basename);
+			char* ipsw_basename = strdup(path_get_basename(client->ipsw->path));
 			char* p = strrchr(ipsw_basename, '.');
 			if (p && isalpha(*(p+1))) {
 				*p = '\0';
