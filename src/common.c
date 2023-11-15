@@ -696,7 +696,7 @@ int _plist_dict_copy_item(plist_t target_dict, plist_t source_dict, const char *
 	return 0;
 }
 
-const char* path_get_basename(char* path)
+const char* path_get_basename(const char* path)
 {
 #ifdef WIN32
 	const char *p = path + strlen(path);
