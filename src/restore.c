@@ -1515,7 +1515,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 	uint64_t fsize = 0;
 	uint64_t blob_size = 0;
 	int zerr = 0;
-	int zindex = -1;
+	int64_t zindex = -1;
 	struct zip_stat zstat;
 	struct zip_file* zfile = NULL;
 	struct zip* za = NULL;
@@ -1537,7 +1537,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 	}
 
 	int is_fls = 0;
-	int signed_file_idxs[16];
+	int64_t signed_file_idxs[16];
 	int signed_file_count = 0;
 	char* key = NULL;
 	plist_t node = NULL;
@@ -1566,13 +1566,13 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 
 			zip_stat_init(&zstat);
 			if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
-				error("ERROR: zip_stat_index failed for index %d\n", zindex);
+				error("ERROR: zip_stat_index failed for index %" PRIi64 "\n", zindex);
 				goto leave;
 			}
 
 			zfile = zip_fopen_index(za, zindex, 0);
 			if (zfile == NULL) {
-				error("ERROR: zip_fopen_index failed for index %d\n", zindex);
+				error("ERROR: zip_fopen_index failed for index %" PRIi64 "\n", zindex);
 				goto leave;
 			}
 
@@ -1652,7 +1652,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 				goto leave;
 			}
 
-			if (zip_replace(za, zindex, zs) == -1) {
+			if (zip_file_replace(za, zindex, zs, 0) == -1) {
 				error("ERROR: could not update signed '%s' in archive\n", signfn);
 				goto leave;
 			}
@@ -1670,9 +1670,10 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 	free(iter);
 
 	// remove everything but required files
-	int i, j, keep, numf = zip_get_num_files(za);
+	int64_t i, numf = zip_get_num_entries(za, 0);
 	for (i = 0; i < numf; i++) {
-		keep = 0;
+		int j;
+		int keep = 0;
 		// check for signed file index
 		for (j = 0; j < signed_file_count; j++) {
 			if (i == signed_file_idxs[j]) {
@@ -1706,13 +1707,13 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 
 			zip_stat_init(&zstat);
 			if (zip_stat_index(za, zindex, 0, &zstat) != 0) {
-				error("ERROR: zip_stat_index failed for index %d\n", zindex);
+				error("ERROR: zip_stat_index failed for index %" PRIi64 "\n", zindex);
 				goto leave;
 			}
 
 			zfile = zip_fopen_index(za, zindex, 0);
 			if (zfile == NULL) {
-				error("ERROR: zip_fopen_index failed for index %d\n", zindex);
+				error("ERROR: zip_fopen_index failed for index %" PRIi64 "\n", zindex);
 				goto leave;
 			}
 
@@ -1771,7 +1772,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 				goto leave;
 			}
 
-			if (zip_replace(za, zindex, zs) == -1) {
+			if (zip_file_replace(za, zindex, zs, 0) == -1) {
 				error("ERROR: could not update archive with ticketed ebl.fls\n");
 				goto leave;
 			}
@@ -1792,7 +1793,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 			}
 			blob = NULL;
 
-			if (zip_add(za, "bbticket.der", zs) == -1) {
+			if (zip_file_add(za, "bbticket.der", zs, ZIP_FL_OVERWRITE) == -1) {
 				error("ERROR: could not add bbticket.der to archive\n");
 				goto leave;
 			}
