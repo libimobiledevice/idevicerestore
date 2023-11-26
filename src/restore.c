@@ -3561,7 +3561,7 @@ static int _restore_send_file_data(struct _restore_send_file_data_ctx* rctx, voi
 		return -1;
 	}
 	plist_free(dict);
-	if (total_size > 0) {
+	if (total_size > 0x1000000) {
 		double progress = (double)done / (double)total_size;
 		int progress_int = (int)(progress*100.0);
 		if (progress_int > rctx->last_progress) {
