@@ -51,7 +51,7 @@
 #include "common.h"
 #include "endianness.h"
 
-#define PLIST_OPT_NONE		       0
+#define PLIST_OPT_NONE				   0
 #define CREATE_PARTITION_MAP          11
 #define CREATE_FILESYSTEM             12
 #define RESTORE_IMAGE                 13
