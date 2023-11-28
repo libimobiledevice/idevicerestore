@@ -114,7 +114,7 @@
 #define REQUESTING_EAN_DATA           74
 #define SEALING_SYSTEM_VOLUME         77
 #define UPDATING_APPLETCON            81
-#define PLIST_OPT_NONE				   0
+#define PLIST_OPT_NONE		       0
 
 static int restore_finished = 0;
 
