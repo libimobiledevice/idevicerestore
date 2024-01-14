@@ -270,8 +270,17 @@ jobs:
           tar -C deps -xjf $FILENAME
           echo "LIBZIP_CFLAGS=-I`pwd`/deps/include" >> $GITHUB_ENV
           echo "LIBZIP_LIBS=`pwd`/deps/lib/libzip.a /${{env.dest}}/lib/libbz2.a /${{env.dest}}/lib/liblzma.a " >> $GITHUB_ENV
+          FILENAME="libcurl-8.1.0-static.tar.bz2"
+          curl -o $FILENAME.b64 -Ls "https://gist.github.com/nikias/6c397a0a2f4f4eafd91b81cccd22b761/raw/85216e60af6787f3b351291165eb91bd585ff09a/libcurl-8.1.0-static-${{matrix.arch}}-${{env.dest}}.tar.bz2"
+          base64 -d < $FILENAME.b64 > $FILENAME
+          tar -C deps -xjf $FILENAME
+          echo "LIBCURL_CFLAGS=-I`pwd`/deps/include -DCURL_STATICLIB" >> $GITHUB_ENV
+          echo "LIBCURL_LIBS=`pwd`/deps/lib/libcurl.a /${{env.dest}}/lib/libzstd.a -lws2_32 -lcrypt32 -lwldap32 -lbcrypt -lssl -lcrypto" >> $GITHUB_ENV
     - name: autogen
-      run: ./autogen.sh CC=gcc CXX=g++ libzip_VERSION=1.7.1 libzip_CFLAGS="${{env.LIBZIP_CFLAGS}}" libzip_LIBS="${{env.LIBZIP_LIBS}}" zlib_LIBS="/${{env.dest}}/lib/libz.a" libcurl_CFLAGS="-I/${{env.dest}}/include -DCURL_STATICLIB" libcurl_LIBS="/${{env.dest}}/lib/libcurl.a /${{env.dest}}/lib/libssh2.a /${{env.dest}}/lib/libpsl.a /${{env.dest}}/lib/libidn2.a /${{env.dest}}/lib/libunistring.a /${{env.dest}}/lib/libnghttp2.a /${{env.dest}}/lib/libbrotlidec.a /${{env.dest}}/lib/libbrotlicommon.a /${{env.dest}}/lib/libiconv.a /${{env.dest}}/lib/libzstd.a -lws2_32 -lcrypt32 -lwldap32 -lbcrypt -lssl -lcrypto"
+      run: |
+          ./autogen.sh CC=gcc CXX=g++ \
+              libzip_VERSION=1.7.1 libzip_CFLAGS="${{env.LIBZIP_CFLAGS}}" libzip_LIBS="${{env.LIBZIP_LIBS}}" \
+              zlib_LIBS="/${{env.dest}}/lib/libz.a" libcurl_CFLAGS="${{env.LIBCURL_CFLAGS}}" libcurl_LIBS="$LIBCURL_LIBS"
     - name: make
       run: make
     - name: make install
