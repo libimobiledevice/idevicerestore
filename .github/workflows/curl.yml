@@ -1,0 +1,58 @@
+name: build-libcurl-static
+
+on: [push]
+
+jobs:
+  build-windows:
+    runs-on: windows-2019
+    defaults:
+      run:
+        shell: msys2 {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: [
+          { msystem: MINGW64, arch: x86_64 },
+          { msystem: MINGW32, arch: i686   }
+        ]
+    steps:
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{ matrix.msystem }}
+        release: false
+        update: false
+        install: >-
+          base-devel
+          git
+          mingw-w64-${{ matrix.arch }}-gcc
+          make
+          libtool
+          autoconf
+          automake-wrapper
+          liblzma
+    - name: prepare environment
+      run: |
+          dest=`echo ${{ matrix.msystem }} |tr [:upper:] [:lower:]`
+          echo "dest=$dest" >> $GITHUB_ENV
+          echo "target_triplet=`gcc -dumpmachine`" >> $GITHUB_ENV
+    - name: fetch curl source
+      run: |
+          curl -Ls -o curl-8.1.0.tar.bz2 https://github.com/curl/curl/releases/download/curl-8_1_0/curl-8.1.0.tar.bz2
+          tar xjf curl-8.1.0.tar.bz2
+    - name: configure curl
+      run: |
+          cd curl-8.1.0
+          ./configure --disable-ldap --disable-ldaps --disable-rtsp --disable-dict --disable-telnet --disable-tftp --disable-pop3 --disable-imap --disable-smb --disable-smtp --disable-gopher --disable-mqtt --disable-manual --disable-threaded-resolver --disable-pthreads --disable-sspi --disable-aws --disable-ntlm --disable-ntlm-wb --disable-tls-srp --disable-unix-sockets --disable-doh --disable-mime --disable-bindlocal --disable-dnsshuffle --disable-alt-svc --disable-hsts --disable-websockets --with-openssl --without-brotli --without-libidn2 --without-ngtcp2 --without-quiche --without-msh3 --without-nghttp2 --without-libpsl
+    - name: build libcurl
+      run: |
+          CURDIR=`pwd`
+          cd curl-8.1.0/lib
+          make
+          cp .libs/libcurl.a .
+          cd ..
+          tar cf $CURDIR/libcurl-static.tar lib/libcurl.a include/curl/*.h
+    - name: publish artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: libcurl_${{ matrix.arch }}-${{ env.dest }}
+        path: libcurl-static.tar
