@@ -642,6 +642,21 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		return 0;
 	}
 
+	// extract buildmanifest
+	if (client->flags & FLAG_CUSTOM) {
+		info("Extracting Restore.plist from IPSW\n");
+		if (ipsw_extract_restore_plist(client->ipsw, &client->build_manifest) < 0) {
+			error("ERROR: Unable to extract Restore.plist from %s. Firmware file might be corrupt.\n", client->ipsw->path);
+			return -1;
+		}
+	} else {
+		info("Extracting BuildManifest from IPSW\n");
+		if (ipsw_extract_build_manifest(client->ipsw, &client->build_manifest, &tss_enabled) < 0) {
+			error("ERROR: Unable to extract BuildManifest from %s. Firmware file might be corrupt.\n", client->ipsw->path);
+			return -1;
+		}
+	}
+
 	if (client->mode == MODE_RESTORE) {
 		if (client->flags & FLAG_ALLOW_RESTORE_MODE) {
 			tss_enabled = 0;
@@ -668,20 +683,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 	}
 
-	// extract buildmanifest
-	if (client->flags & FLAG_CUSTOM) {
-		info("Extracting Restore.plist from IPSW\n");
-		if (ipsw_extract_restore_plist(client->ipsw, &client->build_manifest) < 0) {
-			error("ERROR: Unable to extract Restore.plist from %s. Firmware file might be corrupt.\n", client->ipsw->path);
-			return -1;
-		}
-	} else {
-		info("Extracting BuildManifest from IPSW\n");
-		if (ipsw_extract_build_manifest(client->ipsw, &client->build_manifest, &tss_enabled) < 0) {
-			error("ERROR: Unable to extract BuildManifest from %s. Firmware file might be corrupt.\n", client->ipsw->path);
-			return -1;
-		}
-	}
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.8);
 
 	/* check if device type is supported by the given build manifest */
