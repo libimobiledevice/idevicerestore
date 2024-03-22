@@ -1064,7 +1064,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 		if (client->build_major > 8) {
 			unsigned char* nonce = NULL;
-			int nonce_size = 0;
+			unsigned int nonce_size = 0;
 			if (get_ap_nonce(client, &nonce, &nonce_size) < 0) {
 				/* the first nonce request with older firmware releases can fail and it's OK */
 				info("NOTE: Unable to get nonce from device\n");
@@ -1265,7 +1265,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	if (!client->image4supported && (client->build_major > 8)) {
 		// we need another tss request with nonce.
 		unsigned char* nonce = NULL;
-		int nonce_size = 0;
+		unsigned int nonce_size = 0;
 		int nonce_changed = 0;
 		if (get_ap_nonce(client, &nonce, &nonce_size) < 0) {
 			error("ERROR: Unable to get nonce from device!\n");
@@ -1810,7 +1810,7 @@ int is_image4_supported(struct idevicerestore_client_t* client)
 	return res;
 }
 
-int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
+int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size)
 {
 	int mode = _MODE_UNKNOWN;
 
@@ -1861,7 +1861,7 @@ int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, 
 	return 0;
 }
 
-int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
+int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size)
 {
 	int mode = _MODE_UNKNOWN;
 
@@ -2102,7 +2102,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		plist_dict_set_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
 	}
 	unsigned char* sep_nonce = NULL;
-	int sep_nonce_size = 0;
+	unsigned int sep_nonce_size = 0;
 	get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
 
 	if (sep_nonce) {
@@ -2226,7 +2226,7 @@ int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* clie
 		plist_dict_set_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
 	}
 	unsigned char* sep_nonce = NULL;
-	int sep_nonce_size = 0;
+	unsigned int sep_nonce_size = 0;
 	get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
 
 	/* ApSepNonce */
@@ -2405,7 +2405,7 @@ int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_
 		plist_dict_set_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
 	}
 	unsigned char* sep_nonce = NULL;
-	int sep_nonce_size = 0;
+	unsigned int sep_nonce_size = 0;
 	get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
 
 	if (sep_nonce) {

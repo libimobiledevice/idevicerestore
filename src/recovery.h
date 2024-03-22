@@ -55,8 +55,8 @@ int recovery_send_reset(struct idevicerestore_client_t* client);
 int recovery_send_ticket(struct idevicerestore_client_t* client);
 int recovery_set_autoboot(struct idevicerestore_client_t* client, int enable);
 int recovery_is_image4_supported(struct idevicerestore_client_t* client);
-int recovery_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
-int recovery_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
+int recovery_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size);
+int recovery_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size);
 
 
 #ifdef __cplusplus

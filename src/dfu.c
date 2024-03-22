@@ -238,7 +238,7 @@ int dfu_is_image4_supported(struct idevicerestore_client_t* client)
 	return (device_info->ibfl & IBOOT_FLAG_IMAGE4_AWARE);
 }
 
-int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
+int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size)
 {
 	if(client->dfu == NULL) {
 		if (dfu_client_new(client) < 0) {
@@ -263,7 +263,7 @@ int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** non
 	return 0;
 }
 
-int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
+int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size)
 {
 	if(client->dfu == NULL) {
 		if (dfu_client_new(client) < 0) {
@@ -417,7 +417,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 
 		/* get nonce */
 		unsigned char* nonce = NULL;
-		int nonce_size = 0;
+		unsigned int nonce_size = 0;
 		int nonce_changed = 0;
 		if (dfu_get_ap_nonce(client, &nonce, &nonce_size) < 0) {
 			error("ERROR: Unable to get ApNonce from device!\n");

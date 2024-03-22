@@ -323,7 +323,7 @@ plist_t normal_get_lockdown_value(struct idevicerestore_client_t* client, const 
 	return node;
 }
 
-static int normal_get_nonce_by_key(struct idevicerestore_client_t* client, const char* key, unsigned char** nonce, int* nonce_size)
+static int normal_get_nonce_by_key(struct idevicerestore_client_t* client, const char* key, unsigned char** nonce, unsigned int* nonce_size)
 {
 	plist_t nonce_node = normal_get_lockdown_value(client, NULL, key);
 
@@ -334,18 +334,18 @@ static int normal_get_nonce_by_key(struct idevicerestore_client_t* client, const
 
 	uint64_t n_size = 0;
 	plist_get_data_val(nonce_node, (char**)nonce, &n_size);
-	*nonce_size = (int)n_size;
+	*nonce_size = (unsigned int)n_size;
 	plist_free(nonce_node);
 
 	return 0;
 }
 
-int normal_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
+int normal_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size)
 {
 	return normal_get_nonce_by_key(client, "SEPNonce", nonce, nonce_size);
 }
 
-int normal_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size)
+int normal_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size)
 {
 	return normal_get_nonce_by_key(client, "ApNonce", nonce, nonce_size);
 }

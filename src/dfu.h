@@ -44,8 +44,8 @@ int dfu_send_buffer(struct idevicerestore_client_t* client, unsigned char* buffe
 int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component);
 int dfu_get_cpid(struct idevicerestore_client_t* client, unsigned int* cpid);
 int dfu_is_image4_supported(struct idevicerestore_client_t* client);
-int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
-int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
+int dfu_get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size);
+int dfu_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size);
 int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_identity);
 
 
