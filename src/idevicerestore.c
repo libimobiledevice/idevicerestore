@@ -47,6 +47,7 @@
 
 #include <libimobiledevice-glue/utils.h>
 
+#include "ace3.h"
 #include "dfu.h"
 #include "tss.h"
 #include "img3.h"
@@ -298,6 +299,9 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 				case IRECV_K_DFU_MODE:
 					client->mode = MODE_DFU;
 					break;
+				case IRECV_K_PORT_DFU_MODE:
+					client->mode = MODE_PORTDFU;
+					break;
 				case IRECV_K_RECOVERY_MODE_1:
 				case IRECV_K_RECOVERY_MODE_2:
 				case IRECV_K_RECOVERY_MODE_3:
@@ -316,6 +320,12 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 			mutex_lock(&client->device_event_mutex);
 			client->mode = MODE_UNKNOWN;
 			debug("%s: device %016" PRIx64 " (udid: %s) disconnected\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A");
+			if (event->mode == IRECV_K_PORT_DFU_MODE) {
+				// We have to reset the ECID here if a port DFU device disconnects,
+				// because when the device reconnects in a different mode, it will
+				// have the actual device ECID and wouldn't get detected.
+				client->ecid = 0;
+			}
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
@@ -680,6 +690,152 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			}
 			info("Found device in %s mode\n", client->mode->string);
 			mutex_unlock(&client->device_event_mutex);
+		}
+	}
+
+	if (client->mode == MODE_PORTDFU) {
+		unsigned int pdfu_bdid = 0;
+		unsigned int pdfu_cpid = 0;
+		unsigned int prev = 0;
+
+		if (dfu_get_bdid(client, &pdfu_bdid) < 0) {
+			error("ERROR: Failed to get bdid for Port DFU device!\n");
+			return -1;
+		}
+		if (dfu_get_cpid(client, &pdfu_cpid) < 0) {
+			error("ERROR: Failed to get cpid for Port DFU device!\n");
+			return -1;
+		}
+		if (dfu_get_prev(client, &prev) < 0) {
+			error("ERROR: Failed to get PREV for Port DFU device!\n");
+			return -1;
+		}
+
+		unsigned char* pdfu_nonce = NULL;
+		unsigned int pdfu_nsize = 0;
+		if (dfu_get_portdfu_nonce(client, &pdfu_nonce, &pdfu_nsize) < 0) {
+			error("ERROR: Failed to get nonce for Port DFU device!\n");
+			return -1;
+		}
+
+		plist_t build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, RESTORE_VARIANT_ERASE_INSTALL, 0);
+		if (!build_identity) {
+			error("ERORR: Failed to get build identity\n");
+			return -1;
+		}
+
+		unsigned int b_pdfu_cpid = (unsigned int)_plist_dict_get_uint(build_identity, "USBPortController1,ChipID");
+		if (b_pdfu_cpid != pdfu_cpid) {
+			error("ERROR: cpid 0x%02x doesn't match USBPortController1,ChipID in build identity (0x%02x)\n", pdfu_cpid, b_pdfu_cpid);
+			return -1;
+		}
+		unsigned int b_pdfu_bdid = (unsigned int)_plist_dict_get_uint(build_identity, "USBPortController1,BoardID");
+		if (b_pdfu_bdid != pdfu_bdid) {
+			error("ERROR: bdid 0x%x doesn't match USBPortController1,BoardID in build identity (0x%x)\n", pdfu_bdid, b_pdfu_bdid);
+			return -1;
+		}
+
+		plist_t parameters = plist_new_dict();
+		plist_dict_set_item(parameters, "@USBPortController1,Ticket", plist_new_bool(1));
+		plist_dict_set_item(parameters, "USBPortController1,ECID", plist_new_int(client->ecid));
+		_plist_dict_copy_item(parameters, build_identity, "USBPortController1,BoardID", NULL);
+		_plist_dict_copy_item(parameters, build_identity, "USBPortController1,ChipID", NULL);
+		_plist_dict_copy_item(parameters, build_identity, "USBPortController1,SecurityDomain", NULL);
+		plist_dict_set_item(parameters, "USBPortController1,SecurityMode", plist_new_bool(1));
+		plist_dict_set_item(parameters, "USBPortController1,ProductionMode", plist_new_bool(1));
+		plist_t usbf = plist_access_path(build_identity, 2, "Manifest", "USBPortController1,USBFirmware");
+		if (!usbf) {
+			plist_free(parameters);
+			error("ERROR: Unable to find USBPortController1,USBFirmware in build identity\n");
+			return -1;
+		}
+		plist_t p_fwpath = plist_access_path(usbf, 2, "Info", "Path");
+		if (!p_fwpath) {
+			plist_free(parameters);
+			error("ERROR: Unable to find path of USBPortController1,USBFirmware component\n");
+			return -1;
+		}
+		const char* fwpath = plist_get_string_ptr(p_fwpath, NULL);
+		if (!fwpath) {
+			plist_free(parameters);
+			error("ERROR: Unable to get path of USBPortController1,USBFirmware component\n");
+			return -1;
+		}
+		unsigned char* uarp_buf = NULL;
+		unsigned int uarp_size = 0;
+		if (ipsw_extract_to_memory(client->ipsw, fwpath, &uarp_buf, &uarp_size) < 0) {
+			plist_free(parameters);
+			error("ERROR: Unable to extract '%s' from IPSW\n", fwpath);
+			return -1;
+		}
+		usbf = plist_copy(usbf);
+		plist_dict_remove_item(usbf, "Info");
+		plist_dict_set_item(parameters, "USBPortController1,USBFirmware", usbf);
+		plist_dict_set_item(parameters, "USBPortController1,Nonce", plist_new_data((const char*)pdfu_nonce, pdfu_nsize));
+
+		plist_t request = tss_request_new(NULL);
+		if (request == NULL) {
+			plist_free(parameters);
+			error("ERROR: Unable to create TSS request\n");
+			return -1;
+		}
+		plist_dict_merge(&request, parameters);
+		plist_free(parameters);
+
+		// send request and grab response
+		plist_t response = tss_request_send(request, client->tss_url);
+		plist_free(request);
+		if (response == NULL) {
+			error("ERROR: Unable to send TSS request\n");
+			return -1;
+		}
+		info("Received USBPortController1,Ticket\n");
+
+		info("Creating Ace3Binary\n");
+		unsigned char* ace3bin = NULL;
+		size_t ace3bin_size = 0;
+		if (ace3_create_binary(uarp_buf, uarp_size, pdfu_bdid, prev, response, &ace3bin, &ace3bin_size) < 0) {
+			error("ERROR: Could not create Ace3Binary\n");
+			return -1;
+		}
+		plist_free(response);
+		free(uarp_buf);
+
+		if (idevicerestore_keep_pers) {
+			write_file("Ace3Binary", (const char*)ace3bin, ace3bin_size);
+		}
+
+		if (dfu_send_buffer_with_options(client, ace3bin, ace3bin_size, IRECV_SEND_OPT_DFU_NOTIFY_FINISH | IRECV_SEND_OPT_DFU_SMALL_PKT) < 0) {
+			error("ERROR: Could not send Ace3Buffer to device\n");
+			return -1;
+		}
+
+		debug("Waiting for device to disconnect...\n");
+		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 5000);
+		if (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
+			mutex_unlock(&client->device_event_mutex);
+
+			if (!(client->flags & FLAG_QUIT)) {
+				error("ERROR: Device did not disconnect. Port DFU failed.\n");
+			}
+			return -2;
+		}
+		debug("Waiting for device to reconnect in DFU mode...\n");
+		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 5000);
+		if (client->mode != MODE_DFU || (client->flags & FLAG_QUIT)) {
+			mutex_unlock(&client->device_event_mutex);
+			if (!(client->flags & FLAG_QUIT)) {
+				error("ERROR: Device did not reconnect in DFU mode. Port DFU failed.\n");
+			}
+			return -2;
+		}
+		mutex_unlock(&client->device_event_mutex);
+
+		if (client->flags & FLAG_NOACTION) {
+			info("Port DFU restore successful.\n");
+			return 0;
+		} else {
+			info("Port DFU restore successful. Continuing.\n");
 		}
 	}
 
@@ -1773,6 +1929,7 @@ irecv_device_t get_irecv_device(struct idevicerestore_client_t *client)
 		return normal_get_irecv_device(client);
 
 	case _MODE_DFU:
+	case _MODE_PORTDFU:
 	case _MODE_RECOVERY:
 		return dfu_get_irecv_device(client);
 

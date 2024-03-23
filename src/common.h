@@ -47,6 +47,7 @@ extern "C" {
 #define _MODE_RECOVERY        3
 #define _MODE_RESTORE         4
 #define _MODE_NORMAL          5
+#define _MODE_PORTDFU         6
 
 #define MODE_UNKNOWN  &idevicerestore_modes[_MODE_UNKNOWN]
 #define MODE_WTF      &idevicerestore_modes[_MODE_WTF]
@@ -54,6 +55,7 @@ extern "C" {
 #define MODE_RECOVERY &idevicerestore_modes[_MODE_RECOVERY]
 #define MODE_RESTORE  &idevicerestore_modes[_MODE_RESTORE]
 #define MODE_NORMAL   &idevicerestore_modes[_MODE_NORMAL]
+#define MODE_PORTDFU  &idevicerestore_modes[_MODE_PORTDFU]
 
 #define FLAG_QUIT            1
 

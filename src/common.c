@@ -63,6 +63,7 @@ struct idevicerestore_mode_t idevicerestore_modes[] = {
 	{  3, "Recovery" },
 	{  4, "Restore"  },
 	{  5, "Normal"   },
+	{  6, "Port DFU" },
 };
 
 int idevicerestore_debug = 0;

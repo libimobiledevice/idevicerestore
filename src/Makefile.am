@@ -44,6 +44,7 @@ idevicerestore_SOURCES = \
 	restore.c restore.h \
 	asr.c asr.h \
 	fdr.c fdr.h \
+	ace3.c ace3.h \
 	limera1n_payload.h \
 	limera1n.c limera1n.h \
 	download.c download.h \
