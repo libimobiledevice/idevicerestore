@@ -35,7 +35,7 @@
 
 #include "endianness.h"
 
-#define AUTH_VERSION "914.120.2"
+#define AUTH_VERSION "973.40.2"
 
 #ifdef WIN32
 #define TSS_CLIENT_VERSION_STRING "libauthinstall_Win-"AUTH_VERSION"" 
