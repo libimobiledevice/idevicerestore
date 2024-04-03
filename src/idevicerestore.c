@@ -667,14 +667,14 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 	}
 
+	if (client->flags & FLAG_CUSTOM) {
+		// prevent attempt to sign custom firmware
+		tss_enabled = 0;
+		info("Custom firmware requested; TSS has been disabled.\n");
+	}
+
 	if (client->mode == MODE_RESTORE) {
-		if (client->flags & FLAG_ALLOW_RESTORE_MODE) {
-			tss_enabled = 0;
-			if (!client->root_ticket) {
-				client->root_ticket = (void*)strdup("");
-				client->root_ticket_len = 0;
-			}
-		} else {
+		if (!(client->flags & FLAG_ALLOW_RESTORE_MODE)) {
 			if (restore_reboot(client) < 0) {
 				error("ERROR: Unable to exit restore mode\n");
 				return -2;
@@ -855,12 +855,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	client->image4supported = is_image4_supported(client);
 	info("Device supports Image4: %s\n", (client->image4supported) ? "true" : "false");
-
-	if (client->flags & FLAG_CUSTOM) {
-		/* prevent signing custom firmware */
-		tss_enabled = 0;
-		info("Custom firmware requested. Disabled TSS request.\n");
-	}
 
 	// choose whether this is an upgrade or a restore (default to upgrade)
 	client->tss = NULL;
@@ -1241,19 +1235,33 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return -1;
 		}
 		
-		if (get_tss_response(client, build_identity, &client->tss) < 0) {
-			error("ERROR: Unable to get SHSH blobs for this device\n");
-			return -1;
-		}
-		if (client->macos_variant) {
-			if (get_local_policy_tss_response(client, build_identity, &client->tss_localpolicy) < 0) {
-				error("ERROR: Unable to get SHSH blobs for this device (local policy)\n");
+		if (client->mode == MODE_RESTORE && client->root_ticket) {
+			plist_t ap_ticket = plist_new_data(client->root_ticket, client->root_ticket_len);
+			if (!ap_ticket) {
+				error("ERROR: Failed to create ApImg4Ticket node value.\n");
 				return -1;
 			}
-			if (get_recoveryos_root_ticket_tss_response(client, build_identity, &client->tss_recoveryos_root_ticket) <
-				0) {
-				error("ERROR: Unable to get SHSH blobs for this device (recovery OS Root Ticket)\n");
+			client->tss = plist_new_dict();
+			if (!client->tss) {
+				error("ERROR: Failed to create ApImg4Ticket node.\n");
 				return -1;
+			}
+			plist_dict_set_item(client->tss, "ApImg4Ticket", ap_ticket);
+		} else {
+			if (get_tss_response(client, build_identity, &client->tss) < 0) {
+				error("ERROR: Unable to get SHSH blobs for this device\n");
+				return -1;
+			}
+			if (client->macos_variant) {
+				if (get_local_policy_tss_response(client, build_identity, &client->tss_localpolicy) < 0) {
+					error("ERROR: Unable to get SHSH blobs for this device (local policy)\n");
+					return -1;
+				}
+				if (get_recoveryos_root_ticket_tss_response(client, build_identity, &client->tss_recoveryos_root_ticket) <
+					0) {
+					error("ERROR: Unable to get SHSH blobs for this device (recovery OS Root Ticket)\n");
+					return -1;
+				}
 			}
 		}
 
