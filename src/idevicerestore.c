@@ -1257,8 +1257,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 					error("ERROR: Unable to get SHSH blobs for this device (local policy)\n");
 					return -1;
 				}
-				if (get_recoveryos_root_ticket_tss_response(client, build_identity, &client->tss_recoveryos_root_ticket) <
-					0) {
+				if (get_recoveryos_root_ticket_tss_response(client, build_identity, &client->tss_recoveryos_root_ticket) < 0) {
 					error("ERROR: Unable to get SHSH blobs for this device (recovery OS Root Ticket)\n");
 					return -1;
 				}
