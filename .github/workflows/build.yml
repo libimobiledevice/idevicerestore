@@ -161,7 +161,7 @@ jobs:
           base64 -D < $FILENAME.b64 > $FILENAME
           tar -C deps -xjf $FILENAME
           echo "LIBZIP_CFLAGS=-I`pwd`/deps/include" >> $GITHUB_ENV
-          echo "LIBZIP_LIBS=`pwd`/deps/lib/libzip.a -Xlinker /usr/lib/libbz2.dylib -Xlinker /usr/lib/liblzma.dylib -lz" >> $GITHUB_ENV
+          echo "LIBZIP_LIBS=`pwd`/deps/lib/libzip.a -Xlinker ${SDKDIR}/usr/lib/libbz2.tbd -Xlinker ${SDKDIR}/usr/lib/liblzma.tbd -lz" >> $GITHUB_ENV
     - name: autogen
       run: |
           export CFLAGS="${{env.BUILD_CFLAGS}} -Wno-nullability-completeness -Wno-expansion-to-defined"
