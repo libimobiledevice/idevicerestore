@@ -333,7 +333,7 @@ static int normal_get_nonce_by_key(struct idevicerestore_client_t* client, const
 	}
 
 	uint64_t n_size = 0;
-	plist_get_data_val(nonce_node, (char**)nonce, &n_size);
+	plist_get_data_val(nonce_node, nonce, &n_size);
 	*nonce_size = (unsigned int)n_size;
 	plist_free(nonce_node);
 
@@ -462,13 +462,13 @@ int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_
 		} else {
 			plist_t node;
 
-			if (_plist_dict_get_bool(pl, "Skip")) {
+			if (plist_dict_get_bool(pl, "Skip")) {
 				result = 0;
 				info("Device does not require stashbag.\n");
 				break;
 			}
 
-			if (_plist_dict_get_bool(pl, "ShowDialog")) {
+			if (plist_dict_get_bool(pl, "ShowDialog")) {
 				info("Device requires stashbag.\n");
 				printf("******************************************************************************\n"
 				       "* Please enter your passcode on the device.  The device will store a token   *\n"
@@ -491,13 +491,13 @@ int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_
 				plist_free(pl);
 				break;
 			}
-			if (_plist_dict_get_bool(pl, "Timeout")) {
+			if (plist_dict_get_bool(pl, "Timeout")) {
 				error("ERROR: Timeout while waiting for user to enter passcode.\n");
 				result = -2;
 				plist_free(pl);
 				break;
 			}
-			if (_plist_dict_get_bool(pl, "HideDialog")) {
+			if (plist_dict_get_bool(pl, "HideDialog")) {
 				plist_free(pl);
 				/* hide dialog */
 				result = 1;
@@ -588,7 +588,7 @@ int normal_handle_commit_stashbag(struct idevicerestore_client_t* client, plist_
 			}
 			error("ERROR: Could not commit stashbag: %s\n", (strval) ? strval : "(Unknown error)");
 			free(strval);
-		} else if (_plist_dict_get_bool(pl, "StashbagCommitComplete")) {
+		} else if (plist_dict_get_bool(pl, "StashbagCommitComplete")) {
 			info("Stashbag committed!\n");
 			result = 0;
 		} else {

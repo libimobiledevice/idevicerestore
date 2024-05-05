@@ -457,7 +457,7 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 			return -1;
 		}
 		uint64_t ucon_size = 0;
-		const char* ucon_data = plist_get_data_ptr(dt, &ucon_size);
+		const uint8_t* ucon_data = plist_get_data_ptr(dt, &ucon_size);
 		if (!ucon_data) {
 			error("ERROR: %s: Missing ucon data in %s-TBM dictionary\n", __func__, component_name);
 			return -1;
@@ -468,7 +468,7 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 			return -1;
 		}
 		uint64_t ucer_size = 0;
-		const char* ucer_data = plist_get_data_ptr(dt, &ucer_size);
+		const uint8_t* ucer_data = plist_get_data_ptr(dt, &ucer_size);
 		if (!ucer_data) {
 			error("ERROR: %s: Missing ucer data in %s-TBM dictionary\n", __func__, component_name);
 			return -1;
@@ -705,7 +705,7 @@ static void _manifest_write_component(unsigned char **p, unsigned int *length, c
 
 	node = plist_dict_get_item(comp, "Digest");
 	if (node) {
-		char *digest = NULL;
+		uint8_t *digest = NULL;
 		uint64_t digest_len = 0;
 		plist_get_data_val(node, &digest, &digest_len);
 		if (digest_len > 0) {
@@ -740,7 +740,7 @@ static void _manifest_write_component(unsigned char **p, unsigned int *length, c
 
 	node = plist_dict_get_item(comp, "TBMDigests");
 	if (node) {
-		char *data = NULL;
+		uint8_t *data = NULL;
 		uint64_t datalen = 0;
 		plist_get_data_val(node, &data, &datalen);
 		const char *tbmtag = NULL;
@@ -798,22 +798,22 @@ int img4_create_local_manifest(plist_t request, plist_t build_identity, plist_t*
 	unsigned int tmp_len = 0;
 
 	/* write manifest properties */
-	uintval = _plist_dict_get_uint(request, "ApBoardID");
+	uintval = plist_dict_get_uint(request, "ApBoardID");
 	_manifest_write_key_value(&tmp, &tmp_len, "BORD", ASN1_INTEGER, &uintval, -1);
 
 	uintval = 0;
 	_manifest_write_key_value(&tmp, &tmp_len, "CEPO", ASN1_INTEGER, &uintval, -1);
 
-	uintval = _plist_dict_get_uint(request, "ApChipID");
+	uintval = plist_dict_get_uint(request, "ApChipID");
 	_manifest_write_key_value(&tmp, &tmp_len, "CHIP", ASN1_INTEGER, &uintval, -1);
 
-	boolval = _plist_dict_get_bool(request, "ApProductionMode");
+	boolval = plist_dict_get_bool(request, "ApProductionMode");
 	_manifest_write_key_value(&tmp, &tmp_len, "CPRO", ASN1_BOOLEAN, &boolval, -1);
 
 	boolval = 0;
 	_manifest_write_key_value(&tmp, &tmp_len, "CSEC", ASN1_BOOLEAN, &boolval, -1);
 
-	uintval = _plist_dict_get_uint(request, "ApSecurityDomain");
+	uintval = plist_dict_get_uint(request, "ApSecurityDomain");
 	_manifest_write_key_value(&tmp, &tmp_len, "SDOM", ASN1_INTEGER, &uintval, -1);
 
 	/* create manifest properties set */
@@ -907,7 +907,7 @@ int img4_create_local_manifest(plist_t request, plist_t build_identity, plist_t*
 
 	length += hdr_len;
 
-	*manifest = plist_new_data((char*)buf, length);
+	*manifest = plist_new_data(buf, length);
 
 	free(buf);
 

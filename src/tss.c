@@ -92,39 +92,39 @@ int tss_request_add_local_policy_tags(plist_t request, plist_t parameters)
 {
 	plist_dict_set_item(request, "@ApImg4Ticket", plist_new_bool(1));
 
-	if (_plist_dict_copy_bool(request, parameters, "Ap,LocalBoot", NULL) < 0) {
+	if (plist_dict_copy_bool(request, parameters, "Ap,LocalBoot", NULL) < 0) {
 		error("ERROR: Unable to find required Ap,LocalBoot in parameters\n");
 		return -1;
 	}
 
-	if (_plist_dict_copy_item(request, parameters, "Ap,LocalPolicy", NULL) < 0) {
+	if (plist_dict_copy_item(request, parameters, "Ap,LocalPolicy", NULL) < 0) {
 		error("ERROR: Unable to find required Ap,LocalPolicy in parameters\n");
 		return -1;
 	}
 
-	if (_plist_dict_copy_data(request, parameters, "Ap,NextStageIM4MHash", NULL) < 0) {
+	if (plist_dict_copy_data(request, parameters, "Ap,NextStageIM4MHash", NULL) < 0) {
 		error("ERROR: Unable to find required Ap,NextStageIM4MHash in parameters\n");
 		return -1;
 	}
 
-	_plist_dict_copy_data(request, parameters, "Ap,RecoveryOSPolicyNonceHash", NULL);
-	_plist_dict_copy_data(request, parameters, "Ap,VolumeUUID", NULL);
-	_plist_dict_copy_uint(request, parameters, "ApECID", NULL);
-	_plist_dict_copy_uint(request, parameters, "ApChipID", NULL);
-	_plist_dict_copy_uint(request, parameters, "ApBoardID", NULL);
-	_plist_dict_copy_uint(request, parameters, "ApSecurityDomain", NULL);
-	_plist_dict_copy_data(request, parameters, "ApNonce", NULL);
+	plist_dict_copy_data(request, parameters, "Ap,RecoveryOSPolicyNonceHash", NULL);
+	plist_dict_copy_data(request, parameters, "Ap,VolumeUUID", NULL);
+	plist_dict_copy_uint(request, parameters, "ApECID", NULL);
+	plist_dict_copy_uint(request, parameters, "ApChipID", NULL);
+	plist_dict_copy_uint(request, parameters, "ApBoardID", NULL);
+	plist_dict_copy_uint(request, parameters, "ApSecurityDomain", NULL);
+	plist_dict_copy_data(request, parameters, "ApNonce", NULL);
 
 	if (!plist_dict_get_item(request, "ApSecurityMode")) {
 		/* copy from parameters if available */
-		if (_plist_dict_copy_bool(request, parameters, "ApSecurityMode", NULL) < 0) {
+		if (plist_dict_copy_bool(request, parameters, "ApSecurityMode", NULL) < 0) {
 			error("ERROR: Unable to find required ApSecurityMode in parameters\n");
 			return -1;
 		}
 	}
 	if (!plist_dict_get_item(request, "ApProductionMode")) {
 		/* copy from parameters if available */
-		if (_plist_dict_copy_bool(request, parameters, "ApProductionMode", NULL) < 0) {
+		if (plist_dict_copy_bool(request, parameters, "ApProductionMode", NULL) < 0) {
 			error("ERROR: Unable to find required ApProductionMode in parameters\n");
 			return -1;
 		}
@@ -137,121 +137,121 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity,
 {
 	plist_t node = NULL;
 
-	if (_plist_dict_copy_data(parameters, build_identity, "UniqueBuildID", NULL) < 0) {
+	if (plist_dict_copy_data(parameters, build_identity, "UniqueBuildID", NULL) < 0) {
 		error("ERROR: Unable to find UniqueBuildID node\n");
 		return -1;
 	}
 
-	_plist_dict_copy_string(parameters, build_identity, "Ap,OSLongVersion", NULL);
+	plist_dict_copy_string(parameters, build_identity, "Ap,OSLongVersion", NULL);
 
-	if (_plist_dict_copy_uint(parameters, build_identity, "ApChipID", NULL) < 0) {;
+	if (plist_dict_copy_uint(parameters, build_identity, "ApChipID", NULL) < 0) {;
 		error("ERROR: Unable to find ApChipID node\n");
 		return -1;
 	}
 
-	if (_plist_dict_copy_uint(parameters, build_identity, "ApBoardID", NULL) < 0) {
+	if (plist_dict_copy_uint(parameters, build_identity, "ApBoardID", NULL) < 0) {
 		error("ERROR: Unable to find ApBoardID node\n");
 		return -1;
 	}
 
-	_plist_dict_copy_uint(parameters, build_identity, "ApSecurityDomain", NULL);
-	_plist_dict_copy_uint(parameters, build_identity, "BMU,BoardID", NULL);
-	_plist_dict_copy_uint(parameters, build_identity, "BMU,ChipID", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "ApSecurityDomain", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "BMU,BoardID", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "BMU,ChipID", NULL);
 
-	if (_plist_dict_copy_uint(parameters, build_identity, "BbChipID", NULL) < 0) {
+	if (plist_dict_copy_uint(parameters, build_identity, "BbChipID", NULL) < 0) {
 		debug("NOTE: Unable to find BbChipID node\n");
 	}
 
-	if (_plist_dict_copy_data(parameters, build_identity, "BbProvisioningManifestKeyHash", NULL) < 0) {
+	if (plist_dict_copy_data(parameters, build_identity, "BbProvisioningManifestKeyHash", NULL) < 0) {
 		debug("NOTE: Unable to find BbProvisioningManifestKeyHash node\n");
 	}
 
-	if (_plist_dict_copy_data(parameters, build_identity, "BbActivationManifestKeyHash", NULL) < 0) {
+	if (plist_dict_copy_data(parameters, build_identity, "BbActivationManifestKeyHash", NULL) < 0) {
 		debug("NOTE: Unable to find BbActivationManifestKeyHash node\n");
 	}
 
-	if (_plist_dict_copy_data(parameters, build_identity, "BbCalibrationManifestKeyHash", NULL) < 0) {
+	if (plist_dict_copy_data(parameters, build_identity, "BbCalibrationManifestKeyHash", NULL) < 0) {
 		debug("NOTE: Unable to find BbCalibrationManifestKeyHash node\n");
 	}
 
-	if (_plist_dict_copy_data(parameters, build_identity, "BbFactoryActivationManifestKeyHash", NULL) < 0) {
+	if (plist_dict_copy_data(parameters, build_identity, "BbFactoryActivationManifestKeyHash", NULL) < 0) {
 		debug("NOTE: Unable to find BbFactoryActivationManifestKeyHash node\n");
 	}
 
-	if (_plist_dict_copy_data(parameters, build_identity, "BbFDRSecurityKeyHash", NULL) < 0) {
+	if (plist_dict_copy_data(parameters, build_identity, "BbFDRSecurityKeyHash", NULL) < 0) {
 		debug("NOTE: Unable to find BbFDRSecurityKeyHash node\n");
 	}
 
 	/* BbSkeyId - Used by XMM 6180/GSM */
-	if (_plist_dict_copy_data(parameters, build_identity, "BbSkeyId", NULL) < 0) {
+	if (plist_dict_copy_data(parameters, build_identity, "BbSkeyId", NULL) < 0) {
 		debug("NOTE: Unable to find BbSkeyId node\n");
 	}
 
 	/* SE,ChipID - Used for SE firmware request */
-	_plist_dict_copy_uint(parameters, build_identity, "SE,ChipID", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "SE,ChipID", NULL);
 
 	/* Savage,ChipID - Used for Savage firmware request */
-	_plist_dict_copy_uint(parameters, build_identity, "Savage,ChipID", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Savage,ChipID", NULL);
 
 	/* add Savage,PatchEpoch - Used for Savage firmware request */
-	_plist_dict_copy_uint(parameters, build_identity, "Savage,PatchEpoch", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Savage,PatchEpoch", NULL);
 
 	/* Yonkers,BoardID - Used for Yonkers firmware request */
-	_plist_dict_copy_uint(parameters, build_identity, "Yonkers,BoardID", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Yonkers,BoardID", NULL);
 
 	/* Yonkers,ChipID - Used for Yonkers firmware request */
-	_plist_dict_copy_uint(parameters, build_identity, "Yonkers,ChipID", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Yonkers,ChipID", NULL);
 
 	/* add Yonkers,PatchEpoch - Used for Yonkers firmware request */
-	_plist_dict_copy_uint(parameters, build_identity, "Yonkers,PatchEpoch", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Yonkers,PatchEpoch", NULL);
 
-	_plist_dict_copy_uint(parameters, build_identity, "Rap,BoardID", NULL);
-	_plist_dict_copy_uint(parameters, build_identity, "Rap,ChipID", NULL);
-	_plist_dict_copy_uint(parameters, build_identity, "Rap,SecurityDomain", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Rap,BoardID", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Rap,ChipID", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Rap,SecurityDomain", NULL);
 
-	_plist_dict_copy_uint(parameters, build_identity, "Baobab,BoardID", NULL);
-	_plist_dict_copy_uint(parameters, build_identity, "Baobab,ChipID", NULL);
-	_plist_dict_copy_uint(parameters, build_identity, "Baobab,ManifestEpoch", NULL);
-	_plist_dict_copy_uint(parameters, build_identity, "Baobab,SecurityDomain", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Baobab,BoardID", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Baobab,ChipID", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Baobab,ManifestEpoch", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Baobab,SecurityDomain", NULL);
 
-	_plist_dict_copy_uint(parameters, build_identity, "eUICC,ChipID", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "eUICC,ChipID", NULL);
 
-	_plist_dict_copy_uint(parameters, build_identity, "NeRDEpoch", NULL);
-	_plist_dict_copy_data(parameters, build_identity, "PearlCertificationRootPub", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "NeRDEpoch", NULL);
+	plist_dict_copy_data(parameters, build_identity, "PearlCertificationRootPub", NULL);
 
-	_plist_dict_copy_uint(parameters, build_identity, "Timer,BoardID,1", NULL);
-	_plist_dict_copy_uint(parameters, build_identity, "Timer,BoardID,2", NULL);
-	_plist_dict_copy_uint(parameters, build_identity, "Timer,ChipID,1", NULL);
-	_plist_dict_copy_uint(parameters, build_identity, "Timer,ChipID,2", NULL);
-	_plist_dict_copy_uint(parameters, build_identity, "Timer,SecurityDomain,1", NULL);
-	_plist_dict_copy_uint(parameters, build_identity, "Timer,SecurityDomain,2", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Timer,BoardID,1", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Timer,BoardID,2", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Timer,ChipID,1", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Timer,ChipID,2", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Timer,SecurityDomain,1", NULL);
+	plist_dict_copy_uint(parameters, build_identity, "Timer,SecurityDomain,2", NULL);
 
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,ChipID", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,Type", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,SubType", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,ProductClass", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,UseProductClass", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,NonceDomain", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,Version", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,PreauthorizationVersion", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,FakeRoot", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,SystemOS", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,SystemVolume", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,SystemTrustCache", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,AppOS", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,AppVolume", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,AppTrustCache", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,MobileAssetBrainOS", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,MobileAssetBrainVolume", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "Cryptex1,MobileAssetBrainTrustCache", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,ChipID", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,Type", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,SubType", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,ProductClass", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,UseProductClass", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,NonceDomain", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,Version", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,PreauthorizationVersion", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,FakeRoot", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,SystemOS", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,SystemVolume", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,SystemTrustCache", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,AppOS", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,AppVolume", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,AppTrustCache", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,MobileAssetBrainOS", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,MobileAssetBrainVolume", NULL);
+	plist_dict_copy_item(parameters, build_identity, "Cryptex1,MobileAssetBrainTrustCache", NULL);
 
-	_plist_dict_copy_item(parameters, build_identity, "USBPortController1,BoardID", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "USBPortController1,ChipID", NULL);
-	_plist_dict_copy_item(parameters, build_identity, "USBPortController1,SecurityDomain", NULL);
+	plist_dict_copy_item(parameters, build_identity, "USBPortController1,BoardID", NULL);
+	plist_dict_copy_item(parameters, build_identity, "USBPortController1,ChipID", NULL);
+	plist_dict_copy_item(parameters, build_identity, "USBPortController1,SecurityDomain", NULL);
 
 	node = plist_dict_get_item(build_identity, "Info");
 	if (node) {
-		_plist_dict_copy_bool(parameters, node, "RequiresUIDMode", NULL);
+		plist_dict_copy_bool(parameters, node, "RequiresUIDMode", NULL);
 	}
 
 	if (include_manifest) {
@@ -274,9 +274,9 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters)
 		return -1;
 	}
 
-	_plist_dict_copy_string(request, parameters, "Ap,OSLongVersion", NULL);
+	plist_dict_copy_string(request, parameters, "Ap,OSLongVersion", NULL);
 
-	if (_plist_dict_copy_data(request, parameters, "ApNonce", NULL) < 0) {
+	if (plist_dict_copy_data(request, parameters, "ApNonce", NULL) < 0) {
 		error("ERROR: Unable to find required ApNonce in parameters\n");
 		return -1;
 	}
@@ -285,34 +285,34 @@ int tss_request_add_ap_img4_tags(plist_t request, plist_t parameters)
 
 	if (!plist_dict_get_item(request, "ApSecurityMode")) {
 		/* copy from parameters if available */
-		if (_plist_dict_copy_bool(request, parameters, "ApSecurityMode", NULL) < 0) {
+		if (plist_dict_copy_bool(request, parameters, "ApSecurityMode", NULL) < 0) {
 			error("ERROR: Unable to find required ApSecurityMode in parameters\n");
 			return -1;
 		}
 	}
 	if (!plist_dict_get_item(request, "ApProductionMode")) {
 		/* ApProductionMode */
-		if (_plist_dict_copy_bool(request, parameters, "ApProductionMode", NULL) < 0) {
+		if (plist_dict_copy_bool(request, parameters, "ApProductionMode", NULL) < 0) {
 			error("ERROR: Unable to find required ApProductionMode in parameters\n");
 			return -1;
 		}
 	}
 
-	_plist_dict_copy_data(request, parameters, "SepNonce", "ApSepNonce");
-	_plist_dict_copy_uint(request, parameters, "NeRDEpoch", NULL);
-	_plist_dict_copy_data(request, parameters, "PearlCertificationRootPub", NULL);
+	plist_dict_copy_data(request, parameters, "SepNonce", "ApSepNonce");
+	plist_dict_copy_uint(request, parameters, "NeRDEpoch", NULL);
+	plist_dict_copy_data(request, parameters, "PearlCertificationRootPub", NULL);
 
 	if (plist_dict_get_item(parameters, "UID_MODE")) {
-		_plist_dict_copy_item(request, parameters, "UID_MODE", NULL);
-	} else if (_plist_dict_get_bool(parameters, "RequiresUIDMode")) {
+		plist_dict_copy_item(request, parameters, "UID_MODE", NULL);
+	} else if (plist_dict_get_bool(parameters, "RequiresUIDMode")) {
 		// The logic here is missing why this value is expected to be 'false'
 		plist_dict_set_item(request, "UID_MODE", plist_new_bool(0));
 	}
 
 	// FIXME: I didn't understand yet when this value is set, so for now we use a workaround
 	if (plist_dict_get_item(parameters, "ApSikaFuse")) {
-		_plist_dict_copy_item(request, parameters, "Ap,SikaFuse", "ApSikaFuse");
-	} else if (_plist_dict_get_bool(parameters, "RequiresUIDMode")) {
+		plist_dict_copy_item(request, parameters, "Ap,SikaFuse", "ApSikaFuse");
+	} else if (plist_dict_get_bool(parameters, "RequiresUIDMode")) {
 		// Workaround: We have only seen Ap,SikaFuse together with UID_MODE
 		plist_dict_set_item(request, "Ap,SikaFuse", plist_new_int(0));
 	}
@@ -327,28 +327,28 @@ int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters)
 		return -1;
 	}
 
-	if (_plist_dict_copy_data(request, parameters, "ApNonce", NULL) < 0) {
+	if (plist_dict_copy_data(request, parameters, "ApNonce", NULL) < 0) {
 		error("WARNING: Unable to find ApNonce in parameters\n");
 	}
 
 	plist_dict_set_item(request, "@APTicket", plist_new_bool(1));
 
-	if (_plist_dict_copy_uint(request, parameters, "ApBoardID", NULL) < 0) {
+	if (plist_dict_copy_uint(request, parameters, "ApBoardID", NULL) < 0) {
 		error("ERROR: Unable to find required ApBoardID in request\n");
 		return -1;
 	}
 
-	if (_plist_dict_copy_uint(request, parameters, "ApChipID", NULL) < 0) {
+	if (plist_dict_copy_uint(request, parameters, "ApChipID", NULL) < 0) {
 		error("ERROR: Unable to find required ApChipID in request\n");
 		return -1;
 	}
 
-	if (_plist_dict_copy_uint(request, parameters, "ApSecurityDomain", NULL) < 0) {
+	if (plist_dict_copy_uint(request, parameters, "ApSecurityDomain", NULL) < 0) {
 		error("ERROR: Unable to find required ApSecurityDomain in request\n");
 		return -1;
 	}
 
-	if (_plist_dict_copy_bool(request, parameters, "ApProductionMode", NULL) < 0) {
+	if (plist_dict_copy_bool(request, parameters, "ApProductionMode", NULL) < 0) {
 		error("ERROR: Unable to find required ApProductionMode in parameters\n");
 		return -1;
 	}
@@ -358,11 +358,11 @@ int tss_request_add_ap_img3_tags(plist_t request, plist_t parameters)
 
 int tss_request_add_common_tags(plist_t request, plist_t parameters, plist_t overrides)
 {
-	_plist_dict_copy_uint(request, parameters, "ApECID", NULL);
-	_plist_dict_copy_data(request, parameters, "UniqueBuildID", NULL);
-	_plist_dict_copy_uint(request, parameters, "ApChipID", NULL);
-	_plist_dict_copy_uint(request, parameters, "ApBoardID", NULL);
-	_plist_dict_copy_uint(request, parameters, "ApSecurityDomain", NULL);
+	plist_dict_copy_uint(request, parameters, "ApECID", NULL);
+	plist_dict_copy_data(request, parameters, "UniqueBuildID", NULL);
+	plist_dict_copy_uint(request, parameters, "ApChipID", NULL);
+	plist_dict_copy_uint(request, parameters, "ApBoardID", NULL);
+	plist_dict_copy_uint(request, parameters, "ApSecurityDomain", NULL);
 
 	/* apply overrides */
 	if (overrides) {
@@ -576,19 +576,19 @@ int tss_request_add_ap_recovery_tags(plist_t request, plist_t parameters, plist_
 			continue;
 		}
 
-		if (_plist_dict_get_bool(parameters, "_OnlyFWComponents")) {
-			if (!_plist_dict_get_bool(manifest_entry, "Trusted")) {
+		if (plist_dict_get_bool(parameters, "_OnlyFWComponents")) {
+			if (!plist_dict_get_bool(manifest_entry, "Trusted")) {
 				debug("DEBUG: %s: Skipping '%s' as it is not trusted\n", __func__, key);
 				continue;
 			}
 
-			if (!_plist_dict_get_bool(info_dict, "IsFirmwarePayload")
-			 && !_plist_dict_get_bool(info_dict, "IsSecondaryFirmwarePayload")
-			 && !_plist_dict_get_bool(info_dict, "IsFUDFirmware")
-			 && !_plist_dict_get_bool(info_dict, "IsLoadedByiBoot")
-			 && !_plist_dict_get_bool(info_dict, "IsEarlyAccessFirmware")
-			 && !_plist_dict_get_bool(info_dict, "IsiBootEANFirmware")
-			 && !_plist_dict_get_bool(info_dict, "IsiBootNonEssentialFirmware"))
+			if (!plist_dict_get_bool(info_dict, "IsFirmwarePayload")
+			 && !plist_dict_get_bool(info_dict, "IsSecondaryFirmwarePayload")
+			 && !plist_dict_get_bool(info_dict, "IsFUDFirmware")
+			 && !plist_dict_get_bool(info_dict, "IsLoadedByiBoot")
+			 && !plist_dict_get_bool(info_dict, "IsEarlyAccessFirmware")
+			 && !plist_dict_get_bool(info_dict, "IsiBootEANFirmware")
+			 && !plist_dict_get_bool(info_dict, "IsiBootNonEssentialFirmware"))
 			{
 				debug("DEBUG: %s: Skipping '%s' as it is not a firmware payload\n", __func__, key);
 				continue;
@@ -609,7 +609,7 @@ int tss_request_add_ap_recovery_tags(plist_t request, plist_t parameters, plist_
 		}
 
 		/* Make sure we have a Digest key for Trusted items even if empty */
-		if (_plist_dict_get_bool(manifest_entry, "Trusted") && !plist_dict_get_item(manifest_entry, "Digest")) {
+		if (plist_dict_get_bool(manifest_entry, "Trusted") && !plist_dict_get_item(manifest_entry, "Digest")) {
 			debug("DEBUG: No Digest data, using empty value for entry %s\n", key);
 			plist_dict_set_item(tss_entry, "Digest", plist_new_data(NULL, 0));
 		}
@@ -679,28 +679,28 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 			continue;
 		}
 
-		if (_plist_dict_get_bool(parameters, "ApSupportsImg4")) {
+		if (plist_dict_get_bool(parameters, "ApSupportsImg4")) {
 			if (!plist_dict_get_item(info_dict, "RestoreRequestRules")) {
 				debug("DEBUG: %s: Skipping '%s' as it doesn't have RestoreRequestRules\n", __func__, key);
 				continue;
 			}
 		}
 
-		int is_fw_payload = _plist_dict_get_bool(info_dict, "IsFirmwarePayload")
-				 || _plist_dict_get_bool(info_dict, "IsSecondaryFirmwarePayload")
-				 || _plist_dict_get_bool(info_dict, "IsFUDFirmware")
-				 || _plist_dict_get_bool(info_dict, "IsLoadedByiBoot")
-				 || _plist_dict_get_bool(info_dict, "IsEarlyAccessFirmware")
-				 || _plist_dict_get_bool(info_dict, "IsiBootEANFirmware")
-				 || _plist_dict_get_bool(info_dict, "IsiBootNonEssentialFirmware");
+		int is_fw_payload = plist_dict_get_bool(info_dict, "IsFirmwarePayload")
+				 || plist_dict_get_bool(info_dict, "IsSecondaryFirmwarePayload")
+				 || plist_dict_get_bool(info_dict, "IsFUDFirmware")
+				 || plist_dict_get_bool(info_dict, "IsLoadedByiBoot")
+				 || plist_dict_get_bool(info_dict, "IsEarlyAccessFirmware")
+				 || plist_dict_get_bool(info_dict, "IsiBootEANFirmware")
+				 || plist_dict_get_bool(info_dict, "IsiBootNonEssentialFirmware");
 
-		if (_plist_dict_get_bool(parameters, "_OnlyFWOrTrustedComponents")) {
-			if (!_plist_dict_get_bool(manifest_entry, "Trusted") && !is_fw_payload) {
+		if (plist_dict_get_bool(parameters, "_OnlyFWOrTrustedComponents")) {
+			if (!plist_dict_get_bool(manifest_entry, "Trusted") && !is_fw_payload) {
 				debug("DEBUG: %s: Skipping '%s' as it is neither firmware payload nor trusted\n", __func__, key);
 				continue;
 			}
-		} else if (_plist_dict_get_bool(parameters, "_OnlyFWComponents")) {
-			if (!_plist_dict_get_bool(manifest_entry, "Trusted")) {
+		} else if (plist_dict_get_bool(parameters, "_OnlyFWComponents")) {
+			if (!plist_dict_get_bool(manifest_entry, "Trusted")) {
 				debug("DEBUG: %s: Skipping '%s' as it is not trusted\n", __func__, key);
 				continue;
 			}
@@ -711,7 +711,7 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 		}
 
 		/* skip components with IsFTAB:true */
-		if (_plist_dict_get_bool(info_dict, "IsFTAB")) {
+		if (plist_dict_get_bool(info_dict, "IsFTAB")) {
 			debug("DEBUG: %s: Skipping FTAB component '%s'\n", __func__, key);
 			continue;
 		}
@@ -730,7 +730,7 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 		}
 
 		/* Make sure we have a Digest key for Trusted items even if empty */
-		if (_plist_dict_get_bool(manifest_entry, "Trusted") && !plist_dict_get_item(manifest_entry, "Digest")) {
+		if (plist_dict_get_bool(manifest_entry, "Trusted") && !plist_dict_get_item(manifest_entry, "Digest")) {
 			debug("DEBUG: No Digest data, using empty value for entry %s\n", key);
 			plist_dict_set_item(tss_entry, "Digest", plist_new_data(NULL, 0));
 		}
@@ -755,22 +755,22 @@ int tss_request_add_baseband_tags(plist_t request, plist_t parameters, plist_t o
 
 	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
 
-	_plist_dict_copy_uint(request, parameters, "BbChipID", NULL);
-	_plist_dict_copy_data(request, parameters, "BbProvisioningManifestKeyHash", NULL);
+	plist_dict_copy_uint(request, parameters, "BbChipID", NULL);
+	plist_dict_copy_data(request, parameters, "BbProvisioningManifestKeyHash", NULL);
 	/* BbActivationManifestKeyHash - Used by Qualcomm MDM6610 */
-	_plist_dict_copy_data(request, parameters, "BbActivationManifestKeyHash", NULL);
-	_plist_dict_copy_data(request, parameters, "BbCalibrationManifestKeyHash", NULL);
-	_plist_dict_copy_data(request, parameters, "BbFactoryActivationManifestKeyHash", NULL);
-	_plist_dict_copy_data(request, parameters, "BbFDRSecurityKeyHash", NULL);
+	plist_dict_copy_data(request, parameters, "BbActivationManifestKeyHash", NULL);
+	plist_dict_copy_data(request, parameters, "BbCalibrationManifestKeyHash", NULL);
+	plist_dict_copy_data(request, parameters, "BbFactoryActivationManifestKeyHash", NULL);
+	plist_dict_copy_data(request, parameters, "BbFDRSecurityKeyHash", NULL);
 	/* BbSkeyId - Used by XMM 6180/GSM */
-	_plist_dict_copy_data(request, parameters, "BbSkeyId", NULL);
-	_plist_dict_copy_data(request, parameters, "BbNonce", NULL);
-	_plist_dict_copy_uint(request, parameters, "BbGoldCertId", NULL);
+	plist_dict_copy_data(request, parameters, "BbSkeyId", NULL);
+	plist_dict_copy_data(request, parameters, "BbNonce", NULL);
+	plist_dict_copy_uint(request, parameters, "BbGoldCertId", NULL);
 
-	uint64_t bb_chip_id = _plist_dict_get_uint(request, "BbChipID");
-	int32_t bb_cert_id = (int32_t)_plist_dict_get_uint(request, "BbGoldCertId");
+	uint64_t bb_chip_id = plist_dict_get_uint(request, "BbChipID");
+	int32_t bb_cert_id = (int32_t)plist_dict_get_uint(request, "BbGoldCertId");
 
-	if (_plist_dict_copy_data(request, parameters, "BbSNUM", NULL) < 0) {
+	if (plist_dict_copy_data(request, parameters, "BbSNUM", NULL) < 0) {
 		error("ERROR: Unable to find required BbSNUM in parameters\n");
 		return -1;
 	}
@@ -818,28 +818,28 @@ int tss_request_add_se_tags(plist_t request, plist_t parameters, plist_t overrid
 
 	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
 
-	if (_plist_dict_copy_uint(request, parameters, "SE,ChipID", NULL) < 0) {
+	if (plist_dict_copy_uint(request, parameters, "SE,ChipID", NULL) < 0) {
 		error("ERROR: %s: Unable to find required SE,ChipID in parameters\n", __func__);
 		return -1;
 	}
 
-	if (_plist_dict_copy_data(request, parameters, "SE,ID", NULL) < 0) {
+	if (plist_dict_copy_data(request, parameters, "SE,ID", NULL) < 0) {
 		error("ERROR: %s: Unable to find required SE,ID in parameters\n", __func__);
 		return -1;
 	}
 
-	if (_plist_dict_copy_data(request, parameters, "SE,Nonce", NULL) < 0) {
+	if (plist_dict_copy_data(request, parameters, "SE,Nonce", NULL) < 0) {
 		error("ERROR: %s: Unable to find required SE,Nonce in parameters\n", __func__);
 		return -1;
 	}
 
-	if (_plist_dict_copy_data(request, parameters, "SE,RootKeyIdentifier", NULL) < 0) {
+	if (plist_dict_copy_data(request, parameters, "SE,RootKeyIdentifier", NULL) < 0) {
 		error("ERROR: %s: Unable to find required SE,RootKeyIdentifier in parameters\n", __func__);
 		return -1;
 	}
 
 	/* 'IsDev' determines whether we have Production or Development */
-	uint8_t is_dev = _plist_dict_get_bool(parameters, "SE,IsDev");
+	uint8_t is_dev = plist_dict_get_bool(parameters, "SE,IsDev");
 
 	/* add SE,* components from build manifest to request */
 	char* key = NULL;
@@ -914,7 +914,7 @@ int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t ove
 	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
 	plist_dict_set_item(request, "@Savage,Ticket", plist_new_bool(1));
 
-	if (_plist_dict_copy_data(request, parameters, "Savage,UID", NULL) < 0) {
+	if (plist_dict_copy_data(request, parameters, "Savage,UID", NULL) < 0) {
 		error("ERROR: %s: Unable to find required Savage,UID in parameters\n", __func__);
 		return -1;
 	}
@@ -929,33 +929,33 @@ int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t ove
 	plist_dict_set_item(dict, "Digest", plist_copy(node));
 	plist_dict_set_item(request, "SEP", dict);
 
-	if (_plist_dict_copy_uint(request, parameters, "Savage,PatchEpoch", NULL) < 0) {
+	if (plist_dict_copy_uint(request, parameters, "Savage,PatchEpoch", NULL) < 0) {
 		error("ERROR: %s: Unable to find required Savage,PatchEpoch in parameters\n", __func__);
 		return -1;
 	}
 
-	if (_plist_dict_copy_uint(request, parameters, "Savage,ChipID", NULL) < 0) {
+	if (plist_dict_copy_uint(request, parameters, "Savage,ChipID", NULL) < 0) {
 		error("ERROR: %s: Unable to find required Savage,ChipID in parameters\n", __func__);
 		return -1;
 	}
 
-	if (_plist_dict_copy_bool(request, parameters, "Savage,AllowOfflineBoot", NULL) < 0) {
+	if (plist_dict_copy_bool(request, parameters, "Savage,AllowOfflineBoot", NULL) < 0) {
 		error("ERROR: %s: Unable to find required Savage,AllowOfflineBoot in parameters\n", __func__);
 		return -1;
 	}
 
-	if (_plist_dict_copy_bool(request, parameters, "Savage,ReadFWKey", NULL) < 0) {
+	if (plist_dict_copy_bool(request, parameters, "Savage,ReadFWKey", NULL) < 0) {
 		error("ERROR: %s: Unable to find required Savage,ReadFWKey in parameters\n", __func__);
 		return -1;
 	}
 
-	if (_plist_dict_copy_bool(request, parameters, "Savage,ProductionMode", NULL) < 0) {
+	if (plist_dict_copy_bool(request, parameters, "Savage,ProductionMode", NULL) < 0) {
 		error("ERROR: %s: Unable to find required Savage,ProductionMode in parameters\n", __func__);
 		return -1;
 	}
 
 	const char *comp_name = NULL;
-	uint8_t isprod = _plist_dict_get_bool(request, "Savage,ProductionMode");
+	uint8_t isprod = plist_dict_get_bool(request, "Savage,ProductionMode");
 
 	/* get the right component name */
 	comp_name = (isprod) ?  "Savage,B0-Prod-Patch" : "Savage,B0-Dev-Patch";
@@ -963,7 +963,7 @@ int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t ove
 	if (node && (plist_get_node_type(node) == PLIST_DATA)) {
 		unsigned char *savage_rev = NULL;
 		uint64_t savage_rev_len = 0;
-		plist_get_data_val(node, (char**)&savage_rev, &savage_rev_len);
+		plist_get_data_val(node, &savage_rev, &savage_rev_len);
 		if (savage_rev_len > 0) {
 			if (((savage_rev[0] | 0x10) & 0xF0) == 0x30) {
 				comp_name = (isprod) ? "Savage,B2-Prod-Patch" : "Savage,B2-Dev-Patch";
@@ -988,12 +988,12 @@ int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t ove
 		*component_name = strdup(comp_name);
 	}
 
-	if (_plist_dict_copy_data(request, parameters, "Savage,Nonce", NULL) < 0) {
+	if (plist_dict_copy_data(request, parameters, "Savage,Nonce", NULL) < 0) {
 		error("ERROR: %s: Unable to find required Savage,Nonce in parameters\n", __func__);
 		return -1;
 	}
 
-	if (_plist_dict_copy_bool(request, parameters, "Savage,ReadECKey", NULL) < 0) {
+	if (plist_dict_copy_bool(request, parameters, "Savage,ReadECKey", NULL) < 0) {
 		error("ERROR: %s: Unable to find required Savage,ReadECKey in parameters\n", __func__);
 		return -1;
 	}
@@ -1045,8 +1045,8 @@ int tss_request_add_yonkers_tags(plist_t request, plist_t parameters, plist_t ov
 
 	char *comp_name = NULL;
 	plist_t comp_node = NULL;
-	uint8_t isprod = _plist_dict_get_bool(parameters, "Yonkers,ProductionMode");
-	uint64_t fabrevision = _plist_dict_get_uint(parameters, "Yonkers,FabRevision");
+	uint8_t isprod = plist_dict_get_bool(parameters, "Yonkers,ProductionMode");
+	uint64_t fabrevision = plist_dict_get_uint(parameters, "Yonkers,FabRevision");
 
 	plist_dict_iter iter = NULL;
 	plist_dict_new_iter(manifest_node, &iter);
@@ -1120,16 +1120,16 @@ int tss_request_add_vinyl_tags(plist_t request, plist_t parameters, plist_t over
 	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
 	plist_dict_set_item(request, "@eUICC,Ticket", plist_new_bool(1));
 
-	_plist_dict_copy_bool(request, parameters, "eUICC,ApProductionMode", "ApProductionMode");
-	_plist_dict_copy_uint(request, parameters, "eUICC,ChipID", NULL);
-	_plist_dict_copy_data(request, parameters, "eUICC,EID", NULL);
-	_plist_dict_copy_data(request, parameters, "eUICC,RootKeyIdentifier", NULL);
+	plist_dict_copy_bool(request, parameters, "eUICC,ApProductionMode", "ApProductionMode");
+	plist_dict_copy_uint(request, parameters, "eUICC,ChipID", NULL);
+	plist_dict_copy_data(request, parameters, "eUICC,EID", NULL);
+	plist_dict_copy_data(request, parameters, "eUICC,RootKeyIdentifier", NULL);
 
 	if (!plist_dict_get_item(request, "eUICC,Gold")) {
 		plist_t n = plist_access_path(parameters, 2, "Manifest", "eUICC,Gold");
 		if (n) {
 			plist_t p = plist_new_dict();
-			_plist_dict_copy_data(p, n, "Digest", NULL);
+			plist_dict_copy_data(p, n, "Digest", NULL);
 			plist_dict_set_item(request, "eUICC,Gold", p);
 		}
 	}
@@ -1138,7 +1138,7 @@ int tss_request_add_vinyl_tags(plist_t request, plist_t parameters, plist_t over
 		plist_t n = plist_access_path(parameters, 2, "Manifest", "eUICC,Main");
 		if (n) {
 			plist_t p = plist_new_dict();
-			_plist_dict_copy_data(p, n, "Digest", NULL);
+			plist_dict_copy_data(p, n, "Digest", NULL);
 			plist_dict_set_item(request, "eUICC,Main", p);
 		}
 	}
@@ -1183,14 +1183,14 @@ int tss_request_add_rose_tags(plist_t request, plist_t parameters, plist_t overr
 	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
 	plist_dict_set_item(request, "@Rap,Ticket", plist_new_bool(1));
 
-	_plist_dict_copy_uint(request, parameters, "Rap,BoardID", NULL);
-	_plist_dict_copy_uint(request, parameters, "Rap,ChipID", NULL);
-	_plist_dict_copy_uint(request, parameters, "Rap,ECID", NULL);
-	_plist_dict_copy_data(request, parameters, "Rap,Nonce", NULL);
-	_plist_dict_copy_bool(request, parameters, "Rap,ProductionMode", NULL);
-	_plist_dict_copy_uint(request, parameters, "Rap,SecurityDomain", NULL);
-	_plist_dict_copy_bool(request, parameters, "Rap,SecurityMode", NULL);
-	_plist_dict_copy_data(request, parameters, "Rap,FdrRootCaDigest", NULL);
+	plist_dict_copy_uint(request, parameters, "Rap,BoardID", NULL);
+	plist_dict_copy_uint(request, parameters, "Rap,ChipID", NULL);
+	plist_dict_copy_uint(request, parameters, "Rap,ECID", NULL);
+	plist_dict_copy_data(request, parameters, "Rap,Nonce", NULL);
+	plist_dict_copy_bool(request, parameters, "Rap,ProductionMode", NULL);
+	plist_dict_copy_uint(request, parameters, "Rap,SecurityDomain", NULL);
+	plist_dict_copy_bool(request, parameters, "Rap,SecurityMode", NULL);
+	plist_dict_copy_data(request, parameters, "Rap,FdrRootCaDigest", NULL);
 
 	char *comp_name = NULL;
 	plist_dict_iter iter = NULL;
@@ -1214,7 +1214,7 @@ int tss_request_add_rose_tags(plist_t request, plist_t parameters, plist_t overr
 			}
 
 			/* Make sure we have a Digest key for Trusted items even if empty */
-			if (_plist_dict_get_bool(manifest_entry, "Trusted") && !plist_dict_get_item(manifest_entry, "Digest")) {
+			if (plist_dict_get_bool(manifest_entry, "Trusted") && !plist_dict_get_item(manifest_entry, "Digest")) {
 				debug("DEBUG: No Digest data, using empty value for entry %s\n", comp_name);
 				plist_dict_set_item(manifest_entry, "Digest", plist_new_data(NULL, 0));
 			}
@@ -1250,11 +1250,11 @@ int tss_request_add_veridian_tags(plist_t request, plist_t parameters, plist_t o
 	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
 	plist_dict_set_item(request, "@BMU,Ticket", plist_new_bool(1));
 
-	_plist_dict_copy_uint(request, parameters, "BMU,BoardID", NULL);
-	_plist_dict_copy_uint(request, parameters, "BMU,ChipID", "ChipID");
-	_plist_dict_copy_data(request, parameters, "BMU,Nonce", "Nonce");
-	_plist_dict_copy_bool(request, parameters, "BMU,ProductionMode", "ProductionMode");
-	_plist_dict_copy_uint(request, parameters, "BMU,UniqueID", "UniqueID");
+	plist_dict_copy_uint(request, parameters, "BMU,BoardID", NULL);
+	plist_dict_copy_uint(request, parameters, "BMU,ChipID", "ChipID");
+	plist_dict_copy_data(request, parameters, "BMU,Nonce", "Nonce");
+	plist_dict_copy_bool(request, parameters, "BMU,ProductionMode", "ProductionMode");
+	plist_dict_copy_uint(request, parameters, "BMU,UniqueID", "UniqueID");
 
 	char *comp_name = NULL;
 	plist_dict_iter iter = NULL;
@@ -1278,7 +1278,7 @@ int tss_request_add_veridian_tags(plist_t request, plist_t parameters, plist_t o
 			}
 
 			/* Make sure we have a Digest key for Trusted items even if empty */
-			if (_plist_dict_get_bool(manifest_entry, "Trusted") && !plist_dict_get_item(manifest_entry, "Digest")) {
+			if (plist_dict_get_bool(manifest_entry, "Trusted") && !plist_dict_get_item(manifest_entry, "Digest")) {
 				debug("DEBUG: No Digest data, using empty value for entry %s\n", comp_name);
 				plist_dict_set_item(manifest_entry, "Digest", plist_new_data(NULL, 0));
 			}
@@ -1314,16 +1314,16 @@ int tss_request_add_tcon_tags(plist_t request, plist_t parameters, plist_t overr
 	plist_dict_set_item(request, "@BBTicket", plist_new_bool(1));
 	plist_dict_set_item(request, "@Baobab,Ticket", plist_new_bool(1));
 
-	_plist_dict_copy_uint(request, parameters, "Baobab,BoardID", NULL);
-	_plist_dict_copy_uint(request, parameters, "Baobab,ChipID", NULL);
-	_plist_dict_copy_data(request, parameters, "Baobab,ECID", NULL);
-	_plist_dict_copy_uint(request, parameters, "Baobab,Life", NULL);
-	_plist_dict_copy_uint(request, parameters, "Baobab,ManifestEpoch", NULL);
-	_plist_dict_copy_bool(request, parameters, "Baobab,ProductionMode", NULL);
-	_plist_dict_copy_uint(request, parameters, "Baobab,SecurityDomain", NULL);
-	_plist_dict_copy_data(request, parameters, "Baobab,UpdateNonce", NULL);
+	plist_dict_copy_uint(request, parameters, "Baobab,BoardID", NULL);
+	plist_dict_copy_uint(request, parameters, "Baobab,ChipID", NULL);
+	plist_dict_copy_data(request, parameters, "Baobab,ECID", NULL);
+	plist_dict_copy_uint(request, parameters, "Baobab,Life", NULL);
+	plist_dict_copy_uint(request, parameters, "Baobab,ManifestEpoch", NULL);
+	plist_dict_copy_bool(request, parameters, "Baobab,ProductionMode", NULL);
+	plist_dict_copy_uint(request, parameters, "Baobab,SecurityDomain", NULL);
+	plist_dict_copy_data(request, parameters, "Baobab,UpdateNonce", NULL);
 
-	uint8_t isprod = _plist_dict_get_bool(parameters, "Baobab,ProductionMode");
+	uint8_t isprod = plist_dict_get_bool(parameters, "Baobab,ProductionMode");
 
 	char *comp_name = NULL;
 	plist_dict_iter iter = NULL;
@@ -1380,28 +1380,28 @@ int tss_request_add_timer_tags(plist_t request, plist_t parameters, plist_t over
 
 	plist_dict_set_item(request, key, plist_new_bool(1));
 
-	tag = (uint32_t)_plist_dict_get_uint(parameters, "TagNumber");
+	tag = (uint32_t)plist_dict_get_uint(parameters, "TagNumber");
 
 	sprintf(key, "Timer,BoardID,%u", tag);
-	_plist_dict_copy_uint(request, parameters, key, NULL);
+	plist_dict_copy_uint(request, parameters, key, NULL);
 
 	sprintf(key, "Timer,ChipID,%u", tag);
-	_plist_dict_copy_uint(request, parameters, key, NULL);
+	plist_dict_copy_uint(request, parameters, key, NULL);
 
 	sprintf(key, "Timer,SecurityDomain,%u", tag);
-	_plist_dict_copy_uint(request, parameters, key, NULL);
+	plist_dict_copy_uint(request, parameters, key, NULL);
 
 	sprintf(key, "Timer,SecurityMode,%u", tag);
-	_plist_dict_copy_bool(request, parameters, key, NULL);
+	plist_dict_copy_bool(request, parameters, key, NULL);
 
 	sprintf(key, "Timer,ProductionMode,%u", tag);
-	_plist_dict_copy_bool(request, parameters, key, NULL);
+	plist_dict_copy_bool(request, parameters, key, NULL);
 
 	sprintf(key, "Timer,ECID,%u", tag);
-	_plist_dict_copy_uint(request, parameters, key, NULL);
+	plist_dict_copy_uint(request, parameters, key, NULL);
 
 	sprintf(key, "Timer,Nonce,%u", tag);
-	_plist_dict_copy_data(request, parameters, key, NULL);
+	plist_dict_copy_data(request, parameters, key, NULL);
 
 	char *comp_name = NULL;
 	plist_dict_iter iter = NULL;
@@ -1425,7 +1425,7 @@ int tss_request_add_timer_tags(plist_t request, plist_t parameters, plist_t over
 			}
 
 			/* Make sure we have a Digest key for Trusted items even if empty */
-			if (_plist_dict_get_bool(manifest_entry, "Trusted") && !plist_dict_get_item(manifest_entry, "Digest")) {
+			if (plist_dict_get_bool(manifest_entry, "Trusted") && !plist_dict_get_item(manifest_entry, "Digest")) {
 				debug("DEBUG: No Digest data, using empty value for entry %s\n", comp_name);
 				plist_dict_set_item(manifest_entry, "Digest", plist_new_data(NULL, 0));
 			}
@@ -1454,13 +1454,13 @@ int tss_request_add_cryptex_tags(plist_t request, plist_t parameters, plist_t ov
 	if (plist_dict_get_item(parameters, "Ap,LocalPolicy")) {
 		/* Cryptex1LocalPolicy */
 		tss_request_add_local_policy_tags(request, parameters);
-		_plist_dict_copy_data(request, parameters, "Ap,NextStageCryptex1IM4MHash", NULL);
+		plist_dict_copy_data(request, parameters, "Ap,NextStageCryptex1IM4MHash", NULL);
 	} else {
 		/* Cryptex1 */
 		plist_dict_set_item(request, "@Cryptex1,Ticket", plist_new_bool(1));
 
-		_plist_dict_copy_bool(request, parameters, "ApSecurityMode", NULL);
-		_plist_dict_copy_bool(request, parameters, "ApProductionMode", NULL);
+		plist_dict_copy_bool(request, parameters, "ApSecurityMode", NULL);
+		plist_dict_copy_bool(request, parameters, "ApProductionMode", NULL);
 
 		plist_dict_iter iter = NULL;
 		plist_dict_new_iter(parameters, &iter);
@@ -1659,7 +1659,7 @@ static int tss_response_get_data_by_key(plist_t response, const char* name, unsi
 		return -1;
 	}
 
-	char *data = NULL;
+	uint8_t* data = NULL;
 	uint64_t len = 0;
 	plist_get_data_val(node, &data, &len);
 	if (data) {
@@ -1718,7 +1718,7 @@ int tss_response_get_blob_by_path(plist_t tss, const char* path, unsigned char**
 	uint32_t tss_size = 0;
 	uint64_t blob_size = 0;
 	char* entry_key = NULL;
-	char* blob_data = NULL;
+	uint8_t* blob_data = NULL;
 	char* entry_path = NULL;
 	plist_t tss_entry = NULL;
 	plist_t blob_node = NULL;
@@ -1772,7 +1772,7 @@ int tss_response_get_blob_by_path(plist_t tss, const char* path, unsigned char**
 int tss_response_get_blob_by_entry(plist_t response, const char* entry, unsigned char** blob)
 {
 	uint64_t blob_size = 0;
-	char* blob_data = NULL;
+	uint8_t* blob_data = NULL;
 	plist_t blob_node = NULL;
 	plist_t tss_entry = NULL;
 

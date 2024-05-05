@@ -976,7 +976,7 @@ int restore_send_recovery_os_root_ticket(restored_client_t restore, struct idevi
 
 	if (client->root_ticket) {
 		dict = plist_new_dict();
-		plist_dict_set_item(dict, "RecoveryOSRootTicketData", plist_new_data((char*)client->root_ticket, client->root_ticket_len));
+		plist_dict_set_item(dict, "RecoveryOSRootTicketData", plist_new_data(client->root_ticket, client->root_ticket_len));
 	} else {
 		unsigned char* data = NULL;
 		unsigned int len = 0;
@@ -1000,7 +1000,7 @@ int restore_send_recovery_os_root_ticket(restored_client_t restore, struct idevi
 
 		dict = plist_new_dict();
 		if (data && (len > 0)) {
-			plist_dict_set_item(dict, "RootTicketData", plist_new_data((char*)data, len));
+			plist_dict_set_item(dict, "RootTicketData", plist_new_data(data, len));
 		} else {
 			info("NOTE: not sending RootTicketData (no data present)\n");
 		}
@@ -1029,7 +1029,7 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 
 	if (client->root_ticket) {
 		dict = plist_new_dict();
-		plist_dict_set_item(dict, "RootTicketData", plist_new_data((char*)client->root_ticket, client->root_ticket_len));
+		plist_dict_set_item(dict, "RootTicketData", plist_new_data(client->root_ticket, client->root_ticket_len));
 	} else {
 		unsigned char* data = NULL;
 		unsigned int len = 0;
@@ -1053,7 +1053,7 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 
 		dict = plist_new_dict();
 		if (data && (len > 0)) {
-			plist_dict_set_item(dict, "RootTicketData", plist_new_data((char*)data, len));
+			plist_dict_set_item(dict, "RootTicketData", plist_new_data(data, len));
 		} else {
 			info("NOTE: not sending RootTicketData (no data present)\n");
 		}
@@ -1118,7 +1118,7 @@ int restore_send_component(restored_client_t restore, struct idevicerestore_clie
 	}
 
 	dict = plist_new_dict();
-	blob = plist_new_data((char*)data, size);
+	blob = plist_new_data(data, size);
 	char compkeyname[256];
 	sprintf(compkeyname, "%sFile", component_name);
 	plist_dict_set_item(dict, compkeyname, blob);
@@ -1279,7 +1279,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	}
 
 	dict = plist_new_dict();
-	plist_dict_set_item(dict, "LlbImageData", plist_new_data((char*)llb_data, (uint64_t) llb_size));
+	plist_dict_set_item(dict, "LlbImageData", plist_new_data(llb_data, llb_size));
 	free(llb_data);
 
 	if (flash_version_1) {
@@ -1339,13 +1339,13 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		component_size = 0;
 
 		if (flash_version_1) {
-			plist_dict_set_item(norimage, component, plist_new_data((char*)nor_data, (uint64_t)nor_size));
+			plist_dict_set_item(norimage, component, plist_new_data(nor_data, nor_size));
 		} else {
 			/* make sure iBoot is the first entry in the array */
 			if (!strncmp("iBoot", component, 5)) {
-				plist_array_insert_item(norimage, plist_new_data((char*)nor_data, (uint64_t)nor_size), 0);
+				plist_array_insert_item(norimage, plist_new_data(nor_data, nor_size), 0);
 			} else {
-				plist_array_append_item(norimage, plist_new_data((char*)nor_data, (uint64_t)nor_size));
+				plist_array_append_item(norimage, plist_new_data(nor_data, nor_size));
 			}
 		}
 
@@ -1381,7 +1381,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 			return -1;
 		}
 
-		plist_dict_set_item(dict, "RestoreSEPImageData", plist_new_data((char*)personalized_data, (uint64_t) personalized_size));
+		plist_dict_set_item(dict, "RestoreSEPImageData", plist_new_data(personalized_data, personalized_size));
 		free(personalized_data);
 		personalized_data = NULL;
 		personalized_size = 0;
@@ -1406,7 +1406,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 			return -1;
 		}
 
-		plist_dict_set_item(dict, "SEPImageData", plist_new_data((char*)personalized_data, (uint64_t) personalized_size));
+		plist_dict_set_item(dict, "SEPImageData", plist_new_data(personalized_data, personalized_size));
 		free(personalized_data);
 		personalized_data = NULL;
 		personalized_size = 0;
@@ -1431,7 +1431,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 			return -1;
 		}
 
-		plist_dict_set_item(dict, "SEPPatchImageData", plist_new_data((char*)personalized_data, (uint64_t) personalized_size));
+		plist_dict_set_item(dict, "SEPPatchImageData", plist_new_data(personalized_data, personalized_size));
 		free(personalized_data);
 		personalized_data = NULL;
 		personalized_size = 0;
@@ -1609,7 +1609,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 
 			blob = NULL;
 			blob_size = 0;
-			plist_get_data_val(node, (char**)&blob, &blob_size);
+			plist_get_data_val(node, &blob, &blob_size);
 			if (!blob) {
 				error("ERROR: could not get %s-Blob data\n", key);
 				goto leave;
@@ -1742,7 +1742,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 
 			blob = NULL;
 			blob_size = 0;
-			plist_get_data_val(bbticket, (char**)&blob, &blob_size);
+			plist_get_data_val(bbticket, &blob, &blob_size);
 			if (!blob) {
 				error("ERROR: could not get BBTicket data\n");
 				goto leave;
@@ -1780,7 +1780,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 			// add BBTicket as bbticket.der
 			blob = NULL;
 			blob_size = 0;
-			plist_get_data_val(bbticket, (char**)&blob, &blob_size);
+			plist_get_data_val(bbticket, &blob, &blob_size);
 			if (!blob) {
 				error("ERROR: could not get BBTicket data\n");
 				goto leave;
@@ -1839,7 +1839,7 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 	uint64_t bb_nonce_size = 0;
 	uint64_t bb_chip_id = 0;
 	plist_t response = NULL;
-	char* buffer = NULL;
+	uint8_t* buffer = NULL;
 	char* bbfwtmp = NULL;
 	plist_t dict = NULL;
 
@@ -1860,11 +1860,11 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 		}
 		plist_t bb_snum_node = plist_dict_get_item(arguments, "ChipSerialNo");
 		if (bb_snum_node && plist_get_node_type(bb_snum_node) == PLIST_DATA) {
-			plist_get_data_val(bb_snum_node, (char**)&bb_snum, &bb_snum_size);
+			plist_get_data_val(bb_snum_node, &bb_snum, &bb_snum_size);
 		}
 		plist_t bb_nonce_node = plist_dict_get_item(arguments, "Nonce");
 		if (bb_nonce_node && plist_get_node_type(bb_nonce_node) == PLIST_DATA) {
-			plist_get_data_val(bb_nonce_node, (char**)&bb_nonce, &bb_nonce_size);
+			plist_get_data_val(bb_nonce_node, &bb_nonce, &bb_nonce_size);
 		}
 	}
 
@@ -1873,11 +1873,11 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 		plist_t parameters = plist_new_dict();
 		plist_dict_set_item(parameters, "ApECID", plist_new_uint(client->ecid));
 		if (bb_nonce) {
-			plist_dict_set_item(parameters, "BbNonce", plist_new_data((const char*)bb_nonce, bb_nonce_size));
+			plist_dict_set_item(parameters, "BbNonce", plist_new_data(bb_nonce, bb_nonce_size));
 		}
 		plist_dict_set_item(parameters, "BbChipID", plist_new_uint(bb_chip_id));
 		plist_dict_set_item(parameters, "BbGoldCertId", plist_new_uint(bb_cert_id));
-		plist_dict_set_item(parameters, "BbSNUM", plist_new_data((const char*)bb_snum, bb_snum_size));
+		plist_dict_set_item(parameters, "BbSNUM", plist_new_data(bb_snum, bb_snum_size));
 
 		tss_parameters_add_from_manifest(parameters, build_identity, true);
 
@@ -1970,7 +1970,7 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 
 	// send file
 	dict = plist_new_dict();
-	plist_dict_set_item(dict, "BasebandData", plist_new_data(buffer, (uint64_t)sz));
+	plist_dict_set_item(dict, "BasebandData", plist_new_data(buffer, sz));
 	free(buffer);
 	buffer = NULL;
 
@@ -2034,7 +2034,7 @@ static int restore_send_image_data(restored_client_t restore, struct idevicerest
 	int want_image_list = 0;
 
 	arguments = plist_dict_get_item(message, "Arguments");
-	want_image_list = _plist_dict_get_bool(arguments, image_list_k);
+	want_image_list = plist_dict_get_bool(arguments, image_list_k);
 	node = plist_dict_get_item(arguments, "ImageName");
 	if (node) {
 		plist_get_string_val(node, &image_name);
@@ -2109,7 +2109,7 @@ static int restore_send_image_data(restored_client_t restore, struct idevicerest
 							error("ERROR: Unable to get personalized component: %s\n", component);
 						}
 
-						plist_dict_set_item(data_dict, component, plist_new_data((const char*)data, size));
+						plist_dict_set_item(data_dict, component, plist_new_data(data, size));
 						free(data);
 					}
 				}
@@ -2256,7 +2256,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 		error("ERROR: No 'SE ticket' in TSS response, this might not work\n");
 	}
 
-	plist_dict_set_item(response, "FirmwareData", plist_new_data((char*)component_data, (uint64_t) component_size));
+	plist_dict_set_item(response, "FirmwareData", plist_new_data(component_data, component_size));
 	free(component_data);
 	component_data = NULL;
 	component_size = 0;
@@ -2347,7 +2347,7 @@ static plist_t restore_get_savage_firmware_data(restored_client_t restore, struc
 	*(uint32_t*)(component_data + 4) = htole32((uint32_t)component_size);
 	component_size += 16;
 
-	plist_dict_set_item(response, "FirmwareData", plist_new_data((char*)component_data, (uint64_t) component_size));
+	plist_dict_set_item(response, "FirmwareData", plist_new_data(component_data, component_size));
 	free(component_data);
 	component_data = NULL;
 	component_size = 0;
@@ -2429,7 +2429,7 @@ static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, stru
 	comp_name = NULL;
 
 	plist_t firmware_data = plist_new_dict();
-	plist_dict_set_item(firmware_data, "YonkersFirmware", plist_new_data((char *)component_data, (uint64_t)component_size));
+	plist_dict_set_item(firmware_data, "YonkersFirmware", plist_new_data(component_data, component_size));
 	plist_dict_set_item(response, "FirmwareData", firmware_data);
 
 	free(component_data);
@@ -2578,7 +2578,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 	ftab_write(ftab, &component_data, &component_size);
 	ftab_free(ftab);
 
-	plist_dict_set_item(response, "FirmwareData", plist_new_data((char *)component_data, (uint64_t)component_size));
+	plist_dict_set_item(response, "FirmwareData", plist_new_data(component_data, component_size));
 	free(component_data);
 	component_data = NULL;
 	component_size = 0;
@@ -2676,7 +2676,7 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 	plist_to_bin(fw_map, &bin_plist, &bin_size);
 	plist_free(fw_map);
 
-	plist_dict_set_item(response, "FirmwareData", plist_new_data(bin_plist, (uint64_t)bin_size));
+	plist_dict_set_item(response, "FirmwareData", plist_new_data((uint8_t*)bin_plist, bin_size));
 	free(bin_plist);
 
 	return response;
@@ -2798,7 +2798,7 @@ static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct 
 		return NULL;
 	}
 
-	plist_dict_set_item(response, "FirmwareData", plist_new_data((char *)component_data, (uint64_t)component_size));
+	plist_dict_set_item(response, "FirmwareData", plist_new_data(component_data, component_size));
 	free(component_data);
 	component_data = NULL;
 	component_size = 0;
@@ -2851,7 +2851,7 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 	} else {
 		plist_t info_dict = plist_array_get_item(info_array, 0);
 		plist_t hwid = plist_dict_get_item(info_dict, "HardwareID");
-		tag = (uint32_t)_plist_dict_get_uint(info_dict, "TagNumber");
+		tag = (uint32_t)plist_dict_get_uint(info_dict, "TagNumber");
 		char key[64];
 
 		plist_dict_set_item(parameters, "TagNumber", plist_new_uint(tag));
@@ -2862,25 +2862,25 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 		}
 
 		sprintf(key, "Timer,ChipID,%u", tag);
-		_plist_dict_copy_uint(parameters, hwid, key, "ChipID");
+		plist_dict_copy_uint(parameters, hwid, key, "ChipID");
 
 		sprintf(key, "Timer,BoardID,%u", tag);
-		_plist_dict_copy_uint(parameters, hwid, key, "BoardID");
+		plist_dict_copy_uint(parameters, hwid, key, "BoardID");
 
 		sprintf(key, "Timer,ECID,%u", tag);
-		_plist_dict_copy_uint(parameters, hwid, key, "ECID");
+		plist_dict_copy_uint(parameters, hwid, key, "ECID");
 
 		sprintf(key, "Timer,Nonce,%u", tag);
-		_plist_dict_copy_data(parameters, hwid, key, "Nonce");
+		plist_dict_copy_data(parameters, hwid, key, "Nonce");
 
 		sprintf(key, "Timer,SecurityMode,%u", tag);
-		_plist_dict_copy_bool(parameters, hwid, key, "SecurityMode");
+		plist_dict_copy_bool(parameters, hwid, key, "SecurityMode");
 
 		sprintf(key, "Timer,SecurityDomain,%u", tag);
-		_plist_dict_copy_uint(parameters, hwid, key, "SecurityDomain");
+		plist_dict_copy_uint(parameters, hwid, key, "SecurityDomain");
 
 		sprintf(key, "Timer,ProductionMode,%u", tag);
-		_plist_dict_copy_uint(parameters, hwid, key, "ProductionStatus");
+		plist_dict_copy_uint(parameters, hwid, key, "ProductionStatus");
 	}
 	plist_t ap_info = plist_dict_get_item(p_info, "APInfo");
 	if (!ap_info) {
@@ -2983,7 +2983,7 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 	ftab_write(ftab, &component_data, &component_size);
 	ftab_free(ftab);
 
-	plist_dict_set_item(response, "FirmwareData", plist_new_data((char *)component_data, (uint64_t)component_size));
+	plist_dict_set_item(response, "FirmwareData", plist_new_data(component_data, component_size));
 	free(component_data);
 	component_data = NULL;
 	component_size = 0;
@@ -3043,10 +3043,10 @@ static plist_t restore_get_cryptex1_firmware_data(restored_client_t restore, str
 		plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(1));
 	}
 	if (!plist_dict_get_item(parameters, "ApChipID")) {
-		_plist_dict_copy_uint(parameters, build_identity, "ApChipID", NULL);
+		plist_dict_copy_uint(parameters, build_identity, "ApChipID", NULL);
 	}
 	if (!plist_dict_get_item(parameters, "ApBoardID")) {
-		_plist_dict_copy_uint(parameters, build_identity, "ApBoardID", NULL);
+		plist_dict_copy_uint(parameters, build_identity, "ApBoardID", NULL);
 	}
 
 	/* add device generated request data to parameters */
@@ -3461,7 +3461,7 @@ plist_t restore_get_build_identity(struct idevicerestore_client_t* client, uint8
 plist_t restore_get_build_identity_from_request(struct idevicerestore_client_t* client, plist_t msg)
 {
 	plist_t args = plist_dict_get_item(msg, "Arguments");
-	return restore_get_build_identity(client, _plist_dict_get_bool(args, "IsRecoveryOS"));
+	return restore_get_build_identity(client, plist_dict_get_bool(args, "IsRecoveryOS"));
 }
 
 int extract_macos_variant(plist_t build_identity, char** output)
@@ -3549,7 +3549,7 @@ static int _restore_send_file_data(struct _restore_send_file_data_ctx* rctx, voi
 	plist_t dict = plist_new_dict();
 	if (data != NULL) {
 		// Send a chunk of file data
-		plist_dict_set_item(dict, "FileData", plist_new_data((char*)data, size));
+		plist_dict_set_item(dict, "FileData", plist_new_data(data, size));
 	} else {
 		// Send FileDataDone to mark end of transfer
 		plist_dict_set_item(dict, "FileDataDone", plist_new_bool(1));
@@ -3806,7 +3806,7 @@ int restore_send_restore_local_policy(restored_client_t restore, struct idevicer
 	}
 
 	plist_t dict = plist_new_dict();
-	plist_dict_set_item(dict, "Ap,LocalPolicy", plist_new_data((char*)data, size));
+	plist_dict_set_item(dict, "Ap,LocalPolicy", plist_new_data(data, size));
 
 	int restore_error = restored_send(restore, dict);
 	if (restore_error != RESTORE_E_SUCCESS) {
@@ -4289,7 +4289,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 		plist_dict_set_item(opts, "BBUpdaterState", bbus);
 
-		_plist_dict_copy_data(opts, client->preflight_info, "BasebandNonce", "Nonce");
+		plist_dict_copy_data(opts, client->preflight_info, "BasebandNonce", "Nonce");
 	}
 
 	plist_dict_set_item(opts, "SupportedDataTypes", restore_supported_data_types());
