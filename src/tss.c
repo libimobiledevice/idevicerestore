@@ -961,9 +961,8 @@ int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t ove
 	comp_name = (isprod) ?  "Savage,B0-Prod-Patch" : "Savage,B0-Dev-Patch";
 	node = plist_dict_get_item(parameters, "Savage,Revision");
 	if (node && (plist_get_node_type(node) == PLIST_DATA)) {
-		unsigned char *savage_rev = NULL;
 		uint64_t savage_rev_len = 0;
-		plist_get_data_val(node, &savage_rev, &savage_rev_len);
+		const unsigned char *savage_rev = (const unsigned char*)plist_get_data_ptr(node, &savage_rev_len);
 		if (savage_rev_len > 0) {
 			if (((savage_rev[0] | 0x10) & 0xF0) == 0x30) {
 				comp_name = (isprod) ? "Savage,B2-Prod-Patch" : "Savage,B2-Dev-Patch";
@@ -971,7 +970,6 @@ int tss_request_add_savage_tags(plist_t request, plist_t parameters, plist_t ove
 				comp_name = (isprod) ? "Savage,BA-Prod-Patch" : "Savage,BA-Dev-Patch";
 			}
 		}
-		free(savage_rev);
 	}
 
 	/* add Savage,B?-*-Patch */
@@ -1659,7 +1657,7 @@ static int tss_response_get_data_by_key(plist_t response, const char* name, unsi
 		return -1;
 	}
 
-	uint8_t* data = NULL;
+	char* data = NULL;
 	uint64_t len = 0;
 	plist_get_data_val(node, &data, &len);
 	if (data) {
@@ -1718,7 +1716,7 @@ int tss_response_get_blob_by_path(plist_t tss, const char* path, unsigned char**
 	uint32_t tss_size = 0;
 	uint64_t blob_size = 0;
 	char* entry_key = NULL;
-	uint8_t* blob_data = NULL;
+	char* blob_data = NULL;
 	char* entry_path = NULL;
 	plist_t tss_entry = NULL;
 	plist_t blob_node = NULL;
@@ -1772,7 +1770,7 @@ int tss_response_get_blob_by_path(plist_t tss, const char* path, unsigned char**
 int tss_response_get_blob_by_entry(plist_t response, const char* entry, unsigned char** blob)
 {
 	uint64_t blob_size = 0;
-	uint8_t* blob_data = NULL;
+	char* blob_data = NULL;
 	plist_t blob_node = NULL;
 	plist_t tss_entry = NULL;
 

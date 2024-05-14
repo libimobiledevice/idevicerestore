@@ -457,7 +457,7 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 			return -1;
 		}
 		uint64_t ucon_size = 0;
-		const uint8_t* ucon_data = plist_get_data_ptr(dt, &ucon_size);
+		const char* ucon_data = plist_get_data_ptr(dt, &ucon_size);
 		if (!ucon_data) {
 			error("ERROR: %s: Missing ucon data in %s-TBM dictionary\n", __func__, component_name);
 			return -1;
@@ -468,7 +468,7 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 			return -1;
 		}
 		uint64_t ucer_size = 0;
-		const uint8_t* ucer_data = plist_get_data_ptr(dt, &ucer_size);
+		const char* ucer_data = plist_get_data_ptr(dt, &ucer_size);
 		if (!ucer_data) {
 			error("ERROR: %s: Missing ucer data in %s-TBM dictionary\n", __func__, component_name);
 			return -1;
@@ -705,13 +705,11 @@ static void _manifest_write_component(unsigned char **p, unsigned int *length, c
 
 	node = plist_dict_get_item(comp, "Digest");
 	if (node) {
-		uint8_t *digest = NULL;
 		uint64_t digest_len = 0;
-		plist_get_data_val(node, &digest, &digest_len);
+		const char *digest = plist_get_data_ptr(node, &digest_len);
 		if (digest_len > 0) {
-			_manifest_write_key_value(&tmp, &tmp_len, "DGST", ASN1_OCTET_STRING, digest, digest_len);
+			_manifest_write_key_value(&tmp, &tmp_len, "DGST", ASN1_OCTET_STRING, (void*)digest, digest_len);
 		}
-		free(digest);
 	}
 
 	node = plist_dict_get_item(comp, "Trusted");
@@ -740,9 +738,8 @@ static void _manifest_write_component(unsigned char **p, unsigned int *length, c
 
 	node = plist_dict_get_item(comp, "TBMDigests");
 	if (node) {
-		uint8_t *data = NULL;
 		uint64_t datalen = 0;
-		plist_get_data_val(node, &data, &datalen);
+		const char *data = plist_get_data_ptr(node, &datalen);
 		const char *tbmtag = NULL;
 		if (!strcmp(tag, "sepi")) {
 			tbmtag = "tbms";
@@ -752,9 +749,8 @@ static void _manifest_write_component(unsigned char **p, unsigned int *length, c
 		if (!tbmtag) {
 			error("ERROR: Unexpected TMBDigests for comp '%s'\n", tag);
 		} else {
-			_manifest_write_key_value(&tmp, &tmp_len, tbmtag, ASN1_OCTET_STRING, data, datalen);
+			_manifest_write_key_value(&tmp, &tmp_len, tbmtag, ASN1_OCTET_STRING, (void*)data, datalen);
 		}
-		free(data);
 	}
 
 	asn1_write_element_header(ASN1_SET | ASN1_CONSTRUCTED, tmp_len, &inner_start, &inner_length);
@@ -907,7 +903,7 @@ int img4_create_local_manifest(plist_t request, plist_t build_identity, plist_t*
 
 	length += hdr_len;
 
-	*manifest = plist_new_data(buf, length);
+	*manifest = plist_new_data((char*)buf, length);
 
 	free(buf);
 

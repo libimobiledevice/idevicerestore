@@ -96,7 +96,7 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 
 	plist_t p_im4m = plist_dict_get_item(tss, "USBPortController1,Ticket");
 	uint64_t im4m_size = 0;
-	const uint8_t* im4m = plist_get_data_ptr(p_im4m, &im4m_size);
+	const char* im4m = plist_get_data_ptr(p_im4m, &im4m_size);
 
 	struct uarp_header* uarp_hdr = (struct uarp_header*)uarp_fw;
 	uint32_t uarp_hdr_size = be32toh(uarp_hdr->header_size);

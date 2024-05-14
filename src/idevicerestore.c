@@ -771,7 +771,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		usbf = plist_copy(usbf);
 		plist_dict_remove_item(usbf, "Info");
 		plist_dict_set_item(parameters, "USBPortController1,USBFirmware", usbf);
-		plist_dict_set_item(parameters, "USBPortController1,Nonce", plist_new_data(pdfu_nonce, pdfu_nsize));
+		plist_dict_set_item(parameters, "USBPortController1,Nonce", plist_new_data((const char*)pdfu_nonce, pdfu_nsize));
 
 		plist_t request = tss_request_new(NULL);
 		if (request == NULL) {
@@ -1236,7 +1236,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 		
 		if (client->mode == MODE_RESTORE && client->root_ticket) {
-			plist_t ap_ticket = plist_new_data(client->root_ticket, client->root_ticket_len);
+			plist_t ap_ticket = plist_new_data((char*)client->root_ticket, client->root_ticket_len);
 			if (!ap_ticket) {
 				error("ERROR: Failed to create ApImg4Ticket node value.\n");
 				return -1;
@@ -2263,14 +2263,14 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 	plist_t parameters = plist_new_dict();
 	plist_dict_set_item(parameters, "ApECID", plist_new_uint(client->ecid));
 	if (client->nonce) {
-		plist_dict_set_item(parameters, "ApNonce", plist_new_data(client->nonce, client->nonce_size));
+		plist_dict_set_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
 	}
 	unsigned char* sep_nonce = NULL;
 	unsigned int sep_nonce_size = 0;
 	get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
 
 	if (sep_nonce) {
-		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data(sep_nonce, sep_nonce_size));
+		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
 		free(sep_nonce);
 	}
 
@@ -2387,7 +2387,7 @@ int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* clie
 
 	/* ApNonce */
 	if (client->nonce) {
-		plist_dict_set_item(parameters, "ApNonce", plist_new_data(client->nonce, client->nonce_size));
+		plist_dict_set_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
 	}
 	unsigned char* sep_nonce = NULL;
 	unsigned int sep_nonce_size = 0;
@@ -2395,7 +2395,7 @@ int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* clie
 
 	/* ApSepNonce */
 	if (sep_nonce) {
-		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data(sep_nonce, sep_nonce_size));
+		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
 		free(sep_nonce);
 	}
 
@@ -2496,7 +2496,7 @@ int get_recovery_os_local_policy_tss_response(
 	uint8_t digest[SHA384_DIGEST_LENGTH];
 	SHA384(lpol_file, lpol_file_length, digest);
 	plist_t lpol = plist_new_dict();
-	plist_dict_set_item(lpol, "Digest", plist_new_data(digest, SHA384_DIGEST_LENGTH));
+	plist_dict_set_item(lpol, "Digest", plist_new_data((char*)digest, SHA384_DIGEST_LENGTH));
 	plist_dict_set_item(lpol, "Trusted", plist_new_bool(1));
 	plist_dict_set_item(parameters, "Ap,LocalPolicy", lpol);
 
@@ -2518,7 +2518,7 @@ int get_recovery_os_local_policy_tss_response(
 	for (i = 0; i < 16; i++) {
 		vol_uuid[i] = (unsigned char)vuuid[i];
 	}
-	plist_dict_set_item(parameters, "Ap,VolumeUUID", plist_new_data(vol_uuid, 16));
+	plist_dict_set_item(parameters, "Ap,VolumeUUID", plist_new_data((char*)vol_uuid, 16));
 
 	/* create basic request */
 	request = tss_request_new(NULL);
@@ -2566,14 +2566,14 @@ int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_
 	plist_dict_set_item(parameters, "ApECID", plist_new_uint(client->ecid));
 	plist_dict_set_item(parameters, "Ap,LocalBoot", plist_new_bool(0));
 	if (client->nonce) {
-		plist_dict_set_item(parameters, "ApNonce", plist_new_data(client->nonce, client->nonce_size));
+		plist_dict_set_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
 	}
 	unsigned char* sep_nonce = NULL;
 	unsigned int sep_nonce_size = 0;
 	get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
 
 	if (sep_nonce) {
-		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data(sep_nonce, sep_nonce_size));
+		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
 		free(sep_nonce);
 	}
 
@@ -2591,7 +2591,7 @@ int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_
 	uint8_t digest[SHA384_DIGEST_LENGTH];
 	SHA384(lpol_file, lpol_file_length, digest);
 	plist_t lpol = plist_new_dict();
-	plist_dict_set_item(lpol, "Digest", plist_new_data(digest, SHA384_DIGEST_LENGTH));
+	plist_dict_set_item(lpol, "Digest", plist_new_data((char*)digest, SHA384_DIGEST_LENGTH));
 	plist_dict_set_item(lpol, "Trusted", plist_new_bool(1));
 	plist_dict_set_item(parameters, "Ap,LocalPolicy", lpol);
 
@@ -2603,7 +2603,7 @@ int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_
 	// Hash it and add it as Ap,NextStageIM4MHash
 	uint8_t hash[SHA384_DIGEST_LENGTH];
 	SHA384(ticket, ticket_length, hash);
-	plist_dict_set_item(parameters, "Ap,NextStageIM4MHash", plist_new_data(hash, SHA384_DIGEST_LENGTH));
+	plist_dict_set_item(parameters, "Ap,NextStageIM4MHash", plist_new_data((char*)hash, SHA384_DIGEST_LENGTH));
 
 	/* create basic request */
 	request = tss_request_new(NULL);
