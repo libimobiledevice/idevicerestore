@@ -333,7 +333,7 @@ static int normal_get_nonce_by_key(struct idevicerestore_client_t* client, const
 	}
 
 	uint64_t n_size = 0;
-	plist_get_data_val(nonce_node, nonce, &n_size);
+	plist_get_data_val(nonce_node, (char**)nonce, &n_size);
 	*nonce_size = (unsigned int)n_size;
 	plist_free(nonce_node);
 
