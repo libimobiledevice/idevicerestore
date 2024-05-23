@@ -27,8 +27,9 @@
 #include <unistd.h>
 #include <libirecovery.h>
 
+#include <libtatsu/tss.h>
+
 #include "dfu.h"
-#include "tss.h"
 #include "recovery.h"
 #include "idevicerestore.h"
 #include "common.h"

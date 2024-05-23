@@ -46,10 +46,10 @@
 #endif
 
 #include <libimobiledevice-glue/utils.h>
+#include <libtatsu/tss.h>
 
 #include "ace3.h"
 #include "dfu.h"
-#include "tss.h"
 #include "img3.h"
 #include "img4.h"
 #include "ipsw.h"
@@ -359,6 +359,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			idevice_set_debug_level(1);
 			irecv_set_debug_level(1);
 		}
+		tss_set_debug_level(client->debug_level);
 	}
 
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.0);

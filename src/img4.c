@@ -22,9 +22,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <libtatsu/tss.h>
+
 #include "common.h"
 #include "img4.h"
-#include "tss.h"
 
 #define ASN1_PRIVATE 0xc0
 #define ASN1_PRIMITIVE_TAG 0x1f

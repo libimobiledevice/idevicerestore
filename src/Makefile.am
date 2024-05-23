@@ -6,6 +6,7 @@ AM_CFLAGS = \
 	$(libusbmuxd_CFLAGS) \
 	$(libplist_CFLAGS) \
 	$(limd_glue_CFLAGS) \
+	$(libtatsu_CFLAGS) \
 	$(libzip_CFLAGS) \
 	$(zlib_CFLAGS) \
 	$(openssl_CFLAGS) \
@@ -18,6 +19,7 @@ AM_LDFLAGS = \
 	$(libusbmuxd_LIBS) \
 	$(libplist_LIBS) \
 	$(limd_glue_LIBS) \
+	$(libtatsu_LIBS) \
 	$(libzip_LIBS) \
 	$(zlib_LIBS) \
 	$(openssl_LIBS) \
@@ -31,7 +33,6 @@ idevicerestore_SOURCES = \
 	idevicerestore.c idevicerestore.h \
 	endianness.h \
 	common.c common.h \
-	tss.c tss.h \
 	fls.c fls.h \
 	mbn.c mbn.h \
 	img3.c img3.h \

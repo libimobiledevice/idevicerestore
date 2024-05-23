@@ -29,8 +29,9 @@
 #include <libimobiledevice/restore.h>
 #include <libimobiledevice/libimobiledevice.h>
 
+#include <libtatsu/tss.h>
+
 #include "idevicerestore.h"
-#include "tss.h"
 #include "img3.h"
 #include "restore.h"
 #include "recovery.h"

@@ -38,6 +38,7 @@
 #endif
 #include <zip.h>
 #include <libirecovery.h>
+#include <libtatsu/tss.h>
 
 #include "idevicerestore.h"
 #include "asr.h"
@@ -45,7 +46,6 @@
 #include "fls.h"
 #include "mbn.h"
 #include "ftab.h"
-#include "tss.h"
 #include "ipsw.h"
 #include "restore.h"
 #include "common.h"
