@@ -38,13 +38,7 @@
 
 #include <curl/curl.h>
 
-#ifdef HAVE_OPENSSL
-#include <openssl/sha.h>
-#else
-#include "sha512.h"
-#define SHA384 sha384
-#endif
-
+#include <libimobiledevice-glue/sha.h>
 #include <libimobiledevice-glue/utils.h>
 #include <libtatsu/tss.h>
 
@@ -2495,7 +2489,7 @@ int get_recovery_os_local_policy_tss_response(
 
 	// Add Ap,LocalPolicy
 	uint8_t digest[SHA384_DIGEST_LENGTH];
-	SHA384(lpol_file, lpol_file_length, digest);
+	sha384(lpol_file, lpol_file_length, digest);
 	plist_t lpol = plist_new_dict();
 	plist_dict_set_item(lpol, "Digest", plist_new_data((char*)digest, SHA384_DIGEST_LENGTH));
 	plist_dict_set_item(lpol, "Trusted", plist_new_bool(1));
@@ -2590,7 +2584,7 @@ int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_
 
 	// Add Ap,LocalPolicy
 	uint8_t digest[SHA384_DIGEST_LENGTH];
-	SHA384(lpol_file, lpol_file_length, digest);
+	sha384(lpol_file, lpol_file_length, digest);
 	plist_t lpol = plist_new_dict();
 	plist_dict_set_item(lpol, "Digest", plist_new_data((char*)digest, SHA384_DIGEST_LENGTH));
 	plist_dict_set_item(lpol, "Trusted", plist_new_bool(1));
@@ -2603,7 +2597,7 @@ int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_
 	tss_response_get_ap_img4_ticket(client->tss, &ticket, &ticket_length);
 	// Hash it and add it as Ap,NextStageIM4MHash
 	uint8_t hash[SHA384_DIGEST_LENGTH];
-	SHA384(ticket, ticket_length, hash);
+	sha384(ticket, ticket_length, hash);
 	plist_dict_set_item(parameters, "Ap,NextStageIM4MHash", plist_new_data((char*)hash, SHA384_DIGEST_LENGTH));
 
 	/* create basic request */

@@ -19,11 +19,10 @@ LIBIRECOVERY_VERSION=1.2.0
 LIBIMOBILEDEVICE_VERSION=1.3.0
 LIBUSBMUXD_VERSION=2.0.2
 LIBPLIST_VERSION=2.6.0
-LIMD_GLUE_VERSION=1.2.0
+LIMD_GLUE_VERSION=1.3.0
 LIBTATSU_VERSION=1.0.2
 LIBZIP_VERSION=1.0
 LIBCURL_VERSION=7.0
-OPENSSL_VERSION=0.9.8
 
 AC_SUBST(LIBIRECOVERY_VERSION)
 AC_SUBST(LIBIMOBILEDEVICE_VERSION)
@@ -33,7 +32,6 @@ AC_SUBST(LIMD_GLUE_VERSION)
 AC_SUBST(LIBTATSU_VERSION)
 AC_SUBST(LIBZIP_VERSION)
 AC_SUBST(LIBCURL_VERSION)
-AC_SUBST(OPENSSL_VERSION)
 
 # Checks for programs.
 AC_PROG_CC
@@ -50,9 +48,6 @@ PKG_CHECK_MODULES(libtatsu, libtatsu-1.0 >= $LIBTATSU_VERSION)
 PKG_CHECK_MODULES(libzip, libzip >= $LIBZIP_VERSION)
 PKG_CHECK_MODULES(libcurl, libcurl >= $LIBCURL_VERSION)
 PKG_CHECK_MODULES(zlib, zlib)
-
-# optional
-PKG_CHECK_MODULES(openssl, openssl >= $OPENSSL_VERSION, have_openssl=yes, have_openssl=no)
 
 AC_CHECK_FUNCS([strsep strcspn mkstemp realpath])
 if test x$ac_cv_func_strsep != xyes; then
@@ -155,32 +150,6 @@ if test "$ac_cv_reverse_proxy" = "yes"; then
 fi
 
 CFLAGS="$CACHED_CFLAGS"
-
-AC_ARG_WITH([openssl],
-            [AS_HELP_STRING([--without-openssl],
-            [Do not use OpenSSL])],
-            [use_openssl=$withval],
-            [use_openssl=$have_openssl])
-
-if test "x$use_openssl" == "xyes"; then
-  if test "x$have_openssl" != "xyes"; then
-    echo "*** NOTE: --with-openssl passed but OpenSSL is not available ***"
-    use_openssl=no
-  fi
-fi
-if test "x$use_openssl" != "xyes"; then
-  echo "*** NOTE: Using internal SHA1 implementation ***"
-  have_openssl=no
-  openssl_CFLAGS=
-  openssl_LIBS=
-fi
-if test "x$have_openssl" == "xyes"; then
-  AC_DEFINE(HAVE_OPENSSL, [1], [Define if you have OpenSSL])
-fi
-AC_SUBST(openssl_CFLAGS)
-AC_SUBST(openssl_LIBS)
-
-AM_CONDITIONAL(USE_INTERNAL_SHA, test x$use_openssl != xyes)
 
 AC_SUBST(GLOBAL_CFLAGS)
 AC_SUBST(AC_LDFLAGS)

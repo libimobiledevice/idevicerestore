@@ -34,16 +34,8 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <zip.h>
-#ifdef HAVE_OPENSSL
-#include <openssl/sha.h>
-#else
-#include "sha1.h"
-#define SHA_CTX SHA1_CTX
-#define SHA1_Init SHA1Init
-#define SHA1_Update SHA1Update
-#define SHA1_Final SHA1Final
-#endif
 
+#include <libimobiledevice-glue/sha.h>
 #include <libimobiledevice-glue/termcolors.h>
 #include <plist/plist.h>
 
@@ -1176,14 +1168,14 @@ static int sha1_verify_fp(FILE* f, unsigned char* expected_sha1)
 	unsigned char tsha1[20];
 	char buf[8192];
 	if (!f) return 0;
-	SHA_CTX sha1ctx;
-	SHA1_Init(&sha1ctx);
+	sha1_context sha1ctx;
+	sha1_init(&sha1ctx);
 	rewind(f);
 	while (!feof(f)) {
 		size_t sz = fread(buf, 1, 8192, f);
-		SHA1_Update(&sha1ctx, (const void*)buf, sz);
+		sha1_update(&sha1ctx, buf, sz);
 	}
-	SHA1_Final(tsha1, &sha1ctx);
+	sha1_final(&sha1ctx, tsha1);
 	return (memcmp(expected_sha1, tsha1, 20) == 0) ? 1 : 0;
 }
 

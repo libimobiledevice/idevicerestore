@@ -30,15 +30,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <libimobiledevice/libimobiledevice.h>
-#ifdef HAVE_OPENSSL
-#include <openssl/sha.h>
-#else
-#include "sha1.h"
-#define SHA_CTX SHA1_CTX
-#define SHA1_Init SHA1Init
-#define SHA1_Update SHA1Update
-#define SHA1_Final SHA1Final
-#endif
+
+#include <libimobiledevice-glue/sha.h>
 
 #include "asr.h"
 #include "idevicerestore.h"
@@ -343,12 +336,6 @@ int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 
 	data = (char*)malloc(ASR_PAYLOAD_CHUNK_SIZE + 20);
 
-	SHA_CTX sha1;
-
-	if (asr->checksum_chunks) {
-		SHA1_Init(&sha1);
-	}
-
 	i = length;
 	int retry = 3;
 	while(i > 0 && retry >= 0) {
@@ -367,7 +354,7 @@ int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 
 		sendsize = size;
 		if (asr->checksum_chunks) {
-			SHA1((unsigned char*)data, size, (unsigned char*)(data+size));
+			sha1((unsigned char*)data, size, (unsigned char*)(data+size));
 			sendsize += 20;
 		}
 		if (asr_send_buffer(asr, data, sendsize) < 0) {

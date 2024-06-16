@@ -158,18 +158,7 @@ jobs:
           export CFLAGS="$USEARCHS -isysroot $SDKDIR"
           echo "Using CFLAGS: $CFLAGS"
           echo "BUILD_CFLAGS=$CFLAGS" >> $GITHUB_ENV
-          mkdir -p lib
-          curl -o lib/libcrypto.35.tbd -Ls \
-              https://gist.github.com/nikias/94c99fd145a75a5104415e5117b0cafa/raw/5209dfbff5a871a14272afe4794e76eb4cf6f062/libcrypto.35.tbd
-          curl -o lib/libssl.35.tbd -Ls \
-              https://gist.github.com/nikias/94c99fd145a75a5104415e5117b0cafa/raw/5209dfbff5a871a14272afe4794e76eb4cf6f062/libssl.35.tbd
-          LIBRESSL_VER=2.2.7
-          FILENAME="libressl-$LIBRESSL_VER.tar.gz"
-          curl -o $FILENAME -Ls "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/$FILENAME"
           mkdir -p deps
-          tar -C deps -xzf $FILENAME
-          echo "LIBRESSL_CFLAGS=-I`pwd`/deps/libressl-$LIBRESSL_VER/include" >> $GITHUB_ENV
-          echo "LIBRESSL_LIBS=-Xlinker `pwd`/lib/libssl.35.tbd -Xlinker `pwd`/lib/libcrypto.35.tbd" >> $GITHUB_ENV
           FILENAME="libzip-static.tar.bz2"
           curl -o $FILENAME.b64 -Ls "https://gist.github.com/nikias/3da15d03120382f87b44029cd8495a02/raw/99cd8138fed99e8f6530b6f179f787342c698e1f/libzip-1.7.1_static_macOS.tar.bz2"
           base64 -D < $FILENAME.b64 > $FILENAME
@@ -181,7 +170,6 @@ jobs:
           export CFLAGS="${{env.BUILD_CFLAGS}} -Wno-nullability-completeness -Wno-expansion-to-defined"
           echo "Using CFLAGS: $CFLAGS"
           ./autogen.sh PKG_CONFIG_PATH=/usr/local/lib/pkgconfig \
-              openssl_CFLAGS="$LIBRESSL_CFLAGS" openssl_LIBS="$LIBRESSL_LIBS" \
               libcurl_CFLAGS="-I${{env.SDKDIR}}/usr/include" libcurl_LIBS="-lcurl" \
               libzip_CFLAGS="$LIBZIP_CFLAGS" libzip_LIBS="$LIBZIP_LIBS" \
               zlib_CFLAGS="-I${{env.SDKDIR}}/usr/include" zlib_LIBS="-lz" \
