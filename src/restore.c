@@ -781,7 +781,7 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg)
 	return result;
 }
 
-static int restore_handle_baseband_updater_output_data(restored_client_t restore, struct idevicerestore_client_t* client, idevice_t device, plist_t msg)
+static int restore_handle_baseband_updater_output_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg)
 {
 	int result = -1;
 	plist_t node = plist_dict_get_item(msg, "DataPort");
@@ -793,9 +793,14 @@ static int restore_handle_baseband_updater_output_data(restored_client_t restore
 	idevice_connection_t connection = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 
+	if (!client || !client->restore || !client->restore->build_identity || !client->restore->device) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return -1;
+	}
+
 	debug("Connecting to baseband updater data port\n");
 	while (--attempts > 0) {
-		device_error = idevice_connect(device, data_port, &connection);
+		device_error = idevice_connect(client->restore->device, data_port, &connection);
 		if (device_error == IDEVICE_E_SUCCESS) {
 			break;
 		}
@@ -898,14 +903,14 @@ static void restore_asr_progress_cb(double progress, void* userdata)
 	}
 }
 
-int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t device)
+int restore_send_filesystem(struct idevicerestore_client_t* client)
 {
 	asr_client_t asr = NULL;
 	ipsw_archive_t ipsw_dummy = NULL;
 	ipsw_file_handle_t file = NULL;
 	char* fsname = NULL;
 
-	if (!client || !client->restore || !client->restore->build_identity) {
+	if (!client || !client->restore || !client->restore->build_identity || !client->restore->device) {
 		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
 		return -1;
 	}
@@ -931,7 +936,7 @@ int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t de
 		free(fsname);
 	}
 
-	if (asr_open_with_timeout(device, &asr) < 0) {
+	if (asr_open_with_timeout(client->restore->device, &asr) < 0) {
 		ipsw_file_close(file);
 		ipsw_close(ipsw_dummy);
 		error("ERROR: Unable to connect to ASR\n");
@@ -2006,7 +2011,7 @@ leave:
 	return res;
 }
 
-int restore_send_fdr_trust_data(restored_client_t restore, idevice_t device)
+int restore_send_fdr_trust_data(restored_client_t restore)
 {
 	restored_error_t restore_error;
 	plist_t dict;
@@ -3455,7 +3460,7 @@ static int restore_bootability_send_one(void *ctx, ipsw_archive_t ipsw, const ch
 	return ret;
 }
 
-static int restore_send_bootability_bundle_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message, idevice_t device)
+static int restore_send_bootability_bundle_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message)
 {
 	if (idevicerestore_debug) {
 		debug("DEBUG: %s: Got BootabilityBundle request:\n", __func__);
@@ -3471,9 +3476,14 @@ static int restore_send_bootability_bundle_data(restored_client_t restore, struc
 	idevice_connection_t connection = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 
+	if (!client || !client->restore || !client->restore->build_identity || !client->restore->device) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return -1;
+	}
+
 	debug("Connecting to BootabilityBundle data port\n");
 	while (--attempts > 0) {
-		device_error = idevice_connect(device, data_port, &connection);
+		device_error = idevice_connect(client->restore->device, data_port, &connection);
 		if (device_error == IDEVICE_E_SUCCESS) {
 			break;
 		}
@@ -3918,7 +3928,7 @@ int restore_send_buildidentity(restored_client_t restore, struct idevicerestore_
 	return 0;
 }
 
-int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message)
+int restore_handle_data_request_msg(struct idevicerestore_client_t* client, restored_client_t restore, plist_t message)
 {
 	plist_t node = NULL;
 
@@ -3930,7 +3940,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		// this request is sent when restored is ready to receive the filesystem
 		if (!strcmp(type, "SystemImageData")) {
-			if(restore_send_filesystem(client, device) < 0) {
+			if(restore_send_filesystem(client) < 0) {
 				error("ERROR: Unable to send filesystem\n");
 				return -2;
 			}
@@ -3966,7 +3976,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		// this request is sent when restored is ready to receive the filesystem
 		else if (!strcmp(type, "RecoveryOSASRImage")) {
-			if(restore_send_filesystem(client, device) < 0) {
+			if(restore_send_filesystem(client) < 0) {
 				error("ERROR: Unable to send filesystem\n");
 				return -2;
 			}
@@ -4036,7 +4046,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 
 		else if (!strcmp(type, "FDRTrustData")) {
-			if(restore_send_fdr_trust_data(restore, device) < 0) {
+			if(restore_send_fdr_trust_data(restore) < 0) {
 				error("ERROR: Unable to send FDR Trust data\n");
 				return -1;
 			}
@@ -4078,7 +4088,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 
 		else if (!strcmp(type, "BootabilityBundle")) {
-			if (restore_send_bootability_bundle_data(restore, client, message, device) < 0) {
+			if (restore_send_bootability_bundle_data(restore, client, message) < 0) {
 				error("ERROR: Unable to send BootabilityBundle data\n");
 				return -1;
 			}
@@ -4092,7 +4102,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 
 		else if (!strcmp(type, "BasebandUpdaterOutputData")) {
-			if (restore_handle_baseband_updater_output_data(restore, client, device, message) < 0) {
+			if (restore_handle_baseband_updater_output_data(restore, client, message) < 0) {
 				error("ERROR: Unable to send BasebandUpdaterOutputData data\n");
 				return -1;
 			}
@@ -4533,7 +4543,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// files sent to the server by the client. these data requests include
 		// SystemImageData, RootTicket, KernelCache, NORData and BasebandData requests
 		if (!strcmp(type, "DataRequestMsg")) {
-			err = restore_handle_data_request_msg(client, device, restore, message);
+			err = restore_handle_data_request_msg(client, restore, message);
 		}
 
 		// restore logs are available if a previous restore failed
@@ -4610,7 +4620,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 		// baseband updater output data request
 		else if (!strcmp(type, "BasebandUpdaterOutputData")) {
-			err = restore_handle_baseband_updater_output_data(restore, client, device, message);
+			err = restore_handle_baseband_updater_output_data(restore, client, message);
 		}
 
 		// there might be some other message types i'm not aware of, but I think
