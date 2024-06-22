@@ -898,16 +898,21 @@ static void restore_asr_progress_cb(double progress, void* userdata)
 	}
 }
 
-int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t device, plist_t build_identity)
+int restore_send_filesystem(struct idevicerestore_client_t* client, idevice_t device)
 {
 	asr_client_t asr = NULL;
-
-	info("About to send filesystem...\n");
-
 	ipsw_archive_t ipsw_dummy = NULL;
 	ipsw_file_handle_t file = NULL;
 	char* fsname = NULL;
-	if (build_identity_get_component_path(build_identity, "OS", &fsname) < 0) {
+
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return -1;
+	}
+
+	info("About to send filesystem...\n");
+
+	if (build_identity_get_component_path(client->restore->build_identity, "OS", &fsname) < 0) {
 		error("ERROR: Unable to get path for filesystem component\n");
 		return -1;
 	}
@@ -1072,7 +1077,7 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 	return 0;
 }
 
-int restore_send_component(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, const char* component, const char* component_name)
+int restore_send_component(restored_client_t restore, struct idevicerestore_client_t* client, const char* component, const char* component_name)
 {
 	unsigned int size = 0;
 	unsigned char* data = NULL;
@@ -1080,6 +1085,11 @@ int restore_send_component(restored_client_t restore, struct idevicerestore_clie
 	plist_t blob = NULL;
 	plist_t dict = NULL;
 	restored_error_t restore_error = RESTORE_E_SUCCESS;
+
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return -1;
+	}
 
 	if (component_name == NULL) {
 		component_name = component;
@@ -1093,7 +1103,7 @@ int restore_send_component(restored_client_t restore, struct idevicerestore_clie
 		}
 	}
 	if (!path) {
-		if (build_identity_get_component_path(build_identity, component, &path) < 0) {
+		if (build_identity_get_component_path(client->restore->build_identity, component, &path) < 0) {
 			error("ERROR: Unable to find %s path from build identity\n", component);
 			return -1;
 		}
@@ -1136,7 +1146,7 @@ int restore_send_component(restored_client_t restore, struct idevicerestore_clie
 	return 0;
 }
 
-int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
+int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message)
 {
 	char* llb_path = NULL;
 	char* llb_filename = NULL;
@@ -1156,6 +1166,11 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	plist_t firmware_files = NULL;
 	int flash_version_1 = 0;
 
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return -1;
+	}
+
 	info("About to send NORData...\n");
 
 	plist_t arguments = plist_dict_get_item(message, "Arguments");
@@ -1169,7 +1184,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		}
 	}
 	if (llb_path == NULL) {
-		if (build_identity_get_component_path(build_identity, "LLB", &llb_path) < 0) {
+		if (build_identity_get_component_path(client->restore->build_identity, "LLB", &llb_path) < 0) {
 			error("ERROR: Unable to get component path for LLB\n");
 			return -1;
 		}
@@ -1209,7 +1224,7 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	} else {
 		info("Getting firmware manifest from build identity\n");
 		plist_dict_iter iter = NULL;
-		plist_t build_id_manifest = plist_dict_get_item(build_identity, "Manifest");
+		plist_t build_id_manifest = plist_dict_get_item(client->restore->build_identity, "Manifest");
 		if (build_id_manifest) {
 			plist_dict_new_iter(build_id_manifest, &iter);
 		}
@@ -1362,8 +1377,8 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	unsigned char* personalized_data = NULL;
 	unsigned int personalized_size = 0;
 
-	if (build_identity_has_component(build_identity, "RestoreSEP") &&
-	    build_identity_get_component_path(build_identity, "RestoreSEP", &restore_sep_path) == 0) {
+	if (build_identity_has_component(client->restore->build_identity, "RestoreSEP") &&
+	    build_identity_get_component_path(client->restore->build_identity, "RestoreSEP", &restore_sep_path) == 0) {
 		component = "RestoreSEP";
 		ret = extract_component(client->ipsw, restore_sep_path, &component_data, &component_size);
 		free(restore_sep_path);
@@ -1387,8 +1402,8 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		personalized_size = 0;
 	}
 
-	if (build_identity_has_component(build_identity, "SEP") &&
-	    build_identity_get_component_path(build_identity, "SEP", &sep_path) == 0) {
+	if (build_identity_has_component(client->restore->build_identity, "SEP") &&
+	    build_identity_get_component_path(client->restore->build_identity, "SEP", &sep_path) == 0) {
 		component = "SEP";
 		ret = extract_component(client->ipsw, sep_path, &component_data, &component_size);
 		free(sep_path);
@@ -1412,8 +1427,8 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 		personalized_size = 0;
 	}
 
-	if (build_identity_has_component(build_identity, "SepStage1") &&
-	    build_identity_get_component_path(build_identity, "SepStage1", &sep_path) == 0) {
+	if (build_identity_has_component(client->restore->build_identity, "SepStage1") &&
+	    build_identity_get_component_path(client->restore->build_identity, "SepStage1", &sep_path) == 0) {
 		component = "SepStage1";
 		ret = extract_component(client->ipsw, sep_path, &component_data, &component_size);
 		free(sep_path);
@@ -1820,7 +1835,7 @@ leave:
 	return res;
 }
 
-static int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
+static int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message)
 {
 	int res = -1;
 	uint64_t bb_cert_id = 0;
@@ -1833,6 +1848,11 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 	char* buffer = NULL;
 	char* bbfwtmp = NULL;
 	plist_t dict = NULL;
+
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return -1;
+	}
 
 	info("About to send BasebandData...\n");
 
@@ -1870,7 +1890,7 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 		plist_dict_set_item(parameters, "BbGoldCertId", plist_new_uint(bb_cert_id));
 		plist_dict_set_item(parameters, "BbSNUM", plist_new_data((const char*)bb_snum, bb_snum_size));
 
-		tss_parameters_add_from_manifest(parameters, build_identity, true);
+		tss_parameters_add_from_manifest(parameters, client->restore->build_identity, true);
 
 		/* create baseband request */
 		plist_t request = tss_request_new(NULL);
@@ -1884,7 +1904,7 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 		tss_request_add_common_tags(request, parameters, NULL);
 		tss_request_add_baseband_tags(request, parameters, NULL);
 
-		plist_t node = plist_access_path(build_identity, 2, "Info", "FDRSupport");
+		plist_t node = plist_access_path(client->restore->build_identity, 2, "Info", "FDRSupport");
 		if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
 			uint8_t b = 0;
 			plist_get_bool_val(node, &b);
@@ -1911,7 +1931,7 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 	}
 
 	// get baseband firmware file path from build identity
-	plist_t bbfw_path = plist_access_path(build_identity, 4, "Manifest", "BasebandFirmware", "Info", "Path");
+	plist_t bbfw_path = plist_access_path(client->restore->build_identity, 4, "Manifest", "BasebandFirmware", "Info", "Path");
 	if (!bbfw_path || plist_get_node_type(bbfw_path) != PLIST_STRING) {
 		error("ERROR: Unable to get BasebandFirmware/Info/Path node\n");
 		plist_free(response);
@@ -2011,7 +2031,7 @@ int restore_send_fdr_trust_data(restored_client_t restore, idevice_t device)
 	return 0;
 }
 
-static int restore_send_image_data(restored_client_t restore, struct idevicerestore_client_t *client, plist_t build_identity, plist_t message, const char *image_list_k, const char *image_type_k, const char *image_data_k)
+static int restore_send_image_data(restored_client_t restore, struct idevicerestore_client_t *client, plist_t message, const char *image_list_k, const char *image_type_k, const char *image_data_k)
 {
 	restored_error_t restore_error;
 	plist_t arguments;
@@ -2023,6 +2043,11 @@ static int restore_send_image_data(restored_client_t restore, struct idevicerest
 	plist_dict_iter iter = NULL;
 	char *image_name = NULL;
 	int want_image_list = 0;
+
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return -1;
+	}
 
 	arguments = plist_dict_get_item(message, "Arguments");
 	want_image_list = plist_dict_get_bool(arguments, image_list_k);
@@ -2051,7 +2076,7 @@ static int restore_send_image_data(restored_client_t restore, struct idevicerest
 		data_dict = plist_new_dict();
 	}
 
-	build_id_manifest = plist_dict_get_item(build_identity, "Manifest");
+	build_id_manifest = plist_dict_get_item(client->restore->build_identity, "Manifest");
 	if (build_id_manifest) {
 		plist_dict_new_iter(build_id_manifest, &iter);
 	}
@@ -2083,7 +2108,7 @@ static int restore_send_image_data(restored_client_t restore, struct idevicerest
 						if (!image_name) {
 							info("Found %s component '%s'\n", image_type_k, component);
 						}
-						build_identity_get_component_path(build_identity, component, &path);
+						build_identity_get_component_path(client->restore->build_identity, component, &path);
 						if (path) {
 							ret = extract_component(client->ipsw, path, &component_data, &component_size);
 						}
@@ -2155,7 +2180,7 @@ static int restore_send_image_data(restored_client_t restore, struct idevicerest
 	return 0;
 }
 
-static plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info, plist_t arguments)
+static plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
 {
 	const char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2167,6 +2192,12 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 	plist_t p_dgr = NULL;
 	int ret;
 	uint64_t chip_id = 0;
+
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return NULL;
+	}
+
 	plist_t node = plist_dict_get_item(p_info, "SE,ChipID");
 	if (node && plist_get_node_type(node) == PLIST_UINT) {
 		plist_get_uint_val(node, &chip_id);
@@ -2177,9 +2208,9 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 		comp_name = "SE,UpdatePayload";
 	} else {
 		info("WARNING: Unknown SE,ChipID 0x%" PRIx64 " detected. Restore might fail.\n", (uint64_t)chip_id);
-		if (build_identity_has_component(build_identity, "SE,UpdatePayload"))
+		if (build_identity_has_component(client->restore->build_identity, "SE,UpdatePayload"))
 			comp_name = "SE,UpdatePayload";
-		else if (build_identity_has_component(build_identity, "SE,Firmware"))
+		else if (build_identity_has_component(client->restore->build_identity, "SE,Firmware"))
 			comp_name = "SE,Firmware";
 		else {
 			error("ERROR: Neither 'SE,Firmware' nor 'SE,UpdatePayload' found in build identity.\n");
@@ -2196,7 +2227,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 		return NULL;
 	}
 
-	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		return NULL;
 	}
@@ -2220,7 +2251,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity, true);
+	tss_parameters_add_from_manifest(parameters, client->restore->build_identity, true);
 
 	/* add SE,* tags from info dictionary to parameters */
 	plist_dict_merge(&parameters, p_info);
@@ -2255,7 +2286,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 	return response;
 }
 
-static plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+static plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info)
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2267,6 +2298,11 @@ static plist_t restore_get_savage_firmware_data(restored_client_t restore, struc
 	plist_t response = NULL;
 	int ret;
 
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return NULL;
+	}
+
 	/* create Savage request */
 	request = tss_request_new(NULL);
 	if (request == NULL) {
@@ -2277,7 +2313,7 @@ static plist_t restore_get_savage_firmware_data(restored_client_t restore, struc
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity, true);
+	tss_parameters_add_from_manifest(parameters, client->restore->build_identity, true);
 
 	/* add Savage,* tags from info dictionary to parameters */
 	plist_dict_merge(&parameters, p_info);
@@ -2310,7 +2346,7 @@ static plist_t restore_get_savage_firmware_data(restored_client_t restore, struc
 	}
 
 	/* now get actual component data */
-	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		free(comp_name);
 		return NULL;
@@ -2346,7 +2382,7 @@ static plist_t restore_get_savage_firmware_data(restored_client_t restore, struc
 	return response;
 }
 
-static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info)
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2356,6 +2392,11 @@ static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, stru
 	plist_t request = NULL;
 	plist_t response = NULL;
 	int ret;
+
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return NULL;
+	}
 
 	/* create Yonkers request */
 	request = tss_request_new(NULL);
@@ -2369,7 +2410,7 @@ static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, stru
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity, true);
+	tss_parameters_add_from_manifest(parameters, client->restore->build_identity, true);
 
 	/* add Yonkers,* tags from info dictionary to parameters */
 	plist_dict_merge(&parameters, p_info);
@@ -2401,7 +2442,7 @@ static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, stru
 		error("ERROR: No 'Yonkers,Ticket' in TSS response, this might not work\n");
 	}
 
-	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		free(comp_name);
 		return NULL;
@@ -2430,7 +2471,7 @@ static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, stru
 	return response;
 }
 
-static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info, plist_t arguments)
+static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2444,6 +2485,11 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 	plist_t response = NULL;
 	int ret;
 
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return NULL;
+	}
+
 	/* create Rose request */
 	request = tss_request_new(NULL);
 	if (request == NULL) {
@@ -2455,7 +2501,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity, true);
+	tss_parameters_add_from_manifest(parameters, client->restore->build_identity, true);
 
 	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
 	if (client->image4supported) {
@@ -2501,7 +2547,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 	}
 
 	comp_name = "Rap,RTKitOS";
-	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		return NULL;
 	}
@@ -2525,8 +2571,8 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 	}
 
 	comp_name = "Rap,RestoreRTKitOS";
-	if (build_identity_has_component(build_identity, comp_name)) {
-		if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+	if (build_identity_has_component(client->restore->build_identity, comp_name)) {
+		if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 			ftab_free(ftab);
 			error("ERROR: Unable to get path for '%s' component\n", comp_name);
 			return NULL;
@@ -2577,7 +2623,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 	return response;
 }
 
-static plist_t restore_get_veridian_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+static plist_t restore_get_veridian_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info)
 {
 	char *comp_name = "BMU,FirmwareMap";
 	char *comp_path = NULL;
@@ -2587,6 +2633,11 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 	plist_t request = NULL;
 	plist_t response = NULL;
 	int ret;
+
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return NULL;
+	}
 
 	/* create Veridian request */
 	request = tss_request_new(NULL);
@@ -2599,7 +2650,7 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity, true);
+	tss_parameters_add_from_manifest(parameters, client->restore->build_identity, true);
 
 	/* add BMU,* tags from info dictionary to parameters */
 	plist_dict_merge(&parameters, p_info);
@@ -2624,7 +2675,7 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 		error("ERROR: No 'BMU,Ticket' in TSS response, this might not work\n");
 	}
 
-	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		return NULL;
 	}
@@ -2653,7 +2704,7 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 		return NULL;
 	}
 
-	plist_t fw_map_digest = plist_access_path(build_identity, 3, "Manifest", comp_name, "Digest");
+	plist_t fw_map_digest = plist_access_path(client->restore->build_identity, 3, "Manifest", comp_name, "Digest");
 	if (!fw_map_digest) {
 		plist_free(fw_map);
 		error("ERROR: Unable to get Digest for '%s' component\n", comp_name);
@@ -2673,7 +2724,7 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 	return response;
 }
 
-static plist_t restore_get_generic_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info, plist_t arguments)
+static plist_t restore_get_generic_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
 {
 	plist_t request = NULL;
 	plist_t response = NULL;
@@ -2728,7 +2779,7 @@ static plist_t restore_get_generic_firmware_data(restored_client_t restore, stru
 	return response;
 }
 
-static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info)
 {
 	char *comp_name = "Baobab,TCON";
 	char *comp_path = NULL;
@@ -2738,6 +2789,11 @@ static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct 
 	plist_t request = NULL;
 	plist_t response = NULL;
 	int ret;
+
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return NULL;
+	}
 
 	/* create Baobab request */
 	request = tss_request_new(NULL);
@@ -2750,7 +2806,7 @@ static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct 
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity, true);
+	tss_parameters_add_from_manifest(parameters, client->restore->build_identity, true);
 
 	/* add Baobab,* tags from info dictionary to parameters */
 	plist_dict_merge(&parameters, p_info);
@@ -2775,7 +2831,7 @@ static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct 
 		error("ERROR: No 'Baobab,Ticket' in TSS response, this might not work\n");
 	}
 
-	if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		return NULL;
 	}
@@ -2797,7 +2853,7 @@ static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct 
 	return response;
 }
 
-static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info)
+static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info)
 {
 	char comp_name[64];
 	char *comp_path = NULL;
@@ -2813,6 +2869,11 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 	uint32_t tag = 0;
 	int ret;
 
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return NULL;
+	}
+
 	/* create Timer request */
 	request = tss_request_new(NULL);
 	if (request == NULL) {
@@ -2823,7 +2884,7 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 	parameters = plist_new_dict();
 
 	/* add manifest for current build_identity to parameters */
-	tss_parameters_add_from_manifest(parameters, build_identity, true);
+	tss_parameters_add_from_manifest(parameters, client->restore->build_identity, true);
 
 	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
 	if (client->image4supported) {
@@ -2902,8 +2963,8 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 	}
 
 	sprintf(comp_name, "Timer,RTKitOS,%u", tag);
-	if (build_identity_has_component(build_identity, comp_name)) {
-		if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+	if (build_identity_has_component(client->restore->build_identity, comp_name)) {
+		if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 			error("ERROR: Unable to get path for '%s' component\n", comp_name);
 			return NULL;
 		}
@@ -2930,8 +2991,8 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 	}
 
 	sprintf(comp_name, "Timer,RestoreRTKitOS,%u", tag);
-	if (build_identity_has_component(build_identity, comp_name)) {
-		if (build_identity_get_component_path(build_identity, comp_name, &comp_path) < 0) {
+	if (build_identity_has_component(client->restore->build_identity, comp_name)) {
+		if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 			ftab_free(ftab);
 			error("ERROR: Unable to get path for '%s' component\n", comp_name);
 			return NULL;
@@ -2982,11 +3043,16 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 	return response;
 }
 
-static plist_t restore_get_cryptex1_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t p_info, plist_t arguments)
+static plist_t restore_get_cryptex1_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
 {
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
+
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return NULL;
+	}
 
 	plist_t p_updater_name = plist_dict_get_item(arguments, "MessageArgUpdaterName");
 	const char* s_updater_name = plist_get_string_ptr(p_updater_name, NULL);
@@ -3019,7 +3085,7 @@ static plist_t restore_get_cryptex1_firmware_data(restored_client_t restore, str
 		for (i = 0; i < plist_array_get_size(build_identity_tags); i++) {
 			plist_t node = plist_array_get_item(build_identity_tags, i);
 			const char* key = plist_get_string_ptr(node, NULL);
-			plist_t item = plist_dict_get_item(build_identity, key);
+			plist_t item = plist_dict_get_item(client->restore->build_identity, key);
 			if (item) {
 				plist_dict_set_item(parameters, key, plist_copy(item));
 			}
@@ -3034,10 +3100,10 @@ static plist_t restore_get_cryptex1_firmware_data(restored_client_t restore, str
 		plist_dict_set_item(parameters, "ApSecurityMode", plist_new_bool(1));
 	}
 	if (!plist_dict_get_item(parameters, "ApChipID")) {
-		plist_dict_copy_uint(parameters, build_identity, "ApChipID", NULL);
+		plist_dict_copy_uint(parameters, client->restore->build_identity, "ApChipID", NULL);
 	}
 	if (!plist_dict_get_item(parameters, "ApBoardID")) {
-		plist_dict_copy_uint(parameters, build_identity, "ApBoardID", NULL);
+		plist_dict_copy_uint(parameters, client->restore->build_identity, "ApBoardID", NULL);
 	}
 
 	/* add device generated request data to parameters */
@@ -3072,7 +3138,7 @@ static plist_t restore_get_cryptex1_firmware_data(restored_client_t restore, str
 	return response;
 }
 
-static int restore_send_firmware_updater_preflight(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
+static int restore_send_firmware_updater_preflight(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message)
 {
 	plist_t dict = NULL;
 	int restore_error;
@@ -3096,7 +3162,7 @@ static int restore_send_firmware_updater_preflight(restored_client_t restore, st
 	return 0;
 }
 
-static int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message)
+static int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message)
 {
 	plist_t arguments;
 	plist_t p_type, p_updater_name, p_loop_count, p_info;
@@ -3106,6 +3172,11 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 	plist_t fwdict = NULL;
 	char *s_updater_name = NULL;
 	int restore_error;
+
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return -1;
+	}
 
 	if (idevicerestore_debug) {
 		debug("DEBUG: %s: Got FirmwareUpdaterData request:\n", __func__);
@@ -3153,7 +3224,7 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 	plist_get_string_val(p_updater_name, &s_updater_name);
 
 	if (strcmp(s_updater_name, "SE") == 0) {
-		fwdict = restore_get_se_firmware_data(restore, client, build_identity, p_info, arguments);
+		fwdict = restore_get_se_firmware_data(restore, client, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get SE firmware data\n", __func__);
 			goto error_out;
@@ -3163,59 +3234,59 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 		plist_t p_info2 = plist_dict_get_item(p_info, "YonkersDeviceInfo");
 		if (p_info2 && plist_get_node_type(p_info2) == PLIST_DICT) {
 			fwtype = "Yonkers";
-			fwdict = restore_get_yonkers_firmware_data(restore, client, build_identity, p_info2);
+			fwdict = restore_get_yonkers_firmware_data(restore, client, p_info2);
 		} else {
-			fwdict = restore_get_savage_firmware_data(restore, client, build_identity, p_info);
+			fwdict = restore_get_savage_firmware_data(restore, client, p_info);
 		}
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, fwtype);
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "Rose") == 0) {
-		fwdict = restore_get_rose_firmware_data(restore, client, build_identity, p_info, arguments);
+		fwdict = restore_get_rose_firmware_data(restore, client, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get Rose firmware data\n", __func__);
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "T200") == 0) {
-		fwdict = restore_get_veridian_firmware_data(restore, client, build_identity, p_info);
+		fwdict = restore_get_veridian_firmware_data(restore, client, p_info);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get Veridian firmware data\n", __func__);
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "AppleTCON") == 0) {
-		fwdict = restore_get_tcon_firmware_data(restore, client, build_identity, p_info);
+		fwdict = restore_get_tcon_firmware_data(restore, client, p_info);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get AppleTCON firmware data\n", __func__);
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "PS190") == 0) {
-		fwdict = restore_get_generic_firmware_data(restore, client, build_identity, p_info, arguments);
+		fwdict = restore_get_generic_firmware_data(restore, client, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get PCON1 firmware data\n", __func__);
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "AppleTypeCRetimer") == 0) {
-		fwdict = restore_get_timer_firmware_data(restore, client, build_identity, p_info);
+		fwdict = restore_get_timer_firmware_data(restore, client, p_info);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get AppleTypeCRetimer firmware data\n", __func__);
 			goto error_out;
 		}
 	} else if ((strcmp(s_updater_name, "Cryptex1") == 0) || (strcmp(s_updater_name, "Cryptex1LocalPolicy") == 0)) {
-		fwdict = restore_get_cryptex1_firmware_data(restore, client, build_identity, p_info, arguments);
+		fwdict = restore_get_cryptex1_firmware_data(restore, client, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, s_updater_name);
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "Ace3") == 0) {
-		fwdict = restore_get_generic_firmware_data(restore, client, build_identity, p_info, arguments);
+		fwdict = restore_get_generic_firmware_data(restore, client, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, s_updater_name);
 			goto error_out;
 		}
 	} else {
 		error("ERROR: %s: Got unknown updater name '%s', trying to discover from device generated request.\n", __func__, s_updater_name);
-		fwdict = restore_get_generic_firmware_data(restore, client, build_identity, p_info, arguments);
+		fwdict = restore_get_generic_firmware_data(restore, client, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, s_updater_name);
 			goto error_out;
@@ -3246,12 +3317,17 @@ error_out:
 	return -1;
 }
 
-static int restore_send_receipt_manifest(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity)
+static int restore_send_receipt_manifest(restored_client_t restore, struct idevicerestore_client_t* client)
 {
 	plist_t dict;
 	int restore_error;
 
-	plist_t manifest = plist_dict_get_item(build_identity, "Manifest");
+	if (!client || !client->restore || !client->restore->build_identity) {
+		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
+		return -1;
+	}
+
+	plist_t manifest = plist_dict_get_item(client->restore->build_identity, "Manifest");
 	if (!manifest) {
 		error("failed to get Manifest node from build_identity");
 		goto error_out;
@@ -3379,7 +3455,7 @@ static int restore_bootability_send_one(void *ctx, ipsw_archive_t ipsw, const ch
 	return ret;
 }
 
-static int restore_send_bootability_bundle_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t build_identity, plist_t message, idevice_t device)
+static int restore_send_bootability_bundle_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message, idevice_t device)
 {
 	if (idevicerestore_debug) {
 		debug("DEBUG: %s: Got BootabilityBundle request:\n", __func__);
@@ -3563,7 +3639,7 @@ static int _restore_send_file_data(struct _restore_send_file_data_ctx* rctx, voi
 	return 0;
 }
 
-int restore_send_personalized_boot_object_v3(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg, plist_t build_identity)
+int restore_send_personalized_boot_object_v3(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg)
 {
 	if (idevicerestore_debug) {
 		debug("DEBUG: %s: Got PersonalizedBootObjectV3 request:\n", __func__);
@@ -3593,7 +3669,7 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 	info("About to send %s...\n", component);
 
 	if (strcmp(image_name, "__GlobalManifest__") == 0) {
-		int ret = extract_global_manifest(client, build_identity, NULL, &data, &size);
+		int ret = extract_global_manifest(client, client->restore->build_identity, NULL, &data, &size);
 		if (ret != 0) {
 			return -1;
 		}
@@ -3674,7 +3750,7 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 	return 0;
 }
 
-int restore_send_source_boot_object_v4(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg, plist_t build_identity)
+int restore_send_source_boot_object_v4(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg)
 {
 	if (idevicerestore_debug) {
 		debug("DEBUG: %s: Got SourceBootObjectV4 request:\n", __func__);
@@ -3718,7 +3794,7 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 			return -1;
 		}
 
-		path = extract_global_manifest_path(build_identity, variant);
+		path = extract_global_manifest_path(client->restore->build_identity, variant);
 	} else if (strcmp(image_name, "__RestoreVersion__") == 0) {
 		path = strdup("RestoreVersion.plist");
 	} else if (strcmp(image_name, "__SystemVersion__") == 0) {
@@ -3842,7 +3918,7 @@ int restore_send_buildidentity(restored_client_t restore, struct idevicerestore_
 	return 0;
 }
 
-int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message, plist_t build_identity)
+int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idevice_t device, restored_client_t restore, plist_t message)
 {
 	plist_t node = NULL;
 
@@ -3854,7 +3930,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		// this request is sent when restored is ready to receive the filesystem
 		if (!strcmp(type, "SystemImageData")) {
-			if(restore_send_filesystem(client, device, build_identity) < 0) {
+			if(restore_send_filesystem(client, device) < 0) {
 				error("ERROR: Unable to send filesystem\n");
 				return -2;
 			}
@@ -3868,14 +3944,14 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 
 		else if (!strcmp(type, "PersonalizedBootObjectV3")) {
-			if (restore_send_personalized_boot_object_v3(restore, client, message, build_identity) < 0) {
+			if (restore_send_personalized_boot_object_v3(restore, client, message) < 0) {
 				error("ERROR: Unable to send PersonalizedBootObjectV3\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "SourceBootObjectV4")) {
-			if (restore_send_source_boot_object_v4(restore, client, message, build_identity) < 0) {
+			if (restore_send_source_boot_object_v4(restore, client, message) < 0) {
 				error("ERROR: Unable to send SourceBootObjectV4\n");
 				return -1;
 			}
@@ -3890,7 +3966,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		// this request is sent when restored is ready to receive the filesystem
 		else if (!strcmp(type, "RecoveryOSASRImage")) {
-			if(restore_send_filesystem(client, device, build_identity) < 0) {
+			if(restore_send_filesystem(client, device) < 0) {
 				error("ERROR: Unable to send filesystem\n");
 				return -2;
 			}
@@ -3913,28 +3989,28 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 		// send KernelCache
 		else if (!strcmp(type, "KernelCache")) {
-			if (restore_send_component(restore, client, build_identity, "KernelCache", NULL) < 0) {
+			if (restore_send_component(restore, client, "KernelCache", NULL) < 0) {
 				error("ERROR: Unable to send kernelcache\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "DeviceTree")) {
-			if (restore_send_component(restore, client, build_identity, "DeviceTree", NULL) < 0) {
+			if (restore_send_component(restore, client, "DeviceTree", NULL) < 0) {
 				error("ERROR: Unable to send DeviceTree\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "SystemImageRootHash")) {
-			if (restore_send_component(restore, client, build_identity, "SystemVolume", type) < 0) {
+			if (restore_send_component(restore, client, "SystemVolume", type) < 0) {
 				error("ERROR: Unable to send SystemImageRootHash data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "SystemImageCanonicalMetadata")) {
-			if (restore_send_component(restore, client, build_identity, "Ap,SystemVolumeCanonicalMetadata", type) < 0) {
+			if (restore_send_component(restore, client, "Ap,SystemVolumeCanonicalMetadata", type) < 0) {
 				error("ERROR: Unable to send SystemImageCanonicalMetadata data\n");
 				return -1;
 			}
@@ -3942,7 +4018,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 
 		else if (!strcmp(type, "NORData")) {
 			if((client->flags & FLAG_EXCLUDE) == 0) {
-				if(restore_send_nor(restore, client, build_identity, message) < 0) {
+				if(restore_send_nor(restore, client, message) < 0) {
 					error("ERROR: Unable to send NOR data\n");
 					return -1;
 				}
@@ -3953,7 +4029,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 
 		else if (!strcmp(type, "BasebandData")) {
-			if(restore_send_baseband_data(restore, client, build_identity, message) < 0) {
+			if(restore_send_baseband_data(restore, client, message) < 0) {
 				error("ERROR: Unable to send baseband data\n");
 				return -1;
 			}
@@ -3967,49 +4043,49 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, idev
 		}
 
 		else if (!strcmp(type, "FUDData")) {
-			if(restore_send_image_data(restore, client, build_identity, message, "FUDImageList", "IsFUDFirmware", "FUDImageData") < 0) {
+			if(restore_send_image_data(restore, client, message, "FUDImageList", "IsFUDFirmware", "FUDImageData") < 0) {
 				error("ERROR: Unable to send FUD data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "FirmwareUpdaterPreflight")) {
-			if(restore_send_firmware_updater_preflight(restore, client, build_identity, message) < 0) {
+			if(restore_send_firmware_updater_preflight(restore, client, message) < 0) {
 				error("ERROR: Unable to send FirmwareUpdaterPreflight\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "FirmwareUpdaterData")) {
-			if(restore_send_firmware_updater_data(restore, client, build_identity, message) < 0) {
+			if(restore_send_firmware_updater_data(restore, client, message) < 0) {
 				error("ERROR: Unable to send FirmwareUpdater data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "PersonalizedData")) {
-			if(restore_send_image_data(restore, client, build_identity, message, "ImageList", NULL, "ImageData") < 0) {
+			if(restore_send_image_data(restore, client, message, "ImageList", NULL, "ImageData") < 0) {
 				error("ERROR: Unable to send Personalized data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "EANData")) {
-			if(restore_send_image_data(restore, client, build_identity, message, "EANImageList", "IsEarlyAccessFirmware", "EANData") < 0) {
+			if(restore_send_image_data(restore, client, message, "EANImageList", "IsEarlyAccessFirmware", "EANData") < 0) {
 				error("ERROR: Unable to send Personalized data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "BootabilityBundle")) {
-			if (restore_send_bootability_bundle_data(restore, client, build_identity, message, device) < 0) {
+			if (restore_send_bootability_bundle_data(restore, client, message, device) < 0) {
 				error("ERROR: Unable to send BootabilityBundle data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "ReceiptManifest")) {
-			if (restore_send_receipt_manifest(restore, client, build_identity) < 0) {
+			if (restore_send_receipt_manifest(restore, client) < 0) {
 				error("ERROR: Unable to send ReceiptManifest data\n");
 				return -1;
 			}
@@ -4157,6 +4233,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	}
 	info("Device %s has successfully entered restore mode\n", client->udid);
 
+	client->restore->build_identity = build_identity;
 	restore = client->restore->client;
 	device = client->restore->device;
 
@@ -4456,7 +4533,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// files sent to the server by the client. these data requests include
 		// SystemImageData, RootTicket, KernelCache, NORData and BasebandData requests
 		if (!strcmp(type, "DataRequestMsg")) {
-			err = restore_handle_data_request_msg(client, device, restore, message, build_identity);
+			err = restore_handle_data_request_msg(client, device, restore, message);
 		}
 
 		// restore logs are available if a previous restore failed
