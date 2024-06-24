@@ -50,16 +50,16 @@ void restore_client_free(struct idevicerestore_client_t* client);
 int restore_is_image4_supported(struct idevicerestore_client_t* client);
 int restore_reboot(struct idevicerestore_client_t* client);
 const char* restore_progress_string(unsigned int operation);
-int restore_handle_status_msg(restored_client_t client, plist_t msg);
-int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t msg);
-int restore_handle_data_request_msg(struct idevicerestore_client_t* client, restored_client_t restore, plist_t message);
-int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message);
-int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_client_t* client);
-int restore_send_component(restored_client_t restore, struct idevicerestore_client_t* client, const char* component, const char* component_name);
+int restore_handle_status_msg(struct idevicerestore_client_t* client, plist_t message);
+int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t message);
+int restore_handle_data_request_msg(struct idevicerestore_client_t* client, plist_t message);
+int restore_send_nor(struct idevicerestore_client_t* client, plist_t message);
+int restore_send_root_ticket(struct idevicerestore_client_t* client, plist_t message);
+int restore_send_component(struct idevicerestore_client_t* client, plist_t message, const char* component, const char* component_name);
 int restore_device(struct idevicerestore_client_t* client, plist_t build_identity);
 int restore_open_with_timeout(struct idevicerestore_client_t* client);
-int restore_send_filesystem(struct idevicerestore_client_t* client);
-int restore_send_fdr_trust_data(restored_client_t restore);
+int restore_send_filesystem(struct idevicerestore_client_t* client, plist_t message);
+int restore_send_fdr_trust_data(struct idevicerestore_client_t* client, plist_t message);
 
 #ifdef __cplusplus
 }

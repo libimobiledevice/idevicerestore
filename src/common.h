@@ -134,6 +134,7 @@ struct idevicerestore_client_t {
 	char* restore_variant;
 	char* filesystem;
 	int delete_fs;
+	int async_err;
 };
 
 extern struct idevicerestore_mode_t idevicerestore_modes[];

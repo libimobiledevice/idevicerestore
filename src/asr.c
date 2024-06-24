@@ -40,7 +40,6 @@
 
 #define ASR_VERSION 1
 #define ASR_STREAM_ID 1
-#define ASR_PORT 12345
 #define ASR_BUFFER_SIZE 65536
 #define ASR_FEC_SLICE_STRIDE 40
 #define ASR_PACKETS_PER_FEC 25
@@ -48,7 +47,7 @@
 #define ASR_PAYLOAD_CHUNK_SIZE 131072
 #define ASR_CHECKSUM_CHUNK_SIZE 131072
 
-int asr_open_with_timeout(idevice_t device, asr_client_t* asr)
+int asr_open_with_timeout(idevice_t device, asr_client_t* asr, uint16_t port)
 {
 	int i = 0;
 	int attempts = 10;
@@ -61,9 +60,13 @@ int asr_open_with_timeout(idevice_t device, asr_client_t* asr)
 		return -1;
 	}
 
-	debug("Connecting to ASR\n");
+	if (port == 0) {
+		port = ASR_DEFAULT_PORT;
+	}
+	debug("Connecting to ASR on port %u\n", port);
+
 	for (i = 1; i <= attempts; i++) {
-		device_error = idevice_connect(device, ASR_PORT, &connection);
+		device_error = idevice_connect(device, port, &connection);
 		if (device_error == IDEVICE_E_SUCCESS) {
 			break;
 		}
@@ -358,7 +361,7 @@ int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 			sendsize += 20;
 		}
 		if (asr_send_buffer(asr, data, sendsize) < 0) {
-			error("ERROR: Unable to send filesystem payload\n");
+			error("Unable to send filesystem payload chunk, retrying...\n");
 			retry--;
 			continue;
 		}
@@ -374,5 +377,5 @@ int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 	}
 
 	free(data);
-	return 0;
+	return (i == 0) ? 0 : -1;
 }

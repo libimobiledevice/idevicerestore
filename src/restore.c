@@ -31,6 +31,8 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <libimobiledevice/restore.h>
+#include <libimobiledevice/property_list_service.h>
+#include <libimobiledevice-glue/thread.h>
 #ifdef HAVE_REVERSE_PROXY
 #include <libimobiledevice/reverse_proxy.h>
 #else
@@ -39,6 +41,7 @@
 #include <zip.h>
 #include <libirecovery.h>
 #include <libtatsu/tss.h>
+#include <curl/curl.h>
 
 #include "idevicerestore.h"
 #include "asr.h"
@@ -633,6 +636,101 @@ const char* restore_progress_string(unsigned int operation)
 	}
 }
 
+struct restored_service_client {
+
+};
+
+#define SERVICE_TYPE_RESTORED 1
+#define SERVICE_TYPE_PLIST 2
+
+typedef struct restore_service_client {
+	void* client;
+	int type;
+} *restore_service_client_t;
+
+static void* _restore_get_service_client_for_data_request(struct idevicerestore_client_t *client, plist_t message)
+{
+	if (!client || !client->restore || !client->restore->client || !PLIST_IS_DICT(message)) return NULL;
+	restore_service_client_t service = (restore_service_client_t)malloc(sizeof(struct restore_service_client));
+	if (!plist_dict_get_item(message, "DataPort")) {
+		service->client = client->restore->client;
+		service->type = SERVICE_TYPE_RESTORED;
+		return service;
+	}
+	plist_t data_type = plist_dict_get_item(message, "DataType");
+	uint16_t data_port = plist_dict_get_uint(message, "DataPort");
+	const char* data_type_str = plist_get_string_ptr(data_type, NULL);
+
+	struct lockdownd_service_descriptor svcdesc = {
+		data_port,
+		0,
+		(char*)data_type_str
+	};
+	property_list_service_client_t plclient = NULL;
+	info("Connecting to %s data port %u\n", data_type_str, data_port);
+	if (property_list_service_client_new(client->restore->device, &svcdesc, &plclient) != PROPERTY_LIST_SERVICE_E_SUCCESS) {
+		error("ERROR: Failed to start service connection for %s on port %u\n", data_type_str, data_port);
+		free(service);
+		return NULL;
+	}
+	service->client = plclient;
+	service->type = SERVICE_TYPE_PLIST;
+
+	return service;
+}
+
+static int _restore_service_send(restore_service_client_t service, plist_t plist, plist_format_t fmt)
+{
+	if (!service) {
+		return -1;
+	}
+	switch (service->type) {
+		case SERVICE_TYPE_RESTORED:
+			return restored_send((restored_client_t)service->client, plist);
+		case SERVICE_TYPE_PLIST:
+			if (fmt == PLIST_FORMAT_BINARY) {
+				return property_list_service_send_binary_plist((property_list_service_client_t)service->client, plist);
+			}
+			return property_list_service_send_xml_plist((property_list_service_client_t)service->client, plist);
+		default:
+			break;
+	}
+	return -1;
+}
+
+static int _restore_service_recv(restore_service_client_t service, plist_t *plist)
+{
+	if (!service) {
+		return -1;
+	}
+	switch (service->type) {
+		case SERVICE_TYPE_RESTORED:
+			return restored_receive((restored_client_t)service->client, plist);
+		case SERVICE_TYPE_PLIST:
+			return property_list_service_receive_plist((property_list_service_client_t)service->client, plist);
+		default:
+			break;
+	}
+	return -1;
+}
+
+static void _restore_service_free(restore_service_client_t service)
+{
+	if (!service) {
+		return;
+	}
+	switch (service->type) {
+		case SERVICE_TYPE_RESTORED:
+			break;
+		case SERVICE_TYPE_PLIST:
+			property_list_service_client_free((property_list_service_client_t)service->client);
+			break;
+		default:
+			break;
+	}
+	free(service);
+}
+
 static int lastop = 0;
 
 static int restore_handle_previous_restore_log_msg(restored_client_t client, plist_t msg)
@@ -686,6 +784,9 @@ int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t 
 			info("%s (%d)\n", restore_progress_string(adapted_operation), (int)operation);
 		}
 		switch (adapted_operation) {
+		case RESTORE_IMAGE:
+			idevicerestore_progress(client, RESTORE_STEP_UPLOAD_FS, progress / 100.0);
+			break;
 		case VERIFY_RESTORE:
 			idevicerestore_progress(client, RESTORE_STEP_VERIFY_FS, progress / 100.0);
 			break;
@@ -715,7 +816,7 @@ int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t 
 	return 0;
 }
 
-int restore_handle_status_msg(restored_client_t client, plist_t msg)
+int restore_handle_status_msg(struct idevicerestore_client_t* client, plist_t msg)
 {
 	int result = 0;
 	uint64_t value = 0;
@@ -781,10 +882,10 @@ int restore_handle_status_msg(restored_client_t client, plist_t msg)
 	return result;
 }
 
-static int restore_handle_baseband_updater_output_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg)
+static int restore_handle_baseband_updater_output_data(struct idevicerestore_client_t* client, plist_t message)
 {
 	int result = -1;
-	plist_t node = plist_dict_get_item(msg, "DataPort");
+	plist_t node = plist_dict_get_item(message, "DataPort");
 	uint64_t u64val = 0;
 	plist_get_uint_val(node, &u64val);
 	uint16_t data_port = (uint16_t)u64val;
@@ -855,10 +956,10 @@ static int restore_handle_baseband_updater_output_data(restored_client_t restore
 	return result;
 }
 
-static int restore_handle_bb_update_status_msg(restored_client_t client, plist_t msg)
+static int restore_handle_bb_update_status_msg(struct idevicerestore_client_t* client, plist_t message)
 {
 	int result = -1;
-	plist_t node = plist_dict_get_item(msg, "Accepted");
+	plist_t node = plist_dict_get_item(message, "Accepted");
 	uint8_t accepted = 0;
 	plist_get_bool_val(node, &accepted);
 
@@ -868,14 +969,14 @@ static int restore_handle_bb_update_status_msg(restored_client_t client, plist_t
 	}
 
 	uint8_t done = 0;
-	node = plist_access_path(msg, 2, "Output", "done");
+	node = plist_access_path(message, 2, "Output", "done");
 	if (node && plist_get_node_type(node) == PLIST_BOOLEAN) {
 		plist_get_bool_val(node, &done);
 	}
 
 	if (done) {
 		info("Updating Baseband completed.\n");
-		plist_t provisioning = plist_access_path(msg, 2, "Output", "provisioning");
+		plist_t provisioning = plist_access_path(message, 2, "Output", "provisioning");
 		if (provisioning && plist_get_node_type(provisioning) == PLIST_DICT) {
 			char* sval = NULL;
 			node = plist_dict_get_item(provisioning, "IMEI");
@@ -903,7 +1004,7 @@ static void restore_asr_progress_cb(double progress, void* userdata)
 	}
 }
 
-int restore_send_filesystem(struct idevicerestore_client_t* client)
+int restore_send_filesystem(struct idevicerestore_client_t* client, plist_t message)
 {
 	asr_client_t asr = NULL;
 	ipsw_archive_t ipsw_dummy = NULL;
@@ -936,7 +1037,11 @@ int restore_send_filesystem(struct idevicerestore_client_t* client)
 		free(fsname);
 	}
 
-	if (asr_open_with_timeout(client->restore->device, &asr) < 0) {
+	uint16_t asr_port = (uint16_t)plist_dict_get_uint(message, "DataPort");
+	if (asr_port == 0) {
+		asr_port = ASR_DEFAULT_PORT;
+	}
+	if (asr_open_with_timeout(client->restore->device, &asr, asr_port) < 0) {
 		ipsw_file_close(file);
 		ipsw_close(ipsw_dummy);
 		error("ERROR: Unable to connect to ASR\n");
@@ -944,7 +1049,9 @@ int restore_send_filesystem(struct idevicerestore_client_t* client)
 	}
 	info("Connected to ASR\n");
 
-	asr_set_progress_callback(asr, restore_asr_progress_cb, (void*)client);
+	if (asr_port == ASR_DEFAULT_PORT) {
+		asr_set_progress_callback(asr, restore_asr_progress_cb, (void*)client);
+	}
 
 	// this step sends requested chunks of data from various offsets to asr so
 	// it can validate the filesystem before installing it
@@ -977,7 +1084,7 @@ int restore_send_filesystem(struct idevicerestore_client_t* client)
 	return 0;
 }
 
-int restore_send_recovery_os_root_ticket(restored_client_t restore, struct idevicerestore_client_t* client)
+int restore_send_recovery_os_root_ticket(struct idevicerestore_client_t* client, plist_t message)
 {
 	restored_error_t restore_error;
 	plist_t dict;
@@ -1017,9 +1124,16 @@ int restore_send_recovery_os_root_ticket(restored_client_t restore, struct idevi
 		free(data);
 	}
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	info("Sending RecoveryOSRootTicket now...\n");
-	restore_error = restored_send(restore, dict);
+	restore_error = _restore_service_send(service, dict, 0);
 	plist_free(dict);
+	_restore_service_free(service);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send RootTicket (%d)\n", restore_error);
 		return -1;
@@ -1030,7 +1144,7 @@ int restore_send_recovery_os_root_ticket(restored_client_t restore, struct idevi
 }
 
 
-int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_client_t* client)
+int restore_send_root_ticket(struct idevicerestore_client_t* client, plist_t message)
 {
 	restored_error_t restore_error;
 	plist_t dict;
@@ -1070,9 +1184,16 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 		free(data);
 	}
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	info("Sending RootTicket now...\n");
-	restore_error = restored_send(restore, dict);
+	restore_error = _restore_service_send(service, dict, 0);
 	plist_free(dict);
+	_restore_service_free(service);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send RootTicket (%d)\n", restore_error);
 		return -1;
@@ -1082,7 +1203,246 @@ int restore_send_root_ticket(restored_client_t restore, struct idevicerestore_cl
 	return 0;
 }
 
-int restore_send_component(restored_client_t restore, struct idevicerestore_client_t* client, const char* component, const char* component_name)
+typedef struct {
+	int length;
+	char* content;
+} query_response;
+
+static size_t _curl_write_callback(char* data, size_t size, size_t nmemb, query_response* response)
+{
+	size_t total = size * nmemb;
+	if (total != 0) {
+		response->content = realloc(response->content, response->length + total + 1);
+		memcpy(response->content + response->length, data, total);
+		response->content[response->length + total] = '\0';
+		response->length += total;
+	}
+
+	return total;
+}
+
+static size_t _curl_header_callback(char* buffer, size_t size, size_t nitems, void* userdata)
+{
+	plist_t header_dict = (plist_t)userdata;
+	size_t len = nitems*size;
+	char* key = NULL;
+	char* val = NULL;
+	size_t i = 0;
+	while (i < len) {
+		if (buffer[i] == ':') {
+			key = malloc(i+1);
+			strncpy(key, buffer, i);
+			key[i] = '\0';
+			i++;
+			while (i < len && buffer[i] == ' ' || buffer[i] == '\t') i++;
+			val = malloc(len-i);
+			strncpy(val, buffer+i, len-i);
+			val[len-i] = '\0';
+			break;
+		}
+		i++;
+	}
+	if (key && val) {
+		plist_dict_set_item(header_dict, key, plist_new_string(val));
+	}
+	free(key);
+	free(val);
+	return len;
+}
+
+int restore_send_url_asset(struct idevicerestore_client_t* client, plist_t message)
+{
+	debug("DEBUG: %s\n", __func__);
+	plist_t arguments = plist_dict_get_item(message, "Arguments");
+	if (!PLIST_IS_DICT(arguments)) {
+		error("ERROR: %s: Unexpected arguments\n", __func__);
+		debug_plist(arguments);
+		return -1;
+	}
+
+	const char* request_method = plist_get_string_ptr(plist_dict_get_item(arguments, "RequestMethod"), NULL);
+	if (!request_method) {
+		error("ERROR: %s: Unable to extract RequestMethod from Arguments\n", __func__);
+		return -1;
+	}
+	if (strcmp(request_method, "GET")) {
+		error("ERROR: %s: Unexpected RequestMethod '%s' in message\n", __func__, request_method);
+		return -1;
+	}
+	const char* request_url = plist_get_string_ptr(plist_dict_get_item(arguments, "RequestURL"), NULL);
+	if (!request_url) {
+		error("ERROR: %s: Unable to extract RequestURL from Arguments\n", __func__);
+		return -1;
+	}
+	info("Requesting URLAsset from %s\n", request_url);
+
+	char curl_error_message[CURL_ERROR_SIZE];
+	CURL* handle = curl_easy_init();
+	/* disable SSL verification to allow download from untrusted https locations */
+	curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0);
+
+	query_response* response = malloc(sizeof(query_response));
+	if (response == NULL) {
+		error("ERROR: %s: Unable to allocate sufficient memory\n", __func__);
+		return -1;
+	}
+
+	response->length = 0;
+	response->content = malloc(1);
+	response->content[0] = '\0';
+
+	curl_easy_setopt(handle, CURLOPT_HTTPGET, 1L);
+	curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, curl_error_message);
+	curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, (curl_write_callback)&_curl_write_callback);
+	curl_easy_setopt(handle, CURLOPT_HEADERFUNCTION, &_curl_header_callback);
+	plist_t response_headers = plist_new_dict();
+	curl_easy_setopt(handle, CURLOPT_HEADERDATA, response_headers);
+	curl_easy_setopt(handle, CURLOPT_WRITEDATA, response);
+	if (idevicerestore_debug) {
+		curl_easy_setopt(handle, CURLOPT_VERBOSE, 1L);
+	}
+	curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1);
+	curl_easy_setopt(handle, CURLOPT_URL, request_url);
+	curl_easy_perform(handle);
+
+	long http_response = 0;
+	curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &http_response);
+
+	curl_easy_cleanup(handle);
+
+	plist_t dict = plist_new_dict();
+	plist_dict_set_item(dict, "ResponseBody", plist_new_data(response->content, response->length));
+	plist_dict_set_item(dict, "ResponseBodyDone", plist_new_bool(1));
+	plist_dict_set_item(dict, "ResponseHeaders", response_headers);
+	plist_dict_set_item(dict, "ResponseStatus", plist_new_uint(http_response));
+
+	free(response);
+
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
+	_restore_service_send(service, dict, PLIST_FORMAT_BINARY);
+	_restore_service_free(service);
+
+	return 0;
+}
+
+int restore_send_streamed_image_decryption_key(struct idevicerestore_client_t* client, plist_t message)
+{
+	debug("DEBUG: %s\n", __func__);
+	plist_t arguments = plist_dict_get_item(message, "Arguments");
+	if (!PLIST_IS_DICT(arguments)) {
+		error("ERROR: %s: Unexpected arguments\n", __func__);
+		debug_plist(arguments);
+		return -1;
+	}
+
+	const char* request_method = plist_get_string_ptr(plist_dict_get_item(arguments, "RequestMethod"), NULL);
+	if (!request_method) {
+		error("ERROR: %s: Unable to extract RequestMethod from Arguments\n", __func__);
+		return -1;
+	}
+	if (strcmp(request_method, "POST")) {
+		error("ERROR: %s: Unexpected RequestMethod '%s' in message\n", __func__, request_method);
+		return -1;
+	}
+	const char* request_url = plist_get_string_ptr(plist_dict_get_item(arguments, "RequestURL"), NULL);
+	if (!request_url) {
+		error("ERROR: %s: Unable to extract RequestURL from Arguments\n", __func__);
+		return -1;
+	}
+
+	struct curl_slist* header = NULL;
+
+	plist_t headers = plist_dict_get_item(arguments, "RequestAdditionalHeaders");
+	if (!headers) {
+		error("ERROR: %s: Missing 'RequestAdditionalHeaders'\n", __func__);
+		return -1;
+	}
+
+	uint64_t request_body_size = 0;
+	const char* request_body = plist_get_data_ptr(plist_dict_get_item(arguments, "RequestBody"), &request_body_size);
+	if (!request_body) {
+		error("ERROR: %s: Missing 'RequestBody'\n", __func__);
+		return -1;
+	}
+
+	info("Requesting image decryption key from %s\n", request_url);
+
+	char curl_error_message[CURL_ERROR_SIZE];
+	char header_tmp[1024];
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(headers, &iter);
+	plist_t node = NULL;
+	do {
+		char *key = NULL;
+		plist_dict_next_item(headers, iter, &key, &node);
+		if (!node) break;
+		snprintf(header_tmp, sizeof(header_tmp), "%s: %s", key, plist_get_string_ptr(node, NULL));
+		curl_slist_append(header, header_tmp);
+	} while (node);
+	plist_mem_free(iter);
+
+	CURL* handle = curl_easy_init();
+	/* disable SSL verification to allow download from untrusted https locations */
+	curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0);
+
+	query_response* response = malloc(sizeof(query_response));
+	if (response == NULL) {
+		error("ERROR: %s: Unable to allocate sufficient memory\n", __func__);
+		return -1;
+	}
+
+	response->length = 0;
+	response->content = malloc(1);
+	response->content[0] = '\0';
+
+	curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, curl_error_message);
+	curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, (curl_write_callback)&_curl_write_callback);
+	curl_easy_setopt(handle, CURLOPT_HEADERFUNCTION, &_curl_header_callback);
+	plist_t response_headers = plist_new_dict();
+	curl_easy_setopt(handle, CURLOPT_HEADERDATA, response_headers);
+	curl_easy_setopt(handle, CURLOPT_WRITEDATA, response);
+	curl_easy_setopt(handle, CURLOPT_HTTPHEADER, header);
+	curl_easy_setopt(handle, CURLOPT_POSTFIELDS, request_body);
+	curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, request_body_size);
+	if (idevicerestore_debug) {
+		curl_easy_setopt(handle, CURLOPT_VERBOSE, 1L);
+	}
+	curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1);
+	curl_easy_setopt(handle, CURLOPT_URL, request_url);
+	curl_easy_perform(handle);
+	curl_slist_free_all(header);
+
+	long http_response = 0;
+	curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &http_response);
+
+	curl_easy_cleanup(handle);
+
+	plist_t dict = plist_new_dict();
+	plist_dict_set_item(dict, "ResponseBody", plist_new_data(response->content, response->length));
+	plist_dict_set_item(dict, "ResponseBodyDone", plist_new_bool(1));
+	plist_dict_set_item(dict, "ResponseHeaders", response_headers);
+	plist_dict_set_item(dict, "ResponseStatus", plist_new_uint(http_response));
+
+	free(response);
+
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
+	_restore_service_send(service, dict, PLIST_FORMAT_BINARY);
+	_restore_service_free(service);
+
+	return 0;
+}
+
+int restore_send_component(struct idevicerestore_client_t* client, plist_t message, const char* component, const char* component_name)
 {
 	unsigned int size = 0;
 	unsigned char* data = NULL;
@@ -1139,9 +1499,16 @@ int restore_send_component(restored_client_t restore, struct idevicerestore_clie
 	plist_dict_set_item(dict, compkeyname, blob);
 	free(data);
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	info("Sending %s now...\n", component_name);
-	restore_error = restored_send(restore, dict);
+	restore_error = _restore_service_send(service, dict, 0);
 	plist_free(dict);
+	_restore_service_free(service);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send component %s data\n", component_name);
 		return -1;
@@ -1151,7 +1518,7 @@ int restore_send_component(restored_client_t restore, struct idevicerestore_clie
 	return 0;
 }
 
-int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message)
+int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 {
 	char* llb_path = NULL;
 	char* llb_filename = NULL;
@@ -1460,15 +1827,22 @@ int restore_send_nor(restored_client_t restore, struct idevicerestore_client_t* 
 	if (idevicerestore_debug)
 		debug_plist(dict);
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	info("Sending NORData now...\n");
-	if (restored_send(restore, dict) != RESTORE_E_SUCCESS) {
+	restored_error_t restore_error = _restore_service_send(service, dict, 0);
+	plist_free(dict);
+	_restore_service_free(service);
+	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send NORData\n");
-		plist_free(dict);
 		return -1;
 	}
 
 	info("Done sending NORData\n");
-	plist_free(dict);
 	return 0;
 }
 
@@ -1840,7 +2214,7 @@ leave:
 	return res;
 }
 
-static int restore_send_baseband_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message)
+static int restore_send_baseband_data(struct idevicerestore_client_t* client, plist_t message)
 {
 	int res = -1;
 	uint64_t bb_cert_id = 0;
@@ -1990,11 +2364,19 @@ static int restore_send_baseband_data(restored_client_t restore, struct idevicer
 	free(buffer);
 	buffer = NULL;
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	info("Sending BasebandData now...\n");
-	if (restored_send(restore, dict) != RESTORE_E_SUCCESS) {
+	if (_restore_service_send(service, dict, 0) != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send BasebandData data\n");
 		goto leave;
 	}
+
+	_restore_service_free(service);
 
 	info("Done sending BasebandData\n");
 	res = 0;
@@ -2011,7 +2393,7 @@ leave:
 	return res;
 }
 
-int restore_send_fdr_trust_data(restored_client_t restore)
+int restore_send_fdr_trust_data(struct idevicerestore_client_t* client, plist_t message)
 {
 	restored_error_t restore_error;
 	plist_t dict;
@@ -2023,9 +2405,16 @@ int restore_send_fdr_trust_data(restored_client_t restore)
 	 * and this is what iTunes seems to be doing too */
 	dict = plist_new_dict();
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	info("Sending FDR Trust data now...\n");
-	restore_error = restored_send(restore, dict);
+	restore_error = _restore_service_send(service, dict, 0);
 	plist_free(dict);
+	_restore_service_free(service);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: During sending FDR Trust data (%d)\n", restore_error);
 		return -1;
@@ -2036,7 +2425,7 @@ int restore_send_fdr_trust_data(restored_client_t restore)
 	return 0;
 }
 
-static int restore_send_image_data(restored_client_t restore, struct idevicerestore_client_t *client, plist_t message, const char *image_list_k, const char *image_type_k, const char *image_data_k)
+static int restore_send_image_data(struct idevicerestore_client_t *client, plist_t message, const char *image_list_k, const char *image_type_k, const char *image_data_k)
 {
 	restored_error_t restore_error;
 	plist_t arguments;
@@ -2140,6 +2529,12 @@ static int restore_send_image_data(restored_client_t restore, struct idevicerest
 		free(iter);
 	}
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	dict = plist_new_dict();
 	if (want_image_list) {
 		plist_dict_set_item(dict, image_list_k, matched_images);
@@ -2158,8 +2553,9 @@ static int restore_send_image_data(restored_client_t restore, struct idevicerest
 		}
 	}
 
-	restore_error = restored_send(restore, dict);
+	restore_error = _restore_service_send(service, dict, 0);
 	plist_free(dict);
+	_restore_service_free(service);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		if (want_image_list) {
 			error("ERROR: Failed to send %s image list (%d)\n", image_type_k, restore_error);
@@ -2185,7 +2581,7 @@ static int restore_send_image_data(restored_client_t restore, struct idevicerest
 	return 0;
 }
 
-static plist_t restore_get_se_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
+static plist_t restore_get_se_firmware_data(struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
 {
 	const char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2291,7 +2687,7 @@ static plist_t restore_get_se_firmware_data(restored_client_t restore, struct id
 	return response;
 }
 
-static plist_t restore_get_savage_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info)
+static plist_t restore_get_savage_firmware_data(struct idevicerestore_client_t* client, plist_t p_info)
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2387,7 +2783,7 @@ static plist_t restore_get_savage_firmware_data(restored_client_t restore, struc
 	return response;
 }
 
-static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info)
+static plist_t restore_get_yonkers_firmware_data(struct idevicerestore_client_t* client, plist_t p_info)
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2476,7 +2872,7 @@ static plist_t restore_get_yonkers_firmware_data(restored_client_t restore, stru
 	return response;
 }
 
-static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
+static plist_t restore_get_rose_firmware_data(struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
@@ -2628,7 +3024,7 @@ static plist_t restore_get_rose_firmware_data(restored_client_t restore, struct 
 	return response;
 }
 
-static plist_t restore_get_veridian_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info)
+static plist_t restore_get_veridian_firmware_data(struct idevicerestore_client_t* client, plist_t p_info)
 {
 	char *comp_name = "BMU,FirmwareMap";
 	char *comp_path = NULL;
@@ -2729,7 +3125,7 @@ static plist_t restore_get_veridian_firmware_data(restored_client_t restore, str
 	return response;
 }
 
-static plist_t restore_get_generic_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
+static plist_t restore_get_generic_firmware_data(struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
 {
 	plist_t request = NULL;
 	plist_t response = NULL;
@@ -2784,7 +3180,7 @@ static plist_t restore_get_generic_firmware_data(restored_client_t restore, stru
 	return response;
 }
 
-static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info)
+static plist_t restore_get_tcon_firmware_data(struct idevicerestore_client_t* client, plist_t p_info)
 {
 	char *comp_name = "Baobab,TCON";
 	char *comp_path = NULL;
@@ -2858,7 +3254,7 @@ static plist_t restore_get_tcon_firmware_data(restored_client_t restore, struct 
 	return response;
 }
 
-static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info)
+static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* client, plist_t p_info)
 {
 	char comp_name[64];
 	char *comp_path = NULL;
@@ -3048,7 +3444,7 @@ static plist_t restore_get_timer_firmware_data(restored_client_t restore, struct
 	return response;
 }
 
-static plist_t restore_get_cryptex1_firmware_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
+static plist_t restore_get_cryptex1_firmware_data(struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
 {
 	plist_t parameters = NULL;
 	plist_t request = NULL;
@@ -3143,7 +3539,7 @@ static plist_t restore_get_cryptex1_firmware_data(restored_client_t restore, str
 	return response;
 }
 
-static int restore_send_firmware_updater_preflight(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message)
+static int restore_send_firmware_updater_preflight(struct idevicerestore_client_t* client, plist_t message)
 {
 	plist_t dict = NULL;
 	int restore_error;
@@ -3153,11 +3549,18 @@ static int restore_send_firmware_updater_preflight(restored_client_t restore, st
 		debug_plist(message);
 	}
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	dict = plist_new_dict();
 
 	info("Sending FirmwareResponsePreflight now...\n");
-	restore_error = restored_send(restore, dict);
+	restore_error = _restore_service_send(service, dict, 0);
 	plist_free(dict);
+	_restore_service_free(service);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Couldn't send FirmwareResponsePreflight data (%d)\n", restore_error);
 		return -1;
@@ -3167,7 +3570,7 @@ static int restore_send_firmware_updater_preflight(restored_client_t restore, st
 	return 0;
 }
 
-static int restore_send_firmware_updater_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message)
+static int restore_send_firmware_updater_data(struct idevicerestore_client_t* client, plist_t message)
 {
 	plist_t arguments;
 	plist_t p_type, p_updater_name, p_loop_count, p_info;
@@ -3229,7 +3632,7 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 	plist_get_string_val(p_updater_name, &s_updater_name);
 
 	if (strcmp(s_updater_name, "SE") == 0) {
-		fwdict = restore_get_se_firmware_data(restore, client, p_info, arguments);
+		fwdict = restore_get_se_firmware_data(client, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get SE firmware data\n", __func__);
 			goto error_out;
@@ -3239,59 +3642,59 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 		plist_t p_info2 = plist_dict_get_item(p_info, "YonkersDeviceInfo");
 		if (p_info2 && plist_get_node_type(p_info2) == PLIST_DICT) {
 			fwtype = "Yonkers";
-			fwdict = restore_get_yonkers_firmware_data(restore, client, p_info2);
+			fwdict = restore_get_yonkers_firmware_data(client, p_info2);
 		} else {
-			fwdict = restore_get_savage_firmware_data(restore, client, p_info);
+			fwdict = restore_get_savage_firmware_data(client, p_info);
 		}
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, fwtype);
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "Rose") == 0) {
-		fwdict = restore_get_rose_firmware_data(restore, client, p_info, arguments);
+		fwdict = restore_get_rose_firmware_data(client, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get Rose firmware data\n", __func__);
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "T200") == 0) {
-		fwdict = restore_get_veridian_firmware_data(restore, client, p_info);
+		fwdict = restore_get_veridian_firmware_data(client, p_info);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get Veridian firmware data\n", __func__);
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "AppleTCON") == 0) {
-		fwdict = restore_get_tcon_firmware_data(restore, client, p_info);
+		fwdict = restore_get_tcon_firmware_data(client, p_info);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get AppleTCON firmware data\n", __func__);
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "PS190") == 0) {
-		fwdict = restore_get_generic_firmware_data(restore, client, p_info, arguments);
+		fwdict = restore_get_generic_firmware_data(client, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get PCON1 firmware data\n", __func__);
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "AppleTypeCRetimer") == 0) {
-		fwdict = restore_get_timer_firmware_data(restore, client, p_info);
+		fwdict = restore_get_timer_firmware_data(client, p_info);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get AppleTypeCRetimer firmware data\n", __func__);
 			goto error_out;
 		}
 	} else if ((strcmp(s_updater_name, "Cryptex1") == 0) || (strcmp(s_updater_name, "Cryptex1LocalPolicy") == 0)) {
-		fwdict = restore_get_cryptex1_firmware_data(restore, client, p_info, arguments);
+		fwdict = restore_get_cryptex1_firmware_data(client, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, s_updater_name);
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "Ace3") == 0) {
-		fwdict = restore_get_generic_firmware_data(restore, client, p_info, arguments);
+		fwdict = restore_get_generic_firmware_data(client, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, s_updater_name);
 			goto error_out;
 		}
 	} else {
 		error("ERROR: %s: Got unknown updater name '%s', trying to discover from device generated request.\n", __func__, s_updater_name);
-		fwdict = restore_get_generic_firmware_data(restore, client, p_info, arguments);
+		fwdict = restore_get_generic_firmware_data(client, p_info, arguments);
 		if (fwdict == NULL) {
 			error("ERROR: %s: Couldn't get %s firmware data\n", __func__, s_updater_name);
 			goto error_out;
@@ -3300,12 +3703,19 @@ static int restore_send_firmware_updater_data(restored_client_t restore, struct 
 	free(s_updater_name);
 	s_updater_name = NULL;
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	dict = plist_new_dict();
 	plist_dict_set_item(dict, "FirmwareResponseData", fwdict);
 
 	info("Sending FirmwareResponse data now...\n");
-	restore_error = restored_send(restore, dict);
+	restore_error = _restore_service_send(service, dict, 0);
 	plist_free(dict);
+	_restore_service_free(service);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Couldn't send FirmwareResponse data (%d)\n", restore_error);
 		goto error_out;
@@ -3322,7 +3732,7 @@ error_out:
 	return -1;
 }
 
-static int restore_send_receipt_manifest(restored_client_t restore, struct idevicerestore_client_t* client)
+static int restore_send_receipt_manifest(struct idevicerestore_client_t* client, plist_t message)
 {
 	plist_t dict;
 	int restore_error;
@@ -3338,12 +3748,19 @@ static int restore_send_receipt_manifest(restored_client_t restore, struct idevi
 		goto error_out;
 	}
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	dict = plist_new_dict();
 	plist_dict_set_item(dict, "ReceiptManifest", plist_copy(manifest));
 
 	info("Sending ReceiptManifest data now...\n");
-	restore_error = restored_send(restore, dict);
+	restore_error = _restore_service_send(service, dict, 0);
 	plist_free(dict);
+	_restore_service_free(service);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Couldn't send ReceiptManifest data (%d)\n", restore_error);
 		goto error_out;
@@ -3460,7 +3877,7 @@ static int restore_bootability_send_one(void *ctx, ipsw_archive_t ipsw, const ch
 	return ret;
 }
 
-static int restore_send_bootability_bundle_data(restored_client_t restore, struct idevicerestore_client_t* client, plist_t message)
+static int restore_send_bootability_bundle_data(struct idevicerestore_client_t* client, plist_t message)
 {
 	if (idevicerestore_debug) {
 		debug("DEBUG: %s: Got BootabilityBundle request:\n", __func__);
@@ -3528,16 +3945,16 @@ plist_t restore_get_build_identity(struct idevicerestore_client_t* client, uint8
 
 	plist_t unique_id_node = plist_dict_get_item(client->build_manifest, "UniqueBuildID");
 	if (unique_id_node) {
-		printf("UniqueBuildID: ");
+		info("UniqueBuildID: ");
 		plist_write_to_stream(unique_id_node, stdout, PLIST_FORMAT_PRINT, PLIST_OPT_NONE);
 	}
 
 	return build_identity;
 }
 
-plist_t restore_get_build_identity_from_request(struct idevicerestore_client_t* client, plist_t msg)
+plist_t restore_get_build_identity_from_request(struct idevicerestore_client_t* client, plist_t message)
 {
-	plist_t args = plist_dict_get_item(msg, "Arguments");
+	plist_t args = plist_dict_get_item(message, "Arguments");
 	return restore_get_build_identity(client, plist_dict_get_bool(args, "IsRecoveryOS"));
 }
 
@@ -3617,7 +4034,7 @@ int extract_global_manifest(struct idevicerestore_client_t* client, plist_t buil
 
 struct _restore_send_file_data_ctx {
 	struct idevicerestore_client_t* client;
-	restored_client_t restore;
+	restore_service_client_t service;
 	int last_progress;
 };
 
@@ -3631,13 +4048,22 @@ static int _restore_send_file_data(struct _restore_send_file_data_ctx* rctx, voi
 		// Send FileDataDone to mark end of transfer
 		plist_dict_set_item(dict, "FileDataDone", plist_new_bool(1));
 	}
-	restored_error_t restore_error = restored_send(rctx->restore, dict);
+	restored_error_t restore_error = _restore_service_send(rctx->service, dict, 0);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		plist_free(dict);
 		error("ERROR: %s: Failed to send data (%d)\n", __func__, restore_error);
 		return -1;
 	}
 	plist_free(dict);
+
+	/* special handling for AEA image format */
+	if (done == 0 && (memcmp(data, "AEA1", 4) == 0)) {
+		info("Encountered First Chunk in AEA image\n");
+		plist_t message = NULL;
+		_restore_service_recv(rctx->service, &message);
+		restore_send_url_asset(rctx->client, message);
+	}
+
 	if (total_size > 0x1000000) {
 		double progress = (double)done / (double)total_size;
 		int progress_int = (int)(progress*100.0);
@@ -3649,15 +4075,15 @@ static int _restore_send_file_data(struct _restore_send_file_data_ctx* rctx, voi
 	return 0;
 }
 
-int restore_send_personalized_boot_object_v3(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg)
+int restore_send_personalized_boot_object_v3(struct idevicerestore_client_t* client, plist_t message)
 {
 	if (idevicerestore_debug) {
 		debug("DEBUG: %s: Got PersonalizedBootObjectV3 request:\n", __func__);
-		debug_plist(msg);
+		debug_plist(message);
 	}
 
 	char *image_name = NULL;
-	plist_t node = plist_access_path(msg, 2, "Arguments", "ImageName");
+	plist_t node = plist_access_path(message, 2, "Arguments", "ImageName");
 	if (!node || plist_get_node_type(node) != PLIST_STRING) {
 		debug("Failed to parse arguments from PersonalizedBootObjectV3 plist\n");
 		return -1;
@@ -3703,7 +4129,7 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 			}
 		}
 		if (!path) {
-			plist_t build_identity = restore_get_build_identity_from_request(client, msg);
+			plist_t build_identity = restore_get_build_identity_from_request(client, message);
 			if (!build_identity) {
 				error("ERROR: Unable to find a matching build identity\n");
 				return -1;
@@ -3735,11 +4161,17 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 		}
 	}
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	info("Sending %s now (%" PRIu64 " bytes)...\n", component, (uint64_t)size);
 
 	struct _restore_send_file_data_ctx rctx;
 	rctx.client = client;
-	rctx.restore = restore;
+	rctx.service = service;
 	rctx.last_progress = 0;
 
 	int64_t i = size;
@@ -3747,6 +4179,7 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 		int blob_size = i > 8192 ? 8192 : i;
 		if (_restore_send_file_data(&rctx, (data + size - i), blob_size, size-i, size) < 0) {
 			free(data);
+			_restore_service_free(service);
 			error("ERROR: Unable to send component %s data\n", component);
 			return -1;
 		}
@@ -3756,19 +4189,21 @@ int restore_send_personalized_boot_object_v3(restored_client_t restore, struct i
 
 	_restore_send_file_data(&rctx, NULL, 0, size-i, size);
 
+	_restore_service_free(service);
+
 	info("Done sending %s\n", component);
 	return 0;
 }
 
-int restore_send_source_boot_object_v4(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg)
+int restore_send_source_boot_object_v4(struct idevicerestore_client_t* client, plist_t message)
 {
 	if (idevicerestore_debug) {
 		debug("DEBUG: %s: Got SourceBootObjectV4 request:\n", __func__);
-		debug_plist(msg);
+		debug_plist(message);
 	}
 
 	char *image_name = NULL;
-	plist_t node = plist_access_path(msg, 2, "Arguments", "ImageName");
+	plist_t node = plist_access_path(message, 2, "Arguments", "ImageName");
 	if (!node || plist_get_node_type(node) != PLIST_STRING) {
 		debug("Failed to parse arguments from SourceBootObjectV4 plist\n");
 		return -1;
@@ -3793,7 +4228,7 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 
 	if (strcmp(image_name, "__GlobalManifest__") == 0) {
 		char *variant = NULL;
-		plist_t node = plist_access_path(msg, 2, "Arguments", "Variant");
+		plist_t node = plist_access_path(message, 2, "Arguments", "Variant");
 		if (!node || plist_get_node_type(node) != PLIST_STRING) {
 			debug("Failed to parse arguments from SourceBootObjectV4 plist\n");
 			return -1;
@@ -3817,7 +4252,7 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 			}
 		}
 		if (!path) {
-			plist_t build_identity = restore_get_build_identity_from_request(client, msg);
+			plist_t build_identity = restore_get_build_identity_from_request(client, message);
 			if (build_identity_get_component_path(build_identity, component, &path) < 0) {
 				error("ERROR: Unable to find %s path from build identity\n", component);
 				return -1;
@@ -3833,25 +4268,34 @@ int restore_send_source_boot_object_v4(restored_client_t restore, struct idevice
 	uint64_t fsize = 0;
 	ipsw_get_file_size(client->ipsw, path, &fsize);
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	info("Sending %s now (%" PRIu64 " bytes)\n", component, fsize);
 
 	struct _restore_send_file_data_ctx rctx;
 	rctx.client = client;
-	rctx.restore = restore;
+	rctx.service = service;
 	rctx.last_progress = 0;
 
 	if (ipsw_extract_send(client->ipsw, path, 8192, (ipsw_send_cb)_restore_send_file_data, &rctx) < 0) {
 		free(path);
+		_restore_service_free(service);
 		error("ERROR: Failed to send component %s\n", component);
 		return -1;
 	}
 	free(path);
 
+	_restore_service_free(service);
+
 	info("Done sending %s\n", component);
 	return 0;
 }
 
-int restore_send_restore_local_policy(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg)
+int restore_send_restore_local_policy(struct idevicerestore_client_t* client, plist_t message)
 {
 	unsigned int size = 0;
 	unsigned char* data = NULL;
@@ -3868,7 +4312,7 @@ int restore_send_restore_local_policy(restored_client_t restore, struct idevicer
 	// The Update mode does not have a specific build identity for the recovery os.
 	plist_t build_identity = restore_get_build_identity(client, client->flags & FLAG_ERASE ? 1 : 0);
 
-	int ret = get_recovery_os_local_policy_tss_response(client, build_identity, &client->tss_localpolicy, plist_dict_get_item(msg, "Arguments"));
+	int ret = get_recovery_os_local_policy_tss_response(client, build_identity, &client->tss_localpolicy, plist_dict_get_item(message, "Arguments"));
 	if (ret < 0) {
 		error("ERROR: Unable to get recovery os local policy tss response\n");
 		return -1;
@@ -3885,7 +4329,15 @@ int restore_send_restore_local_policy(restored_client_t restore, struct idevicer
 	plist_t dict = plist_new_dict();
 	plist_dict_set_item(dict, "Ap,LocalPolicy", plist_new_data((char*)data, size));
 
-	int restore_error = restored_send(restore, dict);
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
+	int restore_error = 0;
+	restore_error = _restore_service_send(service, dict, 0);
+	_restore_service_free(service);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send component %s data\n", component);
 		return -1;
@@ -3897,19 +4349,25 @@ int restore_send_restore_local_policy(restored_client_t restore, struct idevicer
 	return 0;
 }
 
-int restore_send_buildidentity(restored_client_t restore, struct idevicerestore_client_t* client, plist_t msg)
+int restore_send_buildidentity(struct idevicerestore_client_t* client, plist_t message)
 {
 	restored_error_t restore_error;
 	plist_t dict;
 
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
 	info("About to send BuildIdentity Dict...\n");
 
-	plist_t build_identity = restore_get_build_identity_from_request(client, msg);
+	plist_t build_identity = restore_get_build_identity_from_request(client, message);
 
 	dict = plist_new_dict();
 	plist_dict_set_item(dict, "BuildIdentityDict", plist_copy(build_identity));
 
-	plist_t node = plist_access_path(msg, 2, "Arguments", "Variant");
+	plist_t node = plist_access_path(message, 2, "Arguments", "Variant");
 	if(node) {
 		plist_dict_set_item(dict, "Variant", plist_copy(node));
 	} else {
@@ -3917,7 +4375,8 @@ int restore_send_buildidentity(restored_client_t restore, struct idevicerestore_
 	}
 
 	info("Sending BuildIdentityDict now...\n");
-	restore_error = restored_send(restore, dict);
+	restore_error = _restore_service_send(service, dict, 0);
+	_restore_service_free(service);
 	plist_free(dict);
 	if (restore_error != RESTORE_E_SUCCESS) {
 		error("ERROR: Unable to send BuildIdentityDict (%d)\n", restore_error);
@@ -3928,7 +4387,7 @@ int restore_send_buildidentity(restored_client_t restore, struct idevicerestore_
 	return 0;
 }
 
-int restore_handle_data_request_msg(struct idevicerestore_client_t* client, restored_client_t restore, plist_t message)
+int restore_handle_data_request_msg(struct idevicerestore_client_t* client, plist_t message)
 {
 	plist_t node = NULL;
 
@@ -3937,38 +4396,38 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, rest
 	node = plist_dict_get_item(message, "DataType");
 	if (node && PLIST_STRING == plist_get_node_type(node)) {
 		const char *type = plist_get_string_ptr(node, NULL);
-
+debug("%s: type = %s\n", __func__, type);
 		// this request is sent when restored is ready to receive the filesystem
 		if (!strcmp(type, "SystemImageData")) {
-			if(restore_send_filesystem(client) < 0) {
+			if (restore_send_filesystem(client, message) < 0) {
 				error("ERROR: Unable to send filesystem\n");
 				return -2;
 			}
 		}
 
 		else if (!strcmp(type, "BuildIdentityDict")) {
-			if (restore_send_buildidentity(restore, client, message) < 0) {
+			if (restore_send_buildidentity(client, message) < 0) {
 				error("ERROR: Unable to send RootTicket\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "PersonalizedBootObjectV3")) {
-			if (restore_send_personalized_boot_object_v3(restore, client, message) < 0) {
+			if (restore_send_personalized_boot_object_v3(client, message) < 0) {
 				error("ERROR: Unable to send PersonalizedBootObjectV3\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "SourceBootObjectV4")) {
-			if (restore_send_source_boot_object_v4(restore, client, message) < 0) {
+			if (restore_send_source_boot_object_v4(client, message) < 0) {
 				error("ERROR: Unable to send SourceBootObjectV4\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "RecoveryOSLocalPolicy")) {
-			if (restore_send_restore_local_policy(restore, client, message) < 0) {
+			if (restore_send_restore_local_policy(client, message) < 0) {
 				error("ERROR: Unable to send RecoveryOSLocalPolicy\n");
 				return -1;
 			}
@@ -3976,7 +4435,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, rest
 
 		// this request is sent when restored is ready to receive the filesystem
 		else if (!strcmp(type, "RecoveryOSASRImage")) {
-			if(restore_send_filesystem(client) < 0) {
+			if (restore_send_filesystem(client, message) < 0) {
 				error("ERROR: Unable to send filesystem\n");
 				return -2;
 			}
@@ -3984,7 +4443,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, rest
 
 		// Send RecoveryOS RTD
 		else if(!strcmp(type, "RecoveryOSRootTicketData")) {
-			if (restore_send_recovery_os_root_ticket(restore, client) < 0) {
+			if (restore_send_recovery_os_root_ticket(client, message) < 0) {
 				error("ERROR: Unable to send RootTicket\n");
 				return -1;
 			}
@@ -3992,35 +4451,35 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, rest
 
 		// send RootTicket (== APTicket from the TSS request)
 		else if (!strcmp(type, "RootTicket")) {
-			if (restore_send_root_ticket(restore, client) < 0) {
+			if (restore_send_root_ticket(client, message) < 0) {
 				error("ERROR: Unable to send RootTicket\n");
 				return -1;
 			}
 		}
 		// send KernelCache
 		else if (!strcmp(type, "KernelCache")) {
-			if (restore_send_component(restore, client, "KernelCache", NULL) < 0) {
+			if (restore_send_component(client, message, "KernelCache", NULL) < 0) {
 				error("ERROR: Unable to send kernelcache\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "DeviceTree")) {
-			if (restore_send_component(restore, client, "DeviceTree", NULL) < 0) {
+			if (restore_send_component(client, message, "DeviceTree", NULL) < 0) {
 				error("ERROR: Unable to send DeviceTree\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "SystemImageRootHash")) {
-			if (restore_send_component(restore, client, "SystemVolume", type) < 0) {
+			if (restore_send_component(client, message, "SystemVolume", type) < 0) {
 				error("ERROR: Unable to send SystemImageRootHash data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "SystemImageCanonicalMetadata")) {
-			if (restore_send_component(restore, client, "Ap,SystemVolumeCanonicalMetadata", type) < 0) {
+			if (restore_send_component(client, message, "Ap,SystemVolumeCanonicalMetadata", type) < 0) {
 				error("ERROR: Unable to send SystemImageCanonicalMetadata data\n");
 				return -1;
 			}
@@ -4028,7 +4487,7 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, rest
 
 		else if (!strcmp(type, "NORData")) {
 			if((client->flags & FLAG_EXCLUDE) == 0) {
-				if(restore_send_nor(restore, client, message) < 0) {
+				if(restore_send_nor(client, message) < 0) {
 					error("ERROR: Unable to send NOR data\n");
 					return -1;
 				}
@@ -4039,71 +4498,85 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, rest
 		}
 
 		else if (!strcmp(type, "BasebandData")) {
-			if(restore_send_baseband_data(restore, client, message) < 0) {
+			if(restore_send_baseband_data(client, message) < 0) {
 				error("ERROR: Unable to send baseband data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "FDRTrustData")) {
-			if(restore_send_fdr_trust_data(restore) < 0) {
+			if(restore_send_fdr_trust_data(client, message) < 0) {
 				error("ERROR: Unable to send FDR Trust data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "FUDData")) {
-			if(restore_send_image_data(restore, client, message, "FUDImageList", "IsFUDFirmware", "FUDImageData") < 0) {
+			if(restore_send_image_data(client, message, "FUDImageList", "IsFUDFirmware", "FUDImageData") < 0) {
 				error("ERROR: Unable to send FUD data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "FirmwareUpdaterPreflight")) {
-			if(restore_send_firmware_updater_preflight(restore, client, message) < 0) {
+			if(restore_send_firmware_updater_preflight(client, message) < 0) {
 				error("ERROR: Unable to send FirmwareUpdaterPreflight\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "FirmwareUpdaterData")) {
-			if(restore_send_firmware_updater_data(restore, client, message) < 0) {
+			if(restore_send_firmware_updater_data(client, message) < 0) {
 				error("ERROR: Unable to send FirmwareUpdater data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "PersonalizedData")) {
-			if(restore_send_image_data(restore, client, message, "ImageList", NULL, "ImageData") < 0) {
+			if(restore_send_image_data(client, message, "ImageList", NULL, "ImageData") < 0) {
 				error("ERROR: Unable to send Personalized data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "EANData")) {
-			if(restore_send_image_data(restore, client, message, "EANImageList", "IsEarlyAccessFirmware", "EANData") < 0) {
+			if(restore_send_image_data(client, message, "EANImageList", "IsEarlyAccessFirmware", "EANData") < 0) {
 				error("ERROR: Unable to send Personalized data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "BootabilityBundle")) {
-			if (restore_send_bootability_bundle_data(restore, client, message) < 0) {
+			if (restore_send_bootability_bundle_data(client, message) < 0) {
 				error("ERROR: Unable to send BootabilityBundle data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "ReceiptManifest")) {
-			if (restore_send_receipt_manifest(restore, client) < 0) {
+			if (restore_send_receipt_manifest(client, message) < 0) {
 				error("ERROR: Unable to send ReceiptManifest data\n");
 				return -1;
 			}
 		}
 
 		else if (!strcmp(type, "BasebandUpdaterOutputData")) {
-			if (restore_handle_baseband_updater_output_data(restore, client, message) < 0) {
+			if (restore_handle_baseband_updater_output_data(client, message) < 0) {
 				error("ERROR: Unable to send BasebandUpdaterOutputData data\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "URLAsset")) {
+			if (restore_send_url_asset(client, message) < 0) {
+				error("ERROR: Unable to send URLAsset data\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "StreamedImageDecryptionKey")) {
+			if (restore_send_streamed_image_decryption_key(client, message) < 0) {
+				error("ERROR: Unable to send StreamedImageDecryptionKey data\n");
 				return -1;
 			}
 		}
@@ -4114,6 +4587,70 @@ int restore_handle_data_request_msg(struct idevicerestore_client_t* client, rest
 			if (idevicerestore_debug)
 				debug_plist(message);
 		}
+	}
+	return 0;
+}
+
+struct _restore_async_args {
+	struct idevicerestore_client_t* client;
+	plist_t message;
+};
+
+static void* _restore_handle_async_data_request(void* args)
+{
+	struct _restore_async_args* async_args = (struct _restore_async_args*)args;
+	struct idevicerestore_client_t* client = async_args->client;
+	plist_t message = async_args->message;
+	free(async_args);
+
+	int err = restore_handle_data_request_msg(client, message);
+	if (err < 0) {
+		client->async_err = err;
+		client->flags |= FLAG_QUIT;
+	}
+
+	plist_free(message);
+	return NULL;
+}
+
+static int restore_handle_restored_crash(struct idevicerestore_client_t* client, plist_t message)
+{
+	plist_t backtrace = plist_dict_get_item(message, "RestoredBacktrace");
+	info("*** restored crashed, backtrace following ***");
+	if (PLIST_IS_STRING(backtrace)) {
+		info("%s\n", plist_get_string_ptr(backtrace, NULL));
+	} else if (PLIST_IS_ARRAY(backtrace)) {
+		uint32_t i = 0;
+		for (i = 0; i < plist_array_get_size(backtrace); i++) {
+			plist_t line = plist_array_get_item(backtrace, i);
+			info("\t%s\n", plist_get_string_ptr(line, NULL));
+		}
+	} else {
+		debug_plist(message);
+	}
+	return 0;
+}
+
+static int restore_handle_async_wait(struct idevicerestore_client_t* client, plist_t message)
+{
+	debug("AsyncWait\n");
+	if (idevicerestore_debug)
+		debug_plist(message);
+	return 0;
+}
+
+static int restore_handle_restore_attestation(struct idevicerestore_client_t* client, plist_t message)
+{
+	if (idevicerestore_debug)
+		debug_plist(message);
+	debug("Sending RestoreShouldAttest: false\n");
+	plist_t dict = plist_new_dict();
+	plist_dict_set_item(dict, "RestoreShouldAttest", plist_new_bool(0));
+	restored_error_t restore_error = restored_send(client->restore->client, dict);
+	plist_free(dict);	
+	if (restore_error != RESTORE_E_SUCCESS) {
+		error("ERROR: Unable to send RestoreShouldAttest (%d)\n", restore_error);
+		return -1;
 	}
 	return 0;
 }
@@ -4184,6 +4721,10 @@ plist_t restore_supported_data_types()
 	plist_dict_set_item(dict, "RestoreLocalPolicy", plist_new_bool(1));
 	plist_dict_set_item(dict, "AuthInstallCACert", plist_new_bool(1));
 	plist_dict_set_item(dict, "OverlayRootDataForKeyIndex", plist_new_bool(1));
+	plist_dict_set_item(dict, "FirmwareUpdaterDataV3", plist_new_bool(1));
+	plist_dict_set_item(dict, "MessageUseStreamedImageFile", plist_new_bool(1));
+	plist_dict_set_item(dict, "UpdateVolumeOverlayRootDataCount", plist_new_bool(1));
+	plist_dict_set_item(dict, "URLAsset", plist_new_bool(1));
 	return dict;
 }
 
@@ -4204,6 +4745,9 @@ plist_t restore_supported_message_types()
 	plist_dict_set_item(dict, "ReceivedFinalStatusMsg", plist_new_bool(0));
 	plist_dict_set_item(dict, "RestoredCrash", plist_new_bool(1));
 	plist_dict_set_item(dict, "StatusMsg", plist_new_bool(0));
+	plist_dict_set_item(dict, "AsyncDataRequestMsg", plist_new_bool(1));
+	plist_dict_set_item(dict, "AsyncWait", plist_new_bool(1));
+	plist_dict_set_item(dict, "RestoreAttestation", plist_new_bool(1));
 	return dict;
 }
 
@@ -4441,6 +4985,18 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// FIXME: does this have any effect actually?
 		plist_dict_set_item(opts, "UpdateBaseband", plist_new_bool(0));
 
+		// Added for iOS 18.0 beta 1
+		plist_dict_set_item(opts, "HostHasFixFor99053849", plist_new_bool(1));
+		plist_dict_set_item(opts, "SystemImageFormat", plist_new_string("AEAWrappedDiskImage"));
+		plist_dict_set_item(opts, "WaitForDeviceConnectionToFinishStateMachine", plist_new_bool(0));
+		plist_t async_data_types = plist_new_dict();
+		plist_dict_set_item(async_data_types, "BasebandData", plist_new_bool(0));
+		plist_dict_set_item(async_data_types, "RecoveryOSASRImage", plist_new_bool(0));
+		plist_dict_set_item(async_data_types, "StreamedImageDecryptionKey", plist_new_bool(0));
+		plist_dict_set_item(async_data_types, "SystemImageData", plist_new_bool(0));
+		plist_dict_set_item(async_data_types, "URLAsset", plist_new_bool(1));
+		plist_dict_set_item(opts, "SupportedAsyncDataTypes", async_data_types);
+
 		plist_t sep = plist_access_path(build_identity, 3, "Manifest", "SEP", "Info");
 		if (sep) {
 			node = plist_dict_get_item(sep, "RequiredCapacity");
@@ -4543,7 +5099,22 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// files sent to the server by the client. these data requests include
 		// SystemImageData, RootTicket, KernelCache, NORData and BasebandData requests
 		if (!strcmp(type, "DataRequestMsg")) {
-			err = restore_handle_data_request_msg(client, restore, message);
+			err = restore_handle_data_request_msg(client, message);
+		}
+
+		// async data request message
+		else if (!strcmp(type, "AsyncDataRequestMsg")) {
+			THREAD_T t = THREAD_T_NULL;
+			struct _restore_async_args* args = (struct _restore_async_args*)malloc(sizeof(struct _restore_async_args));
+			args->client = client;
+			args->message = plist_copy(message);
+			if (thread_new(&t, _restore_handle_async_data_request, args) < 0) {
+				free(args);
+				error("ERROR: Failed to start async data request handler thread!\n");
+				err = -1;
+			} else {
+				thread_detach(t);
+			}
 		}
 
 		// restore logs are available if a previous restore failed
@@ -4560,7 +5131,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// status messages usually indicate the current state of the restored
 		// process or often to signal an error has been encountered
 		else if (!strcmp(type, "StatusMsg")) {
-			err = restore_handle_status_msg(restore, message);
+			err = restore_handle_status_msg(client, message);
 			if (restore_finished) {
 				plist_t dict = plist_new_dict();
 				plist_dict_set_item(dict, "MsgType", plist_new_string("ReceivedFinalStatusMsg"));
@@ -4579,7 +5150,8 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			node = plist_dict_get_item(message, "CHECKPOINT_ID");
 			if (!node || plist_get_node_type(node) != PLIST_INT) {
 				debug("Failed to parse checkpoint id from checkpoint plist\n");
-				return -1;
+				err = -1;
+				break;
 			}
 			plist_get_uint_val(node, &ckpt_id);
 			// Get checkpoint_name
@@ -4589,7 +5161,8 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			node = plist_dict_get_item(message, "CHECKPOINT_RESULT");
 			if (!node || plist_get_node_type(node) != PLIST_INT) {
 				debug("Failed to parse checkpoint result from checkpoint plist\n");
-				return -1;
+				err = -1;
+				break;
 			}
 			plist_get_int_val(node, &ckpt_res);
 			// Get checkpoint complete
@@ -4615,12 +5188,26 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 
 		// baseband update message
 		else if (!strcmp(type, "BBUpdateStatusMsg")) {
-			err = restore_handle_bb_update_status_msg(restore, message);
+			err = restore_handle_bb_update_status_msg(client, message);
 		}
 
 		// baseband updater output data request
 		else if (!strcmp(type, "BasebandUpdaterOutputData")) {
-			err = restore_handle_baseband_updater_output_data(restore, client, message);
+			err = restore_handle_baseband_updater_output_data(client, message);
+		}
+
+		// handle restored crash, print backtrace
+		else if (!strcmp(type, "RestoredCrash")) {
+			err = restore_handle_restored_crash(client, message);
+		}
+
+		// handle async wait
+		else if (!strcmp(type, "AsyncWait")) {
+			err = restore_handle_async_wait(client, message);
+		}
+
+		else if (!strcmp(type, "RestoreAttestation")) {
+			err = restore_handle_restore_attestation(client, message);
 		}
 
 		// there might be some other message types i'm not aware of, but I think
@@ -4634,6 +5221,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		free(type);
 		plist_free(message);
 		message = NULL;
+	}
+	if (client->async_err != 0) {
+		err = client->async_err;
 	}
 
 #ifdef HAVE_REVERSE_PROXY

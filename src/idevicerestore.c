@@ -1514,10 +1514,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 	}
 
-	info("DONE\n");
-
 	if (result == 0) {
+		info("DONE\n");
 		idevicerestore_progress(client, RESTORE_NUM_STEPS-1, 1.0);
+	} else {
+		info("RESTORE FAILED\n");
 	}
 
 	if (build_identity_needs_free)

@@ -35,6 +35,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <ctype.h>
+#include <libimobiledevice-glue/thread.h>
 
 #ifdef WIN32
 #include <windows.h>
@@ -79,17 +80,31 @@ static int info_disabled = 0;
 static int error_disabled = 0;
 static int debug_disabled = 0;
 
+static mutex_t log_mutex;
+static thread_once_t init_once = THREAD_ONCE_INIT;
+
+static void _log_init(void)
+{
+	printf("******** _log_init ********\n");
+	mutex_init(&log_mutex);
+}
+
 void info(const char* format, ...)
 {
 	if (info_disabled) return;
+	thread_once(&init_once, _log_init);
+	mutex_lock(&log_mutex);
 	va_list vargs;
 	va_start(vargs, format);
 	vfprintf((info_stream) ? info_stream : stdout, format, vargs);
 	va_end(vargs);
+	mutex_unlock(&log_mutex);
 }
 
 void error(const char* format, ...)
 {
+	thread_once(&init_once, _log_init);
+	mutex_lock(&log_mutex);
 	va_list vargs, vargs2;
 	va_start(vargs, format);
 	va_copy(vargs2, vargs);
@@ -99,6 +114,7 @@ void error(const char* format, ...)
 		vfprintf((error_stream) ? error_stream : stderr, format, vargs2);
 	}
 	va_end(vargs2);
+	mutex_unlock(&log_mutex);
 }
 
 void debug(const char* format, ...)
@@ -107,10 +123,13 @@ void debug(const char* format, ...)
 	if (!idevicerestore_debug) {
 		return;
 	}
+	thread_once(&init_once, _log_init);
+	mutex_lock(&log_mutex);
 	va_list vargs;
 	va_start(vargs, format);
 	vfprintf((debug_stream) ? debug_stream : stderr, format, vargs);
 	va_end(vargs);
+	mutex_unlock(&log_mutex);
 }
 
 void idevicerestore_set_info_stream(FILE* strm)
@@ -227,9 +246,9 @@ void debug_plist(plist_t plist) {
 	char* data = NULL;
 	plist_to_xml(plist, &data, &size);
 	if (size <= MAX_PRINT_LEN)
-		info("%s:printing %i bytes plist:\n%s", __FILE__, size, data);
+		info("printing %i bytes plist:\n%s", size, data);
 	else
-		info("%s:supressed printing %i bytes plist...\n", __FILE__, size);
+		info("supressed printing %i bytes plist...\n", size);
 	free(data);
 }
 
@@ -239,13 +258,13 @@ void print_progress_bar(double progress) {
 	int i = 0;
 	if(progress < 0) return;
 	if(progress > 100) progress = 100;
-	info("\r[");
+	fprintf((info_stream) ? info_stream : stdout, "\r[");
 	for(i = 0; i < 50; i++) {
-		if(i < progress / 2) info("=");
-		else info(" ");
+		if(i < progress / 2) fprintf((info_stream) ? info_stream : stdout, "=");
+		else fprintf((info_stream) ? info_stream : stdout, " ");
 	}
-	info("] %5.1f%%", progress);
-	if(progress >= 100) info("\n");
+	fprintf((info_stream) ? info_stream : stdout, "] %5.1f%%", progress);
+	if(progress >= 100) fprintf((info_stream) ? info_stream : stdout, "\n");
 	fflush((info_stream) ? info_stream : stdout);
 #endif
 }
@@ -464,6 +483,8 @@ char *get_temp_filename(const char *prefix)
 
 void idevicerestore_progress(struct idevicerestore_client_t* client, int step, double progress)
 {
+	thread_once(&init_once, _log_init);
+	mutex_lock(&log_mutex);
 	if(client && client->progress_cb) {
 		client->progress_cb(step, progress, client->progress_cb_data);
 	} else {
@@ -472,6 +493,7 @@ void idevicerestore_progress(struct idevicerestore_client_t* client, int step, d
 			print_progress_bar(100.0 * progress);
 		}
 	}
+	mutex_unlock(&log_mutex);
 }
 
 #ifndef HAVE_STRSEP
