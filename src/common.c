@@ -85,7 +85,6 @@ static thread_once_t init_once = THREAD_ONCE_INIT;
 
 static void _log_init(void)
 {
-	printf("******** _log_init ********\n");
 	mutex_init(&log_mutex);
 }
 
