@@ -1235,7 +1235,7 @@ static size_t _curl_header_callback(char* buffer, size_t size, size_t nitems, vo
 			key[i] = '\0';
 			i++;
 			while (i < len && buffer[i] == ' ' || buffer[i] == '\t') i++;
-			val = malloc(len-i);
+			val = malloc(len-i+1);
 			strncpy(val, buffer+i, len-i);
 			val[len-i] = '\0';
 			break;
