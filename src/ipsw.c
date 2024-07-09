@@ -300,7 +300,7 @@ int ipsw_print_info(const char* path)
 ipsw_archive_t ipsw_open(const char* ipsw)
 {
 	int err = 0;
-	ipsw_archive_t archive = (ipsw_archive_t)malloc(sizeof(struct ipsw_archive));
+	ipsw_archive_t archive = (ipsw_archive_t)calloc(1, sizeof(struct ipsw_archive));
 	if (archive == NULL) {
 		error("ERROR: Out of memory\n");
 		return NULL;
@@ -312,14 +312,15 @@ ipsw_archive_t ipsw_open(const char* ipsw)
 		return NULL;
 	}
 	if (S_ISDIR(fst.st_mode)) {
-		archive->zip = NULL;
+		archive->zip = 0;
 	} else {
-		archive->zip = zip_open(ipsw, 0, &err);
-		if (archive->zip == NULL) {
+		struct zip *zip = zip_open(ipsw, 0, &err);
+		if (zip == NULL) {
 			error("ERROR: zip_open: %s: %d\n", ipsw, err);
 			free(archive);
 			return NULL;
 		}
+		archive->zip = 1;
 	}
 	archive->path = strdup(ipsw);
 	return (ipsw_archive_t)archive;
@@ -329,10 +330,6 @@ void ipsw_close(ipsw_archive_t ipsw)
 {
 	if (ipsw != NULL) {
 		free(ipsw->path);
-		if (ipsw->zip) {
-			zip_unchange_all(ipsw->zip);
-			zip_close(ipsw->zip);
-		}
 		free(ipsw);
 	}
 }
@@ -355,18 +352,30 @@ int ipsw_get_file_size(ipsw_archive_t ipsw, const char* infile, uint64_t* size)
 	}
 
 	if (ipsw->zip) {
-		int zindex = zip_name_locate(ipsw->zip, infile, 0);
+		int err = 0;
+		struct zip *zip = zip_open(ipsw->path, 0, &err);
+		if (zip == NULL) {
+			error("ERROR: zip_open: %s: %d\n", ipsw->path, err);
+			return -1;
+		}
+		int zindex = zip_name_locate(zip, infile, 0);
 		if (zindex < 0) {
 			error("ERROR: zip_name_locate: %s\n", infile);
+			zip_unchange_all(zip);
+			zip_close(zip);
 			return -1;
 		}
 
 		struct zip_stat zstat;
 		zip_stat_init(&zstat);
-		if (zip_stat_index(ipsw->zip, zindex, 0, &zstat) != 0) {
+		if (zip_stat_index(zip, zindex, 0, &zstat) != 0) {
 			error("ERROR: zip_stat_index: %s\n", infile);
+			zip_unchange_all(zip);
+			zip_close(zip);
 			return -1;
 		}
+		zip_unchange_all(zip);
+		zip_close(zip);
 
 		*size = zstat.size;
 	} else {
@@ -396,35 +405,52 @@ int ipsw_extract_to_file_with_progress(ipsw_archive_t ipsw, const char* infile, 
 	cancel_flag = 0;
 
 	if (ipsw->zip) {
-		int zindex = zip_name_locate(ipsw->zip, infile, 0);
+		int err = 0;
+		struct zip *zip = zip_open(ipsw->path, 0, &err);
+		if (zip == NULL) {
+			error("ERROR: zip_open: %s: %d\n", ipsw->path, err);
+			return -1;
+		}
+
+		int zindex = zip_name_locate(zip, infile, 0);
 		if (zindex < 0) {
+			zip_unchange_all(zip);
+			zip_close(zip);
 			error("ERROR: zip_name_locate: %s\n", infile);
 			return -1;
 		}
 
 		struct zip_stat zstat;
 		zip_stat_init(&zstat);
-		if (zip_stat_index(ipsw->zip, zindex, 0, &zstat) != 0) {
+		if (zip_stat_index(zip, zindex, 0, &zstat) != 0) {
+			zip_unchange_all(zip);
+			zip_close(zip);
 			error("ERROR: zip_stat_index: %s\n", infile);
 			return -1;
 		}
 
 		char* buffer = (char*) malloc(BUFSIZE);
 		if (buffer == NULL) {
+			zip_unchange_all(zip);
+			zip_close(zip);
 			error("ERROR: Unable to allocate memory\n");
 			return -1;
 		}
 
-		struct zip_file* zfile = zip_fopen_index(ipsw->zip, zindex, 0);
+		struct zip_file* zfile = zip_fopen_index(zip, zindex, 0);
 		if (zfile == NULL) {
+			zip_unchange_all(zip);
+			zip_close(zip);
 			error("ERROR: zip_fopen_index: %s\n", infile);
 			return -1;
 		}
 
 		FILE* fd = fopen(outfile, "wb");
 		if (fd == NULL) {
-			error("ERROR: Unable to open output file: %s\n", outfile);
 			zip_fclose(zfile);
+			zip_unchange_all(zip);
+			zip_close(zip);
+			error("ERROR: Unable to open output file: %s\n", outfile);
 			return -1;
 		}
 
@@ -439,7 +465,10 @@ int ipsw_extract_to_file_with_progress(ipsw_archive_t ipsw, const char* infile, 
 				size = i;
 			count = zip_fread(zfile, buffer, size);
 			if (count < 0) {
-				error("ERROR: zip_fread: %s\n", infile);
+				int zep = 0;
+				int sep = 0;
+				zip_file_error_get(zfile, &zep, &sep);
+				error("ERROR: zip_fread: %s %d %d\n", infile, zep, sep);
 				ret = -1;
 				break;
 			}
@@ -458,6 +487,8 @@ int ipsw_extract_to_file_with_progress(ipsw_archive_t ipsw, const char* infile, 
 		free(buffer);
 		fclose(fd);
 		zip_fclose(zfile);
+		zip_unchange_all(zip);
+		zip_close(zip);
 	} else {
 		char *filepath = build_path(ipsw->path, infile);
 		char actual_filepath[PATH_MAX+1];
@@ -558,7 +589,15 @@ int ipsw_file_exists(ipsw_archive_t ipsw, const char* infile)
 	}
 
 	if (ipsw->zip) {
-		int zindex = zip_name_locate(ipsw->zip, infile, 0);
+		int err = 0;
+		struct zip *zip = zip_open(ipsw->path, 0, &err);
+		if (zip == NULL) {
+			error("ERROR: zip_open: %s: %d\n", ipsw->path, err);
+			return 0;
+		}
+		int zindex = zip_name_locate(zip, infile, 0);
+		zip_unchange_all(zip);
+		zip_close(zip);
 		if (zindex < 0) {
 			return 0;
 		}
@@ -584,21 +623,34 @@ int ipsw_extract_to_memory(ipsw_archive_t ipsw, const char* infile, unsigned cha
 	}
 
 	if (ipsw->zip) {
-		int zindex = zip_name_locate(ipsw->zip, infile, 0);
+		int err = 0;
+		struct zip *zip = zip_open(ipsw->path, 0, &err);
+		if (zip == NULL) {
+			error("ERROR: zip_open: %s: %d\n", ipsw->path, err);
+			return -1;
+		}
+
+		int zindex = zip_name_locate(zip, infile, 0);
 		if (zindex < 0) {
+			zip_unchange_all(zip);
+			zip_close(zip);
 			debug("NOTE: zip_name_locate: '%s' not found in archive.\n", infile);
 			return -1;
 		}
 
 		struct zip_stat zstat;
 		zip_stat_init(&zstat);
-		if (zip_stat_index(ipsw->zip, zindex, 0, &zstat) != 0) {
+		if (zip_stat_index(zip, zindex, 0, &zstat) != 0) {
+			zip_unchange_all(zip);
+			zip_close(zip);
 			error("ERROR: zip_stat_index: %s\n", infile);
 			return -1;
 		}
 
-		struct zip_file* zfile = zip_fopen_index(ipsw->zip, zindex, 0);
+		struct zip_file* zfile = zip_fopen_index(zip, zindex, 0);
 		if (zfile == NULL) {
+			zip_unchange_all(zip);
+			zip_close(zip);
 			error("ERROR: zip_fopen_index: %s\n", infile);
 			return -1;
 		}
@@ -608,19 +660,29 @@ int ipsw_extract_to_memory(ipsw_archive_t ipsw, const char* infile, unsigned cha
 		if (buffer == NULL) {
 			error("ERROR: Out of memory\n");
 			zip_fclose(zfile);
+			zip_unchange_all(zip);
+			zip_close(zip);
 			return -1;
 		}
 
-		if (zip_fread(zfile, buffer, size) != size) {
-			error("ERROR: zip_fread: %s\n", infile);
-			zip_fclose(zfile);
+		zip_int64_t zr = zip_fread(zfile, buffer, size);
+		zip_fclose(zfile);
+		zip_unchange_all(zip);
+		zip_close(zip);
+		if (zr < 0) {
+			int zep = 0;
+			int sep = 0;
+			zip_file_error_get(zfile, &zep, &sep);
+			error("ERROR: zip_fread: %s %d %d\n", infile, zep, sep);
+			free(buffer);
+			return -1;
+		} else if (zr != size) {
+			error("ERROR: zip_fread: %s got only %lld of %zu\n", infile, zr, size);
 			free(buffer);
 			return -1;
 		}
 
 		buffer[size] = '\0';
-
-		zip_fclose(zfile);
 	} else {
 		char *filepath = build_path(ipsw->path, infile);
 		struct stat fst;
@@ -691,21 +753,34 @@ int ipsw_extract_send(ipsw_archive_t ipsw, const char* infile, int blocksize, ip
 	}
 
 	if (ipsw->zip) {
-		int zindex = zip_name_locate(ipsw->zip, infile, 0);
+		int err = 0;
+		struct zip *zip = zip_open(ipsw->path, 0, &err);
+		if (zip == NULL) {
+			error("ERROR: zip_open: %s: %d\n", ipsw->path, err);
+			return -1;
+		}
+
+		int zindex = zip_name_locate(zip, infile, 0);
 		if (zindex < 0) {
+			zip_unchange_all(zip);
+			zip_close(zip);
 			debug("NOTE: zip_name_locate: '%s' not found in archive.\n", infile);
 			return -1;
 		}
 
 		struct zip_stat zstat;
 		zip_stat_init(&zstat);
-		if (zip_stat_index(ipsw->zip, zindex, 0, &zstat) != 0) {
+		if (zip_stat_index(zip, zindex, 0, &zstat) != 0) {
+			zip_unchange_all(zip);
+			zip_close(zip);
 			error("ERROR: zip_stat_index: %s\n", infile);
 			return -1;
 		}
 
-		struct zip_file* zfile = zip_fopen_index(ipsw->zip, zindex, 0);
+		struct zip_file* zfile = zip_fopen_index(zip, zindex, 0);
 		if (zfile == NULL) {
+			zip_unchange_all(zip);
+			zip_close(zip);
 			error("ERROR: zip_fopen_index: %s\n", infile);
 			return -1;
 		}
@@ -713,8 +788,10 @@ int ipsw_extract_send(ipsw_archive_t ipsw, const char* infile, int blocksize, ip
 		total_size = zstat.size;
 		buffer = (unsigned char*) malloc(blocksize);
 		if (buffer == NULL) {
-			error("ERROR: Out of memory\n");
 			zip_fclose(zfile);
+			zip_unchange_all(zip);
+			zip_close(zip);
+			error("ERROR: Out of memory\n");
 			return -1;
 		}
 
@@ -736,6 +813,9 @@ int ipsw_extract_send(ipsw_archive_t ipsw, const char* infile, int blocksize, ip
 			done += zr;
 		}
 		free(buffer);
+		zip_fclose(zfile);
+		zip_unchange_all(zip);
+		zip_close(zip);
 	} else {
 		char *filepath = build_path(ipsw->path, infile);
 		struct stat fst;
@@ -918,7 +998,14 @@ int ipsw_list_contents(ipsw_archive_t ipsw, ipsw_list_cb cb, void *ctx)
 	}
 
 	if (ipsw->zip) {
-		int64_t entries = zip_get_num_entries(ipsw->zip, 0);
+		int err = 0;
+		struct zip *zip = zip_open(ipsw->path, 0, &err);
+		if (zip == NULL) {
+			error("ERROR: zip_open: %s: %d\n", ipsw->path, err);
+			return -1;
+		}
+
+		int64_t entries = zip_get_num_entries(zip, 0);
 		if (entries < 0) {
 			error("ERROR: zip_get_num_entries failed\n");
 			return -1;
@@ -928,7 +1015,7 @@ int ipsw_list_contents(ipsw_archive_t ipsw, ipsw_list_cb cb, void *ctx)
 			zip_stat_t stat;
 
 			zip_stat_init(&stat);
-			if (zip_stat_index(ipsw->zip, index, 0, &stat) < 0) {
+			if (zip_stat_index(zip, index, 0, &stat) < 0) {
 				error("ERROR: zip_stat_index failed for %s\n", stat.name);
 				ret = -1;
 				continue;
@@ -936,7 +1023,7 @@ int ipsw_list_contents(ipsw_archive_t ipsw, ipsw_list_cb cb, void *ctx)
 
 			uint8_t opsys;
 			uint32_t attributes;
-			if (zip_file_get_external_attributes(ipsw->zip, index, 0, &opsys, &attributes) < 0) {
+			if (zip_file_get_external_attributes(zip, index, 0, &opsys, &attributes) < 0) {
 				error("ERROR: zip_file_get_external_attributes failed for %s\n", stat.name);
 				ret = -1;
 				continue;
@@ -1300,23 +1387,35 @@ ipsw_file_handle_t ipsw_file_open(ipsw_archive_t ipsw, const char* path)
 {
 	ipsw_file_handle_t handle = (ipsw_file_handle_t)calloc(1, sizeof(struct ipsw_file_handle));
 	if (ipsw->zip) {
+		int err = 0;
+		struct zip *zip = zip_open(ipsw->path, 0, &err);
+		if (zip == NULL) {
+			error("ERROR: zip_open: %s: %d\n", ipsw->path, err);
+			return NULL;
+		}
+
 		zip_stat_t zst;
-		zip_int64_t zindex = zip_name_locate(ipsw->zip, path, 0);
+		zip_int64_t zindex = zip_name_locate(zip, path, 0);
 		if (zindex < 0) {
 			error("ERROR: zip_name_locate: %s not found\n", path);
+			zip_unchange_all(zip);
+			zip_close(zip);
 			free(handle);
 			return NULL;
 		}
-		handle->zfile = zip_fopen_index(ipsw->zip, zindex, 0);
+		handle->zfile = zip_fopen_index(zip, zindex, 0);
 		if (handle->zfile == NULL) {
 			error("ERROR: zip_fopen_index: %s could not be opened\n", path);
+			zip_unchange_all(zip);
+			zip_close(zip);
 			free(handle);
 			return NULL;
 		}
 		zip_stat_init(&zst);
-		zip_stat(ipsw->zip, path, 0, &zst);
+		zip_stat(zip, path, 0, &zst);
 		handle->size = zst.size;
 		handle->seekable = (zst.comp_method == ZIP_CM_STORE);
+		handle->zip = zip;
 	} else {
 		struct stat st;
 		char *filepath = build_path(ipsw->path, path);
@@ -1338,6 +1437,8 @@ void ipsw_file_close(ipsw_file_handle_t handle)
 {
 	if (handle && handle->zfile) {
 		zip_fclose(handle->zfile);
+		zip_unchange_all(handle->zip);
+		zip_close(handle->zip);
 	} else if (handle && handle->file) {
 		fclose(handle->file);
 	}

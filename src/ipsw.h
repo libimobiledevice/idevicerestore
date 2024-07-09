@@ -33,7 +33,7 @@ extern "C" {
 #include <sys/stat.h>
 
 struct ipsw_archive {
-	struct zip* zip;
+	int zip;
 	char *path;
 };
 typedef struct ipsw_archive* ipsw_archive_t;
@@ -48,6 +48,7 @@ typedef int (*ipsw_send_cb)(void *ctx, void *data, size_t size, size_t done, siz
 
 struct ipsw_file_handle {
 	FILE* file;
+	struct zip* zip;
 	struct zip_file* zfile;
 	uint64_t size;
 	int seekable;
