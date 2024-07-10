@@ -260,6 +260,17 @@ idevicerestore --help
 man idevicerestore
 ```
 
+### Docker
+
+Execute `run.sh` in the docker folder,
+which will build a docker container with the latest source versions of all required libraries,
+and then will execute `idevicerestore --latest`
+
+After running the script once, the container can be reused with:
+```shell
+docker run -it --privileged -v "$(pwd):/tmp" idevicerestore-docker idevicerestore [optional commandline args]
+```
+
 ## Contributing
 
 We welcome contributions from anyone and are grateful for every pull request!
