@@ -650,9 +650,9 @@ typedef struct restore_service_client {
 
 static void* _restore_get_service_client_for_data_request(struct idevicerestore_client_t *client, plist_t message)
 {
-	if (!client || !client->restore || !client->restore->client || !PLIST_IS_DICT(message)) return NULL;
+	if (!client || !client->restore || !client->restore->client) return NULL;
 	restore_service_client_t service = (restore_service_client_t)malloc(sizeof(struct restore_service_client));
-	if (!plist_dict_get_item(message, "DataPort")) {
+	if (!PLIST_IS_DICT(message) || !plist_dict_get_item(message, "DataPort")) {
 		service->client = client->restore->client;
 		service->type = SERVICE_TYPE_RESTORED;
 		return service;
