@@ -76,13 +76,13 @@ int ipsw_print_info(const char* path)
 	char thepath[PATH_MAX];
 
 	if (S_ISDIR(fst.st_mode)) {
-		sprintf(thepath, "%s/BuildManifest.plist", path);
+		snprintf(thepath, sizeof(thepath), "%s/BuildManifest.plist", path);
 		if (stat(thepath, &fst) != 0) {
 			error("ERROR: '%s': %s\n", thepath, strerror(errno));
 			return -1;
 		}
 	} else {
-		sprintf(thepath, "%s", path);
+		snprintf(thepath, sizeof(thepath), "%s", path);
 	}
 
 	FILE* f = fopen(thepath, "r");
@@ -1169,7 +1169,7 @@ int ipsw_get_latest_fw(plist_t version_data, const char* product, char** fwurl, 
 	}
 
 	char majstr[32]; // should be enough for a uint64_t value
-	sprintf(majstr, "%"PRIu64, (uint64_t)major);
+	snprintf(majstr, sizeof(majstr), "%"PRIu64, (uint64_t)major);
 	n1 = plist_access_path(version_data, 7, "MobileDeviceSoftwareVersionsByVersion", majstr, "MobileDeviceSoftwareVersions", product, "Unknown", "Universal", "Restore");
 	if (!n1) {
 		error("%s: ERROR: Can't get Unknown/Universal/Restore node?!\n", __func__);
@@ -1277,13 +1277,13 @@ int ipsw_download_fw(const char *fwurl, unsigned char* isha1, const char* todir,
 
 	char fwlfn[PATH_MAX - 5];
 	if (todir) {
-		sprintf(fwlfn, "%s/%s", todir, fwfn);
+		snprintf(fwlfn, sizeof(fwlfn), "%s/%s", todir, fwfn);
 	} else {
-		sprintf(fwlfn, "%s", fwfn);
+		snprintf(fwlfn, sizeof(fwlfn), "%s", fwfn);
 	}
 
 	char fwlock[PATH_MAX];
-	sprintf(fwlock, "%s.lock", fwlfn);
+	snprintf(fwlock, sizeof(fwlock), "%s.lock", fwlfn);
 
 	lock_info_t lockinfo;
 

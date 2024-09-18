@@ -448,7 +448,7 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 	unsigned char *additional_data = NULL;
 	unsigned int additional_size = 0;
 	char *tbm_key = malloc(strlen(component_name) + 5);
-	sprintf(tbm_key, "%s-TBM", component_name);
+	snprintf(tbm_key, strlen(component_name)+5, "%s-TBM", component_name);
 	plist_t tbm_dict = plist_dict_get_item(tss_response, tbm_key);
 	free(tbm_key);
 	if (tbm_dict) {

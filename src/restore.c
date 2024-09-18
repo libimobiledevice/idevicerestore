@@ -1501,7 +1501,7 @@ int restore_send_component(struct idevicerestore_client_t* client, plist_t messa
 	dict = plist_new_dict();
 	blob = plist_new_data((char*)data, size);
 	char compkeyname[256];
-	sprintf(compkeyname, "%sFile", component_name);
+	snprintf(compkeyname, sizeof(compkeyname), "%sFile", component_name);
 	plist_dict_set_item(dict, compkeyname, blob);
 	free(data);
 
@@ -3418,25 +3418,25 @@ static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* c
 			plist_dict_set_item(parameters, "TicketName", plist_copy(node));
 		}
 
-		sprintf(key, "Timer,ChipID,%u", tag);
+		snprintf(key, sizeof(key), "Timer,ChipID,%u", tag);
 		plist_dict_copy_uint(parameters, hwid, key, "ChipID");
 
-		sprintf(key, "Timer,BoardID,%u", tag);
+		snprintf(key, sizeof(key), "Timer,BoardID,%u", tag);
 		plist_dict_copy_uint(parameters, hwid, key, "BoardID");
 
-		sprintf(key, "Timer,ECID,%u", tag);
+		snprintf(key, sizeof(key), "Timer,ECID,%u", tag);
 		plist_dict_copy_uint(parameters, hwid, key, "ECID");
 
-		sprintf(key, "Timer,Nonce,%u", tag);
+		snprintf(key, sizeof(key), "Timer,Nonce,%u", tag);
 		plist_dict_copy_data(parameters, hwid, key, "Nonce");
 
-		sprintf(key, "Timer,SecurityMode,%u", tag);
+		snprintf(key, sizeof(key), "Timer,SecurityMode,%u", tag);
 		plist_dict_copy_bool(parameters, hwid, key, "SecurityMode");
 
-		sprintf(key, "Timer,SecurityDomain,%u", tag);
+		snprintf(key, sizeof(key), "Timer,SecurityDomain,%u", tag);
 		plist_dict_copy_uint(parameters, hwid, key, "SecurityDomain");
 
-		sprintf(key, "Timer,ProductionMode,%u", tag);
+		snprintf(key, sizeof(key), "Timer,ProductionMode,%u", tag);
 		plist_dict_copy_uint(parameters, hwid, key, "ProductionStatus");
 	}
 	plist_t ap_info = plist_dict_get_item(p_info, "APInfo");
@@ -3473,7 +3473,7 @@ static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* c
 		return response;
 	}
 
-	sprintf(comp_name, "Timer,RTKitOS,%u", tag);
+	snprintf(comp_name, sizeof(comp_name), "Timer,RTKitOS,%u", tag);
 	if (build_identity_has_component(client->restore->build_identity, comp_name)) {
 		if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 			plist_free(response);
@@ -3504,7 +3504,7 @@ static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* c
 		info("NOTE: Build identity does not have a '%s' component.\n", comp_name);
 	}
 
-	sprintf(comp_name, "Timer,RestoreRTKitOS,%u", tag);
+	snprintf(comp_name, sizeof(comp_name), "Timer,RestoreRTKitOS,%u", tag);
 	if (build_identity_has_component(client->restore->build_identity, comp_name)) {
 		if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 			ftab_free(ftab);
@@ -4121,8 +4121,9 @@ static char* extract_global_manifest_path(plist_t build_identity, char *variant)
 	}
 
 	// The path of the global manifest is hardcoded. There's no pointer to in the build manifest.
-	char *ticket_path = malloc((42+strlen(macos_variant)+strlen(device_class)+1)*sizeof(char));
-	sprintf(ticket_path, "Firmware/Manifests/restore/%s/apticket.%s.im4m", macos_variant, device_class);
+	size_t psize = 42+strlen(macos_variant)+strlen(device_class)+1;
+	char *ticket_path = malloc(psize);
+	snprintf(ticket_path, psize, "Firmware/Manifests/restore/%s/apticket.%s.im4m", macos_variant, device_class);
 
 	free(device_class);
 	free(macos_variant);
