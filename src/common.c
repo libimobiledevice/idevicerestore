@@ -97,6 +97,7 @@ void info(const char* format, ...)
 	va_start(vargs, format);
 	vfprintf((info_stream) ? info_stream : stdout, format, vargs);
 	va_end(vargs);
+	fflush(info_stream?info_stream:stdout);
 	mutex_unlock(&log_mutex);
 }
 
@@ -113,6 +114,7 @@ void error(const char* format, ...)
 		vfprintf((error_stream) ? error_stream : stderr, format, vargs2);
 	}
 	va_end(vargs2);
+	fflush(error_stream?error_stream:stderr);
 	mutex_unlock(&log_mutex);
 }
 
@@ -128,6 +130,7 @@ void debug(const char* format, ...)
 	va_start(vargs, format);
 	vfprintf((debug_stream) ? debug_stream : stderr, format, vargs);
 	va_end(vargs);
+	fflush(debug_stream?debug_stream:stderr);
 	mutex_unlock(&log_mutex);
 }
 
