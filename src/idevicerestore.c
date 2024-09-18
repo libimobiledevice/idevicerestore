@@ -350,8 +350,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	if (client->debug_level > 0) {
 		idevicerestore_debug = 1;
 		if (client->debug_level > 1) {
-			idevice_set_debug_level(1);
 			irecv_set_debug_level(1);
+		}
+		if (client->debug_level > 2) {
+			idevice_set_debug_level(1);
 		}
 		tss_set_debug_level(client->debug_level);
 	}
