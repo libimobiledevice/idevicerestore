@@ -698,16 +698,22 @@ static int _restore_service_send(restore_service_client_t service, plist_t plist
 	return -1;
 }
 
-static int _restore_service_recv(restore_service_client_t service, plist_t *plist)
+static int _restore_service_recv_timeout(restore_service_client_t service, plist_t *plist, unsigned int timeout)
 {
+	struct restored_client_private {
+		property_list_service_client_t parent;
+		char *udid;
+		char *label;
+		plist_t info;
+	};
 	if (!service) {
 		return -1;
 	}
 	switch (service->type) {
 		case SERVICE_TYPE_RESTORED:
-			return restored_receive((restored_client_t)service->client, plist);
+			return property_list_service_receive_plist_with_timeout(((struct restored_client_private*)service->client)->parent, plist, timeout);
 		case SERVICE_TYPE_PLIST:
-			return property_list_service_receive_plist((property_list_service_client_t)service->client, plist);
+			return property_list_service_receive_plist_with_timeout((property_list_service_client_t)service->client, plist, timeout);
 		default:
 			break;
 	}
@@ -4090,8 +4096,12 @@ static int _restore_send_file_data(struct _restore_send_file_data_ctx* rctx, voi
 	if (done == 0 && (memcmp(data, "AEA1", 4) == 0)) {
 		info("Encountered First Chunk in AEA image\n");
 		plist_t message = NULL;
-		_restore_service_recv(rctx->service, &message);
-		restore_send_url_asset(rctx->client, message);
+		property_list_service_error_t err = _restore_service_recv_timeout(rctx->service, &message, 3000);
+		if (err == PROPERTY_LIST_SERVICE_E_RECEIVE_TIMEOUT) {
+			info("NOTE: No URLAsset requested, assuming it is not necessary.");
+		} else if (err == PROPERTY_LIST_SERVICE_E_SUCCESS) {
+			restore_send_url_asset(rctx->client, message);
+		}
 	}
 
 	if (total_size > 0x1000000) {
