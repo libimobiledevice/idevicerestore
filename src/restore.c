@@ -2587,6 +2587,28 @@ static int restore_send_image_data(struct idevicerestore_client_t *client, plist
 	return 0;
 }
 
+static int _wants_firmware_data(plist_t arguments)
+{
+	int result = 0;
+	plist_t tags = plist_access_path(arguments, 2, "DeviceGeneratedTags", "ResponseTags");
+	if (tags) {
+		plist_array_iter iter = NULL;
+		plist_array_new_iter(tags, &iter);
+		plist_t node = NULL;
+		do {
+			plist_array_next_item(tags, iter, &node);
+			if (node) {
+				const char* tag = plist_get_string_ptr(node, NULL);
+				if (tag && (strcmp(tag, "FirmwareData") == 0)) {
+					result = 1;
+				}
+			}
+		} while (node);
+		plist_mem_free(iter);
+	}
+	return result;
+}
+
 static plist_t restore_get_se_firmware_data(struct idevicerestore_client_t* client, plist_t p_info, plist_t arguments)
 {
 	const char *comp_name = NULL;
@@ -2634,19 +2656,6 @@ static plist_t restore_get_se_firmware_data(struct idevicerestore_client_t* clie
 		return NULL;
 	}
 
-	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
-		error("ERROR: Unable to get path for '%s' component\n", comp_name);
-		return NULL;
-	}
-
-	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
-	free(comp_path);
-	comp_path = NULL;
-	if (ret < 0) {
-		error("ERROR: Unable to extract '%s' component\n", comp_name);
-		return NULL;
-	}
-
 	/* create SE request */
 	request = tss_request_new(NULL);
 	if (request == NULL) {
@@ -2683,6 +2692,27 @@ static plist_t restore_get_se_firmware_data(struct idevicerestore_client_t* clie
 		info("Received SE,Ticket\n");
 	} else {
 		error("ERROR: No 'SE ticket' in TSS response, this might not work\n");
+	}
+
+	/* don't add FirmwareData if not requested via ResponseTags */
+	if (!_wants_firmware_data(arguments)) {
+		debug("DEBUG: Not adding FirmwareData as it was not requested\n");
+		return response;
+	}
+
+	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
+		plist_free(response);
+		error("ERROR: Unable to get path for '%s' component\n", comp_name);
+		return NULL;
+	}
+
+	ret = extract_component(client->ipsw, comp_path, &component_data, &component_size);
+	free(comp_path);
+	comp_path = NULL;
+	if (ret < 0) {
+		plist_free(response);
+		error("ERROR: Unable to extract '%s' component\n", comp_name);
+		return NULL;
 	}
 
 	plist_dict_set_item(response, "FirmwareData", plist_new_data((char*)component_data, component_size));
@@ -2758,8 +2788,15 @@ static plist_t restore_get_savage_firmware_data(struct idevicerestore_client_t* 
 		error("ERROR: No 'Savage,Ticket' in TSS response, this might not work\n");
 	}
 
+	/* don't add FirmwareData if not requested via ResponseTags */
+	if (!_wants_firmware_data(arguments)) {
+		debug("DEBUG: Not adding FirmwareData as it was not requested\n");
+		return response;
+	}
+
 	/* now get actual component data */
 	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
+		plist_free(response);
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		free(comp_name);
 		return NULL;
@@ -2769,6 +2806,7 @@ static plist_t restore_get_savage_firmware_data(struct idevicerestore_client_t* 
 	free(comp_path);
 	comp_path = NULL;
 	if (ret < 0) {
+		plist_free(response);
 		error("ERROR: Unable to extract '%s' component\n", comp_name);
 		free(comp_name);
 		return NULL;
@@ -2779,6 +2817,7 @@ static plist_t restore_get_savage_firmware_data(struct idevicerestore_client_t* 
 	component_data_tmp = realloc(component_data, (size_t)component_size+16);
 	if (!component_data_tmp) {
 		free(component_data);
+		plist_free(response);
 		return NULL;
 	}
 	component_data = component_data_tmp;
@@ -2821,8 +2860,6 @@ static plist_t restore_get_yonkers_firmware_data(struct idevicerestore_client_t*
 	request = tss_request_new(NULL);
 	if (request == NULL) {
 		error("ERROR: Unable to create Yonkers TSS request\n");
-		free(component_data);
-		free(comp_name);
 		return NULL;
 	}
 
@@ -2851,7 +2888,7 @@ static plist_t restore_get_yonkers_firmware_data(struct idevicerestore_client_t*
 	plist_free(request);
 	if (response == NULL) {
 		error("ERROR: Unable to fetch Yonkers ticket\n");
-		free(component_data);
+		free(comp_name);
 		return NULL;
 	}
 
@@ -2861,7 +2898,15 @@ static plist_t restore_get_yonkers_firmware_data(struct idevicerestore_client_t*
 		error("ERROR: No 'Yonkers,Ticket' in TSS response, this might not work\n");
 	}
 
+	/* don't add FirmwareData if not requested via ResponseTags */
+	if (!_wants_firmware_data(arguments)) {
+		debug("DEBUG: Not adding FirmwareData as it was not requested\n");
+		free(comp_name);
+		return response;
+	}
+
 	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
+		plist_free(response);
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		free(comp_name);
 		return NULL;
@@ -2872,6 +2917,7 @@ static plist_t restore_get_yonkers_firmware_data(struct idevicerestore_client_t*
 	free(comp_path);
 	comp_path = NULL;
 	if (ret < 0) {
+		plist_free(response);
 		error("ERROR: Unable to extract '%s' component\n", comp_name);
 		free(comp_name);
 		return NULL;
@@ -2913,7 +2959,6 @@ static plist_t restore_get_rose_firmware_data(struct idevicerestore_client_t* cl
 	request = tss_request_new(NULL);
 	if (request == NULL) {
 		error("ERROR: Unable to create Rose TSS request\n");
-		free(component_data);
 		return NULL;
 	}
 
@@ -2949,7 +2994,6 @@ static plist_t restore_get_rose_firmware_data(struct idevicerestore_client_t* cl
 	plist_free(request);
 	if (response == NULL) {
 		error("ERROR: Unable to fetch Rose ticket\n");
-		free(component_data);
 		return NULL;
 	}
 
@@ -2959,14 +3003,15 @@ static plist_t restore_get_rose_firmware_data(struct idevicerestore_client_t* cl
 		error("ERROR: No 'Rap,Ticket' in TSS response, this might not work\n");
 	}
 
-	/* skip FirmwareData for newer versions */
-	if (client->build_major >= 20) {
-		debug("DEBUG: Not adding FirmwareData.\n");
+	/* don't add FirmwareData if not requested via ResponseTags */
+	if (!_wants_firmware_data(arguments)) {
+		debug("DEBUG: Not adding FirmwareData as it was not requested\n");
 		return response;
 	}
 
 	comp_name = "Rap,RTKitOS";
 	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
+		plist_free(response);
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		return NULL;
 	}
@@ -2974,10 +3019,12 @@ static plist_t restore_get_rose_firmware_data(struct idevicerestore_client_t* cl
 	free(comp_path);
 	comp_path = NULL;
 	if (ret < 0) {
+		plist_free(response);
 		error("ERROR: Unable to extract '%s' component\n", comp_name);
 		return NULL;
 	}
 	if (ftab_parse(component_data, component_size, &ftab, &ftag) != 0) {
+		plist_free(response);
 		free(component_data);
 		error("ERROR: Failed to parse '%s' component data.\n", comp_name);
 		return NULL;
@@ -2993,6 +3040,7 @@ static plist_t restore_get_rose_firmware_data(struct idevicerestore_client_t* cl
 	if (build_identity_has_component(client->restore->build_identity, comp_name)) {
 		if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 			ftab_free(ftab);
+			plist_free(response);
 			error("ERROR: Unable to get path for '%s' component\n", comp_name);
 			return NULL;
 		}
@@ -3001,6 +3049,7 @@ static plist_t restore_get_rose_firmware_data(struct idevicerestore_client_t* cl
 		comp_path = NULL;
 		if (ret < 0) {
 			ftab_free(ftab);
+			plist_free(response);
 			error("ERROR: Unable to extract '%s' component\n", comp_name);
 			return NULL;
 		}
@@ -3009,6 +3058,7 @@ static plist_t restore_get_rose_firmware_data(struct idevicerestore_client_t* cl
 		if (ftab_parse(component_data, component_size, &rftab, &ftag) != 0) {
 			free(component_data);
 			ftab_free(ftab);
+			plist_free(response);
 			error("ERROR: Failed to parse '%s' component data.\n", comp_name);
 			return NULL;
 		}
@@ -3100,7 +3150,14 @@ static plist_t restore_get_veridian_firmware_data(struct idevicerestore_client_t
 		error("ERROR: No 'BMU,Ticket' in TSS response, this might not work\n");
 	}
 
+	/* don't add FirmwareData if not requested via ResponseTags */
+	if (!_wants_firmware_data(arguments)) {
+		debug("DEBUG: Not adding FirmwareData as it was not requested\n");
+		return response;
+	}
+
 	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
+		plist_free(response);
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
 		return NULL;
 	}
@@ -3110,6 +3167,7 @@ static plist_t restore_get_veridian_firmware_data(struct idevicerestore_client_t
 	free(comp_path);
 	comp_path = NULL;
 	if (ret < 0) {
+		plist_free(response);
 		error("ERROR: Unable to extract '%s' component\n", comp_name);
 		return NULL;
 	}
@@ -3125,6 +3183,7 @@ static plist_t restore_get_veridian_firmware_data(struct idevicerestore_client_t
 	component_size = 0;
 
 	if (!fw_map) {
+		plist_free(response);
 		error("ERROR: Unable to parse '%s' component data as plist\n", comp_name);
 		return NULL;
 	}
@@ -3132,6 +3191,7 @@ static plist_t restore_get_veridian_firmware_data(struct idevicerestore_client_t
 	plist_t fw_map_digest = plist_access_path(client->restore->build_identity, 3, "Manifest", comp_name, "Digest");
 	if (!fw_map_digest) {
 		plist_free(fw_map);
+		plist_free(response);
 		error("ERROR: Unable to get Digest for '%s' component\n", comp_name);
 		return NULL;
 	}
@@ -3262,8 +3322,15 @@ static plist_t restore_get_tcon_firmware_data(struct idevicerestore_client_t* cl
 		error("ERROR: No 'Baobab,Ticket' in TSS response, this might not work\n");
 	}
 
+	/* don't add FirmwareData if not requested via ResponseTags */
+	if (!_wants_firmware_data(arguments)) {
+		debug("DEBUG: Not adding FirmwareData as it was not requested\n");
+		return response;
+	}
+
 	if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 		error("ERROR: Unable to get path for '%s' component\n", comp_name);
+		plist_free(response);
 		return NULL;
 	}
 
@@ -3273,6 +3340,7 @@ static plist_t restore_get_tcon_firmware_data(struct idevicerestore_client_t* cl
 	comp_path = NULL;
 	if (ret < 0) {
 		error("ERROR: Unable to extract '%s' component\n", comp_name);
+		plist_free(response);
 		return NULL;
 	}
 
@@ -3399,9 +3467,16 @@ static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* c
 		error("ERROR: No '%s' in TSS response, this might not work\n", ticket_name);
 	}
 
+	/* don't add FirmwareData if not requested via ResponseTags */
+	if (!_wants_firmware_data(arguments)) {
+		debug("DEBUG: Not adding FirmwareData as it was not requested\n");
+		return response;
+	}
+
 	sprintf(comp_name, "Timer,RTKitOS,%u", tag);
 	if (build_identity_has_component(client->restore->build_identity, comp_name)) {
 		if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
+			plist_free(response);
 			error("ERROR: Unable to get path for '%s' component\n", comp_name);
 			return NULL;
 		}
@@ -3410,10 +3485,12 @@ static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* c
 		comp_path = NULL;
 		if (ret < 0) {
 			error("ERROR: Unable to extract '%s' component\n", comp_name);
+			plist_free(response);
 			return NULL;
 		}
 		if (ftab_parse(component_data, component_size, &ftab, &ftag) != 0) {
 			free(component_data);
+			plist_free(response);
 			error("ERROR: Failed to parse '%s' component data.\n", comp_name);
 			return NULL;
 		}
@@ -3431,6 +3508,7 @@ static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* c
 	if (build_identity_has_component(client->restore->build_identity, comp_name)) {
 		if (build_identity_get_component_path(client->restore->build_identity, comp_name, &comp_path) < 0) {
 			ftab_free(ftab);
+			plist_free(response);
 			error("ERROR: Unable to get path for '%s' component\n", comp_name);
 			return NULL;
 		}
@@ -3439,6 +3517,7 @@ static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* c
 		comp_path = NULL;
 		if (ret < 0) {
 			ftab_free(ftab);
+			plist_free(response);
 			error("ERROR: Unable to extract '%s' component\n", comp_name);
 			return NULL;
 		}
@@ -3447,6 +3526,7 @@ static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* c
 		if (ftab_parse(component_data, component_size, &rftab, &ftag) != 0) {
 			free(component_data);
 			ftab_free(ftab);
+			plist_free(response);
 			error("ERROR: Failed to parse '%s' component data.\n", comp_name);
 			return NULL;
 		}
