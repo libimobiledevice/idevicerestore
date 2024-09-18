@@ -5109,13 +5109,6 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		plist_dict_set_item(opts, "HostHasFixFor99053849", plist_new_bool(1));
 		plist_dict_set_item(opts, "SystemImageFormat", plist_new_string("AEAWrappedDiskImage"));
 		plist_dict_set_item(opts, "WaitForDeviceConnectionToFinishStateMachine", plist_new_bool(0));
-		plist_t async_data_types = plist_new_dict();
-		plist_dict_set_item(async_data_types, "BasebandData", plist_new_bool(0));
-		plist_dict_set_item(async_data_types, "RecoveryOSASRImage", plist_new_bool(0));
-		plist_dict_set_item(async_data_types, "StreamedImageDecryptionKey", plist_new_bool(0));
-		plist_dict_set_item(async_data_types, "SystemImageData", plist_new_bool(0));
-		plist_dict_set_item(async_data_types, "URLAsset", plist_new_bool(1));
-		plist_dict_set_item(opts, "SupportedAsyncDataTypes", async_data_types);
 
 		plist_t sep = plist_access_path(build_identity, 3, "Manifest", "SEP", "Info");
 		if (sep) {
@@ -5134,6 +5127,15 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		/* this is mandatory on iOS 7+ to allow restore from normal mode */
 		plist_dict_set_item(opts, "PersonalizedDuringPreflight", plist_new_bool(1));
 	}
+
+	// Added for iOS 18.0 and macOS 15.0
+	plist_t async_data_types = plist_new_dict();
+	plist_dict_set_item(async_data_types, "BasebandData", plist_new_bool(0));
+	plist_dict_set_item(async_data_types, "RecoveryOSASRImage", plist_new_bool(0));
+	plist_dict_set_item(async_data_types, "StreamedImageDecryptionKey", plist_new_bool(0));
+	plist_dict_set_item(async_data_types, "SystemImageData", plist_new_bool(0));
+	plist_dict_set_item(async_data_types, "URLAsset", plist_new_bool(1));
+	plist_dict_set_item(opts, "SupportedAsyncDataTypes", async_data_types);
 
 	plist_dict_set_item(opts, "RootToInstall", plist_new_bool(0));
 	char* guid = generate_guid();
