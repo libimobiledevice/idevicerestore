@@ -5152,6 +5152,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 				free(args);
 				error("ERROR: Failed to start async data request handler thread!\n");
 				err = -1;
+				if (client->flags & FLAG_IGNORE_ERRORS) {
+					client->flags &= ~FLAG_IGNORE_ERRORS;
+				}
 			} else {
 				thread_detach(t);
 			}
