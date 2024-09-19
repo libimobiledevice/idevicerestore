@@ -1838,7 +1838,7 @@ int main(int argc, char* argv[]) {
 			break;
 
 		case 'v':
-			info("%s %s (libtatsu %s)\n", PACKAGE_NAME, PACKAGE_VERSION, libtatsu_version());
+			info("%s %s (libirecovery %s, libtatsu %s)\n", PACKAGE_NAME, PACKAGE_VERSION, irecv_version(), libtatsu_version());
 			return EXIT_SUCCESS;
 
 		case 'T': {
@@ -1896,7 +1896,7 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	info("%s %s (libtatsu %s)\n", PACKAGE_NAME, PACKAGE_VERSION, libtatsu_version());
+	info("%s %s (libirecovery %s, libtatsu %s)\n", PACKAGE_NAME, PACKAGE_VERSION, irecv_version(), libtatsu_version());
 
 	if (ipsw) {
 		// verify if ipsw file exists
