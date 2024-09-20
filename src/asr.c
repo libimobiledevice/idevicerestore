@@ -202,23 +202,12 @@ void asr_free(asr_client_t asr)
 	}
 }
 
-int asr_perform_validation(asr_client_t asr, ipsw_file_handle_t file)
-{
-	uint64_t length = 0;
-	char* command = NULL;
-	plist_t node = NULL;
-	plist_t packet = NULL;
-	plist_t packet_info = NULL;
-	plist_t payload_info = NULL;
-	int attempts = 0;
-
-	length = ipsw_file_size(file);
-
-	payload_info = plist_new_dict();
+int asr_send_validation_packet_info(asr_client_t asr, uint64_t ipsw_size) {
+	plist_t payload_info = plist_new_dict();
 	plist_dict_set_item(payload_info, "Port", plist_new_uint(1));
-	plist_dict_set_item(payload_info, "Size", plist_new_uint(length));
+	plist_dict_set_item(payload_info, "Size", plist_new_uint(ipsw_size));
 
-	packet_info = plist_new_dict();
+	plist_t packet_info = plist_new_dict();
 	if (asr->checksum_chunks) {
 		plist_dict_set_item(packet_info, "Checksum Chunk Size", plist_new_uint(ASR_CHECKSUM_CHUNK_SIZE));
 	}
@@ -230,11 +219,30 @@ int asr_perform_validation(asr_client_t asr, ipsw_file_handle_t file)
 	plist_dict_set_item(packet_info, "Version", plist_new_uint(ASR_VERSION));
 
 	if (asr_send(asr, packet_info)) {
-		error("ERROR: Unable to sent packet information to ASR\n");
 		plist_free(packet_info);
 		return -1;
 	}
 	plist_free(packet_info);
+	plist_free(payload_info);
+
+	return 0;
+}
+
+int asr_perform_validation(asr_client_t asr, ipsw_file_handle_t file)
+{
+	uint64_t length = 0;
+	char* command = NULL;
+	plist_t node = NULL;
+	plist_t packet = NULL;
+	int attempts = 0;
+
+	length = ipsw_file_size(file);
+
+	// Expected by device after every initiate
+	if (asr_send_validation_packet_info(asr, length) < 0) {
+		error("ERROR: Unable to send validation packet info to ASR\n");
+		return -1;
+	}
 
 	while (1) {
 		if (asr_receive(asr, &packet) < 0) {
@@ -259,6 +267,25 @@ int asr_perform_validation(asr_client_t asr, ipsw_file_handle_t file)
 			return -1;
 		}
 		plist_get_string_val(node, &command);
+
+		// Added for iBridgeOS 9.0 - second initiate request to change to checksum chunks
+		if (!strcmp(command, "Initiate")) {
+			// This might switch on the second Initiate
+			node = plist_dict_get_item(packet, "Checksum Chunks");
+			if (node && (plist_get_node_type(node) == PLIST_BOOLEAN)) {
+				plist_get_bool_val(node, &(asr->checksum_chunks));
+			}
+			plist_free(packet);
+
+			// Expected by device after every Initiate
+			if (asr_send_validation_packet_info(asr, length) < 0) {
+				error("ERROR: Unable to send validation packet info to ASR\n");
+				return -1;
+			}
+
+			// A OOBData request should follow
+			continue;
+		}
 
 		if (!strcmp(command, "OOBData")) {
 			int ret = asr_handle_oob_data_request(asr, packet, file);
