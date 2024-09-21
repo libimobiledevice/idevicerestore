@@ -202,7 +202,8 @@ void asr_free(asr_client_t asr)
 	}
 }
 
-int asr_send_validation_packet_info(asr_client_t asr, uint64_t ipsw_size) {
+int asr_send_validation_packet_info(asr_client_t asr, uint64_t ipsw_size)
+{
 	plist_t payload_info = plist_new_dict();
 	plist_dict_set_item(payload_info, "Port", plist_new_uint(1));
 	plist_dict_set_item(payload_info, "Size", plist_new_uint(ipsw_size));
@@ -223,7 +224,6 @@ int asr_send_validation_packet_info(asr_client_t asr, uint64_t ipsw_size) {
 		return -1;
 	}
 	plist_free(packet_info);
-	plist_free(payload_info);
 
 	return 0;
 }
