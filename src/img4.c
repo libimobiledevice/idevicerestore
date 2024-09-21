@@ -441,6 +441,14 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 			memcpy((void*)tag, "rcio", 4);
 		} else if (strcmp(component_name, "Ap,DCP2") == 0) {
 			memcpy((void*)tag, "dcp2", 4);
+		} else if (strcmp(component_name, "Ap,RestoreSecureM3Firmware") == 0) {
+			memcpy((void*)tag, "rsm3", 4);
+		} else if (strcmp(component_name, "Ap,RestoreSecurePageTableMonitor") == 0) {
+			memcpy((void*)tag, "rspt", 4);
+		} else if (strcmp(component_name, "Ap,RestoreTrustedExecutionMonitor") == 0) {
+			memcpy((void*)tag, "rtrx", 4);
+		} else if (strcmp(component_name, "Ap,RestorecL4") == 0) {
+			memcpy((void*)tag, "rxcl", 4);
 		}
 	}
 

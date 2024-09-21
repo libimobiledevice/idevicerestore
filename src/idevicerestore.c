@@ -1258,6 +1258,16 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 					error("ERROR: Unable to get SHSH blobs for this device (recovery OS Root Ticket)\n");
 					return -1;
 				}
+			} else {
+				plist_t recovery_variant = plist_access_path(build_identity, 2, "Info", "RecoveryVariant");
+				if (recovery_variant) {
+					const char* recovery_variant_str = plist_get_string_ptr(recovery_variant, NULL);
+					plist_t recovery_build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, recovery_variant_str, 1);
+					if (get_tss_response(client, recovery_build_identity, &client->tss_recoveryos_root_ticket) < 0) {
+						error("ERROR: Unable to get SHSH blobs for this device (%s)\n", recovery_variant_str);
+						return -1;
+					}
+				}
 			}
 		}
 
