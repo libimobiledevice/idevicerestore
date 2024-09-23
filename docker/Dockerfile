@@ -1,4 +1,6 @@
-FROM ubuntu:18.04
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND="noninteractive"
 RUN apt-get update && apt-get install -y \
 	build-essential \
 	pkg-config \
@@ -13,8 +15,7 @@ RUN apt-get update && apt-get install -y \
 	libssl-dev \
 	libzip-dev \
 	zlib1g-dev \
-    python3 \
-    cython
+        python3
 
 RUN git clone https://github.com/libimobiledevice/libplist.git && \
     cd libplist && \
@@ -23,6 +24,14 @@ RUN git clone https://github.com/libimobiledevice/libplist.git && \
     make install && \
     cd .. && \
     rm libplist -rf
+
+RUN git clone https://github.com/libimobiledevice/libtatsu.git && \
+    cd libtatsu && \
+    ./autogen.sh && \
+    make && \
+    make install && \
+    cd .. && \
+    rm libtatsu -rf
 
 RUN git clone https://github.com/libimobiledevice/libimobiledevice-glue.git && \
     cd libimobiledevice-glue && \
