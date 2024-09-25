@@ -50,11 +50,39 @@ static uint32_t crc_buffer(const unsigned char* buffer, unsigned int bufsize, un
 	return result;
 }
 
+static int uarp_version_convert(uint32_t* version_data, uint32_t* version_out)
+{
+	if (version_out) *version_out = 0;
+	if (!version_data) {
+		return -1;
+	}
+	uint32_t part1 = (version_data[0] < 0xE00) ? version_data[0] : version_data[0] - 0xE00;
+	if (part1 > 0x63) {
+		return 0;
+	}
+	uint32_t part2 = (version_data[0] < 0xE00) ? 0 : 0xE00;
+	uint32_t part3 = version_data[1];
+	if (part3 > 0x3E7) {
+		return 0;
+	}
+	uint32_t part4 = version_data[2];
+	if (part4 > 0x63) {
+		return 0;
+	}
+	if (version_out) {
+		*version_out = ((((0x147B * (unsigned int)((uint16_t)part3 >> 2)) >> 9) & 0x3FF00 | (0x10 * (((uint8_t)((uint16_t)part3 / 0xA) % 0xA) & 0xF)) | ((uint16_t)part3 % 0xA)) << 8)
+		  | ((((uint8_t)part1 % 0xA) | (0x10 * ((uint8_t)part1 / 0xA)) | part2) << 20)
+		  | ((uint8_t)part4 % 0xA)
+		  | ((0xCD * (unsigned int)(uint8_t)part4) >> 7) & 0xF0;
+	}
+	return 0;
+}
+
 int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t bdid, unsigned int prev, plist_t tss, unsigned char** bin_out, size_t* bin_size)
 {
 	struct ace3bin_header {
 		uint32_t magic;        // 0xACE00003
-		uint32_t unk4;         // 0x00203400
+		uint32_t version;      // ace3 version, e.g. 0x00203400
 		uint32_t unk8;         // 0x00002800
 		uint32_t header_size;  // 0x00000040
 		uint32_t data1_size;
@@ -84,10 +112,7 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 	struct uarp_toc_entry {
 		uint32_t this_size;    // BE usually 0x28
 		uint32_t fourcc;        // 'PT01' or similar
-		uint32_t index;         // BE starting with 0, increment+1 for each entry
-		uint32_t unk_0c;        // BE usually not zero
-		uint32_t unk_10;        // BE usually 0
-		uint32_t unk_14;        // BE usually 0
+		uint32_t version[4];    // BE values
 		uint32_t unk_18;        // BE other offset, not sure
 		uint32_t unk_1c;        // BE usually 0
 		uint32_t offset;        // BE
@@ -142,6 +167,7 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 			uint64_t boardid = 0;
 			plist_get_uint_val(p_boardid, &boardid);
 			if (boardid == bdid) {
+				debug("DEBUG: %s: Found Board ID 0x%" PRIx64 "\n", __func__, bdid);
 				plist_t p4cc = plist_dict_get_item(payload, "Payload 4CC");
 				plist_get_string_val(p4cc, &payload_4cc);
 				plist_t matching = plist_dict_get_item(meta, "Personalization Matching Data");
@@ -163,6 +189,7 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 						if (prev >= minrev && prev <= maxrev) {
 							plist_t tags = plist_dict_get_item(match, "Personalization Matching Data Payload Tags");
 							plist_get_string_val(tags, &data_payload_4ccs);
+							debug("DEBUG: %s: Found matching tags %s\n", __func__, data_payload_4ccs);
 							break;
 						}
 					} while (match);
@@ -187,11 +214,12 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 	uint32_t dl_size = 0;
 	uint32_t data1_offset = 0;
 	uint32_t data1_size = 0;
+	uint32_t data1_version = 0;
 	uint32_t data2_offset = 0;
 	uint32_t data2_size = 0;
 	uint32_t toc_offset = be32toh(uarp_hdr->toc_offset);
 	uint32_t toc_size = be32toh(uarp_hdr->toc_size);
-	const unsigned char* p = uarp_fw + uarp_hdr_size; 
+	const unsigned char* p = uarp_fw + uarp_hdr_size;
 	while (p < uarp_fw + toc_size) {
 		struct uarp_toc_entry* entry = (struct uarp_toc_entry*)p;
 		uint32_t te_size = be32toh(entry->this_size);
@@ -199,8 +227,14 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 			dl_offset = be32toh(entry->offset);
 			dl_size = be32toh(entry->size);
 		} else if (strncmp((char*)&(entry->fourcc), data_payload_4ccs, 4) == 0) {
+			uint32_t version_data[4];
+			version_data[0] = be32toh(entry->version[0]);
+			version_data[1] = be32toh(entry->version[1]);
+			version_data[2] = be32toh(entry->version[2]);
+			version_data[3] = be32toh(entry->version[3]);
 			data1_offset = be32toh(entry->offset);
 			data1_size = be32toh(entry->size);
+			uarp_version_convert(version_data, &data1_version);
 		} else if (strncmp((char*)&(entry->fourcc), data_payload_4ccs+5, 4) == 0) {
 			data2_offset = be32toh(entry->offset);
 			data2_size = be32toh(entry->size);
@@ -213,7 +247,7 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 	*bin_out = (unsigned char*)malloc(0x40 + content_size);
 	struct ace3bin_header* hdr = (struct ace3bin_header*)(*bin_out);
 	hdr->magic = htole32(0xACE00003);
-	hdr->unk4 = htole32(0x00203400);
+	hdr->version = htole32(data1_version);
 	hdr->unk8 = htole32(0x00002800);
 	hdr->header_size = htole32(0x40);
 	hdr->data1_size = htole32(data1_size);
