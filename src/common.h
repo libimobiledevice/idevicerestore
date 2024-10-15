@@ -104,7 +104,9 @@ struct idevicerestore_client_t {
 	int nonce_size;
 	int image4supported;
 	plist_t build_manifest;
+	plist_t firmware_preflight_info;
 	plist_t preflight_info;
+	plist_t parameters;
 	char* udid;
 	char* srnm;
 	ipsw_archive_t ipsw;
@@ -131,6 +133,7 @@ struct idevicerestore_client_t {
 	cond_t device_event_cond;
 	int ignore_device_add_events;
 	plist_t macos_variant;
+	plist_t recovery_variant;
 	char* restore_variant;
 	char* filesystem;
 	int delete_fs;

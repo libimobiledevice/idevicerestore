@@ -168,7 +168,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 	unsigned char* data = NULL;
 	uint32_t size = 0;
 
-	if (personalize_component(component, component_data, component_size, tss, &data, &size) < 0) {
+	if (personalize_component(client, component, component_data, component_size, tss, &data, &size) < 0) {
 		error("ERROR: Unable to get personalized component: %s\n", component);
 		free(component_data);
 		return -1;

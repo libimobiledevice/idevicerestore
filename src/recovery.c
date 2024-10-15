@@ -305,7 +305,7 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 		return -1;
 	}
 
-	ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
+	ret = personalize_component(client, component, component_data, component_size, client->tss, &data, &size);
 	free(component_data);
 	if (ret < 0) {
 		error("ERROR: Unable to get personalized component: %s\n", component);

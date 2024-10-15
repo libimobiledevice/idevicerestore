@@ -342,6 +342,18 @@ static int normal_get_nonce_by_key(struct idevicerestore_client_t* client, const
 
 int normal_get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size)
 {
+	plist_t node = normal_get_lockdown_value(client, NULL, "ApParameters");
+	if (PLIST_IS_DICT(node)) {
+		plist_t nonce_node = plist_dict_get_item(node, "SepNonce");
+		if (nonce_node) {
+			uint64_t n_size = 0;
+			plist_get_data_val(nonce_node, (char**)nonce, &n_size);
+			*nonce_size = (unsigned int)n_size;
+			plist_free(node);
+			return 0;
+		}
+	}
+	plist_free(node);
 	return normal_get_nonce_by_key(client, "SEPNonce", nonce, nonce_size);
 }
 
@@ -365,7 +377,7 @@ int normal_is_image4_supported(struct idevicerestore_client_t* client)
 	return bval;
 }
 
-int normal_get_preflight_info(struct idevicerestore_client_t* client, plist_t *preflight_info)
+int normal_get_firmware_preflight_info(struct idevicerestore_client_t* client, plist_t *preflight_info)
 {
 	uint8_t has_telephony_capability = 0;
 	plist_t node;
@@ -386,6 +398,18 @@ int normal_get_preflight_info(struct idevicerestore_client_t* client, plist_t *p
 		*preflight_info = NULL;
 	}
 
+	return 0;
+}
+
+int normal_get_preflight_info(struct idevicerestore_client_t* client, plist_t *preflight_info)
+{
+	plist_t node = normal_get_lockdown_value(client, NULL, "PreflightInfo");
+	if (PLIST_IS_DICT(node)) {
+		*preflight_info = node;
+	} else {
+		debug("DEBUG: No PreflightInfo available.\n");
+		*preflight_info = NULL;
+	}
 	return 0;
 }
 

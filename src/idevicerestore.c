@@ -1227,6 +1227,29 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			} else {
 				free(nonce);
 			}
+			if (client->mode == MODE_NORMAL) {
+				plist_t ap_params = normal_get_lockdown_value(client, NULL, "ApParameters");
+				if (ap_params) {
+					if (!client->parameters) {
+						client->parameters = plist_new_dict();
+					}
+					plist_dict_merge(&client->parameters, ap_params);
+					plist_t p_sep_nonce = plist_dict_get_item(ap_params, "SepNonce");
+					uint64_t sep_nonce_size = 0;
+					const char* sep_nonce = plist_get_data_ptr(p_sep_nonce, &sep_nonce_size);
+					info("Getting SepNonce in normal mode... ");
+					int i = 0;
+					for (i = 0; i < sep_nonce_size; i++) {
+						info("%02x ", (unsigned char)sep_nonce[i]);
+					}
+					info("\n");
+					plist_free(ap_params);
+				}
+				plist_t req_nonce_slot = plist_access_path(build_identity, 2, "Info", "RequiresNonceSlot");
+				if (req_nonce_slot) {
+					plist_dict_set_item(client->parameters, "RequiresNonceSlot", plist_copy(req_nonce_slot));
+				}
+			}
 		}
 
 		if (client->flags & FLAG_QUIT) {
@@ -1263,8 +1286,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				plist_t recovery_variant = plist_access_path(build_identity, 2, "Info", "RecoveryVariant");
 				if (recovery_variant) {
 					const char* recovery_variant_str = plist_get_string_ptr(recovery_variant, NULL);
-					plist_t recovery_build_identity = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, recovery_variant_str, 1);
-					if (get_tss_response(client, recovery_build_identity, &client->tss_recoveryos_root_ticket) < 0) {
+					client->recovery_variant = build_manifest_get_build_identity_for_model_with_variant(client->build_manifest, client->device->hardware_model, recovery_variant_str, 1);
+					if (!client->recovery_variant) {
+						error("ERROR: Variant '%s' not found in BuildManifest\n", recovery_variant_str);
+						return -1;
+					}
+					if (get_tss_response(client, client->recovery_variant, &client->tss_recoveryos_root_ticket) < 0) {
 						error("ERROR: Unable to get SHSH blobs for this device (%s)\n", recovery_variant_str);
 						return -1;
 					}
@@ -1613,6 +1640,9 @@ void idevicerestore_client_free(struct idevicerestore_client_t* client)
 	}
 	if (client->build_manifest) {
 		plist_free(client->build_manifest);
+	}
+	if (client->firmware_preflight_info) {
+		plist_free(client->firmware_preflight_info);
 	}
 	if (client->preflight_info) {
 		plist_free(client->preflight_info);
@@ -2276,17 +2306,21 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 
 	/* populate parameters */
 	plist_t parameters = plist_new_dict();
+	plist_dict_merge(&parameters, client->parameters);
+
 	plist_dict_set_item(parameters, "ApECID", plist_new_uint(client->ecid));
 	if (client->nonce) {
 		plist_dict_set_item(parameters, "ApNonce", plist_new_data((const char*)client->nonce, client->nonce_size));
 	}
-	unsigned char* sep_nonce = NULL;
-	unsigned int sep_nonce_size = 0;
-	get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
 
-	if (sep_nonce) {
-		plist_dict_set_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
-		free(sep_nonce);
+	if (!plist_dict_get_item(parameters, "SepNonce")) {
+		unsigned char* sep_nonce = NULL;
+		unsigned int sep_nonce_size = 0;
+		get_sep_nonce(client, &sep_nonce, &sep_nonce_size);
+		if (sep_nonce) {
+			plist_dict_set_item(parameters, "ApSepNonce", plist_new_data((const char*)sep_nonce, sep_nonce_size));
+			free(sep_nonce);
+		}
 	}
 
 	plist_dict_set_item(parameters, "ApProductionMode", plist_new_bool(1));
@@ -2344,7 +2378,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 	if (client->mode == MODE_NORMAL) {
 		/* normal mode; request baseband ticket aswell */
 		plist_t pinfo = NULL;
-		normal_get_preflight_info(client, &pinfo);
+		normal_get_firmware_preflight_info(client, &pinfo);
 		if (pinfo) {
 			plist_dict_copy_data(parameters, pinfo, "BbNonce", "Nonce");
 			plist_dict_copy_uint(parameters, pinfo, "BbChipID", "ChipID");
@@ -2365,6 +2399,10 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 				tss_request_add_vinyl_tags(request, parameters, NULL);
 			}
 		}
+		client->firmware_preflight_info = pinfo;
+		pinfo = NULL;
+
+		normal_get_preflight_info(client, &pinfo);
 		client->preflight_info = pinfo;
 	}
 
@@ -2718,7 +2756,7 @@ int extract_component(ipsw_archive_t ipsw, const char* path, unsigned char** com
 	return 0;
 }
 
-int personalize_component(const char *component_name, const unsigned char* component_data, unsigned int component_size, plist_t tss_response, unsigned char** personalized_component, unsigned int* personalized_component_size)
+int personalize_component(struct idevicerestore_client_t* client, const char *component_name, const unsigned char* component_data, unsigned int component_size, plist_t tss_response, unsigned char** personalized_component, unsigned int* personalized_component_size)
 {
 	unsigned char* component_blob = NULL;
 	unsigned int component_blob_size = 0;
@@ -2727,7 +2765,7 @@ int personalize_component(const char *component_name, const unsigned char* compo
 
 	if (tss_response && plist_dict_get_item(tss_response, "ApImg4Ticket")) {
 		/* stitch ApImg4Ticket into IMG4 file */
-		img4_stitch_component(component_name, component_data, component_size, tss_response, &stitched_component, &stitched_component_size);
+		img4_stitch_component(component_name, component_data, component_size, client->parameters, tss_response, &stitched_component, &stitched_component_size);
 	} else {
 		/* try to get blob for current component from tss response */
 		if (tss_response && tss_response_get_blob_by_entry(tss_response, component_name, &component_blob) < 0) {

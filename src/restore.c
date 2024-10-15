@@ -30,6 +30,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <libgen.h>
+#include <math.h>
 #include <libimobiledevice/restore.h>
 #include <libimobiledevice/property_list_service.h>
 #include <libimobiledevice-glue/thread.h>
@@ -1490,7 +1491,7 @@ int restore_send_component(struct idevicerestore_client_t* client, plist_t messa
 		return -1;
 	}
 
-	ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
+	ret = personalize_component(client, component, component_data, component_size, client->tss, &data, &size);
 	free(component_data);
 	component_data = NULL;
 	if (ret < 0) {
@@ -1662,7 +1663,7 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 		return -1;
 	}
 
-	ret = personalize_component(component, component_data, component_size, client->tss, &llb_data, &llb_size);
+	ret = personalize_component(client, component, component_data, component_size, client->tss, &llb_data, &llb_size);
 	free(component_data);
 	component_data = NULL;
 	component_size = 0;
@@ -1718,7 +1719,7 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 			return -1;
 		}
 
-		if (personalize_component(component, component_data, component_size, client->tss, &nor_data, &nor_size) < 0) {
+		if (personalize_component(client, component, component_data, component_size, client->tss, &nor_data, &nor_size) < 0) {
 			free(iter);
 			free(comp);
 			free(comppath);
@@ -1765,7 +1766,7 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 			return -1;
 		}
 
-		ret = personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
+		ret = personalize_component(client, component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
 		free(component_data);
 		component_data = NULL;
 		component_size = 0;
@@ -1790,7 +1791,7 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 			return -1;
 		}
 
-		ret = personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
+		ret = personalize_component(client, component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
 		free(component_data);
 		component_data = NULL;
 		component_size = 0;
@@ -1815,7 +1816,7 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 			return -1;
 		}
 
-		ret = personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
+		ret = personalize_component(client, component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
 		free(component_data);
 		component_data = NULL;
 		component_size = 0;
@@ -2518,7 +2519,7 @@ static int restore_send_image_data(struct idevicerestore_client_t *client, plist
 							error("ERROR: Unable to extract component: %s\n", component);
 						}
 
-						ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
+						ret = personalize_component(client, component, component_data, component_size, client->tss, &data, &size);
 						free(component_data);
 						component_data = NULL;
 						if (ret < 0) {
@@ -4273,7 +4274,7 @@ int restore_send_personalized_boot_object_v3(struct idevicerestore_client_t* cli
 		}
 
 		// Personalize IMG4
-		ret = personalize_component(component, component_data, component_size, client->tss, &data, &size);
+		ret = personalize_component(client, component, component_data, component_size, client->tss, &data, &size);
 		free(component_data);
 		component_data = NULL;
 		if (ret < 0) {
@@ -4439,7 +4440,7 @@ int restore_send_restore_local_policy(struct idevicerestore_client_t* client, pl
 		return -1;
 	}
 
-	ret = personalize_component(component, component_data, component_size, client->tss_localpolicy, &data, &size);
+	ret = personalize_component(client, component, component_data, component_size, client->tss_localpolicy, &data, &size);
 	free(component_data);
 	component_data = NULL;
 	if (ret < 0) {
@@ -4505,6 +4506,232 @@ int restore_send_buildidentity(struct idevicerestore_client_t* client, plist_t m
 	}
 
 	info("Done sending BuildIdentityDict\n");
+	return 0;
+}
+
+int restore_send_recovery_os_file_asset_image(struct idevicerestore_client_t* client, plist_t message)
+{
+	char *fw_override_key = NULL;
+	plist_t node = plist_access_path(message, 2, "Arguments", "FWOverrideKey");
+	if (PLIST_IS_STRING(node)) {
+		plist_get_string_val(node, &fw_override_key);
+	}
+	if (!fw_override_key) {
+		error("ERROR: Failed to get FWOverrideKey from arguments. Trying to continue anyway.\n");
+		return -1;
+	}
+
+	plist_t dict = plist_new_dict();
+	if (!client->recovery_variant) {
+		error("ERROR: no RecoveryOS variant in BuildManifest. Trying to continue anyway.\n");
+		plist_dict_set_item(dict, "RecoveryOSNoAssetFound", plist_new_bool(1));
+		restored_send(client->restore->client, dict);
+		plist_free(dict);
+		return 0;
+	}
+
+	if (strncmp(fw_override_key, "RecoveryOS", 10) != 0) {
+		error("ERROR: FWOVerrideKey has unexpected prefix\n");
+		plist_dict_set_item(dict, "RecoveryOSNoAssetFound", plist_new_bool(1));
+		restored_send(client->restore->client, dict);
+		plist_free(dict);
+		return 0;
+	}
+
+	const char* component = fw_override_key+10;
+	char* path = NULL;
+	if (build_identity_get_component_path(client->recovery_variant, component, &path) < 0) {
+		error("ERROR: Unable to find %s path from recovery build identity. Trying to continue anyway.\n", component);
+		plist_dict_set_item(dict, "RecoveryOSNoAssetFound", plist_new_bool(1));
+		restored_send(client->restore->client, dict);
+		plist_free(dict);
+		return 0;
+	}
+
+	unsigned char* component_data = NULL;
+	unsigned int component_size = 0;
+	int ret = extract_component(client->ipsw, path, &component_data, &component_size);
+	free(path);
+	path = NULL;
+	if (ret < 0) {
+		error("ERROR: Unable to extract component %s. Trying to continue anyway.\n", component);
+		plist_dict_set_item(dict, "RecoveryOSNoAssetFound", plist_new_bool(1));
+		restored_send(client->restore->client, dict);
+		plist_free(dict);
+		return 0;
+	}
+
+	unsigned char* data = NULL;
+	unsigned int size = 0;
+	ret = personalize_component(client, component, component_data, component_size, client->tss_recoveryos_root_ticket, &data, &size);
+	free(component_data);
+	component_data = NULL;
+	if (ret < 0) {
+		error("ERROR: Unable to get personalized component %s. Trying to continue anyway.\n", component);
+		plist_dict_set_item(dict, "RecoveryOSNoAssetFound", plist_new_bool(1));
+		restored_send(client->restore->client, dict);
+		plist_free(dict);
+		return 0;
+	}
+
+	info("Sending %s\n", fw_override_key);
+
+	plist_dict_set_item(dict, "AdditionalBootImages", plist_new_data((char*)data, size));
+	free(data);
+	restored_send(client->restore->client, dict);
+	plist_free(dict);
+
+	return 0;
+}
+
+int restore_send_recovery_os_iboot_fw_files_images(struct idevicerestore_client_t* client, plist_t message)
+{
+	plist_t build_id_manifest = plist_dict_get_item(client->recovery_variant, "Manifest");
+	if (!build_id_manifest) {
+		error("ERROR: Missing Manifest dictionary in build identity?!\n");
+		return -1;
+	}
+
+	plist_t firmware_files = plist_new_dict();
+
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(build_id_manifest, &iter);
+	if (iter) {
+		char *component = NULL;
+		plist_t manifest_entry;
+		do {
+			component = NULL;
+			manifest_entry = NULL;
+			plist_dict_next_item(build_id_manifest, iter, &component, &manifest_entry);
+			if (component && PLIST_IS_DICT(manifest_entry)) {
+				uint8_t loaded_by_iboot = 0;
+				uint8_t loaded_by_iboot_stage1 = 0;
+				plist_t fw_node;
+
+				fw_node = plist_access_path(manifest_entry, 2, "Info", "IsLoadedByiBoot");
+				if (fw_node && plist_get_node_type(fw_node) == PLIST_BOOLEAN) {
+					plist_get_bool_val(fw_node, &loaded_by_iboot);
+				}
+				fw_node = plist_access_path(manifest_entry, 2, "Info", "IsLoadedByiBootStage1");
+				if (fw_node && plist_get_node_type(fw_node) == PLIST_BOOLEAN) {
+					plist_get_bool_val(fw_node, &loaded_by_iboot_stage1);
+				}
+				if (loaded_by_iboot || loaded_by_iboot_stage1) {
+					plist_t comp_path = plist_access_path(manifest_entry, 2, "Info", "Path");
+					if (comp_path) {
+						const char* path = plist_get_string_ptr(comp_path, NULL);
+						unsigned char* component_data = NULL;
+						unsigned int component_size = 0;
+						int ret = extract_component(client->ipsw, path, &component_data, &component_size);
+						if (ret == 0) {
+							unsigned char* data = NULL;
+							unsigned int size = 0;
+							ret = personalize_component(client, component, component_data, component_size, client->tss_recoveryos_root_ticket, &data, &size);
+							free(component_data);
+							component_data = NULL;
+							if (ret == 0) {
+								plist_dict_set_item(firmware_files, component, plist_new_data((char*)data, size));
+								free(data);
+							}
+						}
+					}
+				}
+			}
+			free(component);
+		} while (manifest_entry);
+		plist_mem_free(iter);
+	}
+
+	plist_t dict = plist_new_dict();
+
+	if (plist_dict_get_size(firmware_files) == 0) {
+		plist_free(firmware_files);
+		info("NOTE: No iBoot firmware files. Continuing.\n");
+		plist_dict_set_item(dict, "RecoveryOSNoAssetFound", plist_new_bool(1));
+		restored_send(client->restore->client, dict);
+		plist_free(dict);
+		return 0;
+
+	}
+
+	info("Sending iBoot additional firmware files\n");
+
+	plist_dict_set_item(dict, "AdditionalBootImages", firmware_files);
+	restored_send(client->restore->client, dict);
+	plist_free(dict);
+
+	return 0;
+}
+
+int restore_send_recovery_os_image(struct idevicerestore_client_t* client, plist_t message)
+{
+	const char* component = "OS";
+	char* path = NULL;
+	if (build_identity_get_component_path(client->recovery_variant, component, &path) < 0) {
+		error("ERROR: Unable to find %s path from build identity\n", component);
+		return -1;
+	}
+	if (!path) {
+		error("ERROR: Failed to get path for component %s\n", component);
+		return -1;
+	}
+
+	uint64_t fsize = 0;
+	ipsw_get_file_size(client->ipsw, path, &fsize);
+
+	restore_service_client_t service = _restore_get_service_client_for_data_request(client, message);
+	if (!service) {
+		error("ERROR: %s: Unable to connect to service client\n", __func__);
+		return -1;
+	}
+
+	info("Sending %s now (%" PRIu64 " bytes)\n", component, fsize);
+
+	struct _restore_send_file_data_ctx rctx;
+	rctx.client = client;
+	rctx.service = service;
+	rctx.last_progress = 0;
+
+	if (ipsw_extract_send(client->ipsw, path, 8192, (ipsw_send_cb)_restore_send_file_data, &rctx) < 0) {
+		free(path);
+		_restore_service_free(service);
+		error("ERROR: Failed to send component %s\n", component);
+		return -1;
+	}
+	free(path);
+
+	_restore_service_free(service);
+
+	info("Done sending %s\n", component);
+
+	return 0;
+}
+
+int restore_send_recovery_os_version_data(struct idevicerestore_client_t* client, plist_t message)
+{
+	plist_t build_id_info = plist_dict_get_item(client->recovery_variant, "Info");
+	if (!build_id_info) {
+		error("ERROR: Missing Info dictionary in build identity?!\n");
+		return -1;
+	}
+	plist_t version_data = plist_new_dict();
+	plist_dict_copy_item(version_data, build_id_info, "BuildNumber", NULL);
+	plist_dict_copy_item(version_data, build_id_info, "Variant", NULL);
+	plist_dict_copy_item(version_data, build_id_info, "BuildTrain", NULL);
+	plist_dict_copy_item(version_data, build_id_info, "ProductVersion", "ProductMarketingVersion");
+	char *xml = NULL;
+	uint32_t xml_len = 0;
+	plist_to_xml(version_data, &xml, &xml_len);
+	plist_free(version_data);
+
+	info("Sending RecoveryOS version data\n");
+
+	plist_t dict = plist_new_dict();
+	plist_dict_set_item(dict, "RecoveryOSVersionData", plist_new_data(xml, xml_len));
+	plist_mem_free(xml);
+	restored_send(client->restore->client, dict);
+	plist_free(dict);
+
 	return 0;
 }
 
@@ -4702,6 +4929,34 @@ debug("%s: type = %s\n", __func__, type);
 			}
 		}
 
+		else if (!strcmp(type, "RecoveryOSFileAssetImage")) {
+			if (restore_send_recovery_os_file_asset_image(client, message) < 0) {
+				error("ERROR: Unable to send RecoveryOSFileImageAssetImage data\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "RecoveryOSIBootFWFilesImages")) {
+			if (restore_send_recovery_os_iboot_fw_files_images(client, message) < 0) {
+				error("ERROR: Unable to send RecoveryOSIBootFWFilesImages data\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "RecoveryOSImage")) {
+			if (restore_send_recovery_os_image(client, message) < 0) {
+				error("ERROR: Unable to send RecoveryOSImage data\n");
+				return -1;
+			}
+		}
+
+		else if (!strcmp(type, "RecoveryOSVersionData")) {
+			if (restore_send_recovery_os_version_data(client, message) < 0) {
+				error("ERROR: Unable to send RecoveryOSVersionData data\n");
+				return -1;
+			}
+		}
+
 		else {
 			// Unknown DataType!!
 			error("Unknown data request '%s' received\n", type);
@@ -4776,10 +5031,70 @@ static int restore_handle_restore_attestation(struct idevicerestore_client_t* cl
 	return 0;
 }
 
+static void _restore_calculate_recovery_os_partition_size(struct idevicerestore_client_t* client, uint64_t* min_size, uint64_t* max_size)
+{
+	const char* asset_list[] = { "OS", "KernelCache", "DeviceTree", "iBEC", "AppleLogo", "StaticTrustCache", "iBootData", "Diags", "Ap,SystemVolumeCanonicalMetadata", "SystemVolume", "BaseSystemVolume", "Ap,BaseSystemTrustCache", "AVISP1,RTKitOS", NULL };
+
+	if (min_size) *min_size = 356;
+	if (max_size) *max_size = 420;
+
+	double total_size = 0;
+	plist_t firmware_items = plist_new_dict();
+	plist_t build_id_manifest = plist_dict_get_item(client->recovery_variant, "Manifest");
+	plist_dict_iter iter = NULL;
+	plist_dict_new_iter(build_id_manifest, &iter);
+	if (iter) {
+		char *component = NULL;
+		plist_t manifest_entry;
+		do {
+			component = NULL;
+			manifest_entry = NULL;
+			plist_dict_next_item(build_id_manifest, iter, &component, &manifest_entry);
+			if (component && PLIST_IS_DICT(manifest_entry) && plist_dict_get_item(firmware_items, component) == NULL) {
+				int add_image = 0;
+				int i = 0;
+				while (asset_list[i]) {
+					if (!strcmp(asset_list[i], component)) {
+						add_image = 1;
+						break;
+					}
+					i++;
+				}
+				plist_t fw_node;
+				fw_node = plist_access_path(manifest_entry, 2, "Info", "IsLoadedByiBoot");
+				if (fw_node && plist_get_node_type(fw_node) == PLIST_BOOLEAN) {
+					uint8_t loaded_by_iboot = 0;
+					plist_get_bool_val(fw_node, &loaded_by_iboot);
+					if (loaded_by_iboot) {
+						add_image = 1;
+					}
+				}
+				if (add_image) {
+					plist_t p_path = plist_access_path(manifest_entry, 2, "Info", "Path");
+					if (p_path) {
+						const char* path = plist_get_string_ptr(p_path, NULL);
+						uint64_t fsize = 0;
+						if (ipsw_get_file_size(client->ipsw, path, &fsize) == 0) {
+							debug("%s: Adding %s (%s, %llu bytes)\n", __func__, component, path, fsize);
+							total_size += (double)fsize / 0x100000;
+						}
+					}
+				}
+			}
+			free(component);
+		} while (manifest_entry);
+		plist_mem_free(iter);
+	}
+	total_size = ceil(total_size);
+	if (min_size) *min_size = total_size * 1.05 + 25;
+	if (max_size) *max_size = total_size * 1.25 + 25;
+}
+
 // Extracted from ac2
 plist_t restore_supported_data_types()
 {
 	plist_t dict = plist_new_dict();
+	plist_dict_set_item(dict, "AuthInstallCACert", plist_new_bool(1));
 	plist_dict_set_item(dict, "BasebandBootData", plist_new_bool(0));
 	plist_dict_set_item(dict, "BasebandData", plist_new_bool(0));
 	plist_dict_set_item(dict, "BasebandStackData", plist_new_bool(0));
@@ -4797,20 +5112,26 @@ plist_t restore_supported_data_types()
 	plist_dict_set_item(dict, "FileData", plist_new_bool(0));
 	plist_dict_set_item(dict, "FileDataDone", plist_new_bool(0));
 	plist_dict_set_item(dict, "FirmwareUpdaterData", plist_new_bool(0));
+	plist_dict_set_item(dict, "FirmwareUpdaterDataV2", plist_new_bool(0));
+	plist_dict_set_item(dict, "FirmwareUpdaterDataV3", plist_new_bool(1));
+	plist_dict_set_item(dict, "FirmwareUpdaterPreflight", plist_new_bool(1));
 	plist_dict_set_item(dict, "GrapeFWData", plist_new_bool(0));
 	plist_dict_set_item(dict, "HPMFWData", plist_new_bool(0));
 	plist_dict_set_item(dict, "HostSystemTime", plist_new_bool(1));
 	plist_dict_set_item(dict, "KernelCache", plist_new_bool(0));
+	plist_dict_set_item(dict, "MessageUseStreamedImageFile", plist_new_bool(1));
 	plist_dict_set_item(dict, "NORData", plist_new_bool(0));
 	plist_dict_set_item(dict, "NitrogenFWData", plist_new_bool(1));
 	plist_dict_set_item(dict, "OpalFWData", plist_new_bool(0));
 	plist_dict_set_item(dict, "OverlayRootDataCount", plist_new_bool(0));
 	plist_dict_set_item(dict, "OverlayRootDataForKey", plist_new_bool(1));
+	plist_dict_set_item(dict, "OverlayRootDataForKeyIndex", plist_new_bool(1));
 	plist_dict_set_item(dict, "PeppyFWData", plist_new_bool(1));
 	plist_dict_set_item(dict, "PersonalizedBootObjectV3", plist_new_bool(0));
 	plist_dict_set_item(dict, "PersonalizedData", plist_new_bool(1));
 	plist_dict_set_item(dict, "ProvisioningData", plist_new_bool(0));
 	plist_dict_set_item(dict, "RamdiskFWData", plist_new_bool(1));
+	plist_dict_set_item(dict, "ReceiptManifest", plist_new_bool(1));
 	plist_dict_set_item(dict, "RecoveryOSASRImage", plist_new_bool(1));
 	plist_dict_set_item(dict, "RecoveryOSAppleLogo", plist_new_bool(1));
 	plist_dict_set_item(dict, "RecoveryOSDeviceTree", plist_new_bool(1));
@@ -4824,6 +5145,7 @@ plist_t restore_supported_data_types()
 	plist_dict_set_item(dict, "RecoveryOSRootTicketData", plist_new_bool(1));
 	plist_dict_set_item(dict, "RecoveryOSStaticTrustCache", plist_new_bool(1));
 	plist_dict_set_item(dict, "RecoveryOSVersionData", plist_new_bool(1));
+	plist_dict_set_item(dict, "RestoreLocalPolicy", plist_new_bool(1));
 	plist_dict_set_item(dict, "RootData", plist_new_bool(0));
 	plist_dict_set_item(dict, "RootTicket", plist_new_bool(0));
 	plist_dict_set_item(dict, "S3EOverride", plist_new_bool(0));
@@ -4834,18 +5156,10 @@ plist_t restore_supported_data_types()
 	plist_dict_set_item(dict, "SystemImageCanonicalMetadata", plist_new_bool(0));
 	plist_dict_set_item(dict, "SystemImageData", plist_new_bool(0));
 	plist_dict_set_item(dict, "SystemImageRootHash", plist_new_bool(0));
+	plist_dict_set_item(dict, "URLAsset", plist_new_bool(1));
 	plist_dict_set_item(dict, "USBCFWData", plist_new_bool(0));
 	plist_dict_set_item(dict, "USBCOverride", plist_new_bool(0));
-	plist_dict_set_item(dict, "FirmwareUpdaterPreflight", plist_new_bool(1));
-	plist_dict_set_item(dict, "ReceiptManifest", plist_new_bool(1));
-	plist_dict_set_item(dict, "FirmwareUpdaterDataV2", plist_new_bool(0));
-	plist_dict_set_item(dict, "RestoreLocalPolicy", plist_new_bool(1));
-	plist_dict_set_item(dict, "AuthInstallCACert", plist_new_bool(1));
-	plist_dict_set_item(dict, "OverlayRootDataForKeyIndex", plist_new_bool(1));
-	plist_dict_set_item(dict, "FirmwareUpdaterDataV3", plist_new_bool(1));
-	plist_dict_set_item(dict, "MessageUseStreamedImageFile", plist_new_bool(1));
 	plist_dict_set_item(dict, "UpdateVolumeOverlayRootDataCount", plist_new_bool(1));
-	plist_dict_set_item(dict, "URLAsset", plist_new_bool(1));
 	return dict;
 }
 
@@ -4853,8 +5167,11 @@ plist_t restore_supported_data_types()
 plist_t restore_supported_message_types()
 {
 	plist_t dict = plist_new_dict();
+	plist_dict_set_item(dict, "AsyncDataRequestMsg", plist_new_bool(1));
+	plist_dict_set_item(dict, "AsyncWait", plist_new_bool(1));
 	plist_dict_set_item(dict, "BBUpdateStatusMsg", plist_new_bool(0));
 	plist_dict_set_item(dict, "CheckpointMsg", plist_new_bool(1));
+	plist_dict_set_item(dict, "CrashLog", plist_new_bool(1));
 	plist_dict_set_item(dict, "DataRequestMsg", plist_new_bool(0));
 	plist_dict_set_item(dict, "FDRSubmit", plist_new_bool(1));
 	plist_dict_set_item(dict, "MsgType", plist_new_bool(0));
@@ -4864,11 +5181,9 @@ plist_t restore_supported_message_types()
 	plist_dict_set_item(dict, "ProvisioningInfo", plist_new_bool(0));
 	plist_dict_set_item(dict, "ProvisioningStatusMsg", plist_new_bool(0));
 	plist_dict_set_item(dict, "ReceivedFinalStatusMsg", plist_new_bool(0));
+	plist_dict_set_item(dict, "RestoreAttestation", plist_new_bool(1));
 	plist_dict_set_item(dict, "RestoredCrash", plist_new_bool(1));
 	plist_dict_set_item(dict, "StatusMsg", plist_new_bool(0));
-	plist_dict_set_item(dict, "AsyncDataRequestMsg", plist_new_bool(1));
-	plist_dict_set_item(dict, "AsyncWait", plist_new_bool(1));
-	plist_dict_set_item(dict, "RestoreAttestation", plist_new_bool(1));
 	return dict;
 }
 
@@ -5024,15 +5339,15 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	//plist_dict_set_item(opts, "AuthInstallRestoreBehavior", plist_new_string("Erase"));
 	plist_dict_set_item(opts, "AutoBootDelay", plist_new_uint(0));
 
-	if (client->preflight_info) {
-		plist_t bbus = plist_copy(client->preflight_info);
+	if (client->firmware_preflight_info) {
+		plist_t bbus = plist_copy(client->firmware_preflight_info);
 
 		plist_dict_remove_item(bbus, "FusingStatus");
 		plist_dict_remove_item(bbus, "PkHash");
 
 		plist_dict_set_item(opts, "BBUpdaterState", bbus);
 
-		plist_dict_copy_data(opts, client->preflight_info, "BasebandNonce", "Nonce");
+		plist_dict_copy_data(opts, client->firmware_preflight_info, "BasebandNonce", "Nonce");
 	}
 
 	plist_dict_set_item(opts, "SupportedDataTypes", restore_supported_data_types());
@@ -5078,7 +5393,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		}
 	} else {
 		// FIXME: new on iOS 5 ?
-		plist_dict_set_item(opts, "BootImageType", plist_new_string("UserOrInternal"));
+		plist_dict_set_item(opts, "BootImageType", plist_new_string("User"));
 		// FIXME: required?
 		//plist_dict_set_item(opts, "BootImageFile", plist_new_string("018-7923-347.dmg"));
 		plist_dict_set_item(opts, "DFUFileType", plist_new_string("RELEASE"));
@@ -5104,7 +5419,27 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// FIXME: new on iOS 5 ?
 		plist_dict_set_item(opts, "SystemImageType", plist_new_string("User"));
 		// FIXME: does this have any effect actually?
-		plist_dict_set_item(opts, "UpdateBaseband", plist_new_bool(0));
+		plist_dict_set_item(opts, "UpdateBaseband", plist_new_bool(1));
+		plist_dict_set_item(opts, "InstallDiags", plist_new_bool(0));
+		if (client->recovery_variant) {
+			plist_dict_set_item(opts, "InstallRecoveryOS", plist_new_bool(1));
+			plist_dict_set_item(opts, "RecoveryOSBundlePath", plist_new_string("/tmp/Per2.tmp"));
+			plist_t recovery_variant = plist_access_path(client->recovery_variant, 2, "Info", "Variant");
+			plist_dict_set_item(opts, "AuthInstallRecoveryOSVariant", plist_copy(recovery_variant));
+			uint64_t max_size = 0;
+			uint64_t min_size = 0;
+			_restore_calculate_recovery_os_partition_size(client, &min_size, &max_size);
+			info("Calculated recoveryOSPartitionSize as %" PRIu64 " MB\n", min_size);
+			info("Calculated recoveryOSMaxPartitionSize as %" PRIu64 " MB\n", max_size);
+			plist_dict_set_item(opts, "recoveryOSMaxPartitionSize", plist_new_uint(max_size));
+			plist_dict_set_item(opts, "recoveryOSPartitionSize", plist_new_uint(min_size));
+		}
+
+		if (plist_dict_get_bool(client->parameters, "RequiresNonceSlot")) {
+			info("Device will use nonce slots.\n");
+		} else {
+			info("Device will not use nonce slots.\n");
+		}
 
 		// Added for iOS 18.0 beta 1
 		plist_dict_set_item(opts, "HostHasFixFor99053849", plist_new_bool(1));
@@ -5154,10 +5489,14 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		spp = plist_copy(spp);
 	} else {
 		spp = plist_new_dict();
+		plist_dict_set_item(spp, "1024", plist_new_uint(1280));
 		plist_dict_set_item(spp, "128", plist_new_uint(1280));
 		plist_dict_set_item(spp, "16", plist_new_uint(160));
+		plist_dict_set_item(spp, "256", plist_new_uint(1280));
 		plist_dict_set_item(spp, "32", plist_new_uint(320));
+		plist_dict_set_item(spp, "512", plist_new_uint(1280));
 		plist_dict_set_item(spp, "64", plist_new_uint(640));
+		plist_dict_set_item(spp, "768", plist_new_uint(1280));
 		plist_dict_set_item(spp, "8", plist_new_uint(80));
 	}
 	plist_dict_set_item(opts, "SystemPartitionPadding", spp);
