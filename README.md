@@ -268,7 +268,7 @@ and then will execute `idevicerestore --latest`
 
 After running the script once, the container can be reused with:
 ```shell
-docker run -it --privileged -v "$(pwd):/tmp" idevicerestore-docker idevicerestore [optional commandline args]
+docker run -it --privileged --net=host -v /run/udev/control:/run/udev/control -v "$(pwd):/tmp" idevicerestore-docker idevicerestore [optional commandline args]
 ```
 
 ## Contributing
