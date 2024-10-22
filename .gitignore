@@ -30,7 +30,6 @@ ltmain.sh
 missing
 mkinstalldirs
 libtool
-*Makefile
 py-compile
 stamp-h1
 src/.libs
