@@ -262,14 +262,9 @@ man idevicerestore
 
 ### Docker
 
-Execute `run.sh` in the docker folder,
+Execute `run.sh --latest` in the docker folder,
 which will build a docker container with the latest source versions of all required libraries,
-and then will execute `idevicerestore --latest`
-
-After running the script once, the container can be reused with:
-```shell
-docker run -it --privileged --net=host -v /run/udev/control:/run/udev/control -v "$(pwd):/tmp" idevicerestore-docker idevicerestore [optional commandline args]
-```
+and then will execute `usbmuxd` in the background, and then start `idevicerestore --latest`.
 
 ## Contributing
 
