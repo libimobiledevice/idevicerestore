@@ -262,9 +262,12 @@ man idevicerestore
 
 ### Docker
 
-Execute `run.sh --latest` in the docker folder,
-which will build a docker container with the latest source versions of all required libraries,
-and then will execute `usbmuxd` in the background, and then start `idevicerestore --latest`.
+Build the container with `build.sh` in the docker folder, which will build a
+docker container with the latest source versions of all the required libraries.
+
+Run the container with `run.sh --latest` in the docker folder,
+which will execute `usbmuxd` in the background, and then start `idevicerestore --latest`.
+Any arguments passed to `run.sh` will be passed in to `idevicerestore`.
 
 ## Contributing
 
