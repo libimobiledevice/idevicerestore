@@ -69,7 +69,7 @@ if test "x$ac_cv_have_endian_h" = "xno"; then
   fi
 fi
 
-GLOBAL_CFLAGS="-Wno-multichar -O2"
+GLOBAL_CFLAGS="-Wno-multichar -O2 -lm"
 AC_LDADD=""
 AC_LDFLAGS=""
 
