@@ -14,42 +14,42 @@ jobs:
       run: |
           echo "target_triplet=`gcc -dumpmachine`" >> $GITHUB_ENV
     - name: fetch libirecovery
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libirecovery-latest_${{env.target_triplet}}
         repo: libimobiledevice/libirecovery
     - name: fetch libplist
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libplist-latest_${{env.target_triplet}}
         repo: libimobiledevice/libplist
     - name: fetch libusbmuxd
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libusbmuxd-latest_${{env.target_triplet}}
         repo: libimobiledevice/libusbmuxd
     - name: fetch libimobiledevice-glue
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libimobiledevice-glue-latest_${{env.target_triplet}}
         repo: libimobiledevice/libimobiledevice-glue
     - name: fetch libimobiledevice
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libimobiledevice-latest_${{env.target_triplet}}
         repo: libimobiledevice/libimobiledevice
     - name: fetch libtatsu
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
@@ -95,42 +95,42 @@ jobs:
           fi
       shell: bash
     - name: fetch libirecovery
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libirecovery-latest_macOS
         repo: libimobiledevice/libirecovery
     - name: fetch libplist
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libplist-latest_macOS
         repo: libimobiledevice/libplist
     - name: fetch libusbmuxd
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libusbmuxd-latest_macOS
         repo: libimobiledevice/libusbmuxd
     - name: fetch libimobiledevice-glue
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libimobiledevice-glue-latest_macOS
         repo: libimobiledevice/libimobiledevice-glue
     - name: fetch libimobiledevice
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libimobiledevice-latest_macOS
         repo: libimobiledevice/libimobiledevice
     - name: fetch libtatsu
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
@@ -221,42 +221,42 @@ jobs:
           echo "dest=$dest" >> $GITHUB_ENV
           echo "target_triplet=`gcc -dumpmachine`" >> $GITHUB_ENV
     - name: fetch libirecovery
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libirecovery-latest_${{ matrix.arch }}-${{ env.dest }}
         repo: libimobiledevice/libirecovery
     - name: fetch libplist
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libplist-latest_${{ matrix.arch }}-${{ env.dest }}
         repo: libimobiledevice/libplist
     - name: fetch libusbmuxd
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libusbmuxd-latest_${{ matrix.arch }}-${{ env.dest }}
         repo: libimobiledevice/libusbmuxd
     - name: fetch libimobiledevice-glue
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libimobiledevice-glue-latest_${{ matrix.arch }}-${{ env.dest }}
         repo: libimobiledevice/libimobiledevice-glue
     - name: fetch libimobiledevice
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
         name: libimobiledevice-latest_${{ matrix.arch }}-${{ env.dest }}
         repo: libimobiledevice/libimobiledevice
     - name: fetch libtatsu
-      uses: dawidd6/action-download-artifact@v3
+      uses: dawidd6/action-download-artifact@v6
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
