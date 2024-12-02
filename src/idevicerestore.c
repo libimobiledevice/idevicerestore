@@ -1449,6 +1449,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 		debug("Waiting for device to disconnect...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
+		int tries = 3 ;
+		while(tries-- && (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT))) {
+			debug("cond_wait_timeout retry\n");
+			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
+		}		
 		if (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 
@@ -1460,6 +1465,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		recovery_client_free(client);
 		debug("Waiting for device to reconnect in recovery mode...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
+		tries = 3 ;
+		while(tries-- && (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT))) {
+			debug("cond_wait_timeout retry\n");
+			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
+		}
 		if (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			if (!(client->flags & FLAG_QUIT)) {
@@ -1523,7 +1533,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				plist_free(client->tss);
 			return -2;
 		}
-		recovery_client_free(client);
 	}
 	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.9);
 
@@ -1531,6 +1540,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		mutex_lock(&client->device_event_mutex);
 		info("Waiting for device to enter restore mode...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 180000);
+		int tries = 13 ;
+		while(tries-- && (client->mode != MODE_RESTORE || (client->flags & FLAG_QUIT))) {
+			debug("cond_wait_timeout retry\n");
+			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
+		}
 		if (client->mode != MODE_RESTORE || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			error("ERROR: Device failed to enter restore mode.\n");
@@ -1740,9 +1754,12 @@ void plain_progress_cb(int step, double step_progress, void* userdata)
 {
 	printf("progress: %u %f\n", step, step_progress);
 	fflush(stdout);
+	fflush(stderr);
 }
 
 int main(int argc, char* argv[]) {
+	//setbuf(stdout, NULL);
+	//setbuf(stderr, NULL);
 	int opt = 0;
 	int optindex = 0;
 	char* ipsw = NULL;
@@ -1988,6 +2005,7 @@ int main(int argc, char* argv[]) {
 
 irecv_device_t get_irecv_device(struct idevicerestore_client_t *client)
 {
+	info("get_irecv_device");
 	int mode = _MODE_UNKNOWN;
 
 	if (client->mode) {

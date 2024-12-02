@@ -79,6 +79,15 @@ static FILE* debug_stream = NULL;
 static int info_disabled = 0;
 static int error_disabled = 0;
 static int debug_disabled = 0;
+void printTime()
+{
+	time_t rawtime;
+    struct tm * timeinfo;
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    // Print current time in human-readable format
+    printf("\nCurrent time: %02d:%02d:%02d\n %d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+}
 
 static mutex_t log_mutex;
 static thread_once_t init_once = THREAD_ONCE_INIT;
@@ -97,8 +106,11 @@ void info(const char* format, ...)
 	va_start(vargs, format);
 	vfprintf((info_stream) ? info_stream : stdout, format, vargs);
 	va_end(vargs);
+	printTime() ;
 	fflush(info_stream?info_stream:stdout);
+
 	mutex_unlock(&log_mutex);
+
 }
 
 void error(const char* format, ...)
@@ -114,8 +126,11 @@ void error(const char* format, ...)
 		vfprintf((error_stream) ? error_stream : stderr, format, vargs2);
 	}
 	va_end(vargs2);
+	printTime() ;
+
 	fflush(error_stream?error_stream:stderr);
 	mutex_unlock(&log_mutex);
+
 }
 
 void debug(const char* format, ...)
@@ -130,8 +145,10 @@ void debug(const char* format, ...)
 	va_start(vargs, format);
 	vfprintf((debug_stream) ? debug_stream : stderr, format, vargs);
 	va_end(vargs);
+	printTime();
 	fflush(debug_stream?debug_stream:stderr);
 	mutex_unlock(&log_mutex);
+
 }
 
 void idevicerestore_set_info_stream(FILE* strm)

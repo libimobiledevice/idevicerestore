@@ -44,8 +44,8 @@
 #define ASR_FEC_SLICE_STRIDE 40
 #define ASR_PACKETS_PER_FEC 25
 #define ASR_PAYLOAD_PACKET_SIZE 1450
-#define ASR_PAYLOAD_CHUNK_SIZE 131072
-#define ASR_CHECKSUM_CHUNK_SIZE 131072
+#define ASR_PAYLOAD_CHUNK_SIZE 32768	
+#define ASR_CHECKSUM_CHUNK_SIZE 32768
 
 int asr_open_with_timeout(idevice_t device, asr_client_t* asr, uint16_t port)
 {
@@ -354,9 +354,11 @@ int asr_handle_oob_data_request(asr_client_t asr, plist_t packet, ipsw_file_hand
 	free(oob_data);
 	return 0;
 }
-
+int g_count = 0 ;
 int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 {
+	g_count++; 
+	info("asr_send_payload small packets")  ;
 	char *data = NULL;
 	uint64_t i, length, bytes = 0;
 	double progress = 0;
@@ -375,18 +377,20 @@ int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 		if (i < ASR_PAYLOAD_CHUNK_SIZE) {
 			size = i;
 		}
-
+		//info("\r\nipsw_file_read"); 
 		if (ipsw_file_read(file, data, size) != (int64_t)size) {
-			error("Error reading filesystem\n");
+			info("Error reading filesystem\n");
 			retry--;
 			continue;
 		}
-
+		//info("ipsw_file_read read done");
 		sendsize = size;
 		if (asr->checksum_chunks) {
 			sha1((unsigned char*)data, size, (unsigned char*)(data+size));
 			sendsize += 20;
 		}
+
+	//	info("\r\nasr_send_buffer"); 
 		if (asr_send_buffer(asr, data, sendsize) < 0) {
 			error("Unable to send filesystem payload chunk, retrying...\n");
 			retry--;
@@ -401,8 +405,13 @@ int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 		}
 
 		i -= size;
+		if(g_count%20==0)
+			Sleep(1) ;
+		//info("again"); 
 	}
-
+	info("\r\nfree"); 
 	free(data);
+	info("\r\nreturn"); 
 	return (i == 0) ? 0 : -1;
+
 }
