@@ -84,7 +84,6 @@ irecv_device_t dfu_get_irecv_device(struct idevicerestore_client_t* client)
 	irecv_error_t dfu_error = IRECV_E_SUCCESS;
 	irecv_device_t device = NULL;
 
-	irecv_init();
 	if (irecv_open_with_ecid_and_attempts(&dfu, client->ecid, 10) != IRECV_E_SUCCESS) {
 		return NULL;
 	}
