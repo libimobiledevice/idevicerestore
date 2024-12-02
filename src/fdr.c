@@ -142,7 +142,7 @@ int fdr_poll_and_handle_message(fdr_client_t fdr)
 		return -1;
 	}
 
-	device_error = idevice_connection_receive_timeout(fdr->connection, (char *)&cmd, sizeof(cmd), &bytes, 20000);
+	device_error = idevice_connection_receive_timeout(fdr->connection, (char *)&cmd, sizeof(cmd), &bytes, 40000);
 #ifdef HAVE_IDEVICE_E_TIMEOUT
 	if (device_error == IDEVICE_E_TIMEOUT || (device_error == IDEVICE_E_SUCCESS && bytes != sizeof(cmd)))
 #else
