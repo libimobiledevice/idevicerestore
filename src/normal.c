@@ -260,11 +260,6 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 	mutex_lock(&client->device_event_mutex);
 	debug("DEBUG: Waiting for device to disconnect...\n");
 	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
-	int tries = 3 ;
-	while(tries-- && (client->mode == MODE_NORMAL || (client->flags & FLAG_QUIT))) {
-		debug("cond_wait_timeout retry\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
-	}	
 	if (client->mode == MODE_NORMAL || (client->flags & FLAG_QUIT)) {
 		mutex_unlock(&client->device_event_mutex);
 		error("ERROR: Failed to place device in recovery mode\n");
@@ -273,11 +268,6 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 
 	debug("DEBUG: Waiting for device to connect in recovery mode...\n");
 	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
-	tries = 3 ;
-	while(tries-- && (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT))) {
-		debug("cond_wait_timeout retry\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
-	}
 	if (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT)) {
 		mutex_unlock(&client->device_event_mutex);
 		error("ERROR: Failed to enter recovery mode\n");

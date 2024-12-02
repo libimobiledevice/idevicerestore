@@ -465,16 +465,19 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 	}
 	dfu_client_free(client);
 
-	int tries = 3;
 	if (client->build_major > 8) {
 		/* reconnect */
 		debug("Waiting for device to disconnect...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-		tries = 3 ;
-		while(tries-- && ((client->mode != MODE_DFU && client->mode != MODE_RECOVERY) || (client->flags & FLAG_QUIT))) {
-			debug("cond_wait_timeout retry\n");
-			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
+		if (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
+			mutex_unlock(&client->device_event_mutex);
+			if (!(client->flags & FLAG_QUIT)) {
+				error("ERROR: Device did not disconnect. Possibly invalid iBSS. Reset device and try again.\n");
+			}
+			return -1;
 		}
+		debug("Waiting for device to reconnect...\n");
+		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
 		if ((client->mode != MODE_DFU && client->mode != MODE_RECOVERY) || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			if (!(client->flags & FLAG_QUIT)) {
@@ -641,11 +644,6 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 
 	debug("Waiting for device to disconnect...\n");
 	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-	tries = 3 ;
-	while(tries-- && (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT))) {
-		debug("cond_wait_timeout retry\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
-	}
 	if (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
 		mutex_unlock(&client->device_event_mutex);
 		if (!(client->flags & FLAG_QUIT)) {
@@ -654,11 +652,6 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		return -1;
 	}
 	debug("Waiting for device to reconnect in recovery mode...\n");
-	tries = 3 ;
-	while(tries-- && (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT))) {
-		debug("cond_wait_timeout retry\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
-	}
 	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
 	if (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT)) {
 		mutex_unlock(&client->device_event_mutex);
