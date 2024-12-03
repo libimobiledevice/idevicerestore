@@ -56,6 +56,7 @@ if test x$ac_cv_func_strsep != xyes; then
   fi
 fi
 
+AC_SEARCH_LIBS([ceil], [m])
 
 AC_CHECK_HEADER(endian.h, [ac_cv_have_endian_h="yes"], [ac_cv_have_endian_h="no"])
 if test "x$ac_cv_have_endian_h" = "xno"; then
