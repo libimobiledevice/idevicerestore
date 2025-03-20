@@ -54,13 +54,15 @@
 #include "recovery.h"
 #include "idevicerestore.h"
 
+#ifdef HAVE_LIMERA1N
 #include "limera1n.h"
+#endif
 
 #include "locking.h"
 
 #define VERSION_XML "version.xml"
 
-#ifndef IDEVICERESTORE_NOMAIN
+#ifndef  IDEVICERESTORE_NOMAIN
 static struct option longopts[] = {
 	{ "ecid",           required_argument, NULL, 'i' },
 	{ "udid",           required_argument, NULL, 'u' },
@@ -73,7 +75,9 @@ static struct option longopts[] = {
 	{ "exclude",        no_argument,       NULL, 'x' },
 	{ "shsh",           no_argument,       NULL, 't' },
 	{ "keep-pers",      no_argument,       NULL, 'k' },
+#ifdef HAVE_LIMERA1N
 	{ "pwn",            no_argument,       NULL, 'p' },
+#endif
 	{ "no-action",      no_argument,       NULL, 'n' },
 	{ "cache-path",     required_argument, NULL, 'C' },
 	{ "no-input",       no_argument,       NULL, 'y' },
@@ -90,6 +94,11 @@ static struct option longopts[] = {
 
 static void usage(int argc, char* argv[], int err)
 {
+#ifdef HAVE_LIMERA1N
+#define PWN_FLAG_LINE "  -p, --pwn             Put device in pwned DFU mode and exit (limera1n devices)\n"
+#else
+#define PWN_FLAG_LINE ""
+#endif
 	char* name = strrchr(argv[0], '/');
 	fprintf((err) ? stderr : stdout,
 	"Usage: %s [OPTIONS] PATH\n" \
@@ -134,7 +143,7 @@ static void usage(int argc, char* argv[], int err)
 	"  -t, --shsh            Fetch TSS record and save to .shsh file, then exit\n" \
 	"  -z, --no-restore      Do not restore and end after booting to the ramdisk\n" \
 	"  -k, --keep-pers       Write personalized components to files for debugging\n" \
-	"  -p, --pwn             Put device in pwned DFU mode and exit (limera1n devices)\n" \
+	PWN_FLAG_LINE \
 	"  -P, --plain-progress  Print progress as plain step and progress\n" \
 	"  -R, --restore-mode    Allow restoring from Restore mode\n" \
 	"  -T, --ticket PATH     Use file at PATH to send as AP ticket\n" \
@@ -501,6 +510,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	info("Device Product Build: %s\n", (client->device_build) ? client->device_build : "N/A");
 
 	if (client->flags & FLAG_PWN) {
+#ifdef HAVE_LIMERA1N
 		recovery_client_free(client);
 
 		if (client->mode != MODE_DFU) {
@@ -530,6 +540,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			error("ERROR: This device is not supported by the limera1n exploit");
 			return -1;
 		}
+#endif
 	}
 
 	if (client->flags & FLAG_LATEST) {
@@ -1392,6 +1403,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		// if the device is in DFU mode, place it into recovery mode
 		dfu_client_free(client);
 		recovery_client_free(client);
+#ifdef HAVE_LIMERA1N
 		if ((client->flags & FLAG_CUSTOM) && limera1n_is_supported(client->device)) {
 			info("connecting to DFU\n");
 			if (dfu_client_new(client) < 0) {
@@ -1406,6 +1418,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			dfu_client_free(client);
 			info("exploited\n");
 		}
+#endif
 		if (dfu_enter_recovery(client, build_identity) < 0) {
 			error("ERROR: Unable to place device into recovery mode from DFU mode\n");
 			if (client->tss)
@@ -1765,7 +1778,13 @@ int main(int argc, char* argv[]) {
 		client->flags |= FLAG_INTERACTIVE;
 	}
 
-	while ((opt = getopt_long(argc, argv, "dhces:xtpli:u:nC:kyPRT:zv", longopts, &optindex)) > 0) {
+#ifdef HAVE_LIMERA1N
+#define P_FLAG "p"
+#else
+#define P_FLAG ""
+#endif
+
+	while ((opt = getopt_long(argc, argv, "dhces:xtli:u:nC:kyPRT:zv" P_FLAG, longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv, 0);
@@ -1855,9 +1874,11 @@ int main(int argc, char* argv[]) {
 			idevicerestore_keep_pers = 1;
 			break;
 
+#ifdef HAVE_LIMERA1N
 		case 'p':
 			client->flags |= FLAG_PWN;
 			break;
+#endif
 
 		case 'n':
 			client->flags |= FLAG_NOACTION;

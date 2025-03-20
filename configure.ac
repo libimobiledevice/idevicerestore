@@ -150,6 +150,16 @@ if test "$ac_cv_reverse_proxy" = "yes"; then
 	AC_DEFINE(HAVE_REVERSE_PROXY, 1, [Define if libimobiledevice has a reverse proxy implementation])
 fi
 
+AC_ARG_WITH([limera1n],
+            [AS_HELP_STRING([--with-limera1n],
+            [build with support for limera1n exploit (default is yes)])],
+            [have_limera1n=$withval],
+            [have_limera1n=yes])
+if test "x$have_limera1n" = "xyes"; then
+  AC_DEFINE(HAVE_LIMERA1N, 1, [Define if limera1n support is available])
+fi
+AM_CONDITIONAL([HAVE_LIMERA1N],[test "x$have_limera1n" = "xyes"])
+
 CFLAGS="$CACHED_CFLAGS"
 
 AC_SUBST(GLOBAL_CFLAGS)
