@@ -2406,18 +2406,20 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 			plist_dict_copy_uint(parameters, pinfo, "BbGoldCertId", "CertID");
 			plist_dict_copy_data(parameters, pinfo, "BbSNUM", "ChipSerialNo");
 
-			/* add baseband parameters */
-			tss_request_add_baseband_tags(request, parameters, NULL);
+			if (plist_dict_get_item(parameters, "BbSNUM")) {
+				/* add baseband parameters */
+				tss_request_add_baseband_tags(request, parameters, NULL);
 
-			plist_dict_copy_uint(parameters, pinfo, "eUICC,ChipID", "EUICCChipID");
-			if (plist_dict_get_uint(parameters, "eUICC,ChipID") >= 5) {
-				plist_dict_copy_data(parameters, pinfo, "eUICC,EID", "EUICCCSN");
-				plist_dict_copy_data(parameters, pinfo, "eUICC,RootKeyIdentifier", "EUICCCertIdentifier");
-				plist_dict_copy_data(parameters, pinfo, "EUICCGoldNonce", NULL);
-				plist_dict_copy_data(parameters, pinfo, "EUICCMainNonce", NULL);
+				plist_dict_copy_uint(parameters, pinfo, "eUICC,ChipID", "EUICCChipID");
+				if (plist_dict_get_uint(parameters, "eUICC,ChipID") >= 5) {
+					plist_dict_copy_data(parameters, pinfo, "eUICC,EID", "EUICCCSN");
+					plist_dict_copy_data(parameters, pinfo, "eUICC,RootKeyIdentifier", "EUICCCertIdentifier");
+					plist_dict_copy_data(parameters, pinfo, "EUICCGoldNonce", NULL);
+					plist_dict_copy_data(parameters, pinfo, "EUICCMainNonce", NULL);
 
-				/* add vinyl parameters */
-				tss_request_add_vinyl_tags(request, parameters, NULL);
+					/* add vinyl parameters */
+					tss_request_add_vinyl_tags(request, parameters, NULL);
+				}
 			}
 		}
 		client->firmware_preflight_info = pinfo;
