@@ -378,7 +378,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.1);
 	info("Found device in %s mode\n", client->mode->string);
 	mutex_unlock(&client->device_event_mutex);
-
+	info("Found device  mode index %d \n", client->mode->index);
 	if (client->mode == MODE_WTF) {
 		unsigned int cpid = 0;
 
@@ -1968,6 +1968,11 @@ int main(int argc, char* argv[]) {
 			error("ERROR: Firmware file %s cannot be opened.\n", ipsw);
 			return -1;
 		}
+		info("ipsw OK") ;
+
+	}
+	else {
+		info("no ipsw") ;
 	}
 
 	curl_global_init(CURL_GLOBAL_ALL);
@@ -1989,13 +1994,19 @@ irecv_device_t get_irecv_device(struct idevicerestore_client_t *client)
 
 	if (client->mode) {
 		mode = client->mode->index;
+		info("get_irecv_device mode:%x",mode);
+	}
+	else {
+		info("get_irecv_device NO mode");
 	}
 
 	switch (mode) {
 	case _MODE_RESTORE:
+		info("calling restore_get_irecv_device\n");
 		return restore_get_irecv_device(client);
 
 	case _MODE_NORMAL:
+		info("calling normal_get_irecv_device\n");
 		return normal_get_irecv_device(client);
 
 	case _MODE_DFU:
@@ -2397,25 +2408,55 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		/* normal mode; request baseband ticket aswell */
 		plist_t pinfo = NULL;
 		normal_get_firmware_preflight_info(client, &pinfo);
+
+
+	
+		if(pinfo){
+			char *xml = NULL;
+			uint32_t xlen = 0;
+			plist_to_xml(pinfo, &xml, &xlen);
+			info("normal_get_firmware_preflight_info pinfo");
+			info("%s",xml);
+			free(xml);
+			
+		}
+		else{
+			info("normal_get_firmware_preflight_info pinfo null");
+		}
+		
+	
+	
+
+
+
 		if (pinfo) {
 			plist_dict_copy_data(parameters, pinfo, "BbNonce", "Nonce");
 			plist_dict_copy_uint(parameters, pinfo, "BbChipID", "ChipID");
 			plist_dict_copy_uint(parameters, pinfo, "BbGoldCertId", "CertID");
 			plist_dict_copy_data(parameters, pinfo, "BbSNUM", "ChipSerialNo");
 
+			if(parameters){
+				char *xml = NULL;
+				uint32_t xlen = 0;
+				plist_to_xml(parameters, &xml, &xlen);
+				info("tss_request_add_baseband_tags parameters");
+				info("%s",xml);
+				free(xml);
+			
+			}
 			/* add baseband parameters */
-			tss_request_add_baseband_tags(request, parameters, NULL);
+		//	tss_request_add_baseband_tags(request, parameters, NULL);
 
-			plist_dict_copy_uint(parameters, pinfo, "eUICC,ChipID", "EUICCChipID");
-			if (plist_dict_get_uint(parameters, "eUICC,ChipID") >= 5) {
-				plist_dict_copy_data(parameters, pinfo, "eUICC,EID", "EUICCCSN");
-				plist_dict_copy_data(parameters, pinfo, "eUICC,RootKeyIdentifier", "EUICCCertIdentifier");
-				plist_dict_copy_data(parameters, pinfo, "EUICCGoldNonce", NULL);
-				plist_dict_copy_data(parameters, pinfo, "EUICCMainNonce", NULL);
+		//	plist_dict_copy_uint(parameters, pinfo, "eUICC,ChipID", "EUICCChipID");
+		//	if (plist_dict_get_uint(parameters, "eUICC,ChipID") >= 5) {
+		//		plist_dict_copy_data(parameters, pinfo, "eUICC,EID", "EUICCCSN");
+		//		plist_dict_copy_data(parameters, pinfo, "eUICC,RootKeyIdentifier", "EUICCCertIdentifier");
+		//		plist_dict_copy_data(parameters, pinfo, "EUICCGoldNonce", NULL);
+		//		plist_dict_copy_data(parameters, pinfo, "EUICCMainNonce", NULL);
 
 				/* add vinyl parameters */
-				tss_request_add_vinyl_tags(request, parameters, NULL);
-			}
+		//		tss_request_add_vinyl_tags(request, parameters, NULL);
+		//	}
 		}
 		client->firmware_preflight_info = pinfo;
 		pinfo = NULL;

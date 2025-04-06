@@ -165,6 +165,7 @@ irecv_device_t normal_get_irecv_device(struct idevicerestore_client_t* client)
 
 	normal_idevice_new(client, &device);
 	if (!device) {
+		info("normal_get_irecv_device !device\n");
 		return NULL;
 	}
 
