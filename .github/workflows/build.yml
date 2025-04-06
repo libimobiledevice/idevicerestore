@@ -308,16 +308,3 @@ jobs:
       with:
         name: idevicerestore-latest_${{ matrix.arch }}-${{ env.dest }}
         path: idevicerestore.tar
-  build-docker:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: build
-        run: |
-          pushd docker && ./build.sh; popd
-          docker image save -o idevicerestore-docker.tar idevicerestore-docker
-      - name: publish artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: idevicerestore-latest_docker
-          path: idevicerestore-docker.tar

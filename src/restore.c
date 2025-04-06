@@ -258,6 +258,7 @@ int restore_check_mode(struct idevicerestore_client_t* client)
 
 irecv_device_t restore_get_irecv_device(struct idevicerestore_client_t* client)
 {
+	info("restore_get_irecv_device");
 	char* model = NULL;
 	plist_t node = NULL;
 	idevice_t device = NULL;
@@ -267,11 +268,13 @@ irecv_device_t restore_get_irecv_device(struct idevicerestore_client_t* client)
 
 	restore_idevice_new(client, &device);
 	if (!device) {
+		info("restore_idevice_new no device");
 		return NULL;
 	}
 
 	restore_error = restored_client_new(device, &restore, "idevicerestore");
 	if (restore_error != RESTORE_E_SUCCESS) {
+		info("restored_client_new restore_error:%d",restore_error);
 		idevice_free(device);
 		return NULL;
 	}

@@ -44,11 +44,10 @@ idevicerestore_SOURCES = \
 	asr.c asr.h \
 	fdr.c fdr.h \
 	ace3.c ace3.h \
+	limera1n_payload.h \
+	limera1n.c limera1n.h \
 	download.c download.h \
 	locking.c locking.h
-if HAVE_LIMERA1N
-idevicerestore_SOURCES += limera1n_payload.h limera1n.c limera1n.h
-endif
 idevicerestore_CFLAGS = $(AM_CFLAGS)
 idevicerestore_LDFLAGS = $(AM_LDFLAGS)
 idevicerestore_LDADD = $(AM_LDADD)
