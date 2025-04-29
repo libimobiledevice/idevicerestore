@@ -197,6 +197,8 @@ void get_user_input(char *buf, int maxlen, int secure);
 
 const char* path_get_basename(const char* path);
 
+
+
 #ifdef __cplusplus
 }
 #endif

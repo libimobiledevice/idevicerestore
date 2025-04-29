@@ -37,6 +37,7 @@
 #include <ctype.h>
 #include <libimobiledevice-glue/thread.h>
 
+
 #ifdef WIN32
 #include <windows.h>
 #include <conio.h>

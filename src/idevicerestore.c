@@ -79,6 +79,7 @@ static struct option longopts[] = {
 	{ "no-input",       no_argument,       NULL, 'y' },
 	{ "plain-progress", no_argument,       NULL, 'P' },
 	{ "restore-mode",   no_argument,       NULL, 'R' },
+	{ "force-recovery", no_argument,       NULL, 'F' },
 	{ "ticket",         required_argument, NULL, 'T' },
 	{ "no-restore",     no_argument,       NULL, 'z' },
 	{ "version",        no_argument,       NULL, 'v' },
@@ -137,6 +138,8 @@ static void usage(int argc, char* argv[], int err)
 	"  -p, --pwn             Put device in pwned DFU mode and exit (limera1n devices)\n" \
 	"  -P, --plain-progress  Print progress as plain step and progress\n" \
 	"  -R, --restore-mode    Allow restoring from Restore mode\n" \
+	"  -F, --force-recovery  Force device into recovery mode before restore if needed\n" \
+	"                        Useful for devices that require starting restore from recovery mode\n" \
 	"  -T, --ticket PATH     Use file at PATH to send as AP ticket\n" \
 	"  --variant VARIANT     Use given VARIANT to match the build identity to use,\n" \
         "                        e.g. 'Customer Erase Install (IPSW)'\n" \
@@ -241,15 +244,23 @@ static int compare_versions(const char *s_ver1, const char *s_ver2)
 
 static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 {
+	info("idevice_event_cb\n");
+	info("idevice_event_cb: conn_type %d\n",event->conn_type);
 	struct idevicerestore_client_t *client = (struct idevicerestore_client_t*)userdata;
 #ifdef HAVE_ENUM_IDEVICE_CONNECTION_TYPE
 	if (event->conn_type != CONNECTION_USBMUXD) {
+		
 		// ignore everything but devices connected through USB
 		return;
 	}
 #endif
+
+	info("idevice_event_cb: event->event %d\n",event->event);
+
 	if (event->event == IDEVICE_DEVICE_ADD) {
+		info("idevice_event_cb: event->event == IDEVICE_DEVICE_ADD\n");
 		if (client->ignore_device_add_events) {
+			info("idevice_event_cb: client->ignore_device_add_events\n");
 			return;
 		}
 		if (normal_check_mode(client) == 0) {
@@ -266,6 +277,7 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 			mutex_unlock(&client->device_event_mutex);
 		}
 	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
+		info("idevice_event_cb: event->event == IDEVICE_DEVICE_REMOVE\n");
 		if (client->udid && !strcmp(event->udid, client->udid)) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = MODE_UNKNOWN;
@@ -279,12 +291,15 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 
 static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 {
+	info("irecv_event_cb\n");
 	struct idevicerestore_client_t *client = (struct idevicerestore_client_t*)userdata;
 	if (event->type == IRECV_DEVICE_ADD) {
+		info("irecv_event_cb: event->type == IRECV_DEVICE_ADD\n");
 		if (!client->udid && !client->ecid) {
 			client->ecid = event->device_info->ecid;
 		}
 		if (client->ecid && event->device_info->ecid == client->ecid) {
+			info("irecv_event_cb: client->ecid && event->device_info->ecid == client->ecid\n");
 			mutex_lock(&client->device_event_mutex);
 			switch (event->mode) {
 				case IRECV_K_WTF_MODE:
@@ -327,6 +342,51 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 }
 
 int build_identity_check_components_in_ipsw(plist_t build_identity, ipsw_archive_t ipsw);
+
+
+int assertRecoveryMode(struct idevicerestore_client_t* client)
+{
+
+	info("assertRecoveryMode\n");
+	irecv_device_event_subscribe(&client->irecv_e_ctx, irecv_event_cb, client);
+
+	idevice_event_subscribe(idevice_event_cb, client);
+	client->idevice_e_ctx = idevice_event_cb;
+
+	// check which mode the device is currently in so we know where to start
+	mutex_lock(&client->device_event_mutex);
+	if (client->mode == MODE_UNKNOWN) {
+		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
+		if (client->mode == MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
+			mutex_unlock(&client->device_event_mutex);
+			error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
+			return -1;
+		}
+	}
+	mutex_unlock(&client->device_event_mutex);
+	if (client->mode == MODE_NORMAL) {
+		info("Device is in normal mode\n");
+		info("Force recovery mode requested\n");
+		info("Entering recovery mode...\n");
+		if (normal_enter_recovery(client) < 0) {
+			error("ERROR: Unable to place device into recovery mode from normal mode\n");
+			if (client->tss)
+				plist_free(client->tss);
+			return -5;
+		}
+		return 1;
+	}
+	if (client->mode == MODE_RECOVERY) {
+		info("Device is in recovery mode\n");
+		return 0;
+	}
+
+
+
+	return 0;
+}
+
+
 
 int idevicerestore_start(struct idevicerestore_client_t* client)
 {
@@ -378,6 +438,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.1);
 	info("Found device in %s mode\n", client->mode->string);
 	mutex_unlock(&client->device_event_mutex);
+
+
+
 	info("Found device  mode index %d \n", client->mode->index);
 	if (client->mode == MODE_WTF) {
 		unsigned int cpid = 0;
@@ -1935,6 +1998,18 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
+
+
+
+
+
+
+
+
+
+
+
+
 	if (ipsw_info) {
 		if (argc-optind != 1) {
 			error("ERROR: --ipsw-info requires an IPSW path.\n");
@@ -1975,7 +2050,33 @@ int main(int argc, char* argv[]) {
 		info("no ipsw") ;
 	}
 
+
+
+
+
+
+
+
 	curl_global_init(CURL_GLOBAL_ALL);
+
+
+	// Handle force recovery mode if requested
+	if (true || (client->flags & FLAG_FORCE_RECOVERY)) {
+		int ret = assertRecoveryMode(client);
+		if(ret==0){
+			info("Device was already in recovery mode\n");
+		}
+		else if(ret==1){
+			info("Device was not in recovery mode, but force recovery mode was requested\n");
+		}
+		else{
+			info("Device is not in recovery mode\n");
+			
+		}
+	
+	}
+
+
 
 	result = idevicerestore_start(client);
 
@@ -2444,19 +2545,22 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 				free(xml);
 			
 			}
-			/* add baseband parameters */
-		//	tss_request_add_baseband_tags(request, parameters, NULL);
+			if (plist_dict_get_item(parameters, "BbSNUM")) {
+				/* add baseband parameters */
+				tss_request_add_baseband_tags(request, parameters, NULL);
 
-		//	plist_dict_copy_uint(parameters, pinfo, "eUICC,ChipID", "EUICCChipID");
-		//	if (plist_dict_get_uint(parameters, "eUICC,ChipID") >= 5) {
-		//		plist_dict_copy_data(parameters, pinfo, "eUICC,EID", "EUICCCSN");
-		//		plist_dict_copy_data(parameters, pinfo, "eUICC,RootKeyIdentifier", "EUICCCertIdentifier");
-		//		plist_dict_copy_data(parameters, pinfo, "EUICCGoldNonce", NULL);
-		//		plist_dict_copy_data(parameters, pinfo, "EUICCMainNonce", NULL);
+				plist_dict_copy_uint(parameters, pinfo, "eUICC,ChipID", "EUICCChipID");
+				if (plist_dict_get_uint(parameters, "eUICC,ChipID") >= 5) {
+					plist_dict_copy_data(parameters, pinfo, "eUICC,EID", "EUICCCSN");
+					plist_dict_copy_data(parameters, pinfo, "eUICC,RootKeyIdentifier", "EUICCCertIdentifier");
+					plist_dict_copy_data(parameters, pinfo, "EUICCGoldNonce", NULL);
+					plist_dict_copy_data(parameters, pinfo, "EUICCMainNonce", NULL);
 
-				/* add vinyl parameters */
-		//		tss_request_add_vinyl_tags(request, parameters, NULL);
-		//	}
+					/* add vinyl parameters */
+					tss_request_add_vinyl_tags(request, parameters, NULL);
+				}
+			}
+		
 		}
 		client->firmware_preflight_info = pinfo;
 		pinfo = NULL;
