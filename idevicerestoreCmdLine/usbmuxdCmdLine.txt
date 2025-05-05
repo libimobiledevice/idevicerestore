@@ -1,0 +1,1 @@
+"c:\program files (x86)\mce-100\usbmuxdhost.exe" 37326 311 Global\MCE_OBJECT_{890ac237-b523-4617-8cd0-2bd1a33bb2b8} Global\MCE_{49facbfc-b65c-4bc5-85b0-7ac10307ec5f}_37326 "C:\Program Files (x86)\MCE-100\usbmuxdComPlugin.dll" AutoShutdownTRUE

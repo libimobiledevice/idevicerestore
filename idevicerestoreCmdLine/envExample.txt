@@ -1,0 +1,71 @@
+Process, 
+ChocolateyLastPathUpdate, 133733830589036667
+FPS_BROWSER_APP_PROFILE_STRING, Internet Explorer
+FPS_BROWSER_USER_PROFILE_STRING, Default
+LOG_INDENT_PROCESS_18076, 7
+LOG_INDENT_PROCESS_6672, 13
+MCE_PARENT_PROCESS, 18076
+MCE_USBMUXD_PORT, 37326
+mceBox, 311
+MCEHOME, C:\Program Files (x86)\MCE-100
+MceRoot, C:\Program Files (x86)\MCE-100
+NODE_SKIP_PLATFORM_CHECK, 1
+Path, C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\ProgramData\chocolatey\bin;C:\Program Files\Microsoft VS Code\bin;C:\Program Files\Microsoft SQL Server\110\Tools\Binn\;C:\Program Files (x86)\Microsoft SDKs\TypeScript\1.0\;C:\Program Files\Microsoft SQL Server\120\Tools\Binn\;C:\Users\nir.hen\AppData\Roaming\nvm;C:\Program Files\nodejs;C:\Program Files (x86)\Windows Kits\10\Windows Performance Toolkit\;C:\Program Files\CMake\bin;C:\Program Files\PuTTY\;C:\Program Files\Git\cmd;C:\Program Files\Docker\Docker\resources\bin;c:\program files (x86)\common files\mce;c:\program files (x86)\mce-100;C:\Windows\system32\config\systemprofile\AppData\Local\Microsoft\WindowsApps;C:\Users\nir.hen\.windows-build-tools\python27\;C:\Users\nir.hen\.pyenv\pyenv-win\bin;C:\Users\nir.hen\.pyenv\pyenv-win\shims;C:\Users\nir.hen\AppData\Local\Microsoft\WindowsApps;C:\Users\nir.hen\AppData\Local\Android\Sdk\platform-tools;C:\Program Files\VideoLAN\VLC;C:\dev\Nearo\emsdk;C:\dev\Nearo\emsdk\upstream\emscripten;C:\dev\Nearo\emsdk\node\15.14.0_64bit;C:\Users\nir.hen\AppData\Local\Programs\cursor;C:\Users\nir.hen\AppData\Local\Programs\cursor\resources\app\bin;C:\msys64\mingw64\bin;C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.41.34120\bin\Hostx64\x64
+PSModulePath, C:\Program Files (x86)\WindowsPowerShell\Modules;C:\Windows\system32\WindowsPowerShell\v1.0\Modules
+TEMP, C:\Users\nir.hen\AppData\Local\Temp
+TMP, C:\Users\nir.hen\AppData\Local\Temp
+TMPDIR, C:\ProgramData\MCE-100\Tmp\1fb4c2469c238c
+TransactionID_18076, 95180797501AF44BB569C1C7DBA56A3D
+USBMUXD_PID_37326, 9780
+USERNAME, nir.hen
+USERPROFILE, C:\Users\nir.hen
+User, 
+APPDATA, C:\Users\nir.hen\AppData\Roaming
+DEBUG, mce*
+GYP_MSVS_VERSION, 2022
+HOMEDRIVE, C:
+HOMEPATH, \Users\nir.hen
+LOCALAPPDATA, C:\Users\nir.hen\AppData\Local
+LOGONSERVER, \\PF54ZEV3
+MSYS2_PATH_TYPE, inherit
+MSYSTEM, MINGW64
+OneDrive, C:\Users\nir.hen\OneDrive
+PYENV, C:\Users\nir.hen\.pyenv\pyenv-win\
+PYENV_HOME, C:\Users\nir.hen\.pyenv\pyenv-win\
+PYENV_ROOT, C:\Users\nir.hen\.pyenv\pyenv-win\
+PYTHON, C:\Users\nir.hen\.pyenv\pyenv-win\shims\python3
+USERDOMAIN, PF54ZEV3
+USERDOMAIN_ROAMINGPROFILE, PF54ZEV3
+System, 
+ALLUSERSPROFILE, C:\ProgramData
+ChocolateyInstall, C:\ProgramData\chocolatey
+CommonProgramFiles, C:\Program Files\Common Files
+CommonProgramFiles(x86), C:\Program Files (x86)\Common Files
+CommonProgramW6432, C:\Program Files\Common Files
+COMPUTERNAME, PF54ZEV3
+ComSpec, C:\Windows\system32\cmd.exe
+DriverData, C:\Windows\System32\Drivers\DriverData
+JAVA_HOME, C:\Users\nir.hen\.jdks\corretto-21.0.5
+MCE_LOG, file
+msvs_version, 2022
+NUMBER_OF_PROCESSORS, 16
+NVM_HOME, C:\Users\nir.hen\AppData\Roaming\nvm
+NVM_SYMLINK, C:\Program Files\nodejs
+OS, Windows_NT
+PATHEXT, .COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC
+PROCESSOR_ARCHITECTURE, AMD64
+PROCESSOR_IDENTIFIER, Intel64 Family 6 Model 186 Stepping 2, GenuineIntel
+PROCESSOR_LEVEL, 6
+PROCESSOR_REVISION, ba02
+ProgramData, C:\ProgramData
+ProgramFiles, C:\Program Files
+ProgramFiles(x86), C:\Program Files (x86)
+ProgramW6432, C:\Program Files
+PUBLIC, C:\Users\Public
+SystemDrive, C:
+SystemRoot, C:\Windows
+VS110COMNTOOLS, C:\Program Files (x86)\Microsoft Visual Studio 11.0\Common7\Tools\
+VS120COMNTOOLS, C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\Tools\
+VS140COMNTOOLS, C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\Tools\
+windir, C:\Windows
+ZES_ENABLE_SYSMAN, 1

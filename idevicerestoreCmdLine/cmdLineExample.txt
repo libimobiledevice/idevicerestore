@@ -1,0 +1,1 @@
+"c:\program files (x86)\mce-100\framework\runtime\win32\x64\idevicerestore.exe" -y -e -d -P -i 5723130099220508 -C "C:\ProgramData\MCE-100\MaintenanceApps\ROMExtracts\iPhone16,1_18.4_22E240_Restore.ipsw\ext" "C:\Program Files (x86)\MCE-100\MaintenanceApps\ROM\iPhone16,1_18.4_22E240_Restore.ipsw" 
