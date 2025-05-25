@@ -250,6 +250,8 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 #ifdef HAVE_ENUM_IDEVICE_CONNECTION_TYPE
 	if (event->conn_type != CONNECTION_USBMUXD) {
 		
+		info("idevice_event_cb: event->conn_type != CONNECTION_USBMUXD\n");
+		info("idevice_event_cb: event->conn_type = %d\n", event->conn_type);
 		// ignore everything but devices connected through USB
 		return;
 	}
@@ -293,13 +295,21 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 {
 	info("irecv_event_cb\n");
 	struct idevicerestore_client_t *client = (struct idevicerestore_client_t*)userdata;
+
+
+
+
+	
 	if (event->type == IRECV_DEVICE_ADD) {
-		info("irecv_event_cb: event->type == IRECV_DEVICE_ADD\n");
+
+		info("irecv_event_cb IRECV_DEVICE_ADD event info: ecid=%016" PRIx64 " \n", event->device_info->ecid);
+		info("irecv_event_cb IRECV_DEVICE_ADD client info: ecid=%016" PRIx64 " udid=%s\n", client->ecid, client->udid ? client->udid : "N/A");
 		if (!client->udid && !client->ecid) {
 			client->ecid = event->device_info->ecid;
 		}
 		if (client->ecid && event->device_info->ecid == client->ecid) {
-			info("irecv_event_cb: client->ecid && event->device_info->ecid == client->ecid\n");
+
+			info("locking device_event_mutex\n");
 			mutex_lock(&client->device_event_mutex);
 			switch (event->mode) {
 				case IRECV_K_WTF_MODE:
@@ -320,11 +330,14 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 				default:
 					client->mode = MODE_UNKNOWN;
 			}
-			debug("%s: device %016" PRIx64 " (udid: %s) connected in %s mode\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A", client->mode->string);
+			info("cond_signal(&client->device_event_cond) at %p\n", &client->device_event_cond);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
 	} else if (event->type == IRECV_DEVICE_REMOVE) {
+		info("irecv_event_cb IRECV_DEVICE_REMOVE event info: ecid=%016" PRIx64 " \n", event->device_info->ecid);
+		info("irecv_event_cb IRECV_DEVICE_REMOVE client info: ecid=%016" PRIx64 " udid=%s\n", client->ecid, client->udid ? client->udid : "N/A");
+
 		if (client->ecid && event->device_info->ecid == client->ecid) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = MODE_UNKNOWN;
@@ -335,6 +348,7 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 				// have the actual device ECID and wouldn't get detected.
 				client->ecid = 0;
 			}
+			info("cond_signal(&client->device_event_cond) at %p\n", &client->device_event_cond);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
@@ -359,7 +373,7 @@ int assertRecoveryMode(struct idevicerestore_client_t* client)
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
 		if (client->mode == MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
-			error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
+			error("ERROR: assertRecovery Unable to discover device mode. Please make sure a device is attached.\n");
 			return -1;
 		}
 	}
@@ -427,12 +441,20 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 	// check which mode the device is currently in so we know where to start
 	mutex_lock(&client->device_event_mutex);
-	if (client->mode == MODE_UNKNOWN) {
+	while (client->mode == MODE_UNKNOWN) {
+		info("Waiting for device to connect...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-		if (client->mode == MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
+		info("Waiting over connected\n");
+		if( (client->flags & FLAG_QUIT))
+		{
+			info("Quitting...\n");
 			mutex_unlock(&client->device_event_mutex);
-			error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
 			return -1;
+		}
+		if (client->mode == MODE_UNKNOWN) {
+			mutex_unlock(&client->device_event_mutex);
+			error("ERROR: idevicerestore_start: Unable to discover device mode. Please make sure a device is attached.\n");
+	
 		}
 	}
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.1);
@@ -745,7 +767,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
 			if (client->mode == MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
 				mutex_unlock(&client->device_event_mutex);
-				error("ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
+				error("ERROR: MODE_RESTORE Unable to discover device mode. Please make sure a device is attached.\n");
 				return -1;
 			}
 			info("Found device in %s mode\n", client->mode->string);
