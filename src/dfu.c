@@ -653,7 +653,7 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		}
 		return -1;
 	}
-	debug("Waiting for device to reconnect in recovery mode...\n");
+	debug("Waiting for device to reconnect in recovery mode 1...\n");
 	tries = 3 ;
 	while(tries-- && (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT))) {
 		debug("cond_wait_timeout retry\n");
@@ -665,6 +665,8 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		if (!(client->flags & FLAG_QUIT)) {
 			error("ERROR: Device did not reconnect in recovery mode. Possibly invalid %s. Reset device and try again.\n", (client->build_major > 8) ? "iBEC" : "iBSS");
 		}
+		debug("client->mode:%x returning -1",client->mode) ;
+
 		return -1;
 	}
 	mutex_unlock(&client->device_event_mutex);

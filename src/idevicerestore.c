@@ -293,23 +293,19 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 
 static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 {
-	info("irecv_event_cb\n");
+	debug("irecv_event_cb\n");
 	struct idevicerestore_client_t *client = (struct idevicerestore_client_t*)userdata;
 
-
-
-
-	
 	if (event->type == IRECV_DEVICE_ADD) {
 
-		info("irecv_event_cb IRECV_DEVICE_ADD event info: ecid=%016" PRIx64 " \n", event->device_info->ecid);
-		info("irecv_event_cb IRECV_DEVICE_ADD client info: ecid=%016" PRIx64 " udid=%s\n", client->ecid, client->udid ? client->udid : "N/A");
+		debug("irecv_event_cb IRECV_DEVICE_ADD event info: ecid=%016" PRIx64 " \n", event->device_info->ecid);
+		debug("irecv_event_cb IRECV_DEVICE_ADD client info: ecid=%016" PRIx64 " udid=%s\n", client->ecid, client->udid ? client->udid : "N/A");
 		if (!client->udid && !client->ecid) {
 			client->ecid = event->device_info->ecid;
 		}
 		if (client->ecid && event->device_info->ecid == client->ecid) {
 
-			info("locking device_event_mutex\n");
+			debug("locking device_event_mutex\n");
 			mutex_lock(&client->device_event_mutex);
 			switch (event->mode) {
 				case IRECV_K_WTF_MODE:
@@ -330,7 +326,8 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 				default:
 					client->mode = MODE_UNKNOWN;
 			}
-			info("cond_signal(&client->device_event_cond) at %p\n", &client->device_event_cond);
+			debug("%s: device %016" PRIx64 " (udid: %s) connected in %s mode\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A", client->mode->string);
+			debug("cond_signal(&client->device_event_cond) at %p\n", &client->device_event_cond);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
@@ -353,6 +350,7 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 			mutex_unlock(&client->device_event_mutex);
 		}
 	}
+	info("out") ;
 }
 
 int build_identity_check_components_in_ipsw(plist_t build_identity, ipsw_archive_t ipsw);
@@ -1535,7 +1533,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return -2;
 		}
 		recovery_client_free(client);
-		debug("Waiting for device to reconnect in recovery mode...\n");
+		debug("Waiting for device to reconnect in recovery mode ...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
 		tries = 3 ;
 		while(tries-- && (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT))) {
@@ -1597,37 +1595,54 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		return -1;
 	}
 
-	// now finally do the magic to put the device into restore mode
-	if (client->mode == MODE_RECOVERY) {
-		if (recovery_enter_restore(client, build_identity) < 0) {
-			error("ERROR: Unable to place device into restore mode\n");
-			if (client->tss)
-				plist_free(client->tss);
-			return -2;
-		}
-	}
-	idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.9);
 
-	if (client->mode != MODE_RESTORE) {
-		mutex_lock(&client->device_event_mutex);
-		info("Waiting for device to enter restore mode...\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 180000);
-		int tries = 13 ;
-		while(tries-- && (client->mode != MODE_RESTORE || (client->flags & FLAG_QUIT))) {
-			debug("cond_wait_timeout retry\n");
-			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
-		}
-		if (client->mode != MODE_RESTORE || (client->flags & FLAG_QUIT)) {
-			mutex_unlock(&client->device_event_mutex);
-			error("ERROR: Device failed to enter restore mode.\n");
-			if (client->mode == MODE_UNKNOWN) {
-				error("Make sure that usbmuxd is running.\n");
-			} else if (client->mode == MODE_RECOVERY) {
-				error("Device reconnected in recovery mode, most likely image personalization failed.\n");
+	int tries = 3 ;
+	while(client->mode != MODE_RESTORE && tries--){
+
+			// now finally do the magic to put the device into restore mode
+		if (client->mode == MODE_RECOVERY) {
+			if (recovery_enter_restore(client, build_identity) < 0) {
+				error("ERROR: Unable to place device into restore mode\n");
+				if (client->tss)
+					plist_free(client->tss);
+				return -2;
 			}
-			return -1;
 		}
-		mutex_unlock(&client->device_event_mutex);
+		idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.9);
+		if (client->mode != MODE_RESTORE) {
+			mutex_lock(&client->device_event_mutex);
+			info("Waiting for device to enter restore mode...\n");
+			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 180000);
+			int tries = 13 ;
+			while(tries-- && (client->mode != MODE_RESTORE || (client->flags & FLAG_QUIT))) {
+				debug("cond_wait_timeout retry\n");
+				cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
+			}
+			if (client->mode != MODE_RESTORE || (client->flags & FLAG_QUIT)) {
+				mutex_unlock(&client->device_event_mutex);
+				error("ERROR: Device failed to enter restore mode.\n");
+				if (client->mode == MODE_UNKNOWN) {
+					error("Make sure that usbmuxd is running.\n");
+				} else if (client->mode == MODE_RECOVERY) {
+					error("Device reconnected in recovery mode, most likely image personalization failed.\n");
+					if(tries){
+						error("retrying") ;
+
+					}
+				}
+				else 
+				{
+					return -1;
+
+				}
+				
+			}
+			mutex_unlock(&client->device_event_mutex);
+		}
+
+
+
+
 	}
 
 	// device is finally in restore mode, let's do this
@@ -1644,7 +1659,6 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return result;
 		}
 	}
-
 	/* special handling of older AppleTVs as they enter Recovery mode on boot when plugged in to USB */
 	if ((strncmp(client->device->product_type, "AppleTV", 7) == 0) && (client->device->product_type[7] < '5')) {
 		if (recovery_client_new(client) == 0) {
