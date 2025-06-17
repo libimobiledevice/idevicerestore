@@ -1530,7 +1530,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	if (client->mode != MODE_RESTORE) {
 		mutex_lock(&client->device_event_mutex);
 		info("Waiting for device to enter restore mode...\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 180000);
+		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 240000);
 		if (client->mode != MODE_RESTORE || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			error("ERROR: Device failed to enter restore mode.\n");
