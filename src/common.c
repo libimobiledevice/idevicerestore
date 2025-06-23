@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <libimobiledevice-glue/thread.h>
+#include <libimobiledevice-glue/collection.h>
 
 #ifdef WIN32
 #include <windows.h>
@@ -57,6 +58,13 @@
 
 #define MAX_PRINT_LEN 64*1024
 
+int global_quit_flag = 0;
+static const char* STARS  = "******************************************************************************";
+static const char* SPACES = "                                                                              ";
+static const char* POUNDS = "##############################################################################";
+
+static uint32_t progress_unique_tag = 1;
+
 struct idevicerestore_mode_t idevicerestore_modes[] = {
 	{  0, "Unknown"  },
 	{  1, "WTF"      },
@@ -69,122 +77,17 @@ struct idevicerestore_mode_t idevicerestore_modes[] = {
 
 int idevicerestore_debug = 0;
 
-#define idevicerestore_err_buff_size 256
-static char idevicerestore_err_buff[idevicerestore_err_buff_size] = {0, };
-
-static FILE* info_stream = NULL;
-static FILE* error_stream = NULL;
-static FILE* debug_stream = NULL;
-
-static int info_disabled = 0;
-static int error_disabled = 0;
-static int debug_disabled = 0;
-
-static mutex_t log_mutex;
-static thread_once_t init_once = THREAD_ONCE_INIT;
-
-static void _log_init(void)
-{
-	mutex_init(&log_mutex);
-}
-
-void info(const char* format, ...)
-{
-	if (info_disabled) return;
-	thread_once(&init_once, _log_init);
-	mutex_lock(&log_mutex);
-	va_list vargs;
-	va_start(vargs, format);
-	vfprintf((info_stream) ? info_stream : stdout, format, vargs);
-	va_end(vargs);
-	fflush(info_stream?info_stream:stdout);
-	mutex_unlock(&log_mutex);
-}
-
-void error(const char* format, ...)
-{
-	thread_once(&init_once, _log_init);
-	mutex_lock(&log_mutex);
-	va_list vargs, vargs2;
-	va_start(vargs, format);
-	va_copy(vargs2, vargs);
-	vsnprintf(idevicerestore_err_buff, idevicerestore_err_buff_size, format, vargs);
-	va_end(vargs);
-	if (!error_disabled) {
-		vfprintf((error_stream) ? error_stream : stderr, format, vargs2);
-	}
-	va_end(vargs2);
-	fflush(error_stream?error_stream:stderr);
-	mutex_unlock(&log_mutex);
-}
-
-void debug(const char* format, ...)
-{
-	if (debug_disabled) return;
-	if (!idevicerestore_debug) {
-		return;
-	}
-	thread_once(&init_once, _log_init);
-	mutex_lock(&log_mutex);
-	va_list vargs;
-	va_start(vargs, format);
-	vfprintf((debug_stream) ? debug_stream : stderr, format, vargs);
-	va_end(vargs);
-	fflush(debug_stream?debug_stream:stderr);
-	mutex_unlock(&log_mutex);
-}
-
-void idevicerestore_set_info_stream(FILE* strm)
-{
-	if (strm) {
-		info_disabled = 0;
-		info_stream = strm;
-	} else {
-		info_disabled = 1;
-	}
-}
-
-void idevicerestore_set_error_stream(FILE* strm)
-{
-	if (strm) {
-		error_disabled = 0;
-		error_stream = strm;
-	} else {
-		error_disabled = 1;
-	}
-}
-
-void idevicerestore_set_debug_stream(FILE* strm)
-{
-	if (strm) {
-		debug_disabled = 0;
-		debug_stream = strm;
-	} else {
-		debug_disabled = 1;
-	}
-}
-
-const char* idevicerestore_get_error(void)
-{
-	if (idevicerestore_err_buff[0] == 0) {
-		return NULL;
-	} else {
-		char* p = NULL;
-		while ((strlen(idevicerestore_err_buff) > 0) && (p = strrchr(idevicerestore_err_buff, '\n'))) {
-			p[0] = '\0';
-		}
-		return (const char*)idevicerestore_err_buff;
-	}
-}
+static void (*banner_func)(const char*) = NULL;
+static void (*banner_hide_func)(void) = NULL;
 
 int write_file(const char* filename, const void* data, size_t size) {
 	size_t bytes = 0;
 	FILE* file = NULL;
 
-	debug("Writing data to %s\n", filename);
+	logger(LL_DEBUG, "Writing data to %s\n", filename);
 	file = fopen(filename, "wb");
 	if (file == NULL) {
-		error("write_file: Unable to open file %s\n", filename);
+		logger(LL_ERROR, "write_file: Unable to open file %s\n", filename);
 		return -1;
 	}
 
@@ -192,7 +95,7 @@ int write_file(const char* filename, const void* data, size_t size) {
 	fclose(file);
 
 	if (bytes != size) {
-		error("ERROR: Unable to write entire file: %s: %d of %d\n", filename, (int)bytes, (int)size);
+		logger(LL_ERROR, "Unable to write entire file: %s: %d of %d\n", filename, (int)bytes, (int)size);
 		return -1;
 	}
 
@@ -206,26 +109,26 @@ int read_file(const char* filename, void** data, size_t* size) {
 	char* buffer = NULL;
 	struct stat fst;
 
-	debug("Reading data from %s\n", filename);
+	logger(LL_DEBUG, "Reading data from %s\n", filename);
 
 	*size = 0;
 	*data = NULL;
 
 	file = fopen(filename, "rb");
 	if (file == NULL) {
-		error("read_file: cannot open %s: %s\n", filename, strerror(errno));
+		logger(LL_ERROR, "read_file: cannot open %s: %s\n", filename, strerror(errno));
 		return -1;
 	}
 
 	if (fstat(fileno(file), &fst) < 0) {
-		error("read_file: fstat: %s\n", strerror(errno));
+		logger(LL_ERROR, "read_file: fstat: %s\n", strerror(errno));
 		return -1;
 	}
 	length = fst.st_size;
 
 	buffer = (char*) malloc(length);
 	if (buffer == NULL) {
-		error("ERROR: Out of memory\n");
+		logger(LL_ERROR, "Out of memory\n");
 		fclose(file);
 		return -1;
 	}
@@ -233,7 +136,7 @@ int read_file(const char* filename, void** data, size_t* size) {
 	fclose(file);
 
 	if (bytes != length) {
-		error("ERROR: Unable to read entire file\n");
+		logger(LL_ERROR, "Unable to read entire file\n");
 		free(buffer);
 		return -1;
 	}
@@ -243,32 +146,309 @@ int read_file(const char* filename, void** data, size_t* size) {
 	return 0;
 }
 
-void debug_plist(plist_t plist) {
-	uint32_t size = 0;
-	char* data = NULL;
-	plist_to_xml(plist, &data, &size);
-	if (size <= MAX_PRINT_LEN)
-		info("printing %i bytes plist:\n%s", size, data);
-	else
-		info("supressed printing %i bytes plist...\n", size);
-	free(data);
+int process_text_lines(const char* text, int maxwidth, struct tuple** lines_out, int* maxlen_out)
+{
+	if (!text) return 0;
+	int len = strlen(text);
+	int numlines = 0;
+	int maxlen = 0;
+	int linestart = 0;
+	int linelen = 0;
+	int lastspace = 0;
+	int maxlines = 8;
+	int count = 0;
+	struct tuple* lines = (struct tuple*)malloc(sizeof(struct tuple) * maxlines);
+	int i = 0;
+	while (i <= len) {
+		int split_line = 0;
+		if ((text[i] & 0xE0) == 0xC0) i += 1;
+		else if ((text[i] & 0xF0) == 0xE0) i += 2;
+		else if ((text[i] & 0xF8) == 0xF0) i += 3;
+		if (i > len) i = len;
+		linelen = i - linestart;
+		if (text[i] == '\0') {
+			split_line = 1;
+		}
+		if (linelen > maxwidth) {
+			if (lastspace > linestart+maxwidth/2+6) {
+				count -= i-lastspace;
+				i = lastspace;
+				linelen = i - linestart;
+				split_line = 1;
+			} else {
+				split_line = 1;
+			}
+		}
+		if ((linelen > 0 && split_line) || text[i] == '\n') {
+			split_line = 0;
+			if (numlines == maxlines) {
+				maxlines += 8;
+				struct tuple* newlines = (struct tuple*)realloc(lines, sizeof(struct tuple) * maxlines);
+				if (!newlines) {
+					printf("FATAL: Out of memory\n");
+					return -1;
+				}
+				lines = newlines;
+			}
+			lines[numlines].idx = linestart;
+			lines[numlines].len = linelen;
+			lines[numlines].plen = count;
+			if (count > maxlen) maxlen = count;
+			numlines++;
+			linestart = i+1;
+			count = 0;
+		}
+		else if (text[i] == ' ') {
+			lastspace = i;
+			count++;
+		} else {
+			count++;
+		}
+		i++;
+	}
+	*lines_out = lines;
+	*maxlen_out = maxlen;
+	return numlines;
 }
 
-void print_progress_bar(double progress) {
-#ifndef WIN32
-	if (info_disabled) return;
-	int i = 0;
-	if(progress < 0) return;
-	if(progress > 100) progress = 100;
-	fprintf((info_stream) ? info_stream : stdout, "\r[");
-	for(i = 0; i < 50; i++) {
-		if(i < progress / 2) fprintf((info_stream) ? info_stream : stdout, "=");
-		else fprintf((info_stream) ? info_stream : stdout, " ");
+void set_banner_funcs(void (*showfunc)(const char*), void (*hidefunc)(void))
+{
+	banner_func = showfunc;
+	banner_hide_func = hidefunc;
+}
+
+void show_banner(const char* text)
+{
+	if (banner_func) {
+		banner_func(text);
+	} else {
+		int i;
+		int maxlen = 0;
+		struct tuple* lines = NULL;
+		int numlines = process_text_lines(text, 74, &lines, &maxlen);
+		printf("%.*s\n", maxlen + 4, STARS);
+		for (i = 0; i < numlines; i++) {
+			printf("* %.*s%.*s *\n", lines[i].len, text + lines[i].idx, maxlen-lines[i].plen, SPACES);
+		}
+		printf("%.*s\n", maxlen + 4, STARS);
+		free(lines);
 	}
-	fprintf((info_stream) ? info_stream : stdout, "] %5.1f%%", progress);
-	if(progress >= 100) fprintf((info_stream) ? info_stream : stdout, "\n");
-	fflush((info_stream) ? info_stream : stdout);
-#endif
+}
+
+void hide_banner()
+{
+	if (banner_hide_func) {
+		banner_hide_func();
+	}
+}
+
+static int (*prompt_func)(const char* title, const char* text) = NULL;
+
+void set_prompt_func(int (*func)(const char* title, const char* text))
+{
+	prompt_func = func;
+}
+
+int prompt_user(const char* title, const char* text)
+{
+	if (!text) return -1;
+	if (prompt_func) {
+		return prompt_func(title, text);
+	}
+	int i;
+	int result = 0;
+	int maxlen = 0;
+	struct tuple* lines = NULL;
+	int numlines = process_text_lines(text, 74, &lines, &maxlen);
+	int outerlen = maxlen+4;
+	int titlelen = (title) ? strlen(title) : 0;
+	if (titlelen > 0) {
+		int lefttitlelen = (titlelen+4)/2;
+		int righttitlelen = titlelen+4 - lefttitlelen;
+		int leftpounds = outerlen/2 - lefttitlelen;
+		int rightpounds = outerlen-(titlelen+4) - leftpounds;
+		printf("%.*s[ %.*s ]%.*s\n", leftpounds, POUNDS, titlelen, title, rightpounds, POUNDS);
+	} else {
+		printf("%.*s\n", outerlen, POUNDS);
+	}
+	for (i = 0; i < numlines; i++) {
+		printf("%c %.*s%.*s %c\n", *POUNDS, lines[i].len, text + lines[i].idx, maxlen-lines[i].plen, SPACES, *POUNDS);
+	}
+	free(lines);
+	const char* yesmsg = "Type YES and press ENTER to continue, or hit CTRL+C to cancel.";
+	int ylen = strlen(yesmsg);
+	printf("%c %.*s%.*s %c\n", *POUNDS, ylen, yesmsg, maxlen-ylen, SPACES, *POUNDS);
+	printf("%.*s\n", outerlen, POUNDS);
+
+	char input[64];
+	while (1) {
+		printf("> ");
+		fflush(stdout);
+		fflush(stdin);
+		input[0] = '\0';
+		get_user_input(input, 63, 0);
+		if (global_quit_flag) {
+			result = -1;
+			break;
+		}
+		if (*input != '\0' && !strcmp(input, "YES")) {
+			result = 1;
+			break;
+		} else {
+			printf("Invalid input. Please type YES or hit CTRL+C to abort.\n");
+			continue;
+		}
+	}
+	return result;
+}
+
+static void (*update_progress_func)(struct progress_info_entry** list, int count) = NULL;
+static double progress_granularity = 0.001;
+
+void set_update_progress_func(void (*func)(struct progress_info_entry** list, int count))
+{
+	update_progress_func = func;
+}
+
+void set_progress_granularity(double granularity)
+{
+	progress_granularity = granularity;
+}
+
+mutex_t prog_mutex;
+struct collection progress_info;
+thread_once_t progress_info_once = THREAD_ONCE_INIT;
+static void _init_progress_info(void)
+{
+	mutex_init(&prog_mutex);
+	collection_init(&progress_info);
+}
+
+uint32_t progress_get_next_tag(void)
+{
+	mutex_lock(&prog_mutex);
+	uint32_t newtag = ++progress_unique_tag;
+	mutex_unlock(&prog_mutex);
+	return newtag;
+}
+
+void progress_reset_tag(void)
+{
+	progress_unique_tag = 1;
+}
+
+void register_progress(uint32_t tag, const char* label)
+{
+	thread_once(&progress_info_once, _init_progress_info);
+	if (!label) {
+		return;
+	}
+	mutex_lock(&prog_mutex);
+	struct progress_info_entry* found = NULL;
+	FOREACH(struct progress_info_entry* e, &progress_info) {
+		if (e->tag == tag) {
+			found = e;
+			break;
+		}
+	} ENDFOREACH
+	if (found) {
+		if (strcmp(found->label, label) != 0) {
+			free(found->label);
+			found->label = strdup(label);
+			if (update_progress_func) {
+				update_progress_func((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity);
+			} else {
+				print_progress_bar(found->label, found->progress);
+			}
+		}
+		mutex_unlock(&prog_mutex);
+		return;
+	}
+	struct progress_info_entry* newinfo = (struct progress_info_entry*)calloc(1, sizeof(struct progress_info_entry));
+	if (!newinfo) {
+		logger(LL_ERROR, "Out of memory?!\n");
+		exit(1);
+	}
+	newinfo->tag = tag;
+	newinfo->label = strdup(label);
+	newinfo->progress = 0;
+	collection_add(&progress_info, newinfo);
+	if (update_progress_func) {
+		update_progress_func((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity);
+	} else {
+		print_progress_bar(newinfo->label, newinfo->progress);
+	}
+	mutex_unlock(&prog_mutex);
+}
+
+void finalize_progress(uint32_t tag)
+{
+	mutex_lock(&prog_mutex);
+	struct progress_info_entry* found = NULL;
+	FOREACH(struct progress_info_entry* e, &progress_info) {
+		if (e->tag == tag) {
+			found = e;
+			break;
+		}
+	} ENDFOREACH
+	if (!found) {
+		mutex_unlock(&prog_mutex);
+		return;
+	}
+	collection_remove(&progress_info, found);
+	free(found->label);
+	free(found);
+	if (update_progress_func) {
+		update_progress_func((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity);
+	}
+	mutex_unlock(&prog_mutex);
+}
+
+void print_progress_bar(const char* prefix, double progress)
+{
+	int i = 0;
+	if (progress < 0) return;
+	if (progress > 1) progress = 1;
+	if (prefix) {
+		printf("\r%s [", prefix);
+	} else {
+		printf("\r[");
+	}
+	for (i = 0; i < 50; i++) {
+		if (i < (int)(progress*50.0)) printf("=");
+		else printf(" ");
+	}
+	printf("] %5.1f%% ", progress*100.0);
+	if (progress >= 1) printf("\n");
+	fflush(stdout);
+}
+
+void set_progress(uint32_t tag, double progress)
+{
+	mutex_lock(&prog_mutex);
+	struct progress_info_entry* found = NULL;
+	FOREACH(struct progress_info_entry* e, &progress_info) {
+		if (e->tag == tag) {
+			found = e;
+			break;
+		}
+	} ENDFOREACH
+	if (!found) {
+		mutex_unlock(&prog_mutex);
+		return;
+	}
+	if (progress < 0) progress = 0;
+	if (progress > 1.0) progress = 1.0;
+	found->progress = progress;
+	if ((progress == 0) || (found->progress - found->lastprog >= progress_granularity)) {
+		if (update_progress_func) {
+			update_progress_func((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity);
+		} else {
+			print_progress_bar(found->label, found->progress);
+		}
+		found->lastprog = found->progress;
+	}
+	mutex_unlock(&prog_mutex);
 }
 
 #define GET_RAND(min, max) ((rand() % (max - min)) + min)
@@ -485,17 +665,14 @@ char *get_temp_filename(const char *prefix)
 
 void idevicerestore_progress(struct idevicerestore_client_t* client, int step, double progress)
 {
-	thread_once(&init_once, _log_init);
-	mutex_lock(&log_mutex);
 	if(client && client->progress_cb) {
 		client->progress_cb(step, progress, client->progress_cb_data);
 	} else {
 		// we don't want to be too verbose in regular idevicerestore.
 		if ((step == RESTORE_STEP_UPLOAD_FS) || (step == RESTORE_STEP_VERIFY_FS) || (step == RESTORE_STEP_FLASH_FW) || (step == RESTORE_STEP_UPLOAD_IMG)) {
-			print_progress_bar(100.0 * progress);
+			print_progress_bar(NULL, progress);
 		}
 	}
-	mutex_unlock(&log_mutex);
 }
 
 #ifndef HAVE_STRSEP

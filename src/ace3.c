@@ -167,7 +167,7 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 			uint64_t boardid = 0;
 			plist_get_uint_val(p_boardid, &boardid);
 			if (boardid == bdid) {
-				debug("DEBUG: %s: Found Board ID 0x%" PRIx64 "\n", __func__, bdid);
+				logger(LL_DEBUG, "%s: Found Board ID 0x%" PRIx64 "\n", __func__, bdid);
 				plist_t p4cc = plist_dict_get_item(payload, "Payload 4CC");
 				plist_get_string_val(p4cc, &payload_4cc);
 				plist_t matching = plist_dict_get_item(meta, "Personalization Matching Data");
@@ -189,7 +189,7 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 						if (prev >= minrev && prev <= maxrev) {
 							plist_t tags = plist_dict_get_item(match, "Personalization Matching Data Payload Tags");
 							plist_get_string_val(tags, &data_payload_4ccs);
-							debug("DEBUG: %s: Found matching tags %s\n", __func__, data_payload_4ccs);
+							logger(LL_DEBUG, "%s: Found matching tags %s\n", __func__, data_payload_4ccs);
 							break;
 						}
 					} while (match);
@@ -201,11 +201,11 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 		plist_mem_free(iter);
 	}
 	if (!payload_4cc) {
-		printf("Failed to get payload 4cc\n");
+		logger(LL_ERROR, "Failed to get payload 4cc\n");
 		return -1;
 	}
 	if (!data_payload_4ccs) {
-		printf("Failed to get data payload 4ccs\n");
+		logger(LL_ERROR, "Failed to get data payload 4ccs\n");
 		return -1;
 	}
 

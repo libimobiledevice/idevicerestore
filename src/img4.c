@@ -204,7 +204,7 @@ static void asn1_write_element(unsigned char **p, unsigned int *length, unsigned
 		}
 	}	break;
 	default:
-		fprintf(stderr, "ERROR: %s: type %02x is not implemented\n", __func__, type);
+		logger(LL_ERROR, "%s: type %02x is not implemented\n", __func__, type);
 		return;
 	}
 }
@@ -415,15 +415,15 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 	}
 
 	if (tss_response_get_ap_img4_ticket(tss_response, &blob, &blob_size) != 0) {
-		error("ERROR: %s: Failed to get ApImg4Ticket from TSS response\n", __func__);
+		logger(LL_ERROR, "%s: Failed to get ApImg4Ticket from TSS response\n", __func__);
 		return -1;
 	}
 
-	info("Personalizing IMG4 component %s...\n", component_name);
+	logger(LL_INFO, "Personalizing IMG4 component %s...\n", component_name);
 	/* first we need check if we have to change the tag for the given component */
 	const void *tag = asn1_find_element(1, ASN1_IA5_STRING, component_data);
 	if (tag) {
-		debug("Tag found\n");
+		logger(LL_DEBUG, "Tag found\n");
 		if (strcmp(component_name, "RestoreKernelCache") == 0) {
 			memcpy((void*)tag, "rkrn", 4);
 		} else if (strcmp(component_name, "RestoreDeviceTree") == 0) {
@@ -467,22 +467,22 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 	if (tbm_dict) {
 		plist_t dt = plist_dict_get_item(tbm_dict, "ucon");
 		if (!dt) {
-			error("ERROR: %s: Missing ucon node in %s-TBM dictionary\n", __func__, component_name);
+			logger(LL_ERROR, "%s: Missing ucon node in %s-TBM dictionary\n", __func__, component_name);
 			return -1;
 		}
 		ucon_data = plist_get_data_ptr(dt, &ucon_size);
 		if (!ucon_data) {
-			error("ERROR: %s: Missing ucon data in %s-TBM dictionary\n", __func__, component_name);
+			logger(LL_ERROR, "%s: Missing ucon data in %s-TBM dictionary\n", __func__, component_name);
 			return -1;
 		}
 		dt = plist_dict_get_item(tbm_dict, "ucer");
 		if (!dt) {
-			error("ERROR: %s: Missing ucer data node in %s-TBM dictionary\n", __func__, component_name);
+			logger(LL_ERROR, "%s: Missing ucer data node in %s-TBM dictionary\n", __func__, component_name);
 			return -1;
 		}
 		ucer_data = plist_get_data_ptr(dt, &ucer_size);
 		if (!ucer_data) {
-			error("ERROR: %s: Missing ucer data in %s-TBM dictionary\n", __func__, component_name);
+			logger(LL_ERROR, "%s: Missing ucer data in %s-TBM dictionary\n", __func__, component_name);
 			return -1;
 		}
 	}
@@ -683,7 +683,7 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 			free(img4header);
 		}
 		free(additional_data);
-		error("ERROR: out of memory when personalizing IMG4 component %s\n", component_name);
+		logger(LL_ERROR, "out of memory when personalizing IMG4 component %s\n", component_name);
 		return -1;
 	}
 	p = outbuf;
@@ -825,7 +825,7 @@ static void _manifest_write_component(unsigned char **p, unsigned int *length, c
 			tbmtag = "tbmr";
 		}
 		if (!tbmtag) {
-			error("ERROR: Unexpected TMBDigests for comp '%s'\n", tag);
+			logger(LL_ERROR, "Unexpected TMBDigests for comp '%s'\n", tag);
 		} else {
 			_manifest_write_key_value(&tmp, &tmp_len, tbmtag, ASN1_OCTET_STRING, (void*)data, datalen);
 		}
@@ -918,10 +918,10 @@ int img4_create_local_manifest(plist_t request, plist_t build_identity, plist_t*
 				comp = _img4_get_component_tag(key);
 			}
 			if (!comp) {
-				debug("DEBUG: %s: Unhandled component '%s'\n", __func__, key);
+				logger(LL_DEBUG, "%s: Unhandled component '%s'\n", __func__, key);
 				_manifest_write_component(&p, &length, key, val);
 			} else {
-				debug("DEBUG: found component %s (%s)\n", comp, key);
+				logger(LL_DEBUG, "found component %s (%s)\n", comp, key);
 				_manifest_write_component(&p, &length, comp, val);
 			}
 		}

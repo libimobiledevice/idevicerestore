@@ -46,6 +46,7 @@ extern "C" {
 #define FLAG_ALLOW_RESTORE_MODE (1 << 10)
 #define FLAG_NO_RESTORE      (1 << 11)
 #define FLAG_IGNORE_ERRORS   (1 << 12)
+#define FLAG_IN_PROGRESS     (1 << 30)
 
 #define RESTORE_VARIANT_ERASE_INSTALL      "Erase Install (IPSW)"
 #define RESTORE_VARIANT_UPGRADE_INSTALL    "Upgrade Install (IPSW)"
@@ -83,9 +84,6 @@ void idevicerestore_set_flags(struct idevicerestore_client_t* client, int flags)
 void idevicerestore_set_ipsw(struct idevicerestore_client_t* client, const char* path);
 void idevicerestore_set_cache_path(struct idevicerestore_client_t* client, const char* path);
 void idevicerestore_set_progress_callback(struct idevicerestore_client_t* client, idevicerestore_progress_cb_t cbfunc, void* userdata);
-void idevicerestore_set_info_stream(FILE* strm);
-void idevicerestore_set_error_stream(FILE* strm);
-void idevicerestore_set_debug_stream(FILE* strm);
 
 int idevicerestore_start(struct idevicerestore_client_t* client);
 const char* idevicerestore_get_error(void);

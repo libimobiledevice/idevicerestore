@@ -48,7 +48,7 @@ int download_to_buffer(const char* url, char** buf, uint32_t* length)
 	int res = 0;
 	CURL* handle = curl_easy_init();
 	if (handle == NULL) {
-		error("ERROR: could not initialize CURL\n");
+		logger(LL_ERROR, "could not initialize CURL\n");
 		return -1;
 	}
 
@@ -57,7 +57,7 @@ int download_to_buffer(const char* url, char** buf, uint32_t* length)
 	response.content = malloc(1);
 	response.content[0] = '\0';
 
-	if (idevicerestore_debug)
+	if (log_level >= LL_DEBUG)
 		curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
 
 	/* disable SSL verification to allow download from untrusted https locations */
@@ -86,17 +86,14 @@ int download_to_buffer(const char* url, char** buf, uint32_t* length)
 	return res;
 }
 
-static int lastprogress = 0;
-
 static int download_progress(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow)
 {
-	double p = (dlnow / dltotal) * 100;
+	double p = (dlnow / dltotal);
 
-	if (p < 100.0) {
-		if ((int)p > lastprogress) {
-			info("downloading: %d%%\n", (int)p);
-			lastprogress = (int)p;
-		}
+	set_progress('DNLD', p);
+
+	if (global_quit_flag > 0) {
+		return 1;
 	}
 
 	return 0;
@@ -107,19 +104,17 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 	int res = 0;
 	CURL* handle = curl_easy_init();
 	if (handle == NULL) {
-		error("ERROR: could not initialize CURL\n");
+		logger(LL_ERROR, "Could not initialize CURL\n");
 		return -1;
 	}
 
 	FILE* f = fopen(filename, "wb");
 	if (!f) {
-		error("ERROR: cannot open '%s' for writing\n", filename);
+		logger(LL_ERROR, "Cannot open '%s' for writing\n", filename);
 		return -1;
 	}
 
-	lastprogress = 0;
-
-	if (idevicerestore_debug)
+	if (log_level >= LL_DEBUG)
 		curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
 
 	/* disable SSL verification to allow download from untrusted https locations */
@@ -128,8 +123,10 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 	curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, NULL);
 	curl_easy_setopt(handle, CURLOPT_WRITEDATA, f);
 
-	if (enable_progress > 0)
+	if (enable_progress > 0) {
+		register_progress('DNLD', "Downloading");
 		curl_easy_setopt(handle, CURLOPT_PROGRESSFUNCTION, (curl_progress_callback)&download_progress);
+	}
 
 	curl_easy_setopt(handle, CURLOPT_NOPROGRESS, enable_progress > 0 ? 0: 1);
 	curl_easy_setopt(handle, CURLOPT_USERAGENT, USER_AGENT_STRING);
@@ -137,6 +134,11 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 	curl_easy_setopt(handle, CURLOPT_URL, url);
 
 	curl_easy_perform(handle);
+
+	if (enable_progress) {
+		finalize_progress('DNLD');
+	}
+
 	curl_easy_cleanup(handle);
 
 #ifdef WIN32
@@ -150,6 +152,9 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 	if ((sz == 0) || ((int64_t)sz == (int64_t)-1)) {
 		res = -1;
 		remove(filename);
+	}
+	if (global_quit_flag > 0) {
+		res = -2;
 	}
 
 	return res;

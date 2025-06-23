@@ -40,6 +40,7 @@ extern "C" {
 #include <libimobiledevice-glue/thread.h>
 
 #include "idevicerestore.h"
+#include "log.h"
 
 #define _MODE_UNKNOWN         0
 #define _MODE_WTF             1
@@ -140,19 +141,42 @@ struct idevicerestore_client_t {
 	int async_err;
 };
 
+extern int global_quit_flag;
+
 extern struct idevicerestore_mode_t idevicerestore_modes[];
 
 extern int idevicerestore_debug;
 
-__attribute__((format(printf, 1, 2)))
-void info(const char* format, ...);
-__attribute__((format(printf, 1, 2)))
-void error(const char* format, ...);
-__attribute__((format(printf, 1, 2)))
-void debug(const char* format, ...);
+void set_banner_funcs(void (*showfunc)(const char*), void (*hidefunc)(void));
+void show_banner(const char* text);
+void hide_banner();
 
-void debug_plist(plist_t plist);
-void print_progress_bar(double progress);
+struct progress_info_entry {
+	uint32_t tag;
+	char* label;
+	double progress;
+	int lastprog;
+};
+void set_update_progress_func(void (*func)(struct progress_info_entry** list, int count));
+void set_progress_granularity(double granularity);
+uint32_t progress_get_next_tag(void);
+void progress_reset_tag(void);
+void register_progress(uint32_t tag, const char* label);
+void set_progress(uint32_t tag, double progress);
+void finalize_progress(uint32_t tag);
+void print_progress_bar(const char* prefix, double progress);
+
+struct tuple {
+	int idx;
+	int len;
+	int plen;
+};
+
+int process_text_lines(const char* text, int maxwidth, struct tuple** lines_out, int* maxlen_out);
+
+void set_prompt_func(int (*func)(const char* title, const char* text));
+int prompt_user(const char* title, const char* message);
+
 int read_file(const char* filename, void** data, size_t* size);
 int write_file(const char* filename, const void* data, size_t size);
 

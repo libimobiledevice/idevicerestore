@@ -38,13 +38,13 @@ static img3_file* img3_parse_file(const unsigned char* data, unsigned int size) 
 	img3_element* element;
 	img3_header* header = (img3_header*) data;
 	if (header->signature != kImg3Container) {
-		error("ERROR: Invalid IMG3 file\n");
+		logger(LL_ERROR, "Invalid IMG3 file\n");
 		return NULL;
 	}
 
 	img3_file* image = (img3_file*) malloc(sizeof(img3_file));
 	if (image == NULL) {
-		error("ERROR: Unable to allocate memory for IMG3 file\n");
+		logger(LL_ERROR, "Unable to allocate memory for IMG3 file\n");
 		return NULL;
 	}
 	memset(image, '\0', sizeof(img3_file));
@@ -54,7 +54,7 @@ static img3_file* img3_parse_file(const unsigned char* data, unsigned int size) 
 
 	image->header = (img3_header*) malloc(sizeof(img3_header));
 	if (image->header == NULL) {
-		error("ERROR: Unable to allocate memory for IMG3 header\n");
+		logger(LL_ERROR, "Unable to allocate memory for IMG3 header\n");
 		img3_free(image);
 		return NULL;
 	}
@@ -68,129 +68,129 @@ static img3_file* img3_parse_file(const unsigned char* data, unsigned int size) 
 		case kTypeElement:
 			element = img3_parse_element(&data[data_offset]);
 			if (element == NULL) {
-				error("ERROR: Unable to parse TYPE element\n");
+				logger(LL_ERROR, "Unable to parse TYPE element\n");
 				img3_free(image);
 				return NULL;
 			}
 			image->elements[image->num_elements++] = element;
-			debug("Parsed TYPE element\n");
+			logger(LL_DEBUG, "Parsed TYPE element\n");
 			break;
 
 		case kDataElement:
 			element = img3_parse_element(&data[data_offset]);
 			if (element == NULL) {
-				error("ERROR: Unable to parse DATA element\n");
+				logger(LL_ERROR, "Unable to parse DATA element\n");
 				img3_free(image);
 				return NULL;
 			}
 			image->elements[image->num_elements++] = element;
-			debug("Parsed DATA element\n");
+			logger(LL_DEBUG, "Parsed DATA element\n");
 			break;
 
 		case kVersElement:
 			element = img3_parse_element(&data[data_offset]);
 			if (element == NULL) {
-				error("ERROR: Unable to parse VERS element\n");
+				logger(LL_ERROR, "Unable to parse VERS element\n");
 				img3_free(image);
 				return NULL;
 			}
 			image->elements[image->num_elements++] = element;
-			debug("Parsed VERS element\n");
+			logger(LL_DEBUG, "Parsed VERS element\n");
 			break;
 
 		case kSepoElement:
 			element = img3_parse_element(&data[data_offset]);
 			if (element == NULL) {
-				error("ERROR: Unable to parse SEPO element\n");
+				logger(LL_ERROR, "Unable to parse SEPO element\n");
 				img3_free(image);
 				return NULL;
 			}
 			image->elements[image->num_elements++] = element;
-			debug("Parsed SEPO element\n");
+			logger(LL_DEBUG, "Parsed SEPO element\n");
 			break;
 
 		case kBordElement:
 			element = img3_parse_element(&data[data_offset]);
 			if (element == NULL) {
-				error("ERROR: Unable to parse BORD element\n");
+				logger(LL_ERROR, "Unable to parse BORD element\n");
 				img3_free(image);
 				return NULL;
 			}
 			image->elements[image->num_elements++] = element;
-			debug("Parsed BORD element\n");
+			logger(LL_DEBUG, "Parsed BORD element\n");
 			break;
 
 		case kChipElement:
 			element = img3_parse_element(&data[data_offset]);
 			if (element == NULL) {
-				error("ERROR: Unable to parse CHIP element\n");
+				logger(LL_ERROR, "Unable to parse CHIP element\n");
 				img3_free(image);
 				return NULL;
 			}
 			image->elements[image->num_elements++] = element;
-			debug("Parsed CHIP element\n");
+			logger(LL_DEBUG, "Parsed CHIP element\n");
 			break;
 
 		case kKbagElement:
 			element = img3_parse_element(&data[data_offset]);
 			if (element == NULL) {
-				error("ERROR: Unable to parse first KBAG element\n");
+				logger(LL_ERROR, "Unable to parse first KBAG element\n");
 				img3_free(image);
 				return NULL;
 			}
 			image->elements[image->num_elements++] = element;
-			debug("Parsed KBAG element\n");
+			logger(LL_DEBUG, "Parsed KBAG element\n");
 			break;
 
 		case kEcidElement:
 			element = img3_parse_element(&data[data_offset]);
 			if (element == NULL) {
-				error("ERROR: Unable to parse ECID element\n");
+				logger(LL_ERROR, "Unable to parse ECID element\n");
 				img3_free(image);
 				return NULL;
 			}
 			image->idx_ecid_element = image->num_elements;
 			image->elements[image->num_elements++] = element;
-			debug("Parsed ECID element\n");
+			logger(LL_DEBUG, "Parsed ECID element\n");
 			break;
 
 		case kShshElement:
 			element = img3_parse_element(&data[data_offset]);
 			if (element == NULL) {
-				error("ERROR: Unable to parse SHSH element\n");
+				logger(LL_ERROR, "Unable to parse SHSH element\n");
 				img3_free(image);
 				return NULL;
 			}
 			image->idx_shsh_element = image->num_elements;
 			image->elements[image->num_elements++] = element;
-			debug("Parsed SHSH element\n");
+			logger(LL_DEBUG, "Parsed SHSH element\n");
 			break;
 
 		case kCertElement:
 			element = img3_parse_element(&data[data_offset]);
 			if (element == NULL) {
-				error("ERROR: Unable to parse CERT element\n");
+				logger(LL_ERROR, "Unable to parse CERT element\n");
 				img3_free(image);
 				return NULL;
 			}
 			image->idx_cert_element = image->num_elements;
 			image->elements[image->num_elements++] = element;
-			debug("Parsed CERT element\n");
+			logger(LL_DEBUG, "Parsed CERT element\n");
 			break;
 
 		case kUnknElement:
 			element = img3_parse_element(&data[data_offset]);
 			if (element == NULL) {
-				error("ERROR: Unable to parse UNKN element\n");
+				logger(LL_ERROR, "Unable to parse UNKN element\n");
 				img3_free(image);
 				return NULL;
 			}
 			image->elements[image->num_elements++] = element;
-			debug("Parsed UNKN element\n");
+			logger(LL_DEBUG, "Parsed UNKN element\n");
 			break;
 
 		default:
-			error("ERROR: Unknown IMG3 element type %08x\n", current->signature);
+			logger(LL_ERROR, "Unknown IMG3 element type %08x\n", current->signature);
 			img3_free(image);
 			return NULL;
 		}
@@ -204,14 +204,14 @@ static img3_element* img3_parse_element(const unsigned char* data) {
 	img3_element_header* element_header = (img3_element_header*) data;
 	img3_element* element = (img3_element*) malloc(sizeof(img3_element));
 	if (element == NULL) {
-		error("ERROR: Unable to allocate memory for IMG3 element\n");
+		logger(LL_ERROR, "Unable to allocate memory for IMG3 element\n");
 		return NULL;
 	}
 	memset(element, '\0', sizeof(img3_element));
 
 	element->data = (unsigned char*) malloc(element_header->full_size);
 	if (element->data == NULL) {
-		error("ERROR: Unable to allocate memory for IMG3 element data\n");
+		logger(LL_ERROR, "Unable to allocate memory for IMG3 element data\n");
 		free(element);
 		return NULL;
 	}
@@ -254,21 +254,21 @@ static int img3_replace_signature(img3_file* image, const unsigned char* signatu
 	int offset = 0;
 	img3_element* ecid = img3_parse_element(&signature[offset]);
 	if (ecid == NULL || ecid->type != kEcidElement) {
-		error("ERROR: Unable to find ECID element in signature\n");
+		logger(LL_ERROR, "Unable to find ECID element in signature\n");
 		return -1;
 	}
 	offset += ecid->header->full_size;
 
 	img3_element* shsh = img3_parse_element(&signature[offset]);
 	if (shsh == NULL || shsh->type != kShshElement) {
-		error("ERROR: Unable to find SHSH element in signature\n");
+		logger(LL_ERROR, "Unable to find SHSH element in signature\n");
 		return -1;
 	}
 	offset += shsh->header->full_size;
 
 	img3_element* cert = img3_parse_element(&signature[offset]);
 	if (cert == NULL || cert->type != kCertElement) {
-		error("ERROR: Unable to find CERT element in signature\n");
+		logger(LL_ERROR, "Unable to find CERT element in signature\n");
 		return -1;
 	}
 	offset += cert->header->full_size;
@@ -364,11 +364,11 @@ static int img3_get_data(img3_file* image, unsigned char** pdata, unsigned int* 
 		size += image->elements[i]->header->full_size;
 	}
 
-	info("reconstructed size: %d\n", size);
+	logger(LL_INFO, "reconstructed size: %d\n", size);
 
 	unsigned char* data = (unsigned char*) malloc(size);
 	if (data == NULL) {
-		error("ERROR: Unable to allocate memory for IMG3 data\n");
+		logger(LL_ERROR, "Unable to allocate memory for IMG3 data\n");
 		return -1;
 	}
 
@@ -390,7 +390,7 @@ static int img3_get_data(img3_file* image, unsigned char** pdata, unsigned int* 
 	}
 
 	if (offset != size) {
-		error("ERROR: Incorrectly sized image data\n");
+		logger(LL_ERROR, "Incorrectly sized image data\n");
 		free(data);
 		*pdata = 0;
 		*psize = 0;
@@ -412,31 +412,31 @@ int img3_stitch_component(const char* component_name, const unsigned char* compo
 		return -1;
 	}
 
-	info("Personalizing IMG3 component %s...\n", component_name);
+	logger(LL_INFO, "Personalizing IMG3 component %s...\n", component_name);
 
 	/* parse current component as img3 */
 	img3 = img3_parse_file(component_data, component_size);
 	if (img3 == NULL) {
-		error("ERROR: Unable to parse %s IMG3 file\n", component_name);
+		logger(LL_ERROR, "Unable to parse %s IMG3 file\n", component_name);
 		return -1;
 	}
 
 	if (((img3_element_header*)blob)->full_size != blob_size) {
-		error("ERROR: Invalid blob passed for %s IMG3: The size %d embedded in the blob does not match the passed size of %d\n", component_name, ((img3_element_header*)blob)->full_size, blob_size);
+		logger(LL_ERROR, "Invalid blob passed for %s IMG3: The size %d embedded in the blob does not match the passed size of %d\n", component_name, ((img3_element_header*)blob)->full_size, blob_size);
 		img3_free(img3);
 		return -1;
 	}
 
 	/* personalize the component using the blob */
 	if (img3_replace_signature(img3, blob) < 0) {
-		error("ERROR: Unable to replace %s IMG3 signature\n", component_name);
+		logger(LL_ERROR, "Unable to replace %s IMG3 signature\n", component_name);
 		img3_free(img3);
 		return -1;
 	}
 
 	/* get the img3 file as data */
 	if (img3_get_data(img3, &outbuf, &outsize) < 0) {
-		error("ERROR: Unable to reconstruct %s IMG3\n", component_name);
+		logger(LL_ERROR, "Unable to reconstruct %s IMG3\n", component_name);
 		img3_free(img3);
 		return -1;
 	}

@@ -35,13 +35,13 @@ int ftab_parse(unsigned char *data, unsigned int data_size, ftab_t *ftab, uint32
 	}
 
 	if (data_size < sizeof(struct ftab_header)) {
-		error("ERROR: %s: Buffer too small for ftab data\n", __func__);
+		logger(LL_ERROR, "%s: Buffer too small for ftab data\n", __func__);
 		return -1;
 	}
 
 	struct ftab_header *hdr_ptr = (struct ftab_header*)data;
 	if (be32toh(hdr_ptr->magic) != 'ftab') {
-		error("ERROR: %s: Unexpected magic value 0x%08x\n", __func__, le32toh(hdr_ptr->magic));
+		logger(LL_ERROR, "%s: Unexpected magic value 0x%08x\n", __func__, le32toh(hdr_ptr->magic));
 		return -1;
 	}
 
@@ -108,13 +108,13 @@ int ftab_add_entry(ftab_t ftab, uint32_t tag, unsigned char *data, unsigned int 
 	uint32_t new_index = ftab->header.num_entries;
 	struct ftab_entry *new_entries = realloc(ftab->entries, sizeof(struct ftab_entry) * (ftab->header.num_entries + 1));
 	if (!new_entries) {
-		error("ERROR: %s: realloc failed!\n", __func__);
+		logger(LL_ERROR, "%s: realloc failed!\n", __func__);
 		return -1;
 	}
 	ftab->entries = new_entries;
 	unsigned char **new_storage = realloc(ftab->storage, sizeof(unsigned char*) * (ftab->header.num_entries + 1));
 	if (!new_storage) {
-		error("ERROR: %s: realloc failed!\n", __func__);
+		logger(LL_ERROR, "%s: realloc failed!\n", __func__);
 		return -1;
 	}
 	ftab->storage = new_storage;
@@ -151,7 +151,7 @@ int ftab_write(ftab_t ftab, unsigned char **data, unsigned int *data_size)
 
 	unsigned char *data_out = (unsigned char*)malloc(total_size);
 	if (!data_out) {
-		error("ERROR: %s: Out of memory?!\n", __func__);
+		logger(LL_ERROR, "%s: Out of memory?!\n", __func__);
 		return -1;
 	}
 
