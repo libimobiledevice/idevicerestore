@@ -1420,7 +1420,7 @@ int restore_send_streamed_image_decryption_key(struct idevicerestore_client_t* c
 	curl_easy_setopt(handle, CURLOPT_WRITEDATA, response);
 	curl_easy_setopt(handle, CURLOPT_HTTPHEADER, header);
 	curl_easy_setopt(handle, CURLOPT_POSTFIELDS, request_body);
-	curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, request_body_size);
+	curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, (long)request_body_size);
 	if (client->debug_level > 0) {
 		curl_easy_setopt(handle, CURLOPT_VERBOSE, 1L);
 	}
