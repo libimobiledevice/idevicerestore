@@ -152,7 +152,12 @@ void logger(enum loglevel level, const char *fmt, ...)
 	mutex_unlock(&log_mutex);
 }
 
+#if defined(__GNUC__) || defined(__clang__)
 static void print_funcf(enum loglevel level, const char* fmt, ...) __attribute__ ((format (printf, 2, 3)));
+#else
+static void print_funcf(enum loglevel level, const char* fmt, ...);
+#endif
+
 static void print_funcf(enum loglevel level, const char* fmt, ...)
 {
 	va_list ap;
