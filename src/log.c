@@ -41,10 +41,10 @@
 
 static int stderr_enabled = 1;
 
-int log_level = LL_VERBOSE;
-int print_level = LL_INFO;
+enum loglevel log_level = LL_VERBOSE;
+enum loglevel print_level = LL_INFO;
 
-static void (*print_func)(int level, const char* fmt, va_list) = NULL;
+static logger_print_func print_func = NULL;
 
 const char *_level_label[6] = {
 	"  <Error>",
@@ -98,6 +98,7 @@ INITIALIZER(logger_init)
 void logger(enum loglevel level, const char *fmt, ...)
 {
 	va_list ap;
+	va_list ap2;
 	char *fs;
 
 	if (level > log_level)
@@ -129,6 +130,7 @@ void logger(enum loglevel level, const char *fmt, ...)
 #endif
 
 	va_start(ap, fmt);
+	va_copy(ap2, ap);
 	if (print_func) {
 		if (stderr_enabled) {
 			vfprintf(stderr, fs, ap);
@@ -136,17 +138,27 @@ void logger(enum loglevel level, const char *fmt, ...)
 		}
 		if (level <= print_level) {
 			// skip the timestamp and log level string
-			print_func(level, fs+23, ap);
+			print_func(level, fs+23, ap2);
 		}
 	} else {
 		vprintf(fs, ap);
 	}
 
 	va_end(ap);
+	va_end(ap2);
 
 	free(fs);
 
 	mutex_unlock(&log_mutex);
+}
+
+static void print_funcf(enum loglevel level, const char* fmt, ...) __attribute__ ((format (printf, 2, 3)));
+static void print_funcf(enum loglevel level, const char* fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	print_func(level, fmt, ap);
+	va_end(ap);
 }
 
 void logger_dump_hex(enum loglevel level, const void* buf, unsigned int len)
@@ -160,7 +172,7 @@ void logger_dump_hex(enum loglevel level, const void* buf, unsigned int len)
 
 	fs = (char*)malloc(len * 3 + 1);
 	for (unsigned int i = 0; i < len; i++) {
-		snprintf(fs + i*3, 3, "%02x%c", ((unsigned char*)buf)[i], (i < len-1) ? ' ' : '\n');
+		snprintf(fs + i*3, 4, "%02x%c", ((unsigned char*)buf)[i], (i < len-1) ? ' ' : '\n');
 	}
 	if (print_func) {
 		if (stderr_enabled) {
@@ -168,7 +180,7 @@ void logger_dump_hex(enum loglevel level, const void* buf, unsigned int len)
 			fflush(stderr);
 		}
 		if (level <= print_level) {
-			print_func(level, "%s", fs);
+			print_funcf(level, "%s", fs);
 		}
 	} else {
 		printf("%s", fs);
@@ -204,7 +216,7 @@ int logger_set_logfile(const char* path)
 	return 0;
 }
 
-void logger_set_print_func(void (*func)(int, const char*, va_list))
+void logger_set_print_func(logger_print_func func)
 {
 	print_func = func;
 }

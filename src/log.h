@@ -30,11 +30,13 @@ enum loglevel {
 	LL_DEBUG
 };
 
-extern int log_level;
+extern enum loglevel log_level;
+
+typedef void (*logger_print_func)(enum loglevel level, const char*, va_list);
 
 void logger(enum loglevel level, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 int logger_set_logfile(const char* path);
-void logger_set_print_func(void (*func)(int level, const char*, va_list));
+void logger_set_print_func(logger_print_func func);
 void logger_dump_hex(enum loglevel level, const void* buf, unsigned int len);
 void logger_dump_plist(enum loglevel level, plist_t plist, int human_readable);
 
