@@ -86,9 +86,13 @@ int download_to_buffer(const char* url, char** buf, uint32_t* length)
 	return res;
 }
 
+#if LIBCURL_VERSION_NUM >= 0x072000
+static int download_progress(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow)
+#else
 static int download_progress(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow)
+#endif
 {
-	double p = (dlnow / dltotal);
+	double p = ((double)dlnow / (double)dltotal);
 
 	set_progress('DNLD', p);
 
@@ -125,7 +129,11 @@ int download_to_file(const char* url, const char* filename, int enable_progress)
 
 	if (enable_progress > 0) {
 		register_progress('DNLD', "Downloading");
+#if LIBCURL_VERSION_NUM >= 0x072000
+		curl_easy_setopt(handle, CURLOPT_XFERINFOFUNCTION, (curl_progress_callback)&download_progress);
+#else
 		curl_easy_setopt(handle, CURLOPT_PROGRESSFUNCTION, (curl_progress_callback)&download_progress);
+#endif
 	}
 
 	curl_easy_setopt(handle, CURLOPT_NOPROGRESS, enable_progress > 0 ? 0: 1);
