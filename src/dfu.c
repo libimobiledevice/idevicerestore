@@ -105,13 +105,13 @@ irecv_device_t dfu_get_irecv_device(struct idevicerestore_client_t* client)
 	return device;
 }
 
-int dfu_send_buffer_with_options(struct idevicerestore_client_t* client, unsigned char* buffer, unsigned int size, unsigned int irecv_options)
+int dfu_send_buffer_with_options(struct idevicerestore_client_t* client, const void* buffer, size_t size, unsigned int irecv_options)
 {
 	irecv_error_t err = 0;
 
-	logger(LL_INFO, "Sending data (%d bytes)...\n", size);
+	logger(LL_INFO, "Sending data (%zu bytes)...\n", size);
 
-	err = irecv_send_buffer(client->dfu->client, buffer, size, irecv_options);
+	err = irecv_send_buffer(client->dfu->client, (unsigned char*)buffer, size, irecv_options);
 	if (err != IRECV_E_SUCCESS) {
 		logger(LL_ERROR, "Unable to send data: %s\n", irecv_strerror(err));
 		return -1;
@@ -120,7 +120,7 @@ int dfu_send_buffer_with_options(struct idevicerestore_client_t* client, unsigne
 	return 0;
 }
 
-int dfu_send_buffer(struct idevicerestore_client_t* client, unsigned char* buffer, unsigned int size)
+int dfu_send_buffer(struct idevicerestore_client_t* client, const void* buffer, size_t size)
 {
 	return dfu_send_buffer_with_options(client, buffer, size, IRECV_SEND_OPT_DFU_NOTIFY_FINISH);
 }
@@ -135,8 +135,8 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 		tss = client->tss_localpolicy;
 	}
 
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
+	void* component_data = NULL;
+	size_t component_size = 0;
 
 	if (strcmp(component, "Ap,LocalPolicy") == 0) {
 		// If Ap,LocalPolicy => Inject an empty policy
@@ -166,8 +166,8 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 		path = NULL;
 	}
 
-	unsigned char* data = NULL;
-	uint32_t size = 0;
+	void* data = NULL;
+	size_t size = 0;
 
 	if (personalize_component(client, component, component_data, component_size, tss, &data, &size) < 0) {
 		logger(LL_ERROR, "Unable to get personalized component: %s\n", component);
@@ -198,7 +198,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 		size += fillsize;
 	}
 
-	logger(LL_INFO, "Sending %s (%d bytes)...\n", component, size);
+	logger(LL_INFO, "Sending %s (%zu bytes)...\n", component, size);
 
 	irecv_error_t err = irecv_send_buffer(client->dfu->client, data, size, IRECV_SEND_OPT_DFU_NOTIFY_FINISH);
 	if (err != IRECV_E_SUCCESS) {

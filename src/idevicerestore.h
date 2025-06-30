@@ -112,8 +112,8 @@ void build_identity_print_information(plist_t build_identity);
 int build_identity_has_component(plist_t build_identity, const char* component);
 int build_identity_get_component_path(plist_t build_identity, const char* component, char** path);
 int ipsw_extract_filesystem(ipsw_archive_t ipsw, plist_t build_identity, char** filesystem);
-int extract_component(ipsw_archive_t ipsw, const char* path, unsigned char** component_data, unsigned int* component_size);
-int personalize_component(struct idevicerestore_client_t* client, const char *component, const unsigned char* component_data, unsigned int component_size, plist_t tss_response, unsigned char** personalized_component, unsigned int* personalized_component_size);
+int extract_component(ipsw_archive_t ipsw, const char* path, void** component_data, size_t* component_size);
+int personalize_component(struct idevicerestore_client_t* client, const char *component, const void* component_data, size_t component_size, plist_t tss_response, void** personalized_component, size_t* personalized_component_size);
 int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* manifest);
 
 const char* get_component_name(const char* filename);

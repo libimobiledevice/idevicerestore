@@ -396,7 +396,7 @@ static const char *_img4_get_component_tag(const char *compname)
 	return NULL;
 }
 
-int img4_stitch_component(const char* component_name, const unsigned char* component_data, unsigned int component_size, plist_t parameters, plist_t tss_response, unsigned char** img4_data, unsigned int *img4_size)
+int img4_stitch_component(const char* component_name, const void* component_data, size_t component_size, plist_t parameters, plist_t tss_response, void** img4_data, size_t *img4_size)
 {
 	unsigned char* magic_header = NULL;
 	unsigned int magic_header_size = 0;

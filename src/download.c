@@ -43,7 +43,7 @@ static size_t download_write_buffer_callback(char* data, size_t size, size_t nme
 	return total;
 }
 
-int download_to_buffer(const char* url, char** buf, uint32_t* length)
+int download_to_buffer(const char* url, void** buf, size_t* length)
 {
 	int res = 0;
 	CURL* handle = curl_easy_init();

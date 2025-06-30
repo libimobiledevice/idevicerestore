@@ -402,7 +402,7 @@ static int img3_get_data(img3_file* image, unsigned char** pdata, unsigned int* 
 	return 0;
 }
 
-int img3_stitch_component(const char* component_name, const unsigned char* component_data, unsigned int component_size, const unsigned char* blob, unsigned int blob_size, unsigned char** img3_data, unsigned int *img3_size)
+int img3_stitch_component(const char* component_name, const void* component_data, size_t component_size, const void* blob, size_t blob_size, void** img3_data, size_t *img3_size)
 {
 	img3_file *img3 = NULL;
 	unsigned char* outbuf = NULL;
@@ -422,7 +422,7 @@ int img3_stitch_component(const char* component_name, const unsigned char* compo
 	}
 
 	if (((img3_element_header*)blob)->full_size != blob_size) {
-		logger(LL_ERROR, "Invalid blob passed for %s IMG3: The size %d embedded in the blob does not match the passed size of %d\n", component_name, ((img3_element_header*)blob)->full_size, blob_size);
+		logger(LL_ERROR, "Invalid blob passed for %s IMG3: The size %d embedded in the blob does not match the passed size of %zu\n", component_name, ((img3_element_header*)blob)->full_size, blob_size);
 		img3_free(img3);
 		return -1;
 	}

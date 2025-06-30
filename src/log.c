@@ -166,7 +166,7 @@ static void print_funcf(enum loglevel level, const char* fmt, ...)
 	va_end(ap);
 }
 
-void logger_dump_hex(enum loglevel level, const void* buf, unsigned int len)
+void logger_dump_hex(enum loglevel level, const void* buf, size_t len)
 {
 	char *fs;
 

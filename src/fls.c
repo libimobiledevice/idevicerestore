@@ -101,7 +101,7 @@ static void fls_parse_elements(fls_file* fls)
 	}
 }
 
-fls_file* fls_parse(unsigned char* data, unsigned int size)
+fls_file* fls_parse(const void* data, size_t size)
 {
 	fls_file* fls = (fls_file*)malloc(sizeof(fls_file));
 	if (!fls) {
@@ -132,7 +132,7 @@ void fls_free(fls_file* fls)
 	}
 }
 
-int fls_update_sig_blob(fls_file* fls, const unsigned char* sigdata, unsigned int siglen)
+int fls_update_sig_blob(fls_file* fls, const void* sigdata, size_t siglen)
 {
 	/* FIXME: the code in this function is not big endian safe */
 	if (!fls || !fls->num_elements) {
@@ -155,8 +155,8 @@ int fls_update_sig_blob(fls_file* fls, const unsigned char* sigdata, unsigned in
 		return -1;
 	}
 
-	uint32_t oldsiglen = datasize - sigoffset;
-	uint32_t newsize = fls->size - oldsiglen + siglen;
+	size_t oldsiglen = datasize - sigoffset;
+	size_t newsize = fls->size - oldsiglen + siglen;
 
 	unsigned int i;
 	uint32_t offset = 0;
@@ -239,7 +239,7 @@ int fls_update_sig_blob(fls_file* fls, const unsigned char* sigdata, unsigned in
 	return 0;
 }
 
-int fls_insert_ticket(fls_file* fls, const unsigned char* data, unsigned int size)
+int fls_insert_ticket(fls_file* fls, const void* data, size_t size)
 {
 	/* FIXME: the code in this function is not big endian safe */
 	if (!fls || !fls->num_elements) {
@@ -255,7 +255,7 @@ int fls_insert_ticket(fls_file* fls, const unsigned char* data, unsigned int siz
 	if (size%4 != 0) {
 		padding = 4-(size%4);
 	}
-	uint32_t newsize = fls->size + size + padding;
+	size_t newsize = fls->size + size + padding;
 	unsigned int i;
 	uint32_t offset = 0;
 	void* newdata = malloc(newsize);

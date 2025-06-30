@@ -280,8 +280,8 @@ int recovery_send_ticket(struct idevicerestore_client_t* client)
 
 int recovery_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component)
 {
-	unsigned int size = 0;
-	unsigned char* data = NULL;
+	size_t size = 0;
+	void* data = NULL;
 	char* path = NULL;
 	irecv_error_t err = 0;
 
@@ -298,8 +298,8 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 		}
 	}
 
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
+	void* component_data = NULL;
+	size_t component_size = 0;
 	int ret = extract_component(client->ipsw, path, &component_data, &component_size);
 	free(path);
 	if (ret < 0) {
@@ -314,7 +314,7 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 		return -1;
 	}
 
-	logger(LL_INFO, "Sending %s (%d bytes)...\n", component, size);
+	logger(LL_INFO, "Sending %s (%zu bytes)...\n", component, size);
 
 	// FIXME: Did I do this right????
 	err = irecv_send_buffer(client->recovery->client, data, size, 0);

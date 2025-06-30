@@ -1246,7 +1246,7 @@ static size_t _curl_header_callback(char* buffer, size_t size, size_t nitems, vo
 			strncpy(key, buffer, i);
 			key[i] = '\0';
 			i++;
-			while (i < len && buffer[i] == ' ' || buffer[i] == '\t') i++;
+			while (i < len && (buffer[i] == ' ' || buffer[i] == '\t')) i++;
 			val = malloc(len-i+1);
 			strncpy(val, buffer+i, len-i);
 			val[len-i] = '\0';
@@ -1456,8 +1456,8 @@ int restore_send_streamed_image_decryption_key(struct idevicerestore_client_t* c
 
 int restore_send_component(struct idevicerestore_client_t* client, plist_t message, const char* component, const char* component_name)
 {
-	unsigned int size = 0;
-	unsigned char* data = NULL;
+	size_t size = 0;
+	void* data = NULL;
 	char* path = NULL;
 	plist_t blob = NULL;
 	plist_t dict = NULL;
@@ -1486,8 +1486,8 @@ int restore_send_component(struct idevicerestore_client_t* client, plist_t messa
 		}
 	}
 
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
+	void* component_data = NULL;
+	size_t component_size = 0;
 	int ret = extract_component(client->ipsw, path, &component_data, &component_size);
 	free(path);
 	path = NULL;
@@ -1538,14 +1538,14 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 	char* restore_sep_path = NULL;
 	char firmware_path[PATH_MAX - 9];
 	char manifest_file[PATH_MAX];
-	unsigned int manifest_size = 0;
-	unsigned char* manifest_data = NULL;
+	size_t manifest_size = 0;
+	void* manifest_data = NULL;
 	char firmware_filename[PATH_MAX];
-	unsigned int llb_size = 0;
-	unsigned char* llb_data = NULL;
+	size_t llb_size = 0;
+	void* llb_data = NULL;
 	plist_t dict = NULL;
-	unsigned int nor_size = 0;
-	unsigned char* nor_data = NULL;
+	size_t nor_size = 0;
+	void* nor_data = NULL;
 	plist_t norimage = NULL;
 	plist_t firmware_files = NULL;
 	int flash_version_1 = 0;
@@ -1659,8 +1659,8 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 	}
 
 	const char* component = "LLB";
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
+	void* component_data = NULL;
+	size_t component_size = 0;
 	int ret = extract_component(client->ipsw, llb_path, &component_data, &component_size);
 	free(llb_path);
 	if (ret < 0) {
@@ -1713,7 +1713,7 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 		}
 
 		component_data = NULL;
-		unsigned int component_size = 0;
+		component_size = 0;
 
 		if (extract_component(client->ipsw, comppath, &component_data, &component_size) < 0) {
 			free(iter);
@@ -1758,8 +1758,8 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 	plist_free(firmware_files);
 	plist_dict_set_item(dict, "NorImageData", norimage);
 
-	unsigned char* personalized_data = NULL;
-	unsigned int personalized_size = 0;
+	void* personalized_data = NULL;
+	size_t personalized_size = 0;
 
 	if (build_identity_has_component(client->restore->build_identity, "RestoreSEP") &&
 	    build_identity_get_component_path(client->restore->build_identity, "RestoreSEP", &restore_sep_path) == 0) {
@@ -2502,10 +2502,10 @@ static int restore_send_image_data(struct idevicerestore_client_t *client, plist
 						plist_array_append_item(matched_images, plist_new_string(component));
 					} else if (!image_name || !strcmp(image_name, component)) {
 						char *path = NULL;
-						unsigned char* data = NULL;
-						unsigned int size = 0;
-						unsigned char* component_data = NULL;
-						unsigned int component_size = 0;
+						void* data = NULL;
+						size_t size = 0;
+						void* component_data = NULL;
+						size_t component_size = 0;
 						int ret = -1;
 
 						if (!image_name) {
@@ -2616,8 +2616,8 @@ static plist_t restore_get_se_firmware_data(struct idevicerestore_client_t* clie
 {
 	const char *comp_name = NULL;
 	char *comp_path = NULL;
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
+	void* component_data = NULL;
+	size_t component_size = 0;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
@@ -2730,9 +2730,9 @@ static plist_t restore_get_savage_firmware_data(struct idevicerestore_client_t* 
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
-	unsigned char* component_data_tmp = NULL;
+	void* component_data = NULL;
+	size_t component_size = 0;
+	void* component_data_tmp = NULL;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
@@ -2841,8 +2841,8 @@ static plist_t restore_get_yonkers_firmware_data(struct idevicerestore_client_t*
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
+	void* component_data = NULL;
+	size_t component_size = 0;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
@@ -2943,8 +2943,8 @@ static plist_t restore_get_rose_firmware_data(struct idevicerestore_client_t* cl
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
+	void* component_data = NULL;
+	size_t component_size = 0;
 	ftab_t ftab = NULL;
 	ftab_t rftab = NULL;
 	uint32_t ftag = 0;
@@ -3099,8 +3099,8 @@ static plist_t restore_get_veridian_firmware_data(struct idevicerestore_client_t
 {
 	char *comp_name = "BMU,FirmwareMap";
 	char *comp_path = NULL;
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
+	void* component_data = NULL;
+	size_t component_size = 0;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
@@ -3271,8 +3271,8 @@ static plist_t restore_get_tcon_firmware_data(struct idevicerestore_client_t* cl
 {
 	char *comp_name = "Baobab,TCON";
 	char *comp_path = NULL;
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
+	void* component_data = NULL;
+	size_t component_size = 0;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
@@ -3359,8 +3359,8 @@ static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* c
 {
 	char comp_name[64];
 	char *comp_path = NULL;
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
+	void* component_data = NULL;
+	size_t component_size = 0;
 	ftab_t ftab = NULL;
 	ftab_t rftab = NULL;
 	uint32_t ftag = 0;
@@ -3976,13 +3976,13 @@ static int restore_bootability_send_one(void *ctx, ipsw_archive_t ipsw, const ch
 
 	logger(LL_DEBUG, "BootabilityBundle send m=%07o s=%10ld %s\n", stat->st_mode, (long)stat->st_size, subpath);
 
-	unsigned char *buf = NULL;
-	unsigned int size = 0;
+	void *buf = NULL;
+	size_t size = 0;
 
 	if ((S_ISLNK(stat->st_mode) || S_ISREG(stat->st_mode)) && stat->st_size != 0) {
 		ipsw_extract_to_memory(ipsw, name, &buf, &size);
 		if (size != stat->st_size) {
-			logger(LL_ERROR, "expected %ld bytes but got %d for file %s\n", (long)stat->st_size, size, name);
+			logger(LL_ERROR, "expected %zu bytes but got %zu for file %s\n", (size_t)stat->st_size, size, name);
 			free(buf);
 			return -1;
 		}
@@ -4134,7 +4134,7 @@ static char* extract_global_manifest_path(plist_t build_identity, char *variant)
 	return ticket_path;
 }
 
-int extract_global_manifest(struct idevicerestore_client_t* client, plist_t build_identity, char *variant, unsigned char** pbuffer, unsigned int* psize)
+int extract_global_manifest(struct idevicerestore_client_t* client, plist_t build_identity, char *variant, void** pbuffer, size_t* psize)
 {
 	char* ticket_path = extract_global_manifest_path(build_identity, variant);
 	if (!ticket_path) {
@@ -4159,7 +4159,7 @@ struct _restore_send_file_data_ctx {
 	uint32_t tag;
 };
 
-static int _restore_send_file_data(struct _restore_send_file_data_ctx* rctx, void* data, size_t size, size_t done, size_t total_size)
+static int _restore_send_file_data(struct _restore_send_file_data_ctx* rctx, const void* data, size_t size, size_t done, size_t total_size)
 {
 	plist_t dict = plist_new_dict();
 	if (data != NULL) {
@@ -4221,12 +4221,9 @@ int restore_send_personalized_boot_object_v3(struct idevicerestore_client_t* cli
 	}
 
 	char *component = image_name;
-	unsigned int size = 0;
-	unsigned char *data = NULL;
+	size_t size = 0;
+	void *data = NULL;
 	char *path = NULL;
-	plist_t blob = NULL;
-	plist_t dict = NULL;
-	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
 	logger(LL_INFO, "About to send %s...\n", component);
 
@@ -4267,8 +4264,8 @@ int restore_send_personalized_boot_object_v3(struct idevicerestore_client_t* cli
 		}
 
 		// Extract component
-		unsigned char *component_data = NULL;
-		unsigned int component_size = 0;
+		void *component_data = NULL;
+		size_t component_size = 0;
 		int ret = extract_component(client->ipsw, path, &component_data, &component_size);
 		free(path);
 		path = NULL;
@@ -4306,7 +4303,7 @@ int restore_send_personalized_boot_object_v3(struct idevicerestore_client_t* cli
 	int64_t i = size;
 	while (i > 0) {
 		int blob_size = i > 8192 ? 8192 : i;
-		if (_restore_send_file_data(&rctx, (data + size - i), blob_size, size-i, size) < 0) {
+		if (_restore_send_file_data(&rctx, ((char*)data + size - i), blob_size, size-i, size) < 0) {
 			free(data);
 			_restore_service_free(service);
 			finalize_progress(rctx.tag);
@@ -4348,12 +4345,7 @@ int restore_send_source_boot_object_v4(struct idevicerestore_client_t* client, p
 	char *component = image_name;
 	// Fork from restore_send_component
 	//
-	unsigned int size = 0;
-	unsigned char *data = NULL;
 	char *path = NULL;
-	plist_t blob = NULL;
-	plist_t dict = NULL;
-	restored_error_t restore_error = RESTORE_E_SUCCESS;
 
 	logger(LL_INFO, "About to send %s...\n", component);
 
@@ -4433,11 +4425,11 @@ int restore_send_source_boot_object_v4(struct idevicerestore_client_t* client, p
 
 int restore_send_restore_local_policy(struct idevicerestore_client_t* client, plist_t message)
 {
-	unsigned int size = 0;
-	unsigned char* data = NULL;
+	size_t size = 0;
+	void* data = NULL;
 
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
+	void* component_data = NULL;
+	size_t component_size = 0;
 
 	char* component = "Ap,LocalPolicy";
 
@@ -4562,8 +4554,8 @@ int restore_send_recovery_os_file_asset_image(struct idevicerestore_client_t* cl
 		return 0;
 	}
 
-	unsigned char* component_data = NULL;
-	unsigned int component_size = 0;
+	void* component_data = NULL;
+	size_t component_size = 0;
 	int ret = extract_component(client->ipsw, path, &component_data, &component_size);
 	free(path);
 	path = NULL;
@@ -4575,8 +4567,8 @@ int restore_send_recovery_os_file_asset_image(struct idevicerestore_client_t* cl
 		return 0;
 	}
 
-	unsigned char* data = NULL;
-	unsigned int size = 0;
+	void* data = NULL;
+	size_t size = 0;
 	ret = personalize_component(client, component, component_data, component_size, client->tss_recoveryos_root_ticket, &data, &size);
 	free(component_data);
 	component_data = NULL;
@@ -4634,12 +4626,12 @@ int restore_send_recovery_os_iboot_fw_files_images(struct idevicerestore_client_
 					plist_t comp_path = plist_access_path(manifest_entry, 2, "Info", "Path");
 					if (comp_path) {
 						const char* path = plist_get_string_ptr(comp_path, NULL);
-						unsigned char* component_data = NULL;
-						unsigned int component_size = 0;
+						void* component_data = NULL;
+						size_t component_size = 0;
 						int ret = extract_component(client->ipsw, path, &component_data, &component_size);
 						if (ret == 0) {
-							unsigned char* data = NULL;
-							unsigned int size = 0;
+							void* data = NULL;
+							size_t size = 0;
 							ret = personalize_component(client, component, component_data, component_size, client->tss_recoveryos_root_ticket, &data, &size);
 							free(component_data);
 							component_data = NULL;

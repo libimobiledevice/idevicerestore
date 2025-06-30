@@ -175,14 +175,14 @@ int asr_send(asr_client_t asr, plist_t data)
 	return 0;
 }
 
-int asr_send_buffer(asr_client_t asr, const char* data, uint32_t size)
+int asr_send_buffer(asr_client_t asr, const void* data, size_t size)
 {
 	uint32_t bytes = 0;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 
 	device_error = idevice_connection_send(asr->connection, data, size, &bytes);
 	if (device_error != IDEVICE_E_SUCCESS || bytes != size) {
-		logger(LL_ERROR, "Unable to send data to ASR. Sent %u of %u bytes.\n", bytes, size);
+		logger(LL_ERROR, "Unable to send data to ASR. Sent %u of %zu bytes.\n", bytes, size);
 		return -1;
 	}
 

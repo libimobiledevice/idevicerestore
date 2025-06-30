@@ -100,8 +100,8 @@ typedef struct {
 	uint32_t size;
 } mbn_file;
 
-mbn_file* mbn_parse(unsigned char* data, unsigned int size);
+mbn_file* mbn_parse(const void* data, size_t size);
 void mbn_free(mbn_file* mbn);
-int mbn_update_sig_blob(mbn_file* mbn, const unsigned char* data, unsigned int size);
+int mbn_update_sig_blob(mbn_file* mbn, const void* data, size_t size);
 
 #endif

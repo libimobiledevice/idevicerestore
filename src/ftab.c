@@ -28,7 +28,7 @@
 #include "common.h"
 #include "endianness.h"
 
-int ftab_parse(unsigned char *data, unsigned int data_size, ftab_t *ftab, uint32_t *tag)
+int ftab_parse(const void *data, size_t data_size, ftab_t *ftab, uint32_t *tag)
 {
 	if (!data || !data_size || !ftab) {
 		return -1;
@@ -81,7 +81,7 @@ int ftab_parse(unsigned char *data, unsigned int data_size, ftab_t *ftab, uint32
 	return 0;
 }
 
-int ftab_get_entry_ptr(ftab_t ftab, uint32_t tag, unsigned char **data, unsigned int *data_size)
+int ftab_get_entry_ptr(ftab_t ftab, uint32_t tag, void **data, size_t *data_size)
 {
 	if (!ftab || !tag || !data || !data_size) {
 		return -1;
@@ -99,7 +99,7 @@ int ftab_get_entry_ptr(ftab_t ftab, uint32_t tag, unsigned char **data, unsigned
 	return res;
 }
 
-int ftab_add_entry(ftab_t ftab, uint32_t tag, unsigned char *data, unsigned int data_size)
+int ftab_add_entry(ftab_t ftab, uint32_t tag, const void *data, size_t data_size)
 {
 	if (!ftab || !tag || !data || !data_size) {
 		return -1;
@@ -140,7 +140,7 @@ int ftab_add_entry(ftab_t ftab, uint32_t tag, unsigned char *data, unsigned int 
 	return 0;
 }
 
-int ftab_write(ftab_t ftab, unsigned char **data, unsigned int *data_size)
+int ftab_write(ftab_t ftab, void **data, size_t *data_size)
 {
 	uint32_t i;
 	unsigned int total_size = sizeof(struct ftab_header);

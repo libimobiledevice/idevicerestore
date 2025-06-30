@@ -79,23 +79,9 @@ typedef struct {
 	int idx_ecid_element;
 	int idx_shsh_element;
 	int idx_cert_element;
-/*	img3_element* type_element;
-	img3_element* data_element;
-	img3_element* vers_element;
-	img3_element* sepo_element;
-	img3_element* bord_element;
-	img3_element* sepo2_element;
-	img3_element* chip_element;
-	img3_element* bord2_element;
-	img3_element* kbag1_element;
-	img3_element* kbag2_element;
-	img3_element* ecid_element;
-	img3_element* shsh_element;
-	img3_element* cert_element;
-	img3_element* unkn_element;*/
 } img3_file;
 
-int img3_stitch_component(const char* component_name, const unsigned char* component_data, unsigned int component_size, const unsigned char* blob, unsigned int blob_size, unsigned char** img3_data, unsigned int *img3_size);
+int img3_stitch_component(const char* component_name, const void* component_data, size_t component_size, const void* blob, size_t blob_size, void** img3_data, size_t *img3_size);
 
 #ifdef __cplusplus
 }

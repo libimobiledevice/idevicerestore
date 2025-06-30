@@ -419,8 +419,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 		char wtfname[256];
 		snprintf(wtfname, sizeof(wtfname), "Firmware/dfu/WTF.s5l%04xxall.RELEASE.dfu", cpid);
-		unsigned char* wtftmp = NULL;
-		unsigned int wtfsize = 0;
+		void* wtftmp = NULL;
+		size_t wtfsize = 0;
 
 		// Prefer to get WTF file from the restore IPSW
 		ipsw_extract_to_memory(client->ipsw, wtfname, &wtftmp, &wtfsize);
@@ -773,8 +773,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			logger(LL_ERROR, "Unable to get path of USBPortController1,USBFirmware component\n");
 			return -1;
 		}
-		unsigned char* uarp_buf = NULL;
-		unsigned int uarp_size = 0;
+		void* uarp_buf = NULL;
+		size_t uarp_size = 0;
 		if (ipsw_extract_to_memory(client->ipsw, fwpath, &uarp_buf, &uarp_size) < 0) {
 			plist_free(parameters);
 			logger(LL_ERROR, "Unable to extract '%s' from IPSW\n", fwpath);
@@ -804,7 +804,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		logger(LL_INFO, "Received USBPortController1,Ticket\n");
 
 		logger(LL_INFO, "Creating Ace3Binary\n");
-		unsigned char* ace3bin = NULL;
+		void* ace3bin = NULL;
 		size_t ace3bin_size = 0;
 		if (ace3_create_binary(uarp_buf, uarp_size, pdfu_bdid, prev, response, &ace3bin, &ace3bin_size) < 0) {
 			logger(LL_ERROR, "Could not create Ace3Binary\n");
@@ -814,7 +814,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		free(uarp_buf);
 
 		if (idevicerestore_keep_pers) {
-			write_file("Ace3Binary", (const char*)ace3bin, ace3bin_size);
+			write_file("Ace3Binary", ace3bin, ace3bin_size);
 		}
 
 		if (dfu_send_buffer_with_options(client, ace3bin, ace3bin_size, IRECV_SEND_OPT_DFU_NOTIFY_FINISH | IRECV_SEND_OPT_DFU_SMALL_PKT) < 0) {
@@ -898,9 +898,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 			// get all_flash file manifest
 			char *files[16];
-			char *fmanifest = NULL;
-			uint32_t msize = 0;
-			if (ipsw_extract_to_memory(client->ipsw, tmpstr, (unsigned char**)&fmanifest, &msize) < 0) {
+			void *fmanifest = NULL;
+			size_t msize = 0;
+			if (ipsw_extract_to_memory(client->ipsw, tmpstr, &fmanifest, &msize) < 0) {
 				logger(LL_ERROR, "could not extract %s from IPSW\n", tmpstr);
 				free(build_identity);
 				return -1;
@@ -2809,7 +2809,7 @@ int build_manifest_get_identity_count(plist_t build_manifest)
 	return plist_array_get_size(build_identities_array);
 }
 
-int extract_component(ipsw_archive_t ipsw, const char* path, unsigned char** component_data, unsigned int* component_size)
+int extract_component(ipsw_archive_t ipsw, const char* path, void** component_data, size_t* component_size)
 {
 	char* component_name = NULL;
 	if (!ipsw || !path || !component_data || !component_size) {
@@ -2831,19 +2831,19 @@ int extract_component(ipsw_archive_t ipsw, const char* path, unsigned char** com
 	return 0;
 }
 
-int personalize_component(struct idevicerestore_client_t* client, const char *component_name, const unsigned char* component_data, unsigned int component_size, plist_t tss_response, unsigned char** personalized_component, unsigned int* personalized_component_size)
+int personalize_component(struct idevicerestore_client_t* client, const char *component_name, const void* component_data, size_t component_size, plist_t tss_response, void** personalized_component, size_t* personalized_component_size)
 {
-	unsigned char* component_blob = NULL;
-	unsigned int component_blob_size = 0;
-	unsigned char* stitched_component = NULL;
-	unsigned int stitched_component_size = 0;
+	void* component_blob = NULL;
+	size_t component_blob_size = 0;
+	void* stitched_component = NULL;
+	size_t stitched_component_size = 0;
 
 	if (tss_response && plist_dict_get_item(tss_response, "ApImg4Ticket")) {
 		/* stitch ApImg4Ticket into IMG4 file */
 		img4_stitch_component(component_name, component_data, component_size, client->parameters, tss_response, &stitched_component, &stitched_component_size);
 	} else {
 		/* try to get blob for current component from tss response */
-		if (tss_response && tss_response_get_blob_by_entry(tss_response, component_name, &component_blob) < 0) {
+		if (tss_response && tss_response_get_blob_by_entry(tss_response, component_name, (unsigned char**)&component_blob) < 0) {
 			logger(LL_DEBUG, "NOTE: No SHSH blob found for component %s\n", component_name);
 		}
 

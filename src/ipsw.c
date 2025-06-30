@@ -98,13 +98,13 @@ int ipsw_print_info(const char* path)
 	}
 	fclose(f);
 
-	char* plist_buf = NULL;
+	void* plist_buf = NULL;
 	uint32_t plist_len = 0;
 
 	if (memcmp(&magic, "PK\x03\x04", 4) == 0) {
 		ipsw_archive_t ipsw = ipsw_open(thepath);
-		unsigned int rlen = 0;
-		if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", (unsigned char**)&plist_buf, &rlen) < 0) {
+		size_t rlen = 0;
+		if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &plist_buf, &rlen) < 0) {
 			ipsw_close(ipsw);
 			logger(LL_ERROR, "Failed to extract BuildManifest.plist from IPSW!\n");
 			return -1;
@@ -113,7 +113,7 @@ int ipsw_print_info(const char* path)
 		plist_len = (uint32_t)rlen;
 	} else {
 		size_t rlen = 0;
-		if (read_file(thepath, (void**)&plist_buf, &rlen) < 0) {
+		if (read_file(thepath, &plist_buf, &rlen) < 0) {
 			logger(LL_ERROR, "Failed to read BuildManifest.plist!\n");
 			return -1;
 		}
@@ -623,7 +623,7 @@ int ipsw_file_exists(ipsw_archive_t ipsw, const char* infile)
 	return 1;
 }
 
-int ipsw_extract_to_memory(ipsw_archive_t ipsw, const char* infile, unsigned char** pbuffer, unsigned int* psize)
+int ipsw_extract_to_memory(ipsw_archive_t ipsw, const char* infile, void** pbuffer, size_t* psize)
 {
 	size_t size = 0;
 	unsigned char* buffer = NULL;
@@ -666,6 +666,13 @@ int ipsw_extract_to_memory(ipsw_archive_t ipsw, const char* infile, unsigned cha
 		}
 
 		size = zstat.size;
+		if ((uint64_t)size != (uint64_t)zstat.size) {
+			logger(LL_ERROR, "Not enough memory to allocate a buffer of size %" PRIu64 "\n", (uint64_t)zstat.size);
+			zip_fclose(zfile);
+			zip_unchange_all(zip);
+			zip_close(zip);
+			return -1;
+		}
 		buffer = (unsigned char*) malloc(size+1);
 		if (buffer == NULL) {
 			logger(LL_ERROR, "Out of memory\n");
@@ -687,7 +694,7 @@ int ipsw_extract_to_memory(ipsw_archive_t ipsw, const char* infile, unsigned cha
 			free(buffer);
 			return -1;
 		} else if (zr != size) {
-			logger(LL_ERROR, "zip_fread: %s got only %lld of %zu\n", infile, zr, size);
+			logger(LL_ERROR, "zip_fread: %s got only %zu of %zu\n", infile, (size_t)zr, size);
 			free(buffer);
 			return -1;
 		}
@@ -706,6 +713,11 @@ int ipsw_extract_to_memory(ipsw_archive_t ipsw, const char* infile, unsigned cha
 			return -1;
 		}
 		size = fst.st_size;
+		if ((uint64_t)size != (uint64_t)fst.st_size) {
+			logger(LL_ERROR, "Not enough memory to allocate a buffer of size %" PRIu64 "\n", (uint64_t)fst.st_size);
+			free(filepath);
+			return -1;
+		}
 		buffer = (unsigned char*)malloc(size+1);
 		if (buffer == NULL) {
 			logger(LL_ERROR, "Out of memory\n");
@@ -901,15 +913,15 @@ int ipsw_extract_send(ipsw_archive_t ipsw, const char* infile, int blocksize, ip
 
 int ipsw_extract_build_manifest(ipsw_archive_t ipsw, plist_t* buildmanifest, int *tss_enabled)
 {
-	unsigned int size = 0;
-	unsigned char* data = NULL;
+	size_t size = 0;
+	void* data = NULL;
 
 	*tss_enabled = 0;
 
 	/* older devices don't require personalized firmwares and use a BuildManifesto.plist */
 	if (ipsw_file_exists(ipsw, "BuildManifesto.plist")) {
 		if (ipsw_extract_to_memory(ipsw, "BuildManifesto.plist", &data, &size) == 0) {
-			plist_from_xml((char*)data, size, buildmanifest);
+			plist_from_memory((char*)data, size, buildmanifest, NULL);
 			free(data);
 			return 0;
 		}
@@ -921,7 +933,7 @@ int ipsw_extract_build_manifest(ipsw_archive_t ipsw, plist_t* buildmanifest, int
 	/* whereas newer devices do not require personalized firmwares and use a BuildManifest.plist */
 	if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &data, &size) == 0) {
 		*tss_enabled = 1;
-		plist_from_xml((char*)data, size, buildmanifest);
+		plist_from_memory((char*)data, size, buildmanifest, NULL);
 		free(data);
 		return 0;
 	}
@@ -931,11 +943,11 @@ int ipsw_extract_build_manifest(ipsw_archive_t ipsw, plist_t* buildmanifest, int
 
 int ipsw_extract_restore_plist(ipsw_archive_t ipsw, plist_t* restore_plist)
 {
-	unsigned int size = 0;
-	unsigned char* data = NULL;
+	size_t size = 0;
+	void* data = NULL;
 
 	if (ipsw_extract_to_memory(ipsw, "Restore.plist", &data, &size) == 0) {
-		plist_from_xml((char*)data, size, restore_plist);
+		plist_from_memory((char*)data, size, restore_plist, NULL);
 		free(data);
 		return 0;
 	}
@@ -1073,7 +1085,7 @@ int ipsw_get_signed_firmwares(const char* product, plist_t* firmwares)
 {
 	char url[256];
 	char *jdata = NULL;
-	uint32_t jsize = 0;
+	size_t jsize = 0;
 	plist_t dict = NULL;
 	plist_t node = NULL;
 	plist_t fws = NULL;
@@ -1088,7 +1100,7 @@ int ipsw_get_signed_firmwares(const char* product, plist_t* firmwares)
 	*firmwares = NULL;
 	snprintf(url, sizeof(url), "https://api.ipsw.me/v4/device/%s", product);
 
-	if (download_to_buffer(url, &jdata, &jsize) < 0) {
+	if (download_to_buffer(url, (void**)&jdata, &jsize) < 0) {
 		logger(LL_ERROR, "Download from %s failed.\n", url);
 		return -1;
 	}

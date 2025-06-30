@@ -58,10 +58,10 @@ struct ftab_fmt {
 
 typedef struct ftab_fmt *ftab_t;
 
-int ftab_parse(unsigned char *data, unsigned int data_size, ftab_t *ftab, uint32_t *tag);
-int ftab_get_entry_ptr(ftab_t ftab, uint32_t tag, unsigned char **data, unsigned int *data_size);
-int ftab_add_entry(ftab_t ftab, uint32_t tag, unsigned char *data, unsigned int data_size);
-int ftab_write(ftab_t ftab, unsigned char **data, unsigned int *data_size);
+int ftab_parse(const void *data, size_t data_size, ftab_t *ftab, uint32_t *tag);
+int ftab_get_entry_ptr(ftab_t ftab, uint32_t tag, void **data, size_t *data_size);
+int ftab_add_entry(ftab_t ftab, uint32_t tag, const void *data, size_t data_size);
+int ftab_write(ftab_t ftab, void **data, size_t *data_size);
 int ftab_free(ftab_t ftab);
 
 #ifdef __cplusplus
