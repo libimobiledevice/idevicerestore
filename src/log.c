@@ -115,11 +115,11 @@ void logger(enum loglevel level, const char *fmt, ...)
 	snprintf(fs, 24, "%02d:%02d:%02d.%03d", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
 #else
 	struct timeval ts;
-	struct tm tp_;
 	struct tm *tp;
 
 	gettimeofday(&ts, NULL);
 #ifdef HAVE_LOCALTIME_R
+	struct tm tp_;
 	tp = localtime_r(&ts.tv_sec, &tp_);
 #else
 	tp = localtime(&ts.tv_sec);

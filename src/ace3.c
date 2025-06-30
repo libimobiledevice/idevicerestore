@@ -70,10 +70,10 @@ static int uarp_version_convert(uint32_t* version_data, uint32_t* version_out)
 		return 0;
 	}
 	if (version_out) {
-		*version_out = ((((0x147B * (unsigned int)((uint16_t)part3 >> 2)) >> 9) & 0x3FF00 | (0x10 * (((uint8_t)((uint16_t)part3 / 0xA) % 0xA) & 0xF)) | ((uint16_t)part3 % 0xA)) << 8)
+		*version_out = (((((0x147B * (unsigned int)((uint16_t)part3 >> 2)) >> 9) & 0x3FF00) | (0x10 * (((uint8_t)((uint16_t)part3 / 0xA) % 0xA) & 0xF)) | ((uint16_t)part3 % 0xA)) << 8)
 		  | ((((uint8_t)part1 % 0xA) | (0x10 * ((uint8_t)part1 / 0xA)) | part2) << 20)
 		  | ((uint8_t)part4 % 0xA)
-		  | ((0xCD * (unsigned int)(uint8_t)part4) >> 7) & 0xF0;
+		  | (((0xCD * (unsigned int)(uint8_t)part4) >> 7) & 0xF0);
 	}
 	return 0;
 }
@@ -217,7 +217,6 @@ int ace3_create_binary(const void* uarp_fw, size_t uarp_size, uint64_t bdid, uns
 	uint32_t data1_version = 0;
 	uint32_t data2_offset = 0;
 	uint32_t data2_size = 0;
-	uint32_t toc_offset = be32toh(uarp_hdr->toc_offset);
 	uint32_t toc_size = be32toh(uarp_hdr->toc_size);
 	const unsigned char* p = uarp_fw + uarp_hdr_size;
 	while (p < (const unsigned char*)uarp_fw + toc_size) {

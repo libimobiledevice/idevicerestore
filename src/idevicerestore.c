@@ -1772,7 +1772,6 @@ int main(int argc, char* argv[])
 	char* ipsw = NULL;
 	int ipsw_info = 0;
 	int result = 0;
-	int is_terminal = 0;
 	const char* logfile = NULL;
 
 	logger_set_print_func(tty_print);
@@ -1804,7 +1803,6 @@ int main(int argc, char* argv[])
 		client->flags &= ~FLAG_INTERACTIVE;
 	} else {
 		client->flags |= FLAG_INTERACTIVE;
-		is_terminal = 1;
 	}
 
 #ifdef HAVE_LIMERA1N
@@ -2834,7 +2832,6 @@ int extract_component(ipsw_archive_t ipsw, const char* path, void** component_da
 int personalize_component(struct idevicerestore_client_t* client, const char *component_name, const void* component_data, size_t component_size, plist_t tss_response, void** personalized_component, size_t* personalized_component_size)
 {
 	void* component_blob = NULL;
-	size_t component_blob_size = 0;
 	void* stitched_component = NULL;
 	size_t stitched_component_size = 0;
 

@@ -264,7 +264,6 @@ int prompt_user(const char* title, const char* text)
 	int titlelen = (title) ? strlen(title) : 0;
 	if (titlelen > 0) {
 		int lefttitlelen = (titlelen+4)/2;
-		int righttitlelen = titlelen+4 - lefttitlelen;
 		int leftpounds = outerlen/2 - lefttitlelen;
 		int rightpounds = outerlen-(titlelen+4) - leftpounds;
 		printf("%.*s[ %.*s ]%.*s\n", leftpounds, POUNDS, titlelen, title, rightpounds, POUNDS);
