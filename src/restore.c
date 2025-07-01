@@ -5083,7 +5083,7 @@ static void _restore_calculate_recovery_os_partition_size(struct idevicerestore_
 						const char* path = plist_get_string_ptr(p_path, NULL);
 						uint64_t fsize = 0;
 						if (ipsw_get_file_size(client->ipsw, path, &fsize) == 0) {
-							logger(LL_DEBUG, "%s: Adding %s (%s, %llu bytes)\n", __func__, component, path, fsize);
+							logger(LL_DEBUG, "%s: Adding %s (%s, %" PRIu64 " bytes)\n", __func__, component, path, fsize);
 							total_size += (double)fsize / 0x100000;
 						}
 					}
