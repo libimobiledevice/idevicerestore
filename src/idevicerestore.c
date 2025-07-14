@@ -1881,7 +1881,7 @@ int main(int argc, char* argv[]) {
 		client->flags |= FLAG_INTERACTIVE;
 	}
 
-	while ((opt = getopt_long(argc, argv, "dhces:xtpli:u:nC:kyPRT:zv", longopts, &optindex)) > 0) {
+	while ((opt = getopt_long(argc, argv, "dhcers:xtpli:u:nC:kyPRT:zv", longopts, &optindex)) > 0) {
 		switch (opt) {
 		case 'h':
 			usage(argc, argv, 0);
@@ -1899,7 +1899,9 @@ int main(int argc, char* argv[]) {
 		case 'c':
 			client->flags |= FLAG_CUSTOM;
 			break;
-
+		case 'r':
+			client->flags |= FLAG_FORCE_RECOVERY;
+			break;
 		case 's': {
 			if (!*optarg) {
 				error("ERROR: URL argument for --server must not be empty!\n");
@@ -2097,7 +2099,8 @@ int main(int argc, char* argv[]) {
 
 
 	// Handle force recovery mode if requested
-	if (true || (client->flags & FLAG_FORCE_RECOVERY)) {
+	if (client->flags & FLAG_FORCE_RECOVERY) {
+		info("flag force recover is on\n");
 		int ret = assertRecoveryMode(client);
 		if(ret==0){
 			info("Device was already in recovery mode\n");
