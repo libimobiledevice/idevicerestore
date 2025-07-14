@@ -99,6 +99,7 @@ void logger(enum loglevel level, const char *fmt, ...)
 {
 	va_list ap;
 	va_list ap2;
+	va_list ap_len;
 	char *fs;
 
 	if (level > log_level)
@@ -106,13 +107,23 @@ void logger(enum loglevel level, const char *fmt, ...)
 
 	mutex_lock(&log_mutex);
 
-	size_t fslen = 24 + strlen(fmt);
+	va_start(ap, fmt);
+	va_copy(ap_len, ap);
+	int fmt_len = vsnprintf(NULL, 0, fmt, ap_len);
+	va_end(ap_len);
+	if (fmt_len < 0) {
+		va_end(ap);
+		mutex_unlock(&log_mutex);
+		return;
+	}
+
+	size_t fslen = 24 +1+ fmt_len;
 	fs = malloc(fslen);
 
 #ifdef _WIN32
 	SYSTEMTIME lt;
 	GetLocalTime(&lt);
-	snprintf(fs, 24, "%02d:%02d:%02d.%03d", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
+	snprintf(fs, fmt_len, "%02d:%02d:%02d.%03d", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
 #else
 	struct timeval ts;
 	struct tm *tp;
@@ -124,12 +135,15 @@ void logger(enum loglevel level, const char *fmt, ...)
 #else
 	tp = localtime(&ts.tv_sec);
 #endif
-
+	if (!tp) {
+		free(fs);
+		va_end(ap);
+		mutex_unlock(&log_mutex);
+		return;
+	}
 	strftime(fs, 9, "%H:%M:%S", tp);
 	snprintf(fs+8, fslen-8, ".%03d %s %s", (int)(ts.tv_usec / 1000), _level_label[level], fmt);
 #endif
-
-	va_start(ap, fmt);
 	va_copy(ap2, ap);
 	if (print_func) {
 		if (stderr_enabled) {
