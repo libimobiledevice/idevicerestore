@@ -752,7 +752,7 @@ static int restore_handle_previous_restore_log_msg(restored_client_t client, pli
 	}
 	plist_get_string_val(node, &restorelog);
 
-	logger(LL_INFO, "Previous Restore Log Received:\n%s\n", restorelog);
+	logger(LL_VERBOSE, "Previous Restore Log Received:\n%s\n", restorelog);
 	free(restorelog);
 
 	return 0;
@@ -5198,12 +5198,12 @@ plist_t restore_supported_message_types()
 #ifdef HAVE_REVERSE_PROXY
 static void rp_log_cb(reverse_proxy_client_t client, const char* log_msg, void* user_data)
 {
-	logger(LL_INFO, "ReverseProxy[%s]: %s\n", (reverse_proxy_get_type(client) == RP_TYPE_CTRL) ? "Ctrl" : "Conn", log_msg);
+	logger(LL_VERBOSE, "ReverseProxy[%s]: %s\n", (reverse_proxy_get_type(client) == RP_TYPE_CTRL) ? "Ctrl" : "Conn", log_msg);
 }
 
 static void rp_status_cb(reverse_proxy_client_t client, reverse_proxy_status_t status, const char* status_msg, void* user_data)
 {
-	logger(LL_INFO, "ReverseProxy[%s]: (status=%d) %s\n", (reverse_proxy_get_type(client) == RP_TYPE_CTRL) ? "Ctrl" : "Conn", status, status_msg);
+	logger(LL_VERBOSE, "ReverseProxy[%s]: (status=%d) %s\n", (reverse_proxy_get_type(client) == RP_TYPE_CTRL) ? "Ctrl" : "Conn", status, status_msg);
 }
 #endif
 
