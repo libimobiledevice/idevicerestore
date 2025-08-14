@@ -356,6 +356,7 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "RecoveryMode", "recm" },
 		{ "RestoreANS", "rans" },
 		{ "RestoreDCP", "rdcp" },
+		{ "RestoreDCP2", "rdc2", },
 		{ "RestoreDeviceTree", "rdtr" },
 		{ "RestoreExtDCP", "recp" },
 		{ "RestoreKernelCache", "rkrn" },
