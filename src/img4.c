@@ -291,6 +291,7 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "Ap,AudioPowerAttachChime", "aupr" },
 		{ "Ap,BootabilityBrainTrustCache", "trbb" },
 		{ "Ap,CIO", "ciof" },
+		{ "Ap,DCP2", "dcp2" },
 		{ "Ap,HapticAssets", "hpas" },
 		{ "Ap,LocalBoot", "lobo" },
 		{ "Ap,LocalPolicy", "lpol" },
@@ -303,6 +304,10 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "Ap,RestoreDCP2", "rdc2", },
 		{ "Ap,RestoreTMU", "rtmu" },
 		{ "Ap,Scorpius", "scpf" },
+		{ "Ap,RestoreSecureM3Firmware", "rsm3" },
+		{ "Ap,RestoreSecurePageTableMonitor", "rspt" },
+		{ "Ap,RestoreTrustedExecutionMonitor", "rtrx" },
+		{ "Ap,RestorecL4", "rxcl" },
 		{ "Ap,SystemVolumeCanonicalMetadata", "msys" },
 		{ "Ap,TMU", "tmuf" },
 		{ "Ap,VolumeUUID", "vuid" },
@@ -425,35 +430,39 @@ int img4_stitch_component(const char* component_name, const void* component_data
 	const void *tag = asn1_find_element(1, ASN1_IA5_STRING, component_data);
 	if (tag) {
 		logger(LL_DEBUG, "Tag found\n");
-		if (strcmp(component_name, "RestoreKernelCache") == 0) {
-			memcpy((void*)tag, "rkrn", 4);
-		} else if (strcmp(component_name, "RestoreDeviceTree") == 0) {
-			memcpy((void*)tag, "rdtr", 4);
-		} else if (strcmp(component_name, "RestoreSEP") == 0) {
-			memcpy((void*)tag, "rsep", 4);
-		} else if (strcmp(component_name, "RestoreLogo") == 0) {
-			memcpy((void*)tag, "rlgo", 4);
-		} else if (strcmp(component_name, "RestoreTrustCache") == 0) {
-			memcpy((void*)tag, "rtsc", 4);
-		} else if (strcmp(component_name, "RestoreDCP") == 0) {
-			memcpy((void*)tag, "rdcp", 4);
-		} else if (strcmp(component_name, "Ap,RestoreTMU") == 0) {
-			memcpy((void*)tag, "rtmu", 4);
-		} else if (strcmp(component_name, "Ap,RestoreCIO") == 0) {
-			memcpy((void*)tag, "rcio", 4);
-		} else if (strcmp(component_name, "Ap,RestoreDCP2") == 0) {
-			memcpy((void*)tag, "rdc2", 4);
-		} else if (strcmp(component_name, "Ap,DCP2") == 0) {
-			memcpy((void*)tag, "dcp2", 4);
-		} else if (strcmp(component_name, "Ap,RestoreSecureM3Firmware") == 0) {
-			memcpy((void*)tag, "rsm3", 4);
-		} else if (strcmp(component_name, "Ap,RestoreSecurePageTableMonitor") == 0) {
-			memcpy((void*)tag, "rspt", 4);
-		} else if (strcmp(component_name, "Ap,RestoreTrustedExecutionMonitor") == 0) {
-			memcpy((void*)tag, "rtrx", 4);
-		} else if (strcmp(component_name, "Ap,RestorecL4") == 0) {
-			memcpy((void*)tag, "rxcl", 4);
+		const char* matches[] = {
+			"RestoreKernelCache",
+			"RestoreKernelCache",
+			"RestoreSEP",
+			"RestoreLogo",
+			"RestoreTrustCache",
+			"RestoreDCP",
+			"Ap,RestoreDCP2",
+			"Ap,RestoreTMU",
+			"Ap,RestoreCIO",
+			"Ap,DCP2",
+			"Ap,RestoreSecureM3Firmware",
+			"Ap,RestoreSecurePageTableMonitor",
+			"Ap,RestoreTrustedExecutionMonitor",
+			"Ap,RestorecL4",
+			NULL
+		};
+		int i = 0;
+		while (matches[i]) {
+			if (!strcmp(matches[i], component_name)) {
+				const char* comptag = _img4_get_component_tag(component_name);
+				if (comptag) {
+					memcpy((void*)tag, comptag, 4);
+				} else {
+					logger(LL_WARNING, "Cannot find tag for component '%s'\n", component_name);
+				}
+				break;
+			}
+			i++;
 		}
+	} else {
+		logger(LL_ERROR, "Personalization failed for component '%s': Tag not found\n", component_name);
+		return -1;
 	}
 
 	// check if we have a *-TBM entry for the given component
