@@ -755,6 +755,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		plist_dict_copy_item(parameters, build_identity, "USBPortController1,SecurityDomain", NULL);
 		plist_dict_set_item(parameters, "USBPortController1,SecurityMode", plist_new_bool(1));
 		plist_dict_set_item(parameters, "USBPortController1,ProductionMode", plist_new_bool(1));
+		int is_mac = plist_access_path(build_identity, 2, "Info", "MacOSVariant") != NULL;
 		plist_t usbf = plist_access_path(build_identity, 2, "Manifest", "USBPortController1,USBFirmware");
 		if (!usbf) {
 			plist_free(parameters);
@@ -839,6 +840,9 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			mutex_unlock(&client->device_event_mutex);
 			if (!(client->flags & FLAG_QUIT)) {
 				logger(LL_ERROR, "Device did not reconnect in DFU mode. Port DFU failed.\n");
+				if (is_mac) {
+					logger(LL_ERROR, "Make sure to use the correct USB port for this model, see https://support.apple.com/120694\n");
+				}
 			}
 			return -2;
 		}
