@@ -300,6 +300,7 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "Ap,RestoreANE2", "ran2" },
 		{ "Ap,RestoreANE3", "ran3" },
 		{ "Ap,RestoreCIO", "rcio" },
+		{ "Ap,RestoreDCP2", "rdc2", },
 		{ "Ap,RestoreTMU", "rtmu" },
 		{ "Ap,Scorpius", "scpf" },
 		{ "Ap,SystemVolumeCanonicalMetadata", "msys" },
@@ -356,7 +357,6 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "RecoveryMode", "recm" },
 		{ "RestoreANS", "rans" },
 		{ "RestoreDCP", "rdcp" },
-		{ "RestoreDCP2", "rdc2", },
 		{ "RestoreDeviceTree", "rdtr" },
 		{ "RestoreExtDCP", "recp" },
 		{ "RestoreKernelCache", "rkrn" },
@@ -441,6 +441,8 @@ int img4_stitch_component(const char* component_name, const void* component_data
 			memcpy((void*)tag, "rtmu", 4);
 		} else if (strcmp(component_name, "Ap,RestoreCIO") == 0) {
 			memcpy((void*)tag, "rcio", 4);
+		} else if (strcmp(component_name, "Ap,RestoreDCP2") == 0) {
+			memcpy((void*)tag, "rdc2", 4);
 		} else if (strcmp(component_name, "Ap,DCP2") == 0) {
 			memcpy((void*)tag, "dcp2", 4);
 		} else if (strcmp(component_name, "Ap,RestoreSecureM3Firmware") == 0) {
