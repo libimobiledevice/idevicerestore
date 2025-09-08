@@ -432,7 +432,7 @@ int img4_stitch_component(const char* component_name, const void* component_data
 		logger(LL_DEBUG, "Tag found\n");
 		const char* matches[] = {
 			"RestoreKernelCache",
-			"RestoreKernelCache",
+			"RestoreDeviceTree",
 			"RestoreSEP",
 			"RestoreLogo",
 			"RestoreTrustCache",
