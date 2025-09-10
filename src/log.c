@@ -112,7 +112,7 @@ void logger(enum loglevel level, const char *fmt, ...)
 #ifdef _WIN32
 	SYSTEMTIME lt;
 	GetLocalTime(&lt);
-	snprintf(fs, 24, "%02d:%02d:%02d.%03d", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
+	snprintf(fs, fslen, "%02d:%02d:%02d.%03d %s %s", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, _level_label[level], fmt);
 #else
 	struct timeval ts;
 	struct tm *tp;
