@@ -2109,8 +2109,6 @@ int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, 
 	*nonce = NULL;
 	*nonce_size = 0;
 
-	logger(LL_INFO, "Getting ApNonce ");
-
 	if (client->mode) {
 		mode = client->mode->index;
 	}
@@ -2156,29 +2154,27 @@ int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce,
 	*nonce = NULL;
 	*nonce_size = 0;
 
-	logger(LL_INFO, "Getting SepNonce ");
-
 	if (client->mode) {
 		mode = client->mode->index;
 	}
 
 	switch (mode) {
 	case _MODE_NORMAL:
-		logger(LL_INFO, "in normal mode... ");
+		logger(LL_INFO, "Getting SepNonce in normal mode... ");
 		if (normal_get_sep_nonce(client, nonce, nonce_size) < 0) {
 			logger(LL_INFO, "failed\n");
 			return -1;
 		}
 		break;
 	case _MODE_DFU:
-		logger(LL_INFO, "in dfu mode... ");
+		logger(LL_INFO, "Getting SepNonce in dfu mode... ");
 		if (dfu_get_sep_nonce(client, nonce, nonce_size) < 0) {
 			logger(LL_INFO, "failed\n");
 			return -1;
 		}
 		break;
 	case _MODE_RECOVERY:
-		logger(LL_INFO, "in recovery mode... ");
+		logger(LL_INFO, "Getting SepNonce in recovery mode... ");
 		if (recovery_get_sep_nonce(client, nonce, nonce_size) < 0) {
 			logger(LL_INFO, "failed\n");
 			return -1;
@@ -2186,7 +2182,7 @@ int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce,
 		break;
 
 	default:
-		logger(LL_INFO, "failed\n");
+		logger(LL_INFO, "Getting SepNonce failed\n");
 		logger(LL_ERROR, "Device is in an invalid state\n");
 		return -1;
 	}
