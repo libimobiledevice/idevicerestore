@@ -2303,9 +2303,8 @@ static int restore_send_baseband_data(struct idevicerestore_client_t* client, pl
 				plist_dict_set_item(request, "ApSecurityMode", plist_new_bool(1));
 			}
 		}
-		logger_dump_plist(LL_DEBUG, request, 0);
-
 		logger(LL_INFO, "Sending Baseband TSS request...\n");
+		logger_dump_plist(LL_DEBUG, request, 0);
 		response = tss_request_send(request, client->tss_url);
 		plist_free(request);
 		plist_free(parameters);
@@ -3249,12 +3248,14 @@ static plist_t restore_get_generic_firmware_data(struct idevicerestore_client_t*
 	plist_dict_merge(&request, device_generated_request);
 
 	logger(LL_INFO, "Sending %s TSS request...\n", s_updater_name);
+	logger_dump_plist(LL_DEBUG, request, 0);
 	response = tss_request_send(request, client->tss_url);
 	plist_free(request);
 	if (response == NULL) {
 		logger(LL_ERROR, "Unable to fetch %s ticket\n", s_updater_name);
 		return NULL;
 	}
+	logger_dump_plist(LL_DEBUG, response, 0);
 
 	if (plist_dict_get_item(response, response_ticket)) {
 		logger(LL_INFO, "Received %s\n", response_ticket);
