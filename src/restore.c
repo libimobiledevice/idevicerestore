@@ -4320,7 +4320,9 @@ int restore_send_personalized_boot_object_v3(struct idevicerestore_client_t* cli
 	rctx.last_progress = 0;
 	rctx.tag = progress_get_next_tag();
 
-	register_progress(rctx.tag, component);
+	if (size > 0x2000000) {
+		register_progress(rctx.tag, component);
+	}
 
 	int64_t i = size;
 	while (i > 0) {
