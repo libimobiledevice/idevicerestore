@@ -3749,6 +3749,7 @@ static int restore_send_firmware_updater_data(struct idevicerestore_client_t* cl
 	}
 
 	plist_get_string_val(p_updater_name, &s_updater_name);
+	logger_dump_plist(LL_DEBUG, p_info, 1);
 
 	if (strcmp(s_updater_name, "SE") == 0) {
 		fwdict = restore_get_se_firmware_data(client, p_info, arguments);
@@ -3758,10 +3759,14 @@ static int restore_send_firmware_updater_data(struct idevicerestore_client_t* cl
 		}
 	} else if (strcmp(s_updater_name, "Savage") == 0) {
 		const char *fwtype = "Savage";
-		plist_t p_info2 = plist_dict_get_item(p_info, "YonkersDeviceInfo");
-		if (p_info2 && plist_get_node_type(p_info2) == PLIST_DICT) {
+		plist_t p_info_yonkers = plist_dict_get_item(p_info, "YonkersDeviceInfo");
+		plist_t p_info_jasmine = plist_dict_get_item(p_info, "JasmineIR1DeviceInfo");
+		if (PLIST_IS_DICT(p_info_yonkers)) {
 			fwtype = "Yonkers";
-			fwdict = restore_get_yonkers_firmware_data(client, p_info2, arguments);
+			fwdict = restore_get_yonkers_firmware_data(client, p_info_yonkers, arguments);
+		} else if (PLIST_IS_DICT(p_info_jasmine)) {
+			fwtype = "Jasmine";
+			fwdict = restore_get_generic_firmware_data(client, p_info_jasmine, arguments);
 		} else {
 			fwdict = restore_get_savage_firmware_data(client, p_info, arguments);
 		}
@@ -3806,6 +3811,18 @@ static int restore_send_firmware_updater_data(struct idevicerestore_client_t* cl
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "Ace3") == 0) {
+		fwdict = restore_get_generic_firmware_data(client, p_info, arguments);
+		if (fwdict == NULL) {
+			logger(LL_ERROR, "%s: Couldn't get %s firmware data\n", __func__, s_updater_name);
+			goto error_out;
+		}
+	} else if (strcmp(s_updater_name, "Centauri") == 0) {
+		fwdict = restore_get_generic_firmware_data(client, p_info, arguments);
+		if (fwdict == NULL) {
+			logger(LL_ERROR, "%s: Couldn't get %s firmware data\n", __func__, s_updater_name);
+			goto error_out;
+		}
+	} else if (strcmp(s_updater_name, "Vinyl") == 0) {
 		fwdict = restore_get_generic_firmware_data(client, p_info, arguments);
 		if (fwdict == NULL) {
 			logger(LL_ERROR, "%s: Couldn't get %s firmware data\n", __func__, s_updater_name);
