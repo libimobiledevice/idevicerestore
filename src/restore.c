@@ -1264,11 +1264,10 @@ static size_t _curl_header_callback(char* buffer, size_t size, size_t nitems, vo
 
 int restore_send_url_asset(struct idevicerestore_client_t* client, plist_t message)
 {
-	logger(LL_DEBUG, "%s\n", __func__);
 	plist_t arguments = plist_dict_get_item(message, "Arguments");
 	if (!PLIST_IS_DICT(arguments)) {
 		logger(LL_ERROR, "%s: Unexpected arguments\n", __func__);
-		logger_dump_plist(LL_VERBOSE, arguments, 1);
+		logger_dump_plist(LL_VERBOSE, message, 1);
 		return -1;
 	}
 
@@ -4179,13 +4178,18 @@ static int _restore_send_file_data(struct _restore_send_file_data_ctx* rctx, con
 
 	/* special handling for AEA image format */
 	if (done == 0 && (memcmp(data, "AEA1", 4) == 0)) {
-		logger(LL_INFO, "Encountered First Chunk in AEA image\n");
+		logger(LL_VERBOSE, "Encountered First Chunk in AEA image\n");
 		plist_t message = NULL;
 		property_list_service_error_t err = _restore_service_recv_timeout(rctx->service, &message, 3000);
 		if (err == PROPERTY_LIST_SERVICE_E_RECEIVE_TIMEOUT) {
-			logger(LL_INFO, "No URLAsset requested, assuming it is not necessary.\n");
+			logger(LL_VERBOSE, "No URLAsset requested, assuming it is not necessary.\n");
 		} else if (err == PROPERTY_LIST_SERVICE_E_SUCCESS) {
-			restore_send_url_asset(rctx->client, message);
+			if (PLIST_IS_DICT(message) && plist_dict_get_item(message, "Arguments")) {
+				restore_send_url_asset(rctx->client, message);
+			} else {
+				logger(LL_DEBUG, "%s: Unexpected message received\n", __func__);
+				logger_dump_plist(LL_DEBUG, message, 1);
+			}
 		}
 	}
 
