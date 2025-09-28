@@ -25,7 +25,7 @@
 #include "mbn.h"
 #include "common.h"
 
-mbn_file* mbn_parse(unsigned char* data, unsigned int size)
+mbn_file* mbn_parse(const void* data, size_t size)
 {
 	mbn_file* mbn = (mbn_file*)malloc(sizeof(mbn_file));
 	if (!mbn) {
@@ -54,10 +54,10 @@ mbn_file* mbn_parse(unsigned char* data, unsigned int size)
 		// we cheat here since we don't parse the actual ELF file
 		mbn->parsed_size = mbn->size;
 	} else {
-		debug("DEBUG: Unknown file format passed to %s\n", __func__);
+		logger(LL_DEBUG, "Unknown file format passed to %s\n", __func__);
 	}
 	if (mbn->parsed_size != mbn->size) {
-		info("WARNING: size mismatch when parsing MBN file. Continuing anyway.\n");
+		logger(LL_WARNING, "Size mismatch when parsing MBN file. Continuing anyway.\n");
 	}
 	return mbn;
 }
@@ -72,15 +72,15 @@ void mbn_free(mbn_file* mbn)
 	}
 }
 
-int mbn_update_sig_blob(mbn_file* mbn, const unsigned char* sigdata, unsigned int siglen)
+int mbn_update_sig_blob(mbn_file* mbn, const void* sigdata, size_t siglen)
 {
 	if (!mbn) {
-		error("ERROR: %s: no data\n", __func__);
+		logger(LL_ERROR, "%s: no data\n", __func__);
 		return -1;
 	}
 	mbn->parsed_sig_offset = mbn->size - siglen;
 	if ((mbn->parsed_sig_offset + siglen) > mbn->size) {
-		error("ERROR: %s: signature is larger than mbn file size\n", __func__);
+		logger(LL_ERROR, "%s: signature is larger than mbn file size\n", __func__);
 		return -1;
 	}
 

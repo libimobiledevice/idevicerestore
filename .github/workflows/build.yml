@@ -193,7 +193,7 @@ jobs:
         name: idevicerestore-latest_macOS
         path: idevicerestore.tar
   build-windows:
-    runs-on: windows-2019
+    runs-on: windows-latest
     defaults:
       run:
         shell: msys2 {0}
@@ -218,7 +218,10 @@ jobs:
           libtool
           autoconf
           automake-wrapper
-          liblzma
+          mingw-w64-${{ matrix.arch }}-xz
+          mingw-w64-${{ matrix.arch }}-bzip2
+          mingw-w64-${{ matrix.arch }}-openssl
+          pkg-config
     - name: prepare environment
       run: |
           dest=`echo ${{ matrix.msystem }} |tr [:upper:] [:lower:]`
@@ -291,7 +294,7 @@ jobs:
           echo "LIBCURL_LIBS=`pwd`/deps/lib/libcurl.a /${{env.dest}}/lib/libzstd.a -lws2_32 -lcrypt32 -lwldap32 -lbcrypt -lssl -lcrypto" >> $GITHUB_ENV
     - name: autogen
       run: |
-          ./autogen.sh CC=gcc CXX=g++ \
+          ./autogen.sh PKG_CONFIG_PATH=/${{env.dest}}/lib/pkgconfig \
               libzip_VERSION=1.7.1 libzip_CFLAGS="${{env.LIBZIP_CFLAGS}}" libzip_LIBS="${{env.LIBZIP_LIBS}}" \
               zlib_LIBS="/${{env.dest}}/lib/libz.a" libcurl_CFLAGS="${{env.LIBCURL_CFLAGS}}" libcurl_LIBS="$LIBCURL_LIBS"
     - name: make

@@ -35,7 +35,7 @@ int lock_file(const char* filename, lock_info_t* lockinfo)
 #ifdef WIN32
 	lockinfo->fp = CreateFile(filename, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (lockinfo->fp == INVALID_HANDLE_VALUE) {
-		debug("ERROR: could not open or create lockfile '%s'\n", filename);
+		logger(LL_DEBUG, "ERROR: could not open or create lockfile '%s'\n", filename);
 		return -1;
 	}
 
@@ -43,7 +43,7 @@ int lock_file(const char* filename, lock_info_t* lockinfo)
 	lockinfo->ldata.OffsetHigh = 0;
 
 	if (!LockFileEx(lockinfo->fp, LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &lockinfo->ldata)) {
-		debug("ERROR: can't lock file, error %d\n", GetLastError());
+		logger(LL_DEBUG, "ERROR: can't lock file, error %d\n", GetLastError());
 		CloseHandle(lockinfo->fp);
 		lockinfo->fp = INVALID_HANDLE_VALUE;
 		return -1;
@@ -52,7 +52,7 @@ int lock_file(const char* filename, lock_info_t* lockinfo)
 	lockinfo->fp = fopen(filename, "a+");
 
 	if (!lockinfo->fp) {
-		debug("ERROR: could not open or create lockfile '%s'\n", filename);
+		logger(LL_DEBUG, "ERROR: could not open or create lockfile '%s'\n", filename);
 		return -1;
 	}
 
@@ -62,7 +62,7 @@ int lock_file(const char* filename, lock_info_t* lockinfo)
 	lockinfo->ldata.l_len = 0;
 
 	if (fcntl(fileno(lockinfo->fp), F_SETLKW, &lockinfo->ldata) < 0) {
-		debug("ERROR: can't lock file, error %d\n", errno);
+		logger(LL_DEBUG, "ERROR: can't lock file, error %d\n", errno);
 		fclose(lockinfo->fp);
 		lockinfo->fp = NULL;
 		return -1;
@@ -85,7 +85,7 @@ int unlock_file(lock_info_t* lockinfo)
 	lockinfo->ldata.OffsetHigh = 0;
 
 	if (!UnlockFileEx(lockinfo->fp, 0, 1, 0, &lockinfo->ldata)) {
-		debug("ERROR: can't unlock file, error %d\n", GetLastError());
+		logger(LL_DEBUG, "ERROR: can't unlock file, error %d\n", GetLastError());
 		CloseHandle(lockinfo->fp);
 		lockinfo->fp = INVALID_HANDLE_VALUE;
 		return -1;
@@ -103,7 +103,7 @@ int unlock_file(lock_info_t* lockinfo)
 	lockinfo->ldata.l_len = 0;
 
 	if (fcntl(fileno(lockinfo->fp), F_SETLK, &lockinfo->ldata) < 0) {
-		debug("ERROR: can't unlock file, error %d\n", errno);
+		logger(LL_DEBUG, "ERROR: can't unlock file, error %d\n", errno);
 		fclose(lockinfo->fp);
 		lockinfo->fp = NULL;
 		return -1;

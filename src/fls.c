@@ -96,12 +96,12 @@ static void fls_parse_elements(fls_file* fls)
 		offset += cur->size;
 	} while (offset < fls->size);
 	if (offset != fls->size) {
-		error("ERROR: %s: error parsing elements\n", __func__);
+		logger(LL_ERROR, "%s: error parsing elements\n", __func__);
 		return;
 	}
 }
 
-fls_file* fls_parse(unsigned char* data, unsigned int size)
+fls_file* fls_parse(const void* data, size_t size)
 {
 	fls_file* fls = (fls_file*)malloc(sizeof(fls_file));
 	if (!fls) {
@@ -132,37 +132,37 @@ void fls_free(fls_file* fls)
 	}
 }
 
-int fls_update_sig_blob(fls_file* fls, const unsigned char* sigdata, unsigned int siglen)
+int fls_update_sig_blob(fls_file* fls, const void* sigdata, size_t siglen)
 {
 	/* FIXME: the code in this function is not big endian safe */
 	if (!fls || !fls->num_elements) {
-		error("ERROR: %s: no data\n", __func__);
+		logger(LL_ERROR, "%s: no data\n", __func__);
 		return -1;
 	}
 	if (!fls->c_element) {
-		error("ERROR: %s: no fls_0c_element in fls data\n", __func__);
+		logger(LL_ERROR, "%s: no fls_0c_element in fls data\n", __func__);
 		return -1;
 	}
 
 	uint32_t datasize = *(uint32_t*)(fls->c_element->data + 0x10);
 	if (datasize != fls->c_element->data_size) {
-		error("ERROR: %s: data size mismatch (0x%x != 0x%x)\n", __func__, datasize, fls->c_element->data_size);
+		logger(LL_ERROR, "%s: data size mismatch (0x%x != 0x%x)\n", __func__, datasize, fls->c_element->data_size);
 		return -1;
 	}
 	uint32_t sigoffset = *(uint32_t*)(fls->c_element->data + 0x14);
 	if (sigoffset > datasize) {
-		error("ERROR: %s: signature offset greater than data size (0x%x > 0x%x)\n", __func__, sigoffset, datasize);
+		logger(LL_ERROR, "%s: signature offset greater than data size (0x%x > 0x%x)\n", __func__, sigoffset, datasize);
 		return -1;
 	}
 
-	uint32_t oldsiglen = datasize - sigoffset;
-	uint32_t newsize = fls->size - oldsiglen + siglen;
+	size_t oldsiglen = datasize - sigoffset;
+	size_t newsize = fls->size - oldsiglen + siglen;
 
 	unsigned int i;
 	uint32_t offset = 0;
 	void* newdata = malloc(newsize);
 	if (!newdata) {
-		error("ERROR: %s: out of memory\n", __func__);
+		logger(LL_ERROR, "%s: out of memory\n", __func__);
 		return -1;
 	}
 	uint32_t hdrsize = 0;
@@ -239,15 +239,15 @@ int fls_update_sig_blob(fls_file* fls, const unsigned char* sigdata, unsigned in
 	return 0;
 }
 
-int fls_insert_ticket(fls_file* fls, const unsigned char* data, unsigned int size)
+int fls_insert_ticket(fls_file* fls, const void* data, size_t size)
 {
 	/* FIXME: the code in this function is not big endian safe */
 	if (!fls || !fls->num_elements) {
-		error("ERROR: %s: no data\n", __func__);
+		logger(LL_ERROR, "%s: no data\n", __func__);
 		return -1;
 	}
 	if (!fls->c_element) {
-		error("ERROR: %s: no fls_0c_element in fls data\n", __func__);
+		logger(LL_ERROR, "%s: no fls_0c_element in fls data\n", __func__);
 		return -1;
 	}
 
@@ -255,12 +255,12 @@ int fls_insert_ticket(fls_file* fls, const unsigned char* data, unsigned int siz
 	if (size%4 != 0) {
 		padding = 4-(size%4);
 	}
-	uint32_t newsize = fls->size + size + padding;
+	size_t newsize = fls->size + size + padding;
 	unsigned int i;
 	uint32_t offset = 0;
 	void* newdata = malloc(newsize);
 	if (!newdata) {
-		error("ERROR: %s: out of memory\n", __func__);
+		logger(LL_ERROR, "%s: out of memory\n", __func__);
 		return -1;
 	}
 	uint32_t hdrsize = 0;

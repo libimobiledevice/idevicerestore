@@ -204,7 +204,7 @@ static void asn1_write_element(unsigned char **p, unsigned int *length, unsigned
 		}
 	}	break;
 	default:
-		fprintf(stderr, "ERROR: %s: type %02x is not implemented\n", __func__, type);
+		logger(LL_ERROR, "%s: type %02x is not implemented\n", __func__, type);
 		return;
 	}
 }
@@ -291,6 +291,7 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "Ap,AudioPowerAttachChime", "aupr" },
 		{ "Ap,BootabilityBrainTrustCache", "trbb" },
 		{ "Ap,CIO", "ciof" },
+		{ "Ap,DCP2", "dcp2" },
 		{ "Ap,HapticAssets", "hpas" },
 		{ "Ap,LocalBoot", "lobo" },
 		{ "Ap,LocalPolicy", "lpol" },
@@ -300,8 +301,13 @@ static const char *_img4_get_component_tag(const char *compname)
 		{ "Ap,RestoreANE2", "ran2" },
 		{ "Ap,RestoreANE3", "ran3" },
 		{ "Ap,RestoreCIO", "rcio" },
+		{ "Ap,RestoreDCP2", "rdc2", },
 		{ "Ap,RestoreTMU", "rtmu" },
 		{ "Ap,Scorpius", "scpf" },
+		{ "Ap,RestoreSecureM3Firmware", "rsm3" },
+		{ "Ap,RestoreSecurePageTableMonitor", "rspt" },
+		{ "Ap,RestoreTrustedExecutionMonitor", "rtrx" },
+		{ "Ap,RestorecL4", "rxcl" },
 		{ "Ap,SystemVolumeCanonicalMetadata", "msys" },
 		{ "Ap,TMU", "tmuf" },
 		{ "Ap,VolumeUUID", "vuid" },
@@ -396,7 +402,7 @@ static const char *_img4_get_component_tag(const char *compname)
 	return NULL;
 }
 
-int img4_stitch_component(const char* component_name, const unsigned char* component_data, unsigned int component_size, plist_t parameters, plist_t tss_response, unsigned char** img4_data, unsigned int *img4_size)
+int img4_stitch_component(const char* component_name, const void* component_data, size_t component_size, plist_t parameters, plist_t tss_response, void** img4_data, size_t *img4_size)
 {
 	unsigned char* magic_header = NULL;
 	unsigned int magic_header_size = 0;
@@ -415,42 +421,48 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 	}
 
 	if (tss_response_get_ap_img4_ticket(tss_response, &blob, &blob_size) != 0) {
-		error("ERROR: %s: Failed to get ApImg4Ticket from TSS response\n", __func__);
+		logger(LL_ERROR, "%s: Failed to get ApImg4Ticket from TSS response\n", __func__);
 		return -1;
 	}
 
-	info("Personalizing IMG4 component %s...\n", component_name);
+	logger(LL_INFO, "Personalizing IMG4 component %s...\n", component_name);
 	/* first we need check if we have to change the tag for the given component */
 	const void *tag = asn1_find_element(1, ASN1_IA5_STRING, component_data);
 	if (tag) {
-		debug("Tag found\n");
-		if (strcmp(component_name, "RestoreKernelCache") == 0) {
-			memcpy((void*)tag, "rkrn", 4);
-		} else if (strcmp(component_name, "RestoreDeviceTree") == 0) {
-			memcpy((void*)tag, "rdtr", 4);
-		} else if (strcmp(component_name, "RestoreSEP") == 0) {
-			memcpy((void*)tag, "rsep", 4);
-		} else if (strcmp(component_name, "RestoreLogo") == 0) {
-			memcpy((void*)tag, "rlgo", 4);
-		} else if (strcmp(component_name, "RestoreTrustCache") == 0) {
-			memcpy((void*)tag, "rtsc", 4);
-		} else if (strcmp(component_name, "RestoreDCP") == 0) {
-			memcpy((void*)tag, "rdcp", 4);
-		} else if (strcmp(component_name, "Ap,RestoreTMU") == 0) {
-			memcpy((void*)tag, "rtmu", 4);
-		} else if (strcmp(component_name, "Ap,RestoreCIO") == 0) {
-			memcpy((void*)tag, "rcio", 4);
-		} else if (strcmp(component_name, "Ap,DCP2") == 0) {
-			memcpy((void*)tag, "dcp2", 4);
-		} else if (strcmp(component_name, "Ap,RestoreSecureM3Firmware") == 0) {
-			memcpy((void*)tag, "rsm3", 4);
-		} else if (strcmp(component_name, "Ap,RestoreSecurePageTableMonitor") == 0) {
-			memcpy((void*)tag, "rspt", 4);
-		} else if (strcmp(component_name, "Ap,RestoreTrustedExecutionMonitor") == 0) {
-			memcpy((void*)tag, "rtrx", 4);
-		} else if (strcmp(component_name, "Ap,RestorecL4") == 0) {
-			memcpy((void*)tag, "rxcl", 4);
+		logger(LL_DEBUG, "Tag found\n");
+		const char* matches[] = {
+			"RestoreKernelCache",
+			"RestoreDeviceTree",
+			"RestoreSEP",
+			"RestoreLogo",
+			"RestoreTrustCache",
+			"RestoreDCP",
+			"Ap,RestoreDCP2",
+			"Ap,RestoreTMU",
+			"Ap,RestoreCIO",
+			"Ap,DCP2",
+			"Ap,RestoreSecureM3Firmware",
+			"Ap,RestoreSecurePageTableMonitor",
+			"Ap,RestoreTrustedExecutionMonitor",
+			"Ap,RestorecL4",
+			NULL
+		};
+		int i = 0;
+		while (matches[i]) {
+			if (!strcmp(matches[i], component_name)) {
+				const char* comptag = _img4_get_component_tag(component_name);
+				if (comptag) {
+					memcpy((void*)tag, comptag, 4);
+				} else {
+					logger(LL_WARNING, "Cannot find tag for component '%s'\n", component_name);
+				}
+				break;
+			}
+			i++;
 		}
+	} else {
+		logger(LL_ERROR, "Personalization failed for component '%s': Tag not found\n", component_name);
+		return -1;
 	}
 
 	// check if we have a *-TBM entry for the given component
@@ -467,22 +479,22 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 	if (tbm_dict) {
 		plist_t dt = plist_dict_get_item(tbm_dict, "ucon");
 		if (!dt) {
-			error("ERROR: %s: Missing ucon node in %s-TBM dictionary\n", __func__, component_name);
+			logger(LL_ERROR, "%s: Missing ucon node in %s-TBM dictionary\n", __func__, component_name);
 			return -1;
 		}
 		ucon_data = plist_get_data_ptr(dt, &ucon_size);
 		if (!ucon_data) {
-			error("ERROR: %s: Missing ucon data in %s-TBM dictionary\n", __func__, component_name);
+			logger(LL_ERROR, "%s: Missing ucon data in %s-TBM dictionary\n", __func__, component_name);
 			return -1;
 		}
 		dt = plist_dict_get_item(tbm_dict, "ucer");
 		if (!dt) {
-			error("ERROR: %s: Missing ucer data node in %s-TBM dictionary\n", __func__, component_name);
+			logger(LL_ERROR, "%s: Missing ucer data node in %s-TBM dictionary\n", __func__, component_name);
 			return -1;
 		}
 		ucer_data = plist_get_data_ptr(dt, &ucer_size);
 		if (!ucer_data) {
-			error("ERROR: %s: Missing ucer data in %s-TBM dictionary\n", __func__, component_name);
+			logger(LL_ERROR, "%s: Missing ucer data in %s-TBM dictionary\n", __func__, component_name);
 			return -1;
 		}
 	}
@@ -683,7 +695,7 @@ int img4_stitch_component(const char* component_name, const unsigned char* compo
 			free(img4header);
 		}
 		free(additional_data);
-		error("ERROR: out of memory when personalizing IMG4 component %s\n", component_name);
+		logger(LL_ERROR, "out of memory when personalizing IMG4 component %s\n", component_name);
 		return -1;
 	}
 	p = outbuf;
@@ -825,7 +837,7 @@ static void _manifest_write_component(unsigned char **p, unsigned int *length, c
 			tbmtag = "tbmr";
 		}
 		if (!tbmtag) {
-			error("ERROR: Unexpected TMBDigests for comp '%s'\n", tag);
+			logger(LL_ERROR, "Unexpected TMBDigests for comp '%s'\n", tag);
 		} else {
 			_manifest_write_key_value(&tmp, &tmp_len, tbmtag, ASN1_OCTET_STRING, (void*)data, datalen);
 		}
@@ -918,10 +930,10 @@ int img4_create_local_manifest(plist_t request, plist_t build_identity, plist_t*
 				comp = _img4_get_component_tag(key);
 			}
 			if (!comp) {
-				debug("DEBUG: %s: Unhandled component '%s'\n", __func__, key);
+				logger(LL_DEBUG, "%s: Unhandled component '%s'\n", __func__, key);
 				_manifest_write_component(&p, &length, key, val);
 			} else {
-				debug("DEBUG: found component %s (%s)\n", comp, key);
+				logger(LL_DEBUG, "found component %s (%s)\n", comp, key);
 				_manifest_write_component(&p, &length, comp, val);
 			}
 		}

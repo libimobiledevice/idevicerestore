@@ -50,7 +50,7 @@ int asr_open_with_timeout(idevice_t device, asr_client_t* asr, uint16_t port);
 void asr_set_progress_callback(asr_client_t asr, asr_progress_cb_t, void* userdata);
 int asr_send(asr_client_t asr, plist_t data);
 int asr_receive(asr_client_t asr, plist_t* data);
-int asr_send_buffer(asr_client_t asr, const char* data, uint32_t size);
+int asr_send_buffer(asr_client_t asr, const void* data, size_t size);
 void asr_free(asr_client_t asr);
 int asr_perform_validation(asr_client_t asr, ipsw_file_handle_t file);
 int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file);

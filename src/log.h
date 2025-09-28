@@ -1,8 +1,7 @@
 /*
- * img4.h
- * Functions for handling the IMG4 format
+ * log.h
  *
- * Copyright (c) 2013-2019 Nikias Bassen. All Rights Reserved.
+ * Copyright (c) 2024 Nikias Bassen. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,18 +18,26 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef IDEVICERESTORE_IMG4_H
-#define IDEVICERESTORE_IMG4_H
+#ifndef LOG_H
+#define LOG_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+enum loglevel {
+	LL_ERROR = 0,
+	LL_WARNING,
+	LL_NOTICE,
+	LL_INFO,
+	LL_VERBOSE,
+	LL_DEBUG
+};
 
-int img4_stitch_component(const char* component_name, const void* component_data, size_t component_size, plist_t parameters, plist_t tss_response, void** img4_data, size_t *img4_size);
-int img4_create_local_manifest(plist_t request, plist_t build_identity, plist_t* manifest);
+extern enum loglevel log_level;
 
-#ifdef __cplusplus
-}
-#endif
+typedef void (*logger_print_func)(enum loglevel level, const char*, va_list);
+
+void logger(enum loglevel level, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
+int logger_set_logfile(const char* path);
+void logger_set_print_func(logger_print_func func);
+void logger_dump_hex(enum loglevel level, const void* buf, size_t len);
+void logger_dump_plist(enum loglevel level, plist_t plist, int human_readable);
 
 #endif

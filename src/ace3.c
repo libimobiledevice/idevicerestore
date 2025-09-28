@@ -70,15 +70,15 @@ static int uarp_version_convert(uint32_t* version_data, uint32_t* version_out)
 		return 0;
 	}
 	if (version_out) {
-		*version_out = ((((0x147B * (unsigned int)((uint16_t)part3 >> 2)) >> 9) & 0x3FF00 | (0x10 * (((uint8_t)((uint16_t)part3 / 0xA) % 0xA) & 0xF)) | ((uint16_t)part3 % 0xA)) << 8)
+		*version_out = (((((0x147B * (unsigned int)((uint16_t)part3 >> 2)) >> 9) & 0x3FF00) | (0x10 * (((uint8_t)((uint16_t)part3 / 0xA) % 0xA) & 0xF)) | ((uint16_t)part3 % 0xA)) << 8)
 		  | ((((uint8_t)part1 % 0xA) | (0x10 * ((uint8_t)part1 / 0xA)) | part2) << 20)
 		  | ((uint8_t)part4 % 0xA)
-		  | ((0xCD * (unsigned int)(uint8_t)part4) >> 7) & 0xF0;
+		  | (((0xCD * (unsigned int)(uint8_t)part4) >> 7) & 0xF0);
 	}
 	return 0;
 }
 
-int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t bdid, unsigned int prev, plist_t tss, unsigned char** bin_out, size_t* bin_size)
+int ace3_create_binary(const void* uarp_fw, size_t uarp_size, uint64_t bdid, unsigned int prev, plist_t tss, void** bin_out, size_t* bin_size)
 {
 	struct ace3bin_header {
 		uint32_t magic;        // 0xACE00003
@@ -167,7 +167,7 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 			uint64_t boardid = 0;
 			plist_get_uint_val(p_boardid, &boardid);
 			if (boardid == bdid) {
-				debug("DEBUG: %s: Found Board ID 0x%" PRIx64 "\n", __func__, bdid);
+				logger(LL_DEBUG, "%s: Found Board ID 0x%" PRIx64 "\n", __func__, bdid);
 				plist_t p4cc = plist_dict_get_item(payload, "Payload 4CC");
 				plist_get_string_val(p4cc, &payload_4cc);
 				plist_t matching = plist_dict_get_item(meta, "Personalization Matching Data");
@@ -189,7 +189,7 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 						if (prev >= minrev && prev <= maxrev) {
 							plist_t tags = plist_dict_get_item(match, "Personalization Matching Data Payload Tags");
 							plist_get_string_val(tags, &data_payload_4ccs);
-							debug("DEBUG: %s: Found matching tags %s\n", __func__, data_payload_4ccs);
+							logger(LL_DEBUG, "%s: Found matching tags %s\n", __func__, data_payload_4ccs);
 							break;
 						}
 					} while (match);
@@ -201,11 +201,11 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 		plist_mem_free(iter);
 	}
 	if (!payload_4cc) {
-		printf("Failed to get payload 4cc\n");
+		logger(LL_ERROR, "Failed to get payload 4cc\n");
 		return -1;
 	}
 	if (!data_payload_4ccs) {
-		printf("Failed to get data payload 4ccs\n");
+		logger(LL_ERROR, "Failed to get data payload 4ccs\n");
 		return -1;
 	}
 
@@ -217,10 +217,9 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 	uint32_t data1_version = 0;
 	uint32_t data2_offset = 0;
 	uint32_t data2_size = 0;
-	uint32_t toc_offset = be32toh(uarp_hdr->toc_offset);
 	uint32_t toc_size = be32toh(uarp_hdr->toc_size);
 	const unsigned char* p = uarp_fw + uarp_hdr_size;
-	while (p < uarp_fw + toc_size) {
+	while (p < (const unsigned char*)uarp_fw + toc_size) {
 		struct uarp_toc_entry* entry = (struct uarp_toc_entry*)p;
 		uint32_t te_size = be32toh(entry->this_size);
 		if (strncmp((char*)&(entry->fourcc), payload_4cc, 4) == 0) {
@@ -244,7 +243,7 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 
 	uint32_t content_size = data1_size + data2_size + im4m_size + dl_size;
 
-	*bin_out = (unsigned char*)malloc(0x40 + content_size);
+	*bin_out = malloc(0x40 + content_size);
 	struct ace3bin_header* hdr = (struct ace3bin_header*)(*bin_out);
 	hdr->magic = htole32(0xACE00003);
 	hdr->version = htole32(data1_version);
@@ -276,3 +275,4 @@ int ace3_create_binary(const unsigned char* uarp_fw, size_t uarp_size, uint64_t 
 
 	return 0;
 }
+

@@ -49,12 +49,12 @@ static int normal_idevice_new(struct idevicerestore_client_t* client, idevice_t*
 	if (client->udid) {
 		device_error = idevice_new(&dev, client->udid);
 		if (device_error != IDEVICE_E_SUCCESS) {
-			debug("%s: can't open device with UDID %s\n", __func__, client->udid);
+			logger(LL_DEBUG, "%s: can't open device with UDID %s\n", __func__, client->udid);
 			return -1;
 		}
 
 		if (lockdownd_client_new(dev, &lockdown, "idevicerestore") != LOCKDOWN_E_SUCCESS) {
-			error("ERROR: %s: can't connect to lockdownd on device with UDID %s\n", __func__, client->udid);
+			logger(LL_ERROR, "%s: can't connect to lockdownd on device with UDID %s\n", __func__, client->udid);
 			return -1;
 
 		}
@@ -94,12 +94,12 @@ static int normal_idevice_new(struct idevicerestore_client_t* client, idevice_t*
 		}
 		device_error = idevice_new(&dev, devices[j]);
 		if (device_error != IDEVICE_E_SUCCESS) {
-			debug("%s: can't open device with UDID %s\n", __func__, devices[j]);
+			logger(LL_DEBUG, "%s: can't open device with UDID %s\n", __func__, devices[j]);
 			continue;
 		}
 
 		if (lockdownd_client_new(dev, &lockdown, "idevicerestore") != LOCKDOWN_E_SUCCESS) {
-			error("ERROR: %s: can't connect to lockdownd on device with UDID %s\n", __func__, devices[j]);
+			logger(LL_ERROR, "%s: can't connect to lockdownd on device with UDID %s\n", __func__, devices[j]);
 			continue;
 
 		}
@@ -165,16 +165,12 @@ irecv_device_t normal_get_irecv_device(struct idevicerestore_client_t* client)
 
 	normal_idevice_new(client, &device);
 	if (!device) {
-		info("normal_get_irecv_device !device\n");
 		return NULL;
 	}
 
 	lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
 	if (!(client->flags & FLAG_ERASE) && lockdown_error == LOCKDOWN_E_PAIRING_DIALOG_RESPONSE_PENDING) {
-		info("*** Device is not paired with this computer. Please trust this computer on the device to continue. ***\n");
-		if (client->flags & FLAG_DEBUG) {
-			idevice_set_debug_level(0);
-		}
+		show_banner("Device is not paired with this computer. Please trust this computer on the device to continue.\n");
 		while (!(client->flags & FLAG_QUIT)) {
 			lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
 			if (lockdown_error != LOCKDOWN_E_PAIRING_DIALOG_RESPONSE_PENDING) {
@@ -182,9 +178,7 @@ irecv_device_t normal_get_irecv_device(struct idevicerestore_client_t* client)
 			}
 			sleep(1);
 		}
-		if (client->flags & FLAG_DEBUG) {
-			idevice_set_debug_level(1);
-		}
+		hide_banner();
 		if (client->flags & FLAG_QUIT) {
 			return NULL;
 		}
@@ -224,13 +218,13 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 
 	device_error = idevice_new(&device, client->udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
-		error("ERROR: Unable to find device\n");
+		logger(LL_ERROR, "Unable to find device\n");
 		return -1;
 	}
 
 	lockdown_error = lockdownd_client_new(device, &lockdown, "idevicerestore");
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-		error("ERROR: Unable to connect to lockdownd: %s (%d)\n", lockdownd_strerror(lockdown_error), lockdown_error);
+		logger(LL_ERROR, "Unable to connect to lockdownd: %s (%d)\n", lockdownd_strerror(lockdown_error), lockdown_error);
 		idevice_free(device);
 		return -1;
 	}
@@ -240,14 +234,14 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 		lockdownd_client_free(lockdown);
 		lockdown = NULL;
 		if (LOCKDOWN_E_SUCCESS != (lockdown_error = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore"))) {
-			error("ERROR: Could not connect to lockdownd: %s (%d)\n", lockdownd_strerror(lockdown_error), lockdown_error);
+			logger(LL_ERROR, "Could not connect to lockdownd: %s (%d)\n", lockdownd_strerror(lockdown_error), lockdown_error);
 			idevice_free(device);
 			return -1;
 		}
 		lockdown_error = lockdownd_enter_recovery(lockdown);
 	}
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-		error("ERROR: Unable to place device in recovery mode: %s (%d)\n", lockdownd_strerror(lockdown_error), lockdown_error);
+		logger(LL_ERROR, "Unable to place device in recovery mode: %s (%d)\n", lockdownd_strerror(lockdown_error), lockdown_error);
 		lockdownd_client_free(lockdown);
 		idevice_free(device);
 		return -1;
@@ -259,35 +253,25 @@ int normal_enter_recovery(struct idevicerestore_client_t* client)
 	device = NULL;
 
 	mutex_lock(&client->device_event_mutex);
-	debug("DEBUG: Waiting for device to disconnect...\n");
+	logger(LL_DEBUG, "Waiting for device to disconnect...\n");
 	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
-	int tries = 3 ;
-	while(tries-- && (client->mode == MODE_NORMAL || (client->flags & FLAG_QUIT))) {
-		debug("cond_wait_timeout retry\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
-	}	
 	if (client->mode == MODE_NORMAL || (client->flags & FLAG_QUIT)) {
 		mutex_unlock(&client->device_event_mutex);
-		error("ERROR: Failed to place device in recovery mode\n");
+		logger(LL_ERROR, "Failed to place device in recovery mode\n");
 		return -1;
 	}
 
-	debug("DEBUG: Waiting for device to connect in recovery mode...\n");
+	logger(LL_DEBUG, "Waiting for device to connect in recovery mode...\n");
 	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
-	tries = 3 ;
-	while(tries-- && (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT))) {
-		debug("cond_wait_timeout retry\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
-	}
 	if (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT)) {
 		mutex_unlock(&client->device_event_mutex);
-		error("ERROR: Failed to enter recovery mode\n");
+		logger(LL_ERROR, "Failed to enter recovery mode\n");
 		return -1;
 	}
 	mutex_unlock(&client->device_event_mutex);
 
 	if (recovery_client_new(client) < 0) {
-		error("ERROR: Unable to enter recovery mode\n");
+		logger(LL_ERROR, "Unable to enter recovery mode\n");
 		return -1;
 	}
 
@@ -307,20 +291,20 @@ plist_t normal_get_lockdown_value(struct idevicerestore_client_t* client, const 
 
 	device_error = idevice_new(&device, client->udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
-		error("ERROR: Unable to connect to device?!\n");
+		logger(LL_ERROR, "Unable to connect to device?!\n");
 		return NULL;
 	}
 
 	lockdown_error = lockdownd_client_new(device, &lockdown, "idevicerestore");
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-		error("ERROR: Unable to connect to lockdownd\n");
+		logger(LL_ERROR, "Unable to connect to lockdownd\n");
 		idevice_free(device);
 		return NULL;
 	}
 
 	lockdown_error = lockdownd_get_value(lockdown, domain, key, &node);
 	if (lockdown_error != LOCKDOWN_E_SUCCESS) {
-		debug("ERROR: Unable to get %s-%s from lockdownd\n", domain, key);
+		logger(LL_DEBUG, "ERROR: Unable to get %s-%s from lockdownd\n", domain, key);
 		lockdownd_client_free(lockdown);
 		idevice_free(device);
 		return NULL;
@@ -339,7 +323,7 @@ static int normal_get_nonce_by_key(struct idevicerestore_client_t* client, const
 	plist_t nonce_node = normal_get_lockdown_value(client, NULL, key);
 
 	if (!nonce_node || plist_get_node_type(nonce_node) != PLIST_DATA) {
-		error("Unable to get %s\n", key);
+		logger(LL_ERROR, "Unable to get %s\n", key);
 		return -1;
 	}
 
@@ -400,12 +384,12 @@ int normal_get_firmware_preflight_info(struct idevicerestore_client_t* client, p
 	if (has_telephony_capability) {
 		node = normal_get_lockdown_value(client, NULL, "FirmwarePreflightInfo");
 		if (!node || plist_get_node_type(node) != PLIST_DICT) {
-			error("ERROR: Unable to get FirmwarePreflightInfo\n");
+			logger(LL_ERROR, "Unable to get FirmwarePreflightInfo\n");
 			return -1;
 		}
 		*preflight_info = node;
 	} else {
-		debug("DEBUG: Device does not have TelephonyCapability, no FirmwarePreflightInfo\n");
+		logger(LL_DEBUG, "Device does not have TelephonyCapability, no FirmwarePreflightInfo\n");
 		*preflight_info = NULL;
 	}
 
@@ -418,7 +402,7 @@ int normal_get_preflight_info(struct idevicerestore_client_t* client, plist_t *p
 	if (PLIST_IS_DICT(node)) {
 		*preflight_info = node;
 	} else {
-		debug("DEBUG: No PreflightInfo available.\n");
+		logger(LL_DEBUG, "No PreflightInfo available.\n");
 		*preflight_info = NULL;
 	}
 	return 0;
@@ -438,20 +422,25 @@ int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_
 
 	device_err = idevice_new(&device, client->udid);
 	if (device_err != IDEVICE_E_SUCCESS) {
-		error("ERROR: Could not connect to device (%d)\n", device_err);
+		logger(LL_ERROR, "Could not connect to device (%d)\n", device_err);
 		return -1;
 	}
 
 	lerr = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
+	if (lerr == LOCKDOWN_E_PASSWORD_PROTECTED) {
+		logger(LL_ERROR, "Device is locked. Unlock device and try again.\n");
+		idevice_free(device);
+		return -1;
+	}
 	if (lerr != LOCKDOWN_E_SUCCESS) {
-		error("ERROR: Could not connect to lockdownd (%d)\n", lerr);
+		logger(LL_ERROR, "Could not connect to lockdownd (%d)\n", lerr);
 		idevice_free(device);
 		return -1;
 	}
 
 	lerr = lockdownd_start_service(lockdown, PREBOARD_SERVICE_NAME, &service);
 	if (lerr == LOCKDOWN_E_PASSWORD_PROTECTED) {
-		info("*** Device is locked. Please unlock the device to continue. ***\n");
+		show_banner("Device is locked. Please unlock the device to continue.\n");
 		while (1) {
 			lerr = lockdownd_start_service(lockdown, PREBOARD_SERVICE_NAME, &service);
 			if (lerr != LOCKDOWN_E_PASSWORD_PROTECTED) {
@@ -462,7 +451,7 @@ int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_
 	}
 
 	if (lerr != LOCKDOWN_E_SUCCESS) {
-		error("ERROR: Could not start preboard service (%d)\n", lerr);
+		logger(LL_ERROR, "Could not start preboard service (%d)\n", lerr);
 		lockdownd_client_free(lockdown);
 		idevice_free(device);
 		return -1;
@@ -472,14 +461,14 @@ int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_
 	lockdownd_service_descriptor_free(service);
 	lockdownd_client_free(lockdown);
 	if (perr != PREBOARD_E_SUCCESS) {
-		error("ERROR: Could not connect to preboard service (%d)\n", perr);
+		logger(LL_ERROR, "Could not connect to preboard service (%d)\n", perr);
 		idevice_free(device);
 		return -1;
 	}
 
 	perr = preboard_create_stashbag(preboard, manifest, NULL, NULL);
 	if (perr != PREBOARD_E_SUCCESS) {
-		error("ERROR: Failed to trigger stashbag creation (%d)\n", perr);
+		logger(LL_ERROR, "Failed to trigger stashbag creation (%d)\n", perr);
 		preboard_client_free(preboard);
 		idevice_free(device);
 		return -1;
@@ -492,25 +481,25 @@ int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_
 		if (perr == PREBOARD_E_TIMEOUT) {
 			continue;
 		} else if (perr != PREBOARD_E_SUCCESS) {
-			error("ERROR: could not receive from preboard service\n");
+			logger(LL_ERROR, "could not receive from preboard service\n");
 			break;
 		} else {
 			plist_t node;
 
 			if (plist_dict_get_bool(pl, "Skip")) {
 				result = 0;
-				info("Device does not require stashbag.\n");
+				logger(LL_INFO, "Device does not require stashbag.\n");
 				break;
 			}
 
 			if (plist_dict_get_bool(pl, "ShowDialog")) {
-				info("Device requires stashbag.\n");
-				printf("******************************************************************************\n"
-				       "* Please enter your passcode on the device.  The device will store a token   *\n"
-				       "* that will be used after restore to access the user data partition.  This   *\n"
-				       "* prevents an 'Attempting data recovery' process occurring after reboot that *\n"
-				       "* may take a long time to complete and will _also_ require the passcode.     *\n"
-				       "******************************************************************************\n");
+				logger(LL_INFO, "Device requires stashbag.\n");
+				show_banner(
+				       "Please enter your passcode on the device.  The device will store a token\n"
+				       "that will be used after restore to access the user data partition.  This\n"
+				       "prevents an 'Attempting data recovery' process occurring after reboot that\n"
+				       "may take a long time to complete and will _also_ require the passcode."
+				);
 				plist_free(pl);
 				continue;
 			}
@@ -521,13 +510,13 @@ int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_
 				if (node) {
 					plist_get_string_val(node, &strval);
 				}
-				error("ERROR: Could not create stashbag: %s\n", (strval) ? strval : "(Unknown error)");
+				logger(LL_ERROR, "Could not create stashbag: %s\n", (strval) ? strval : "(Unknown error)");
 				free(strval);
 				plist_free(pl);
 				break;
 			}
 			if (plist_dict_get_bool(pl, "Timeout")) {
-				error("ERROR: Timeout while waiting for user to enter passcode.\n");
+				logger(LL_ERROR, "Timeout while waiting for user to enter passcode.\n");
 				result = -2;
 				plist_free(pl);
 				break;
@@ -536,12 +525,15 @@ int normal_handle_create_stashbag(struct idevicerestore_client_t* client, plist_
 				plist_free(pl);
 				/* hide dialog */
 				result = 1;
-				info("Stashbag created.\n");
+				logger(LL_INFO, "Stashbag created.\n");
 				break;
 			}
 		}
 		plist_free(pl);
 	}
+
+	hide_banner();
+
 	preboard_client_free(preboard);
 	idevice_free(device);
 
@@ -563,20 +555,20 @@ int normal_handle_commit_stashbag(struct idevicerestore_client_t* client, plist_
 
 	device_err = idevice_new(&device, client->udid);
 	if (device_err != IDEVICE_E_SUCCESS) {
-		error("ERROR: Could not connect to device (%d)\n", device_err);
+		logger(LL_ERROR, "Could not connect to device (%d)\n", device_err);
 		return -1;
 	}
 
 	lerr = lockdownd_client_new_with_handshake(device, &lockdown, "idevicerestore");
 	if (lerr != LOCKDOWN_E_SUCCESS) {
-		error("ERROR: Could not connect to lockdownd (%d)\n", lerr);
+		logger(LL_ERROR, "Could not connect to lockdownd (%d)\n", lerr);
 		idevice_free(device);
 		return -1;
 	}
 
 	lerr = lockdownd_start_service(lockdown, PREBOARD_SERVICE_NAME, &service);
 	if (lerr == LOCKDOWN_E_PASSWORD_PROTECTED) {
-		info("*** Device is locked. Please unlock the device to continue. ***\n");
+		show_banner("Device is locked. Please unlock the device to continue.\n");
 		while (1) {
 			lerr = lockdownd_start_service(lockdown, PREBOARD_SERVICE_NAME, &service);
 			if (lerr != LOCKDOWN_E_PASSWORD_PROTECTED) {
@@ -584,10 +576,11 @@ int normal_handle_commit_stashbag(struct idevicerestore_client_t* client, plist_
 			}
 			sleep(1);
 		}
+		hide_banner();
 	}
 
 	if (lerr != LOCKDOWN_E_SUCCESS) {
-		error("ERROR: Could not start preboard service (%d)\n", lerr);
+		logger(LL_ERROR, "Could not start preboard service (%d)\n", lerr);
 		lockdownd_client_free(lockdown);
 		idevice_free(device);
 		return -1;
@@ -597,14 +590,14 @@ int normal_handle_commit_stashbag(struct idevicerestore_client_t* client, plist_
 	lockdownd_service_descriptor_free(service);
 	lockdownd_client_free(lockdown);
 	if (perr != PREBOARD_E_SUCCESS) {
-		error("ERROR: Could not connect to preboard service (%d)\n", perr);
+		logger(LL_ERROR, "Could not connect to preboard service (%d)\n", perr);
 		idevice_free(device);
 		return -1;
 	}
 
 	perr = preboard_commit_stashbag(preboard, manifest, NULL, NULL);
 	if (perr != PREBOARD_E_SUCCESS) {
-		error("ERROR: Failed to trigger stashbag creation (%d)\n", perr);
+		logger(LL_ERROR, "Failed to trigger stashbag creation (%d)\n", perr);
 		preboard_client_free(preboard);
 		idevice_free(device);
 		return -1;
@@ -612,7 +605,7 @@ int normal_handle_commit_stashbag(struct idevicerestore_client_t* client, plist_
 
 	perr = preboard_receive_with_timeout(preboard, &pl, 30000);
 	if (perr != PREBOARD_E_SUCCESS) {
-		error("ERROR: could not receive from preboard service (%d)\n", perr);
+		logger(LL_ERROR, "could not receive from preboard service (%d)\n", perr);
 	} else {
 		plist_t node = plist_dict_get_item(pl, "Error");
 		if (node) {
@@ -621,14 +614,14 @@ int normal_handle_commit_stashbag(struct idevicerestore_client_t* client, plist_
 			if (node) {
 				plist_get_string_val(node, &strval);
 			}
-			error("ERROR: Could not commit stashbag: %s\n", (strval) ? strval : "(Unknown error)");
+			logger(LL_ERROR, "Could not commit stashbag: %s\n", (strval) ? strval : "(Unknown error)");
 			free(strval);
 		} else if (plist_dict_get_bool(pl, "StashbagCommitComplete")) {
-			info("Stashbag committed!\n");
+			logger(LL_INFO, "Stashbag committed!\n");
 			result = 0;
 		} else {
-			error("ERROR: Unexpected reply from preboard service\n");
-			debug_plist(pl);
+			logger(LL_ERROR, "Unexpected reply from preboard service\n");
+			logger_dump_plist(LL_VERBOSE, pl, 1);
 		}
 		plist_free(pl);
 	}
