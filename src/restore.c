@@ -2016,8 +2016,6 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 					goto leave;
 				}
 			}
-			free(buffer);
-			buffer = NULL;
 
 			blob_size = 0;
 			blob = (const unsigned char*)plist_get_data_ptr(node, &blob_size);
@@ -2043,17 +2041,21 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 				fls = NULL;
 			} else if (bb_chip_id == 0x1F30E1) { // Mav25 - Qualcomm Snapdragon X80 5G Modem
 				fdata = mbn_mav25_stitch(buffer, zstat.size, blob, (size_t)blob_size);
+				fsize = zstat.size;
 				if (!fdata) {
 					logger(LL_ERROR, "Could not stitch %s\n", signfn);
 					goto leave;
 				}
 			} else {
 				fdata = mbn_stitch(buffer, zstat.size, blob, (size_t)blob_size);
+				fsize = zstat.size;
 				if (!fdata) {
 					logger(LL_ERROR, "Could not stitch %s\n", signfn);
 					goto leave;
 				}
 			}
+			free(buffer);
+			buffer = NULL;
 
 			zs = zip_source_buffer(za, fdata, fsize, 1);
 			if (!zs) {

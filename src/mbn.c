@@ -263,11 +263,11 @@ void* mbn_stitch(const void* data, size_t data_size, const void* blob, size_t bl
 
 	off_t stitch_offset = data_size - blob_size;
 	if (stitch_offset + blob_size > data_size) {
-		logger(LL_ERROR, "%s: stitch offset (0x%llx) + size (0x%zx) is larger than the destination (0x%zx)\n", __func__, stitch_offset, blob_size, data_size);
+		logger(LL_ERROR, "%s: stitch offset (0x%lx) + size (0x%zx) is larger than the destination (0x%zx)\n", __func__, (unsigned long)stitch_offset, blob_size, data_size);
 		return NULL;
 	}
 
-	void* buf = malloc(data_size);
+	unsigned char* buf = malloc(data_size);
 	if (buf == NULL)	{
 		logger(LL_ERROR, "out of memory\n");
 		return NULL;
@@ -409,7 +409,7 @@ void* mbn_mav25_stitch(const void* data, size_t data_size, const void* blob, siz
 	}
 
 	if (sect_off + sect_size > data_size) {
-		logger(LL_ERROR, "%s: section (0x%llx+0x%zx) is bigger than the data\n", __func__, sect_off, sect_size);
+		logger(LL_ERROR, "%s: section (0x%lx+0x%zx) is bigger than the data\n", __func__, (unsigned long)sect_off, sect_size);
 		return NULL;
 	}
 
@@ -442,8 +442,7 @@ void* mbn_mav25_stitch(const void* data, size_t data_size, const void* blob, siz
 	size_t new_oem_sig_and_cert_chain_size =
 		src_header->oem_signature_size + src_header->oem_certificate_chain_size;
 	off_t new_oem_sig_and_cert_chain_off = new_metadata_and_hash_table_size +
-																				 header->qti_signature_size +
-																				 header->qti_certificate_chain_size;
+		header->qti_signature_size + header->qti_certificate_chain_size;
 
 	if (new_metadata_and_hash_table_size > blob_size) {
 		logger(LL_ERROR, "%s: new metadata (0x%zx) and hash table (0x%x) are bigger than the source (0x%zx)\n", __func__, new_metadata_size, src_header->hash_table_size, blob_size);
@@ -465,16 +464,16 @@ void* mbn_mav25_stitch(const void* data, size_t data_size, const void* blob, siz
 		return NULL;
 	}
 
-	void* buf = malloc(data_size);
+	unsigned char* buf = malloc(data_size);
 	if (buf == NULL)	{
 		logger(LL_ERROR, "out of memory\n");
 		return NULL;
 	}
 
 	memcpy(buf, data, data_size);
-	logger(LL_DEBUG, "%s: stitching mbn at 0x%llx (0x%zx bytes)\n", __func__, sect_off, new_metadata_and_hash_table_size);
+	logger(LL_DEBUG, "%s: stitching mbn at 0x%lx (0x%zx bytes)\n", __func__, (unsigned long)sect_off, new_metadata_and_hash_table_size);
 	memcpy(buf + sect_off, blob, new_metadata_and_hash_table_size);
-	logger(LL_DEBUG, "%s: stitching mbn at 0x%llx (0x%zx bytes)\n", __func__, sect_off + new_oem_sig_and_cert_chain_off, new_oem_sig_and_cert_chain_size);
+	logger(LL_DEBUG, "%s: stitching mbn at 0x%lx (0x%zx bytes)\n", __func__, (unsigned long)(sect_off + new_oem_sig_and_cert_chain_off), new_oem_sig_and_cert_chain_size);
 	memcpy(buf + sect_off + new_oem_sig_and_cert_chain_off, blob + new_metadata_and_hash_table_size, new_oem_sig_and_cert_chain_size);
 
 	return buf;
