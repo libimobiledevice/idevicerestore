@@ -101,8 +101,7 @@ void logger(enum loglevel level, const char *fmt, ...)
 	va_list ap2;
 	char *fs;
 
-	if (level > log_level)
-		return;
+
 
 	mutex_lock(&log_mutex);
 
@@ -197,8 +196,6 @@ void logger_dump_hex(enum loglevel level, const void* buf, size_t len)
 
 void logger_dump_plist(enum loglevel level, plist_t plist, int human_readable)
 {
-	if (level > log_level)
-		return;
 	mutex_lock(&log_mutex);
 	plist_write_to_stream(plist, stderr_enabled ? stderr : stdout, (human_readable) ? PLIST_FORMAT_PRINT : PLIST_FORMAT_XML, PLIST_OPT_NONE);
 	mutex_unlock(&log_mutex);

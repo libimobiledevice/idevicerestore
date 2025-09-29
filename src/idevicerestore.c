@@ -248,25 +248,25 @@ static int compare_versions(const char *s_ver1, const char *s_ver2)
 
 static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 {
-	info("idevice_event_cb\n");
-	info("idevice_event_cb: conn_type %d\n",event->conn_type);
+	logger(LL_INFO,"idevice_event_cb\n");
+	logger(LL_INFO,"idevice_event_cb: conn_type %d\n",event->conn_type);
 	struct idevicerestore_client_t *client = (struct idevicerestore_client_t*)userdata;
 #ifdef HAVE_ENUM_IDEVICE_CONNECTION_TYPE
 	if (event->conn_type != CONNECTION_USBMUXD) {
 		
-		info("idevice_event_cb: event->conn_type != CONNECTION_USBMUXD\n");
-		info("idevice_event_cb: event->conn_type = %d\n", event->conn_type);
+		logger(LL_INFO,"idevice_event_cb: event->conn_type != CONNECTION_USBMUXD\n");
+		logger(LL_INFO,"idevice_event_cb: event->conn_type = %d\n", event->conn_type);
 		// ignore everything but devices connected through USB
 		return;
 	}
 #endif
 
-	info("idevice_event_cb: event->event %d\n",event->event);
+	logger(LL_INFO,"idevice_event_cb: event->event %d\n",event->event);
 
 	if (event->event == IDEVICE_DEVICE_ADD) {
-		info("idevice_event_cb: event->event == IDEVICE_DEVICE_ADD\n");
+		logger(LL_INFO,"idevice_event_cb: event->event == IDEVICE_DEVICE_ADD\n");
 		if (client->ignore_device_add_events) {
-			info("idevice_event_cb: client->ignore_device_add_events\n");
+			logger(LL_INFO,"idevice_event_cb: client->ignore_device_add_events\n");
 			return;
 		}
 		if (normal_check_mode(client) == 0) {
@@ -286,7 +286,7 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 			client->device = get_irecv_device(client);
 		}
 	} else if (event->event == IDEVICE_DEVICE_REMOVE) {
-		info("idevice_event_cb: event->event == IDEVICE_DEVICE_REMOVE\n");
+		logger(LL_INFO,"idevice_event_cb: event->event == IDEVICE_DEVICE_REMOVE\n");
 		if (client->udid && !strcmp(event->udid, client->udid)) {
 			mutex_lock(&client->device_event_mutex);
 			client->mode = MODE_UNKNOWN;
@@ -300,19 +300,19 @@ static void idevice_event_cb(const idevice_event_t *event, void *userdata)
 
 static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 {
-	debug("irecv_event_cb\n");
+	logger(LL_DEBUG, "irecv_event_cb\n");
 	struct idevicerestore_client_t *client = (struct idevicerestore_client_t*)userdata;
 
 	if (event->type == IRECV_DEVICE_ADD) {
 
-		debug("irecv_event_cb IRECV_DEVICE_ADD event info: ecid=%016" PRIx64 " \n", event->device_info->ecid);
-		debug("irecv_event_cb IRECV_DEVICE_ADD client info: ecid=%016" PRIx64 " udid=%s\n", client->ecid, client->udid ? client->udid : "N/A");
+		logger(LL_DEBUG,"irecv_event_cb IRECV_DEVICE_ADD event info: ecid=%016" PRIx64 " \n", event->device_info->ecid);
+		logger(LL_DEBUG,"irecv_event_cb IRECV_DEVICE_ADD client info: ecid=%016" PRIx64 " udid=%s\n", client->ecid, client->udid ? client->udid : "N/A");
 		if (!client->udid && !client->ecid) {
 			client->ecid = event->device_info->ecid;
 		}
 		if (client->ecid && event->device_info->ecid == client->ecid) {
 
-			debug("locking device_event_mutex\n");
+			logger(LL_DEBUG,"locking device_event_mutex\n");
 			mutex_lock(&client->device_event_mutex);
 			switch (event->mode) {
 				case IRECV_K_WTF_MODE:
@@ -333,8 +333,8 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 				default:
 					client->mode = MODE_UNKNOWN;
 			}
-			debug("%s: device %016" PRIx64 " (udid: %s) connected in %s mode\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A", client->mode->string);
-			debug("cond_signal(&client->device_event_cond) at %p\n", &client->device_event_cond);
+			logger(LL_DEBUG,"%s: device %016" PRIx64 " (udid: %s) connected in %s mode\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A", client->mode->string);
+			logger(LL_DEBUG,"cond_signal(&client->device_event_cond) at %p\n", &client->device_event_cond);
 
 			logger(LL_DEBUG, "%s: device %016" PRIx64 " (udid: %s) connected in %s mode\n", __func__, client->ecid, (client->udid) ? client->udid : "N/A", client->mode->string);
 			if (!client->device) {
@@ -345,8 +345,8 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 			mutex_unlock(&client->device_event_mutex);
 		}
 	} else if (event->type == IRECV_DEVICE_REMOVE) {
-		info("irecv_event_cb IRECV_DEVICE_REMOVE event info: ecid=%016" PRIx64 " \n", event->device_info->ecid);
-		info("irecv_event_cb IRECV_DEVICE_REMOVE client info: ecid=%016" PRIx64 " udid=%s\n", client->ecid, client->udid ? client->udid : "N/A");
+		logger(LL_INFO,"irecv_event_cb IRECV_DEVICE_REMOVE event info: ecid=%016" PRIx64 " \n", event->device_info->ecid);
+		logger(LL_INFO,"irecv_event_cb IRECV_DEVICE_REMOVE client info: ecid=%016" PRIx64 " udid=%s\n", client->ecid, client->udid ? client->udid : "N/A");
 
 		if (client->ecid && event->device_info->ecid == client->ecid) {
 			mutex_lock(&client->device_event_mutex);
@@ -358,12 +358,12 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 				// have the actual device ECID and wouldn't get detected.
 				client->ecid = 0;
 			}
-			info("cond_signal(&client->device_event_cond) at %p\n", &client->device_event_cond);
+			logger(LL_INFO,"cond_signal(&client->device_event_cond) at %p\n", &client->device_event_cond);
 			cond_signal(&client->device_event_cond);
 			mutex_unlock(&client->device_event_mutex);
 		}
 	}
-	info("out") ;
+	logger(LL_INFO,"out") ;
 }
 
 int build_identity_check_components_in_ipsw(plist_t build_identity, ipsw_archive_t ipsw);
@@ -372,7 +372,7 @@ int build_identity_check_components_in_ipsw(plist_t build_identity, ipsw_archive
 int assertRecoveryMode(struct idevicerestore_client_t* client)
 {
 
-	info("assertRecoveryMode\n");
+	logger(LL_DEBUG,"assertRecoveryMode\n");
 	irecv_device_event_subscribe(&client->irecv_e_ctx, irecv_event_cb, client);
 
 	idevice_event_subscribe(idevice_event_cb, client);
@@ -390,9 +390,9 @@ int assertRecoveryMode(struct idevicerestore_client_t* client)
 	}
 	mutex_unlock(&client->device_event_mutex);
 	if (client->mode == MODE_NORMAL) {
-		info("Device is in normal mode\n");
-		info("Force recovery mode requested\n");
-		info("Entering recovery mode...\n");
+		logger(LL_INFO,"Device is in normal mode\n");
+		logger(LL_INFO,"Force recovery mode requested\n");
+		logger(LL_INFO,"Entering recovery mode...\n");
 		if (normal_enter_recovery(client) < 0) {
 			error("ERROR: Unable to place device into recovery mode from normal mode\n");
 			if (client->tss)
@@ -402,7 +402,7 @@ int assertRecoveryMode(struct idevicerestore_client_t* client)
 		return 1;
 	}
 	if (client->mode == MODE_RECOVERY) {
-		info("Device is in recovery mode\n");
+		logger(LL_INFO,"Device is in recovery mode\n");
 		return 0;
 	}
 
@@ -459,12 +459,12 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	// check which mode the device is currently in so we know where to start
 	mutex_lock(&client->device_event_mutex);
 	while (client->mode == MODE_UNKNOWN) {
-		info("Waiting for device to connect...\n");
+		logger(LL_INFO,"Waiting for device to connect...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-		info("Waiting over connected\n");
+		logger(LL_INFO,"Waiting over connected\n");
 		if( (client->flags & FLAG_QUIT))
 		{
-			info("Quitting...\n");
+			logger(LL_INFO,"Quitting...\n");
 			mutex_unlock(&client->device_event_mutex);
 
 			logger(LL_ERROR, "Unable to discover device mode. Please make sure a device is attached.\n");
@@ -483,7 +483,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 
 
 
-	info("Found device  mode index %d \n", client->mode->index);
+	logger(LL_INFO,"Found device  mode index %d \n", client->mode->index);
 	if (client->mode == MODE_WTF) {
 		unsigned int cpid = 0;
 
@@ -1525,7 +1525,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
 		int tries = 3 ;
 		while(tries-- && (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT))) {
-			debug("cond_wait_timeout retry\n");
+			logger(LL_DEBUG,"cond_wait_timeout retry\n");
 			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
 		}		
 		if (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
@@ -1537,13 +1537,13 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 			return -2;
 		}
 		recovery_client_free(client);
-		debug("Waiting for device to reconnect in recovery mode ...\n");
+		logger(LL_DEBUG,"Waiting for device to reconnect in recovery mode ...\n");
 		logger(LL_DEBUG, "Waiting for device to reconnect in recovery mode...\n");
 
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 60000);
 		tries = 3 ;
 		while(tries-- && (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT))) {
-			debug("cond_wait_timeout retry\n");
+			logger(LL_DEBUG,"cond_wait_timeout retry\n");
 			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
 		}
 		if (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT)) {
@@ -1635,11 +1635,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		idevicerestore_progress(client, RESTORE_STEP_PREPARE, 0.9);
 		if (client->mode != MODE_RESTORE) {
 			mutex_lock(&client->device_event_mutex);
-			info("Waiting for device to enter restore mode...\n");
+			logger(LL_INFO,"Waiting for device to enter restore mode...\n");
 			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 180000);
 			int tries = 13 ;
 			while(tries-- && (client->mode != MODE_RESTORE || (client->flags & FLAG_QUIT))) {
-				debug("cond_wait_timeout retry\n");
+				logger(LL_DEBUG,"cond_wait_timeout retry\n");
 				cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
 			}
 			if (client->mode != MODE_RESTORE || (client->flags & FLAG_QUIT)) {
@@ -2170,11 +2170,11 @@ int main(int argc, char* argv[]) {
 			logger(LL_ERROR, "Firmware file %s cannot be opened.\n", ipsw);
 			return -1;
 		}
-		info("ipsw OK") ;
+		logger(LL_INFO,"ipsw OK") ;
 
 	}
 	else {
-		info("no ipsw") ;
+		logger(LL_INFO,"no ipsw") ;
 	}
 
 
@@ -2190,16 +2190,16 @@ int main(int argc, char* argv[]) {
 
 	// Handle force recovery mode if requested
 	if (client->flags & FLAG_FORCE_RECOVERY) {
-		info("flag force recover is on\n");
+		logger(LL_INFO,"flag force recover is on\n");
 		int ret = assertRecoveryMode(client);
 		if(ret==0){
-			info("Device was already in recovery mode\n");
+			logger(LL_INFO,"Device was already in recovery mode\n");
 		}
 		else if(ret==1){
-			info("Device was not in recovery mode, but force recovery mode was requested\n");
+			logger(LL_INFO,"Device was not in recovery mode, but force recovery mode was requested\n");
 		}
 		else{
-			info("Device is not in recovery mode\n");
+			logger(LL_INFO,"Device is not in recovery mode\n");
 			
 		}
 	
@@ -2223,24 +2223,24 @@ int main(int argc, char* argv[]) {
 
 irecv_device_t get_irecv_device(struct idevicerestore_client_t *client)
 {
-	info("get_irecv_device");
+	logger(LL_INFO,"get_irecv_device");
 	int mode = _MODE_UNKNOWN;
 
 	if (client->mode) {
 		mode = client->mode->index;
-		info("get_irecv_device mode:%x",mode);
+		logger(LL_INFO,"get_irecv_device mode:%x",mode);
 	}
 	else {
-		info("get_irecv_device NO mode");
+		logger(LL_INFO,"get_irecv_device NO mode");
 	}
 
 	switch (mode) {
 	case _MODE_RESTORE:
-		info("calling restore_get_irecv_device\n");
+		logger(LL_INFO,"calling restore_get_irecv_device\n");
 		return restore_get_irecv_device(client);
 
 	case _MODE_NORMAL:
-		info("calling normal_get_irecv_device\n");
+		logger(LL_INFO,"calling normal_get_irecv_device\n");
 		return normal_get_irecv_device(client);
 
 	case _MODE_DFU:
@@ -2630,42 +2630,12 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		/* normal mode; request baseband ticket aswell */
 		plist_t pinfo = NULL;
 		normal_get_firmware_preflight_info(client, &pinfo);
-
-
-	
-		if(pinfo){
-			char *xml = NULL;
-			uint32_t xlen = 0;
-			plist_to_xml(pinfo, &xml, &xlen);
-			info("normal_get_firmware_preflight_info pinfo");
-			info("%s",xml);
-			free(xml);
-			
-		}
-		else{
-			info("normal_get_firmware_preflight_info pinfo null");
-		}
-		
-	
-	
-
-
-
 		if (pinfo) {
 			plist_dict_copy_data(parameters, pinfo, "BbNonce", "Nonce");
 			plist_dict_copy_uint(parameters, pinfo, "BbChipID", "ChipID");
 			plist_dict_copy_uint(parameters, pinfo, "BbGoldCertId", "CertID");
 			plist_dict_copy_data(parameters, pinfo, "BbSNUM", "ChipSerialNo");
 
-			if(parameters){
-				char *xml = NULL;
-				uint32_t xlen = 0;
-				plist_to_xml(parameters, &xml, &xlen);
-				info("tss_request_add_baseband_tags parameters");
-				info("%s",xml);
-				free(xml);
-			
-			}
 			if (plist_dict_get_item(parameters, "BbSNUM")) {
 				/* add baseband parameters */
 				tss_request_add_baseband_tags(request, parameters, NULL);
@@ -2681,7 +2651,6 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 					tss_request_add_vinyl_tags(request, parameters, NULL);
 				}
 			}
-		
 		}
 		client->firmware_preflight_info = pinfo;
 		pinfo = NULL;
@@ -2689,6 +2658,7 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 		normal_get_preflight_info(client, &pinfo);
 		client->preflight_info = pinfo;
 	}
+
 
 	/* send request and grab response */
 	response = tss_request_send(request, client->tss_url);

@@ -1264,11 +1264,10 @@ static size_t _curl_header_callback(char* buffer, size_t size, size_t nitems, vo
 
 int restore_send_url_asset(struct idevicerestore_client_t* client, plist_t message)
 {
-	logger(LL_DEBUG, "%s\n", __func__);
 	plist_t arguments = plist_dict_get_item(message, "Arguments");
 	if (!PLIST_IS_DICT(arguments)) {
 		logger(LL_ERROR, "%s: Unexpected arguments\n", __func__);
-		logger_dump_plist(LL_VERBOSE, arguments, 1);
+		logger_dump_plist(LL_VERBOSE, message, 1);
 		return -1;
 	}
 
@@ -1858,7 +1857,7 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 	return 0;
 }
 
-static const char* restore_get_bbfw_fn_for_element(const char* elem)
+static const char* restore_get_bbfw_fn_for_element(const char* elem, uint32_t bb_chip_id)
 {
 	struct bbfw_fn_elem_t {
 		const char* element;
@@ -1889,16 +1888,30 @@ static const char* restore_get_bbfw_fn_for_element(const char* elem)
 		{ NULL, NULL }
 	};
 
+	struct bbfw_fn_elem_t bbfw_fn_elem_mav25[] = {
+		// Mav25 Firmware files
+		{ "Misc", "multi_image.mbn" },
+		{ "RestoreSBL1", "restorexbl_sc.elf" },
+		{ "SBL1", "xbl_sc.elf" },
+		{ "TME", "signed_firmware_soc_view.elf" },
+		{ NULL, NULL }
+	};
+
+	struct bbfw_fn_elem_t* bbfw_fn_elems = (struct bbfw_fn_elem_t*)bbfw_fn_elem;
+	if (bb_chip_id == 0x1F30E1) {
+		bbfw_fn_elems = (struct bbfw_fn_elem_t*)bbfw_fn_elem_mav25;
+	}
+
 	int i;
-	for (i = 0; bbfw_fn_elem[i].element != NULL; i++) {
-		if (strcmp(bbfw_fn_elem[i].element, elem) == 0) {
-			return bbfw_fn_elem[i].fn;
+	for (i = 0; bbfw_fn_elems[i].element != NULL; i++) {
+		if (strcmp(bbfw_fn_elems[i].element, elem) == 0) {
+			return bbfw_fn_elems[i].fn;
 		}
 	}
 	return NULL;
 }
 
-static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned char* bb_nonce)
+static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned char* bb_nonce, uint32_t bb_chip_id)
 {
 	int res = -1;
 
@@ -1926,7 +1939,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 	struct zip_file* zfile = NULL;
 	struct zip* za = NULL;
 	struct zip_source* zs = NULL;
-	mbn_file* mbn = NULL;
+	
 	fls_file* fls = NULL;
 
 	za = zip_open(bbfwtmp, 0, &zerr);
@@ -1954,7 +1967,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 		if (node && (strcmp(key + (strlen(key) - 5), "-Blob") == 0) && (plist_get_node_type(node) == PLIST_DATA)) {
 			char *ptr = strchr(key, '-');
 			*ptr = '\0';
-			const char* signfn = restore_get_bbfw_fn_for_element(key);
+			const char* signfn = restore_get_bbfw_fn_for_element(key, bb_chip_id);
 			if (!signfn) {
 				logger(LL_ERROR, "can't match element name '%s' to baseband firmware file name.\n", key);
 				goto leave;
@@ -2003,12 +2016,6 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 					logger(LL_ERROR, "could not parse fls file\n");
 					goto leave;
 				}
-			} else {
-				mbn = mbn_parse(buffer, zstat.size);
-				if (!mbn) {
-					logger(LL_ERROR, "could not parse mbn file\n");
-					goto leave;
-				}
 			}
 			free(buffer);
 			buffer = NULL;
@@ -2020,32 +2027,35 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 				goto leave;
 			}
 
-			if (is_fls) {
-				if (fls_update_sig_blob(fls, blob, (unsigned int)blob_size) != 0) {
-					logger(LL_ERROR, "could not sign %s\n", signfn);
-					goto leave;
-				}
-			} else {
-				if (mbn_update_sig_blob(mbn, blob, (unsigned int)blob_size) != 0) {
-					logger(LL_ERROR, "could not sign %s\n", signfn);
-					goto leave;
-				}
-			}
 
-			fsize = (is_fls ? fls->size : mbn->size);
-			fdata = (unsigned char*)malloc(fsize);
-			if (fdata == NULL)  {
-				logger(LL_ERROR, "out of memory\n");
-				goto leave;
-			}
+
+logger(LL_VERBOSE, "Stitching %s\n", signfn);
 			if (is_fls) {
+				if (fls_update_sig_blob(fls, blob, (size_t)blob_size) != 0) {
+					logger(LL_ERROR, "Could not stitch %s\n", signfn);
+					goto leave;
+				}
+				fsize = fls->size;
+				fdata = (unsigned char*)malloc(fsize);
+				if (fdata == NULL)  {
+					logger(LL_ERROR, "out of memory\n");
+					goto leave;
+				}
 				memcpy(fdata, fls->data, fsize);
 				fls_free(fls);
 				fls = NULL;
+			} else if (bb_chip_id == 0x1F30E1) { // Mav25 - Qualcomm Snapdragon X80 5G Modem
+				fdata = mbn_mav25_stitch(buffer, zstat.size, blob, (size_t)blob_size);
+				if (!fdata) {
+					logger(LL_ERROR, "Could not stitch %s\n", signfn);
+					goto leave;
+				}
 			} else {
-				memcpy(fdata, mbn->data, fsize);
-				mbn_free(mbn);
-				mbn = NULL;
+				fdata = mbn_stitch(buffer, zstat.size, blob, (size_t)blob_size);
+				if (!fdata) {
+					logger(LL_ERROR, "Could not stitch %s\n", signfn);
+					goto leave;
+				}
 			}
 
 			zs = zip_source_buffer(za, fdata, fsize, 1);
@@ -2056,7 +2066,7 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 			}
 
 			if (zip_file_replace(za, zindex, zs, 0) == -1) {
-				logger(LL_ERROR, "could not update signed '%s' in archive\n", signfn);
+				logger(LL_ERROR, "Could not update signed '%s' in archive\n", signfn);
 				goto leave;
 			}
 
@@ -2219,7 +2229,7 @@ leave:
 		zip_unchange_all(za);
 		zip_close(za);
 	}
-	mbn_free(mbn);
+	
 	fls_free(fls);
 	free(buffer);
 
@@ -2304,9 +2314,9 @@ static int restore_send_baseband_data(struct idevicerestore_client_t* client, pl
 				plist_dict_set_item(request, "ApSecurityMode", plist_new_bool(1));
 			}
 		}
-		logger_dump_plist(LL_DEBUG, request, 0);
-
+		
 		logger(LL_INFO, "Sending Baseband TSS request...\n");
+		logger_dump_plist(LL_DEBUG, request, 0);
 		response = tss_request_send(request, client->tss_url);
 		plist_free(request);
 		plist_free(parameters);
@@ -2354,7 +2364,7 @@ static int restore_send_baseband_data(struct idevicerestore_client_t* client, pl
 		response = NULL;
 	}
 
-	res = restore_sign_bbfw(bbfwtmp, (client->restore->bbtss) ? client->restore->bbtss : response, bb_nonce);
+	res = restore_sign_bbfw(bbfwtmp, (client->restore->bbtss) ? client->restore->bbtss : response, bb_nonce, bb_chip_id);
 	if (res != 0) {
 		goto leave;
 	}
@@ -3250,12 +3260,14 @@ static plist_t restore_get_generic_firmware_data(struct idevicerestore_client_t*
 	plist_dict_merge(&request, device_generated_request);
 
 	logger(LL_INFO, "Sending %s TSS request...\n", s_updater_name);
+	logger_dump_plist(LL_DEBUG, request, 0);
 	response = tss_request_send(request, client->tss_url);
 	plist_free(request);
 	if (response == NULL) {
 		logger(LL_ERROR, "Unable to fetch %s ticket\n", s_updater_name);
 		return NULL;
 	}
+	logger_dump_plist(LL_DEBUG, response, 0);
 
 	if (plist_dict_get_item(response, response_ticket)) {
 		logger(LL_INFO, "Received %s\n", response_ticket);
@@ -3749,6 +3761,7 @@ static int restore_send_firmware_updater_data(struct idevicerestore_client_t* cl
 	}
 
 	plist_get_string_val(p_updater_name, &s_updater_name);
+	logger_dump_plist(LL_DEBUG, p_info, 1);
 
 	if (strcmp(s_updater_name, "SE") == 0) {
 		fwdict = restore_get_se_firmware_data(client, p_info, arguments);
@@ -3758,10 +3771,14 @@ static int restore_send_firmware_updater_data(struct idevicerestore_client_t* cl
 		}
 	} else if (strcmp(s_updater_name, "Savage") == 0) {
 		const char *fwtype = "Savage";
-		plist_t p_info2 = plist_dict_get_item(p_info, "YonkersDeviceInfo");
-		if (p_info2 && plist_get_node_type(p_info2) == PLIST_DICT) {
+		plist_t p_info_yonkers = plist_dict_get_item(p_info, "YonkersDeviceInfo");
+		plist_t p_info_jasmine = plist_dict_get_item(p_info, "JasmineIR1DeviceInfo");
+		if (PLIST_IS_DICT(p_info_yonkers)) {
 			fwtype = "Yonkers";
-			fwdict = restore_get_yonkers_firmware_data(client, p_info2, arguments);
+			fwdict = restore_get_yonkers_firmware_data(client, p_info_yonkers, arguments);
+		} else if (PLIST_IS_DICT(p_info_jasmine)) {
+			fwtype = "Jasmine";
+			fwdict = restore_get_generic_firmware_data(client, p_info_jasmine, arguments);
 		} else {
 			fwdict = restore_get_savage_firmware_data(client, p_info, arguments);
 		}
@@ -3806,6 +3823,18 @@ static int restore_send_firmware_updater_data(struct idevicerestore_client_t* cl
 			goto error_out;
 		}
 	} else if (strcmp(s_updater_name, "Ace3") == 0) {
+		fwdict = restore_get_generic_firmware_data(client, p_info, arguments);
+		if (fwdict == NULL) {
+			logger(LL_ERROR, "%s: Couldn't get %s firmware data\n", __func__, s_updater_name);
+			goto error_out;
+		}
+	} else if (strcmp(s_updater_name, "Centauri") == 0) {
+		fwdict = restore_get_generic_firmware_data(client, p_info, arguments);
+		if (fwdict == NULL) {
+			logger(LL_ERROR, "%s: Couldn't get %s firmware data\n", __func__, s_updater_name);
+			goto error_out;
+		}
+	} else if (strcmp(s_updater_name, "Vinyl") == 0) {
 		fwdict = restore_get_generic_firmware_data(client, p_info, arguments);
 		if (fwdict == NULL) {
 			logger(LL_ERROR, "%s: Couldn't get %s firmware data\n", __func__, s_updater_name);
@@ -4179,13 +4208,18 @@ static int _restore_send_file_data(struct _restore_send_file_data_ctx* rctx, con
 
 	/* special handling for AEA image format */
 	if (done == 0 && (memcmp(data, "AEA1", 4) == 0)) {
-		logger(LL_INFO, "Encountered First Chunk in AEA image\n");
+		logger(LL_VERBOSE, "Encountered First Chunk in AEA image\n");
 		plist_t message = NULL;
 		property_list_service_error_t err = _restore_service_recv_timeout(rctx->service, &message, 3000);
 		if (err == PROPERTY_LIST_SERVICE_E_RECEIVE_TIMEOUT) {
-			logger(LL_INFO, "No URLAsset requested, assuming it is not necessary.\n");
+			logger(LL_VERBOSE, "No URLAsset requested, assuming it is not necessary.\n");
 		} else if (err == PROPERTY_LIST_SERVICE_E_SUCCESS) {
-			restore_send_url_asset(rctx->client, message);
+			if (PLIST_IS_DICT(message) && plist_dict_get_item(message, "Arguments")) {
+				restore_send_url_asset(rctx->client, message);
+			} else {
+				logger(LL_DEBUG, "%s: Unexpected message received\n", __func__);
+				logger_dump_plist(LL_DEBUG, message, 1);
+			}
 		}
 	}
 
@@ -4298,7 +4332,9 @@ int restore_send_personalized_boot_object_v3(struct idevicerestore_client_t* cli
 	rctx.last_progress = 0;
 	rctx.tag = progress_get_next_tag();
 
-	register_progress(rctx.tag, component);
+	if (size > 0x2000000) {
+		register_progress(rctx.tag, component);
+	}
 
 	int64_t i = size;
 	while (i > 0) {

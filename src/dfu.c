@@ -473,9 +473,9 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		logger(LL_DEBUG, "Waiting for device to disconnect...\n");
 
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-		tries = 3 ;
-		while(tries-- && (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
-			debug("cond_wait_timeout retry\n");
+		int tries = 3 ;
+		while(tries-- && (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT))) {
+			logger(LL_DEBUG,"cond_wait_timeout retry\n");
 			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
 		}
 
@@ -655,11 +655,11 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 
 
 
-	debug("Waiting for device to disconnect...\n");
+	logger(LL_DEBUG,"Waiting for device to disconnect...\n");
 	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-	tries = 3 ;
+	int tries = 3 ;
 	while(tries-- && (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT))) {
-		debug("cond_wait_timeout retry\n");
+		logger(LL_DEBUG,"cond_wait_timeout retry\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 3000);
 	}
 
