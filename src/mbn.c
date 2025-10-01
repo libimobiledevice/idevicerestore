@@ -307,7 +307,7 @@ static void mbn_v7_log_header(const mbn_v7_header* header, const char* func, con
 		"%s: %s header {version=0x%x, common_metadata_size=0x%x, "
 		"qti_metadata_size=0x%x, oem_metadata_size=0x%x, hash_table_size=0x%x, "
 		"qti_signature_size=0x%x, qti_certificate_chain_size=0x%x, "
-		"oem_signature_size=0x%x, oem_certificate_chain_size=0x%x}",
+		"oem_signature_size=0x%x, oem_certificate_chain_size=0x%x}\n",
 		func,
 		prefix,
 		header->version,
