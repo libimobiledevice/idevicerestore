@@ -1247,8 +1247,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 					plist_t p_sep_nonce = plist_dict_get_item(ap_params, "SepNonce");
 					uint64_t sep_nonce_size = 0;
 					const char* sep_nonce = plist_get_data_ptr(p_sep_nonce, &sep_nonce_size);
-					logger(LL_INFO, "Getting SepNonce in normal mode... ");
-					logger_dump_hex(LL_INFO, sep_nonce, sep_nonce_size);
+					if (sep_nonce) {
+						logger(LL_INFO, "Getting SepNonce in normal mode... ");
+						logger_dump_hex(LL_INFO, sep_nonce, sep_nonce_size);
+					}
 					plist_free(ap_params);
 				}
 				plist_t req_nonce_slot = plist_access_path(build_identity, 2, "Info", "RequiresNonceSlot");
