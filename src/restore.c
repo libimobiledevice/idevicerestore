@@ -2094,8 +2094,8 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 			}
 		}
 		// check for anything but .mbn and .fls if bb_nonce is set
-		if (bb_nonce && !keep) {
-			const char* fn = zip_get_name(za, i, 0);
+		const char* fn = zip_get_name(za, i, 0);
+		if (!keep) {
 			if (fn) {
 				char* ext = strrchr(fn, '.');
 				if (ext && (!strcmp(ext, ".fls") || !strcmp(ext, ".mbn") || !strcmp(ext, ".elf") || !strcmp(ext, ".bin"))) {
@@ -2104,11 +2104,14 @@ static int restore_sign_bbfw(const char* bbfwtmp, plist_t bbtss, const unsigned 
 			}
 		}
 		if (!keep) {
+			logger(LL_DEBUG, "%s: removing %s from bbfw\n", __func__, fn);
 			zip_delete(za, i);
+		} else {
+			logger(LL_DEBUG, "%s: keeping %s in bbfw\n", __func__, fn);
 		}
 	}
 
-	if (bb_nonce) {
+	if (bbticket) {
 		if (is_fls) {
 			// add BBTicket to file ebl.fls
 			zindex = zip_name_locate(za, "ebl.fls", 0);
@@ -2401,7 +2404,13 @@ leave:
 	plist_free(dict);
 	free(buffer);
 	if (bbfwtmp) {
-		remove(bbfwtmp);
+		if (client->flags & FLAG_KEEP_PERS) {
+			const char* bbfwname = path_get_basename(bbfwtmp);
+			logger(LL_VERBOSE, "%s: Keeping personalized BBFW as %s\n", __func__, bbfwname);
+			rename(bbfwtmp, bbfwname);
+		} else {
+			remove(bbfwtmp);
+		}
 		free(bbfwtmp);
 	}
 	plist_free(response);
