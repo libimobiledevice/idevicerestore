@@ -108,7 +108,7 @@ int recovery_check_mode(struct idevicerestore_client_t* client) {
 		return -1;
 	}
 
-	irecv_init();
+	IRECV_MAYBE_INIT();
 	recovery_error=irecv_open_with_ecid(&recovery, client->ecid);
 
 	if (recovery_error != IRECV_E_SUCCESS) {

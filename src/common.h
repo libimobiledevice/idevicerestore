@@ -38,6 +38,13 @@ extern "C" {
 #include <plist/plist.h>
 #include <libirecovery.h>
 
+/* Backward compatibility for libirecovery API changes */
+#ifdef HAVE_IRECV_INIT
+#define IRECV_MAYBE_INIT() irecv_init()
+#else
+#define IRECV_MAYBE_INIT() ((void)0)
+#endif
+
 #include "idevicerestore.h"
 #include "thread.h"
 

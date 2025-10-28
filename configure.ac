@@ -113,6 +113,21 @@ fi
 
 CFLAGS="$CACHED_CFLAGS"
 
+# check if libirecovery has irecv_init (older API)
+CACHED_CFLAGS2="$CFLAGS"
+CFLAGS+=" $libirecovery_CFLAGS"
+AC_CACHE_CHECK([for irecv_init in libirecovery], [ac_cv_have_irecv_init],
+	AC_TRY_COMPILE([
+		#include <libirecovery.h>
+		], [
+			irecv_init();
+			return 0;
+		], ac_cv_have_irecv_init=yes, ac_cv_have_irecv_init=no))
+if test "$ac_cv_have_irecv_init" = "yes"; then
+	AC_DEFINE([HAVE_IRECV_INIT], [1], [Define if libirecovery provides irecv_init])
+fi
+CFLAGS="$CACHED_CFLAGS2"
+
 AC_ARG_WITH([openssl],
             [AS_HELP_STRING([--without-openssl],
             [Do not use OpenSSL])],
