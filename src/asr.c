@@ -50,7 +50,7 @@
 int asr_open_with_timeout(idevice_t device, asr_client_t* asr, uint16_t port)
 {
 	int i = 0;
-	int attempts = 10;
+	int attempts = 30;
 	idevice_connection_t connection = NULL;
 	idevice_error_t device_error = IDEVICE_E_SUCCESS;
 
@@ -250,7 +250,7 @@ int asr_perform_validation(asr_client_t asr, ipsw_file_handle_t file)
 		}
 
 		if (packet == NULL) {
-			if (attempts < 5) {
+			if (attempts < 10) {
 				logger(LL_INFO, "Retrying to receive validation packet... %d\n", attempts);
 				attempts++;
 				sleep(1);
@@ -366,7 +366,7 @@ int asr_send_payload(asr_client_t asr, ipsw_file_handle_t file)
 	data = (char*)malloc(ASR_PAYLOAD_CHUNK_SIZE + 20);
 
 	i = length;
-	int retry = 3;
+	int retry = 10;
 	while(i > 0 && retry >= 0) {
 		uint32_t size = ASR_PAYLOAD_CHUNK_SIZE;
 		uint32_t sendsize = 0;
