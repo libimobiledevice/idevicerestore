@@ -175,7 +175,15 @@ void logger_dump_hex(enum loglevel level, const void* buf, size_t len)
 
 	mutex_lock(&log_mutex);
 
-	fs = (char*)malloc(len * 3 + 1);
+	fs = (char*)malloc((len == 0) ? 2 : (len * 3 + 1));
+	if (!fs) {
+		mutex_unlock(&log_mutex);
+		return;
+	}
+	if (len == 0) {
+		fs[0] = '\n';
+		fs[1] = '\0';
+	}
 	for (unsigned int i = 0; i < len; i++) {
 		snprintf(fs + i*3, 4, "%02x%c", ((unsigned char*)buf)[i], (i < len-1) ? ' ' : '\n');
 	}
