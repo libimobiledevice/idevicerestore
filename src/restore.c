@@ -5269,6 +5269,29 @@ static void rp_status_cb(reverse_proxy_client_t client, reverse_proxy_status_t s
 {
 	logger(LL_VERBOSE, "ReverseProxy[%s]: (status=%d) %s\n", (reverse_proxy_get_type(client) == RP_TYPE_CTRL) ? "Ctrl" : "Conn", status, status_msg);
 }
+
+static int restore_wait_for_reconnect(struct idevicerestore_client_t* client)
+{
+	int i;
+	logger(LL_INFO, "Device is not responding, waiting for it to reappear on USB...\n");
+	if (client->restore->client) {
+		restored_client_free(client->restore->client);
+		client->restore->client = NULL;
+	}
+	if (client->restore->device) {
+		idevice_free(client->restore->device);
+		client->restore->device = NULL;
+	}
+	for (i = 0; i < 10; i++) {
+		sleep(1);
+		if (restore_open_with_timeout(client) == 0) {
+			logger(LL_INFO, "Device reappeared, reconnected to restored\n");
+			return 0;
+		}
+	}
+	logger(LL_ERROR, "Device did not reappear after 10 seconds\n");
+	return -1;
+}
 #endif
 
 int restore_device(struct idevicerestore_client_t* client, plist_t build_identity)
@@ -5368,29 +5391,41 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 #ifdef HAVE_REVERSE_PROXY
 	logger(LL_INFO, "Starting Reverse Proxy\n");
 	reverse_proxy_client_t rproxy = NULL;
-	if (reverse_proxy_client_create_with_port(device, &rproxy, REVERSE_PROXY_DEFAULT_PORT) != REVERSE_PROXY_E_SUCCESS) {
-		logger(LL_ERROR, "Could not create Reverse Proxy\n");
-	} else {
-		if (client->flags & FLAG_DEBUG) {
-			reverse_proxy_client_set_log_callback(rproxy, rp_log_cb, NULL);
-		}
-		reverse_proxy_client_set_status_callback(rproxy, rp_status_cb, NULL);
-		if (reverse_proxy_client_start_proxy(rproxy, 2) != REVERSE_PROXY_E_SUCCESS) {
-			logger(LL_ERROR, "Device didn't accept new reverse proxy protocol, trying to use old one\n");
-			reverse_proxy_client_free(rproxy);
-			rproxy = NULL;
-			if (reverse_proxy_client_create_with_port(device, &rproxy, REVERSE_PROXY_DEFAULT_PORT) != REVERSE_PROXY_E_SUCCESS) {
-				logger(LL_ERROR, "Could not create Reverse Proxy\n");
-			} else {
-				if (client->flags & FLAG_DEBUG) {
-					reverse_proxy_client_set_log_callback(rproxy, rp_log_cb, NULL);
-				}
-				reverse_proxy_client_set_status_callback(rproxy, rp_status_cb, NULL);
-				if (reverse_proxy_client_start_proxy(rproxy, 1) != REVERSE_PROXY_E_SUCCESS) {
-					logger(LL_ERROR, "ReverseProxy: Device didn't accept old protocol, giving up\n");
+	int rp_attempt;
+	for (rp_attempt = 0; rp_attempt < 2; rp_attempt++) {
+		if (reverse_proxy_client_create_with_port(device, &rproxy, REVERSE_PROXY_DEFAULT_PORT) != REVERSE_PROXY_E_SUCCESS) {
+			logger(LL_ERROR, "Could not create Reverse Proxy\n");
+		} else {
+			if (client->flags & FLAG_DEBUG) {
+				reverse_proxy_client_set_log_callback(rproxy, rp_log_cb, NULL);
+			}
+			reverse_proxy_client_set_status_callback(rproxy, rp_status_cb, NULL);
+			if (reverse_proxy_client_start_proxy(rproxy, 2) != REVERSE_PROXY_E_SUCCESS) {
+				logger(LL_ERROR, "Device didn't accept new reverse proxy protocol, trying to use old one\n");
+				reverse_proxy_client_free(rproxy);
+				rproxy = NULL;
+				if (reverse_proxy_client_create_with_port(device, &rproxy, REVERSE_PROXY_DEFAULT_PORT) != REVERSE_PROXY_E_SUCCESS) {
+					logger(LL_ERROR, "Could not create Reverse Proxy\n");
+				} else {
+					if (client->flags & FLAG_DEBUG) {
+						reverse_proxy_client_set_log_callback(rproxy, rp_log_cb, NULL);
+					}
+					reverse_proxy_client_set_status_callback(rproxy, rp_status_cb, NULL);
+					if (reverse_proxy_client_start_proxy(rproxy, 1) != REVERSE_PROXY_E_SUCCESS) {
+						logger(LL_ERROR, "ReverseProxy: Device didn't accept old protocol, giving up\n");
+					}
 				}
 			}
 		}
+		if (rproxy) {
+			break;
+		}
+		if (rp_attempt == 0 && restore_wait_for_reconnect(client) == 0) {
+			device = client->restore->device;
+			restore = client->restore->client;
+			continue;
+		}
+		break;
 	}
 #else
 	fdr_client_t fdr_control_channel = NULL;
