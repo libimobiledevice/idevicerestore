@@ -47,6 +47,9 @@ idevicerestore_SOURCES = \
 	ace3.c ace3.h \
 	download.c download.h \
 	locking.c locking.h
+if DARWIN
+idevicerestore_SOURCES += deviceinterfaced.c deviceinterfaced.h
+endif
 if HAVE_LIMERA1N
 idevicerestore_SOURCES += limera1n_payload.h limera1n.c limera1n.h
 endif

@@ -61,6 +61,10 @@
 
 #include "locking.h"
 
+#ifdef __APPLE__
+#include "deviceinterfaced.h"
+#endif
+
 #define VERSION_XML "version.xml"
 
 #ifndef IDEVICERESTORE_NOMAIN
@@ -91,6 +95,9 @@ static struct option longopts[] = {
 	{ "ignore-errors",  no_argument,       NULL,  1  },
 	{ "variant",        required_argument, NULL,  2  },
 	{ "logfile",        required_argument, NULL,  3  },
+#ifdef __APPLE__
+	{ "exclusive-usb-access", no_argument, NULL,  4  },
+#endif
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -100,6 +107,13 @@ static void usage(int argc, char* argv[], int err)
 #define PWN_FLAG_LINE "  -p, --pwn             Put device in pwned DFU mode and exit (limera1n devices)\n"
 #else
 #define PWN_FLAG_LINE ""
+#endif
+#ifdef __APPLE__
+#define EXCLUSIVE_USB_ACCESS_FLAG_LINE \
+	"  --exclusive-usb-access Keep deviceinterfaced from claiming the USB device\n" \
+	"                         during the restore (requires root)\n"
+#else
+#define EXCLUSIVE_USB_ACCESS_FLAG_LINE ""
 #endif
 	char* name = strrchr(argv[0], '/');
 	fprintf((err) ? stderr : stdout,
@@ -141,6 +155,7 @@ static void usage(int argc, char* argv[], int err)
 	"  -v, --version         Print version information\n" \
 	"\n" \
 	"Advanced/experimental options:\n"
+	EXCLUSIVE_USB_ACCESS_FLAG_LINE \
 	"  -c, --custom          Restore with a custom firmware (requires bootrom exploit)\n" \
 	"  -s, --server URL      Override default signing server request URL\n" \
 	"  -x, --exclude         Exclude nor/baseband upgrade (legacy devices)\n" \
@@ -1777,6 +1792,9 @@ int main(int argc, char* argv[])
 	int ipsw_info = 0;
 	int result = 0;
 	const char* logfile = NULL;
+#ifdef __APPLE__
+	int exclusive_usb_access = 0;
+#endif
 
 	logger_set_print_func(tty_print);
 
@@ -1978,6 +1996,12 @@ int main(int argc, char* argv[])
 			logfile = optarg;
 			break;
 
+#ifdef __APPLE__
+		case 4:
+			exclusive_usb_access = 1;
+			break;
+#endif
+
 		default:
 			usage(argc, argv, 1);
 			return EXIT_FAILURE;
@@ -2008,6 +2032,13 @@ int main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
+#ifdef __APPLE__
+	if (exclusive_usb_access && geteuid() != 0) {
+		logger(LL_ERROR, "--exclusive-usb-access requires root privileges; rerun with sudo.\n");
+		return EXIT_FAILURE;
+	}
+#endif
+
 	if (!logfile) {
 		char logfn[256];
 		int64_t timestamp = time(NULL);
@@ -2036,11 +2067,25 @@ int main(int argc, char* argv[])
 
 	curl_global_init(CURL_GLOBAL_ALL);
 
+#ifdef __APPLE__
+	if (exclusive_usb_access && deviceinterfaced_control_start() < 0) {
+		idevicerestore_client_free(client);
+		curl_global_cleanup();
+		return EXIT_FAILURE;
+	}
+#endif
+
 	client->flags |= FLAG_IN_PROGRESS;
 	result = idevicerestore_start(client);
 	client->flags &= ~FLAG_IN_PROGRESS;
 
 	idevicerestore_client_free(client);
+
+#ifdef __APPLE__
+	if (exclusive_usb_access) {
+		deviceinterfaced_control_stop();
+	}
+#endif
 
 	curl_global_cleanup();
 

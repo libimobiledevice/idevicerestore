@@ -89,12 +89,14 @@ case ${host_os} in
   darwin*)
     AC_MSG_RESULT([${host_os}])
     AC_DEFINE([_DARWIN_BETTER_REALPATH], [1], [Use better method for realpath])
+    darwin=true
     ;;
   *)
     AC_MSG_RESULT([${host_os}])
     ;;
 esac
 AM_CONDITIONAL(WIN32, test x$win32 = xtrue)
+AM_CONDITIONAL(DARWIN, test x$darwin = xtrue)
 
 if test x$win32 != xtrue; then
   if test "x$ac_cv_func_mkstemp" != xyes; then
