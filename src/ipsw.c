@@ -683,13 +683,15 @@ int ipsw_extract_to_memory(ipsw_archive_t ipsw, const char* infile, void** pbuff
 		}
 
 		zip_int64_t zr = zip_fread(zfile, buffer, size);
+		int zep = 0;
+		int sep = 0;
+		if (zr < 0) {
+			zip_file_error_get(zfile, &zep, &sep);
+		}
 		zip_fclose(zfile);
 		zip_unchange_all(zip);
 		zip_close(zip);
 		if (zr < 0) {
-			int zep = 0;
-			int sep = 0;
-			zip_file_error_get(zfile, &zep, &sep);
 			logger(LL_ERROR, "zip_fread: %s %d %d\n", infile, zep, sep);
 			free(buffer);
 			return -1;
