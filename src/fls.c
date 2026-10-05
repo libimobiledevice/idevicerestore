@@ -46,6 +46,15 @@ static void fls_parse_elements(fls_file* fls)
 		if ((offset + cur->size) > fls->size) {
 			break;
 		}
+		if ((fls->num_elements + 1) > fls->max_elements) {
+			fls_element** new_elements = (fls_element**)realloc(fls->elements, sizeof(fls_element*) * (fls->max_elements + 10));
+			if (!new_elements) {
+				logger(LL_ERROR, "%s: out of memory\n", __func__);
+				return;
+			}
+			fls->elements = new_elements;
+			fls->max_elements += 10;
+		}
 		fls_element* ne;
 		switch (cur->type) {
 		case 0x0c:
@@ -87,10 +96,6 @@ static void fls_parse_elements(fls_file* fls)
 			ne->size = cur->size;
 			ne->data = (ne->size > hdrsize) ? p + hdrsize : NULL;
 			break;
-		}
-		if ((fls->num_elements + 1) > fls->max_elements) {
-			fls->max_elements += 10;
-			fls->elements = (fls_element**)realloc(fls->elements, sizeof(fls_element*) * fls->max_elements);
 		}
 		fls->elements[fls->num_elements++] = ne;
 		offset += cur->size;
