@@ -1224,7 +1224,12 @@ static size_t _curl_write_callback(char* data, size_t size, size_t nmemb, query_
 {
 	size_t total = size * nmemb;
 	if (total != 0) {
-		response->content = realloc(response->content, response->length + total + 1);
+		char* new_content = realloc(response->content, response->length + total + 1);
+		if (!new_content) {
+			/* keep the data received so far; returning a short count makes curl abort the transfer */
+			return 0;
+		}
+		response->content = new_content;
 		memcpy(response->content + response->length, data, total);
 		response->content[response->length + total] = '\0';
 		response->length += total;
