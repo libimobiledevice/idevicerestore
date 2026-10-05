@@ -2386,7 +2386,14 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 							}
 						}
 						bufsize += readsize;
-						bin = realloc(bin, bufsize);
+						char* newbin = realloc(bin, bufsize);
+						if (!newbin) {
+							logger(LL_ERROR, "Out of memory while decompressing data\n");
+							free(bin);
+							gzclose(zf);
+							exit(EXIT_FAILURE);
+						}
+						bin = newbin;
 						p = bin + blen;
 					} while (!gzeof(zf));
 					gzclose(zf);
