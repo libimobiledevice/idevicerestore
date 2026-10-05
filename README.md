@@ -242,7 +242,20 @@ _OR_
 ```shell
 sudo make install
 ```
+### Arch Linux and derivatives
+idevicerestore is available in the [AUR](https://aur.archlinux.org/packages/idevicerestore)
 
+Install Dependencies: 
+```shell
+sudo pacman --needed -S git curl libimobiledevice libirecovery libplist libzip openssl zlib usbmuxd
+```
+Install idevicerestore from AUR:
+```shell
+git clone https://aur.archlinux.org/idevicerestore.git
+cd idevicerestore
+makepkg
+sudo pacman -U idevicerestore-*.pkg.tar.zst
+```
 **Important**
 
 On Linux, idevicerestore requires a properly installed [usbmuxd](https://github.com/libimobiledevice/usbmuxd.git)
