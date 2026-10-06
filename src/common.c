@@ -325,6 +325,7 @@ static void _init_progress_info(void)
 
 uint32_t progress_get_next_tag(void)
 {
+	thread_once(&progress_info_once, _init_progress_info);
 	mutex_lock(&prog_mutex);
 	uint32_t newtag = ++progress_unique_tag;
 	mutex_unlock(&prog_mutex);
@@ -382,6 +383,7 @@ void register_progress(uint32_t tag, const char* label)
 
 void finalize_progress(uint32_t tag)
 {
+	thread_once(&progress_info_once, _init_progress_info);
 	mutex_lock(&prog_mutex);
 	struct progress_info_entry* found = NULL;
 	FOREACH(struct progress_info_entry* e, &progress_info) {
@@ -424,6 +426,7 @@ void print_progress_bar(const char* prefix, double progress)
 
 void set_progress(uint32_t tag, double progress)
 {
+	thread_once(&progress_info_once, _init_progress_info);
 	mutex_lock(&prog_mutex);
 	struct progress_info_entry* found = NULL;
 	FOREACH(struct progress_info_entry* e, &progress_info) {
