@@ -3779,17 +3779,19 @@ static int restore_send_firmware_updater_data(struct idevicerestore_client_t* cl
 		const char *fwtype = "Savage";
 		plist_t p_info_yonkers = plist_dict_get_item(p_info, "YonkersDeviceInfo");
 		plist_t p_info_jasmine = plist_dict_get_item(p_info, "JasmineIR1DeviceInfo");
-		plist_t p_info_yonkers_ir1 = plist_dict_get_item(p_info, "YonkersIR1,DeviceInfo");
-		plist_t p_info_yonkers_ir2 = plist_dict_get_item(p_info, "YonkersIR2,DeviceInfo");
+		plist_t p_info_yonkers_ir = plist_dict_get_item(p_info, "YonkersIR1,DeviceInfo");
+		if (!PLIST_IS_DICT(p_info_yonkers_ir)) {
+			p_info_yonkers_ir = plist_dict_get_item(p_info, "YonkersIR2,DeviceInfo");
+		}
 		if (PLIST_IS_DICT(p_info_yonkers)) {
 			fwtype = "Yonkers";
 			fwdict = restore_get_yonkers_firmware_data(client, p_info_yonkers, arguments);
 		} else if (PLIST_IS_DICT(p_info_jasmine)) {
 			fwtype = "Jasmine";
 			fwdict = restore_get_generic_firmware_data(client, p_info_jasmine, arguments);
-		} else if (PLIST_IS_DICT(p_info_yonkers_ir1) || PLIST_IS_DICT(p_info_yonkers_ir2)) {
+		} else if (PLIST_IS_DICT(p_info_yonkers_ir)) {
 			fwtype = "Yonkers";
-			fwdict = restore_get_generic_firmware_data(client, p_info_yonkers_ir1, arguments);
+			fwdict = restore_get_generic_firmware_data(client, p_info_yonkers_ir, arguments);
 		} else {
 			fwdict = restore_get_savage_firmware_data(client, p_info, arguments);
 		}
