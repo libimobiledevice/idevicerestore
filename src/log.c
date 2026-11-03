@@ -38,6 +38,7 @@
 #include <plist/plist.h>
 
 #include "log.h"
+#include "common.h"
 
 static int stderr_enabled = 1;
 
@@ -105,6 +106,7 @@ void logger(enum loglevel level, const char *fmt, ...)
 		return;
 
 	mutex_lock(&log_mutex);
+	progress_display_suspend();
 
 	size_t fslen = 24 + strlen(fmt);
 	fs = malloc(fslen);
@@ -149,6 +151,7 @@ void logger(enum loglevel level, const char *fmt, ...)
 
 	free(fs);
 
+	progress_display_resume();
 	mutex_unlock(&log_mutex);
 }
 

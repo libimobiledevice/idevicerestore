@@ -32,6 +32,7 @@
 #include <errno.h>
 #include <libgen.h>
 #include <time.h>
+#include <math.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <ctype.h>
@@ -41,6 +42,7 @@
 #ifdef WIN32
 #include <windows.h>
 #include <conio.h>
+#include <io.h>
 #ifndef _O_EXCL
 #define _O_EXCL  0x0400
 #endif
@@ -51,6 +53,7 @@
 #include <sys/time.h>
 #include <pthread.h>
 #include <termios.h>
+#include <sys/ioctl.h>
 #endif
 
 #include "common.h"
@@ -304,6 +307,14 @@ int prompt_user(const char* title, const char* text)
 static void (*update_progress_func)(struct progress_info_entry** list, int count) = NULL;
 static double progress_granularity = 0.001;
 
+/* Reserved tag for the overall/"global" restore-step progress bar, always
+ * shown as the first row of the multi progress display. progress_get_next_tag()
+ * never hands out this value (it starts counting up from 2), so it can't
+ * collide with a dynamically assigned per-component tag. */
+#define GLOBAL_PROGRESS_TAG 1
+
+static void print_multi_progress(struct progress_info_entry** list, int count, struct progress_info_entry* changed);
+
 void set_update_progress_func(void (*func)(struct progress_info_entry** list, int count))
 {
 	update_progress_func = func;
@@ -337,6 +348,19 @@ void progress_reset_tag(void)
 	progress_unique_tag = 1;
 }
 
+/* Notifies the active progress renderer (a custom one registered via
+ * set_update_progress_func(), or the built-in multi-line terminal renderer)
+ * that the progress_info collection has changed. Must be called with
+ * prog_mutex held. */
+static void notify_progress_update(struct progress_info_entry* changed)
+{
+	if (update_progress_func) {
+		update_progress_func((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity);
+	} else {
+		print_multi_progress((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity, changed);
+	}
+}
+
 void register_progress(uint32_t tag, const char* label)
 {
 	thread_once(&progress_info_once, _init_progress_info);
@@ -355,17 +379,15 @@ void register_progress(uint32_t tag, const char* label)
 		if (strcmp(found->label, label) != 0) {
 			free(found->label);
 			found->label = strdup(label);
-			if (update_progress_func) {
-				update_progress_func((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity);
-			} else {
-				print_progress_bar(found->label, found->progress);
-			}
+			notify_progress_update(found);
 		}
 		mutex_unlock(&prog_mutex);
 		return;
 	}
 	struct progress_info_entry* newinfo = (struct progress_info_entry*)calloc(1, sizeof(struct progress_info_entry));
 	if (!newinfo) {
+		/* logger() takes the log mutex before calling back into the progress code, so don't hold prog_mutex here */
+		mutex_unlock(&prog_mutex);
 		logger(LL_ERROR, "Out of memory?!\n");
 		exit(1);
 	}
@@ -373,11 +395,7 @@ void register_progress(uint32_t tag, const char* label)
 	newinfo->label = strdup(label);
 	newinfo->progress = 0;
 	collection_add(&progress_info, newinfo);
-	if (update_progress_func) {
-		update_progress_func((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity);
-	} else {
-		print_progress_bar(newinfo->label, newinfo->progress);
-	}
+	notify_progress_update(newinfo);
 	mutex_unlock(&prog_mutex);
 }
 
@@ -399,9 +417,7 @@ void finalize_progress(uint32_t tag)
 	collection_remove(&progress_info, found);
 	free(found->label);
 	free(found);
-	if (update_progress_func) {
-		update_progress_func((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity);
-	}
+	notify_progress_update(NULL);
 	mutex_unlock(&prog_mutex);
 }
 
@@ -424,6 +440,162 @@ void print_progress_bar(const char* prefix, double progress)
 	fflush(stdout);
 }
 
+static int stdout_is_tty(void)
+{
+	static int cached = -1;
+	if (cached < 0) {
+#ifdef WIN32
+		cached = _isatty(_fileno(stdout)) ? 1 : 0;
+		if (cached) {
+			HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+			DWORD mode = 0;
+			if (!GetConsoleMode(h, &mode) || !SetConsoleMode(h, mode | 0x0004 /* ENABLE_VIRTUAL_TERMINAL_PROCESSING */)) {
+				cached = 0;
+			}
+		}
+#else
+		cached = isatty(fileno(stdout)) ? 1 : 0;
+#endif
+	}
+	return cached;
+}
+
+static int terminal_columns(void)
+{
+	int cols = 80;
+#ifdef WIN32
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
+		cols = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	}
+#else
+	struct winsize ws;
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0) {
+		cols = ws.ws_col;
+	}
+#endif
+	return cols;
+}
+
+/* Renders "label [====    ]  42.0%", never wider than cols-1 characters so
+ * that the line can't wrap (which would break the cursor-up bookkeeping). */
+static void render_progress_bar_line(const char* label, double progress, int cols)
+{
+	int i;
+	int overhead = 10; /* " [" + "] " + "100.0%" */
+	int maxbar = 50;
+	int bar;
+	int labellen = label ? (int)strlen(label) : 0;
+	if (progress < 0) progress = 0;
+	if (progress > 1) progress = 1;
+	if (cols < 20) cols = 20;
+	if (labellen > cols / 3) labellen = cols / 3;
+	bar = cols - 1 - overhead - labellen;
+	if (bar > maxbar) bar = maxbar;
+	if (bar < 10) bar = 10;
+	if (label) {
+		printf("%.*s [", labellen, label);
+	} else {
+		printf("[");
+	}
+	for (i = 0; i < bar; i++) {
+		putchar((i < (int)(progress*bar)) ? '=' : ' ');
+	}
+	printf("] %5.1f%%", progress*100.0);
+}
+
+/* Number of progress lines currently drawn on the terminal, so the next
+ * refresh knows how far to move the cursor back up. */
+static int progress_lines_drawn = 0;
+/* Set when logger() temporarily erased the bars and they need redrawing. */
+static int progress_suspended = 0;
+
+static void draw_progress_frame(struct progress_info_entry** list, int count)
+{
+	int i;
+	int printed = 0;
+	int cols = terminal_columns();
+
+	if (progress_lines_drawn > 0) {
+		printf("\033[%dA", progress_lines_drawn);
+	}
+	/* the global bar always comes first, followed by the remaining ones */
+	for (i = 0; i < count; i++) {
+		if (!list[i] || list[i]->tag != GLOBAL_PROGRESS_TAG) continue;
+		printf("\r\033[2K");
+		render_progress_bar_line(list[i]->label, list[i]->progress, cols);
+		printf("\n");
+		printed++;
+	}
+	for (i = 0; i < count; i++) {
+		if (!list[i] || list[i]->tag == GLOBAL_PROGRESS_TAG) continue;
+		printf("\r\033[2K");
+		render_progress_bar_line(list[i]->label, list[i]->progress, cols);
+		printf("\n");
+		printed++;
+	}
+	/* erase any lines left over from a previous, larger frame */
+	printf("\033[0J");
+	progress_lines_drawn = printed;
+	fflush(stdout);
+}
+
+/*
+ * Default terminal renderer for the "multi progress" display used when no
+ * custom update_progress_func has been registered. Draws one line per
+ * currently active progress tag: the overall restore-step progress
+ * (GLOBAL_PROGRESS_TAG) first, followed by one line for each component that
+ * is currently being uploaded/verified/etc. Lines come and go as
+ * register_progress() and finalize_progress() are called.
+ *
+ * On a terminal the frame is redrawn in place using ANSI cursor movement.
+ * Log output is kept intact by progress_display_suspend()/_resume(), which
+ * logger() calls around every message.
+ *
+ * When stdout is not a terminal, no escape sequences are used; only the
+ * entry that changed is printed, and only when it is registered or has
+ * advanced into a new 1% step.
+ */
+static void print_multi_progress(struct progress_info_entry** list, int count, struct progress_info_entry* changed)
+{
+	if (stdout_is_tty()) {
+		progress_suspended = 0;
+		draw_progress_frame(list, count);
+		return;
+	}
+	if (!changed) return;
+	if (changed->progress == 0 || changed->progress >= 1.0 || (int)(changed->progress*100) != (int)(changed->lastprog*100)) {
+		printf("%s: %5.1f%%\n", changed->label ? changed->label : "", changed->progress*100.0);
+		fflush(stdout);
+	}
+}
+
+/* Erase the progress bars so that a log message can be printed cleanly.
+ * Used by logger(); the caller must call progress_display_resume() afterwards. */
+void progress_display_suspend(void)
+{
+	thread_once(&progress_info_once, _init_progress_info);
+	mutex_lock(&prog_mutex);
+	if (!update_progress_func && stdout_is_tty() && progress_lines_drawn > 0) {
+		printf("\033[%dA\033[0J", progress_lines_drawn);
+		fflush(stdout);
+		progress_lines_drawn = 0;
+		progress_suspended = 1;
+	}
+	mutex_unlock(&prog_mutex);
+}
+
+void progress_display_resume(void)
+{
+	thread_once(&progress_info_once, _init_progress_info);
+	mutex_lock(&prog_mutex);
+	if (progress_suspended) {
+		progress_suspended = 0;
+		draw_progress_frame((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity);
+	}
+	mutex_unlock(&prog_mutex);
+}
+
 void set_progress(uint32_t tag, double progress)
 {
 	thread_once(&progress_info_once, _init_progress_info);
@@ -442,13 +614,9 @@ void set_progress(uint32_t tag, double progress)
 	if (progress < 0) progress = 0;
 	if (progress > 1.0) progress = 1.0;
 	found->progress = progress;
-	if ((progress == 0) || (found->progress - found->lastprog >= progress_granularity)) {
-		if (update_progress_func) {
-			update_progress_func((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity);
-		} else {
-			print_progress_bar(found->label, found->progress);
-		}
-		found->lastprog = found->progress;
+	if (progress == 0 || progress >= 1.0 || fabs(progress - found->lastprog) >= progress_granularity) {
+		notify_progress_update(found);
+		found->lastprog = progress;
 	}
 	mutex_unlock(&prog_mutex);
 }
@@ -665,15 +833,39 @@ char *get_temp_filename(const char *prefix)
 	return result;
 }
 
+static const char* restore_step_label(int step)
+{
+	switch (step) {
+		case RESTORE_STEP_UPLOAD_FS: return "Uploading filesystem";
+		case RESTORE_STEP_VERIFY_FS: return "Verifying filesystem";
+		case RESTORE_STEP_FLASH_FW:  return "Flashing firmware";
+		default: return "Overall";
+	}
+}
+
 void idevicerestore_progress(struct idevicerestore_client_t* client, int step, double progress)
 {
-	if(client && client->progress_cb) {
+	static int last_global_step = -1;
+
+	if (client && client->progress_cb) {
 		client->progress_cb(step, progress, client->progress_cb_data);
-	} else {
-		// we don't want to be too verbose in regular idevicerestore.
-		if ((step == RESTORE_STEP_UPLOAD_FS) || (step == RESTORE_STEP_VERIFY_FS) || (step == RESTORE_STEP_FLASH_FW) || (step == RESTORE_STEP_UPLOAD_IMG)) {
-			print_progress_bar(NULL, progress);
+		return;
+	}
+	// we don't want to be too verbose in regular idevicerestore.
+	// RESTORE_STEP_UPLOAD_IMG is intentionally not handled here: it already
+	// gets its own per-component progress bar (see
+	// restore_send_source_boot_object_v4() and _restore_send_file_data() in
+	// restore.c), shown as one of the additional rows below the overall bar.
+	if ((step == RESTORE_STEP_UPLOAD_FS) || (step == RESTORE_STEP_VERIFY_FS) || (step == RESTORE_STEP_FLASH_FW)) {
+		if (step != last_global_step) {
+			register_progress(GLOBAL_PROGRESS_TAG, restore_step_label(step));
+			last_global_step = step;
 		}
+		set_progress(GLOBAL_PROGRESS_TAG, progress);
+	} else if (step != RESTORE_STEP_UPLOAD_IMG && last_global_step != -1) {
+		// a different step has started; remove the overall bar
+		finalize_progress(GLOBAL_PROGRESS_TAG);
+		last_global_step = -1;
 	}
 }
 

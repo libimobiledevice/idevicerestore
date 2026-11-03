@@ -144,7 +144,7 @@ struct progress_info_entry {
 	uint32_t tag;
 	char* label;
 	double progress;
-	int lastprog;
+	double lastprog;
 };
 void set_update_progress_func(void (*func)(struct progress_info_entry** list, int count));
 void set_progress_granularity(double granularity);
@@ -154,6 +154,8 @@ void register_progress(uint32_t tag, const char* label);
 void set_progress(uint32_t tag, double progress);
 void finalize_progress(uint32_t tag);
 void print_progress_bar(const char* prefix, double progress);
+void progress_display_suspend(void);
+void progress_display_resume(void);
 
 struct tuple {
 	int idx;
