@@ -2499,15 +2499,19 @@ int get_tss_response(struct idevicerestore_client_t* client, plist_t build_ident
 				/* add baseband parameters */
 				tss_request_add_baseband_tags(request, parameters, NULL);
 
-				plist_dict_copy_uint(parameters, pinfo, "eUICC,ChipID", "EUICCChipID");
-				if (plist_dict_get_uint(parameters, "eUICC,ChipID") >= 5) {
-					plist_dict_copy_data(parameters, pinfo, "eUICC,EID", "EUICCCSN");
-					plist_dict_copy_data(parameters, pinfo, "eUICC,RootKeyIdentifier", "EUICCCertIdentifier");
-					plist_dict_copy_data(parameters, pinfo, "EUICCGoldNonce", NULL);
-					plist_dict_copy_data(parameters, pinfo, "EUICCMainNonce", NULL);
+				/* only add vinyl tags if the device actually reports an eUICC chip ID;
+				 * otherwise parameters would keep the (possibly >= 5) value from the BuildManifest */
+				if (plist_dict_get_item(pinfo, "EUICCChipID")) {
+					plist_dict_copy_uint(parameters, pinfo, "eUICC,ChipID", "EUICCChipID");
+					if (plist_dict_get_uint(parameters, "eUICC,ChipID") >= 5) {
+						plist_dict_copy_data(parameters, pinfo, "eUICC,EID", "EUICCCSN");
+						plist_dict_copy_data(parameters, pinfo, "eUICC,RootKeyIdentifier", "EUICCCertIdentifier");
+						plist_dict_copy_data(parameters, pinfo, "EUICCGoldNonce", NULL);
+						plist_dict_copy_data(parameters, pinfo, "EUICCMainNonce", NULL);
 
-					/* add vinyl parameters */
-					tss_request_add_vinyl_tags(request, parameters, NULL);
+						/* add vinyl parameters */
+						tss_request_add_vinyl_tags(request, parameters, NULL);
+					}
 				}
 			}
 		}
