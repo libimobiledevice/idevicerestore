@@ -2135,7 +2135,7 @@ int is_image4_supported(struct idevicerestore_client_t* client)
 		res = recovery_is_image4_supported(client);
 		break;
 	default:
-		logger(LL_ERROR, "Device is in an invalid state\n");
+		logger(LL_ERROR, "Device is not in a supported mode (current mode: %s). It may have disconnected or rebooted, e.g. due to a device-side timeout while a large firmware image was being downloaded. Please make sure the device is connected in Normal, DFU, or Recovery mode and try again.\n", client->mode ? client->mode->string : "disconnected/unknown");
 		return 0;
 	}
 	return res;
@@ -2177,7 +2177,7 @@ int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, 
 
 	default:
 		logger(LL_INFO, "Getting ApNonce failed\n");
-		logger(LL_ERROR, "Device is in an invalid state\n");
+		logger(LL_ERROR, "Device is not in a supported mode (current mode: %s). It may have disconnected or rebooted, e.g. due to a device-side timeout while a large firmware image was being downloaded. Please make sure the device is connected in Normal, DFU, or Recovery mode and try again.\n", client->mode ? client->mode->string : "disconnected/unknown");
 		return -1;
 	}
 
@@ -2222,7 +2222,7 @@ int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce,
 
 	default:
 		logger(LL_INFO, "Getting SepNonce failed\n");
-		logger(LL_ERROR, "Device is in an invalid state\n");
+		logger(LL_ERROR, "Device is not in a supported mode (current mode: %s). It may have disconnected or rebooted, e.g. due to a device-side timeout while a large firmware image was being downloaded. Please make sure the device is connected in Normal, DFU, or Recovery mode and try again.\n", client->mode ? client->mode->string : "disconnected/unknown");
 		return -1;
 	}
 
