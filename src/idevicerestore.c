@@ -1583,6 +1583,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 	}
 
+	idevicerestore_progress_finish();
 	if (result == 0) {
 		logger(LL_INFO, "DONE\n");
 		idevicerestore_progress(client, RESTORE_NUM_STEPS-1, 1.0);

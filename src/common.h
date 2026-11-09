@@ -199,6 +199,7 @@ int mkdir_with_parents(const char *dir, int mode);
 char *get_temp_filename(const char *prefix);
 
 void idevicerestore_progress(struct idevicerestore_client_t* client, int step, double progress);
+void idevicerestore_progress_finish(void);
 
 #ifndef HAVE_STRSEP
 char* strsep(char** strp, const char* delim);

@@ -843,10 +843,18 @@ static const char* restore_step_label(int step)
 	}
 }
 
+static int last_global_step = -1;
+
+void idevicerestore_progress_finish(void)
+{
+	if (last_global_step != -1) {
+		finalize_progress(GLOBAL_PROGRESS_TAG);
+		last_global_step = -1;
+	}
+}
+
 void idevicerestore_progress(struct idevicerestore_client_t* client, int step, double progress)
 {
-	static int last_global_step = -1;
-
 	if (client && client->progress_cb) {
 		client->progress_cb(step, progress, client->progress_cb_data);
 		return;
