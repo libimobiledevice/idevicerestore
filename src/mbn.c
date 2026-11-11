@@ -68,12 +68,13 @@ typedef struct {
 	uint32_t unk_0x4c; // 0xFFFFFFFF
 } mbn_header_v2;
 
-#define MBN_BIN_MAGIC "\x04\x00\xEA\x6C\x69\x48\x55"
-#define MBN_BIN_MAGIC_SIZE 7
-#define MBN_BIN_MAGIC_OFFSET 1 // we ignore the first byte
+#define MBN_BIN_MAGIC "\x6C\x69\x48\x55"
+#define MBN_BIN_MAGIC_SIZE 4
+#define MBN_BIN_MAGIC_OFFSET 4 // ignore the first 4 bytes
 
 typedef struct {
-	unsigned char magic[8];
+	uint32_t unk_0x00;
+	unsigned char magic[4];
 	uint32_t unk_0x08;
 	uint32_t version;
 	uint32_t total_size; // size including header
