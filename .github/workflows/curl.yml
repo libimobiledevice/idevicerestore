@@ -4,7 +4,7 @@ on: workflow_dispatch
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.runner }}
     defaults:
       run:
         shell: msys2 {0}
@@ -12,9 +12,11 @@ jobs:
       fail-fast: false
       matrix:
         include: [
-          { msystem: UCRT64, arch: x86_64, flavor: w64-ucrt },
-          { msystem: MINGW64, arch: x86_64, flavor: w64 },
-          { msystem: MINGW32, arch: i686, flavor: w64 }
+          { runner: windows-latest, msystem: CLANG64, arch: x86_64, flavor: w64-clang, cc: clang },
+          { runner: windows-latest, msystem: UCRT64, arch: x86_64, flavor: w64-ucrt, cc: gcc },
+          { runner: windows-latest, msystem: MINGW64, arch: x86_64, flavor: w64, cc: gcc },
+          { runner: windows-latest, msystem: MINGW32, arch: i686, flavor: w64, cc: gcc },
+          { runner: windows-11-arm, msystem: CLANGARM64, arch: aarch64, flavor: w64-clang, cc: clang }
         ]
     steps:
     - uses: msys2/setup-msys2@v2
@@ -22,10 +24,11 @@ jobs:
         msystem: ${{ matrix.msystem }}
         release: false
         update: false
+        suppress-deprecation-warnings: msystem-mingw32 msystem-mingw64
         install: >-
           base-devel
           git
-          mingw-${{ matrix.flavor }}-${{ matrix.arch }}-gcc
+          mingw-${{ matrix.flavor }}-${{ matrix.arch }}-${{ matrix.cc }}
           make
           libtool
           autoconf
@@ -36,7 +39,7 @@ jobs:
       run: |
           dest=`echo ${{ matrix.msystem }} |tr [:upper:] [:lower:]`
           echo "dest=$dest" >> $GITHUB_ENV
-          echo "target_triplet=`gcc -dumpmachine`" >> $GITHUB_ENV
+          echo "target_triplet=`${{ matrix.cc }} -dumpmachine`" >> $GITHUB_ENV
     - name: fetch curl source
       run: |
           curl -Ls -o curl-8.10.1.tar.bz2 https://github.com/curl/curl/releases/download/curl-8_10_1/curl-8.10.1.tar.bz2
@@ -54,7 +57,7 @@ jobs:
           cd ..
           tar cf $CURDIR/libcurl-static.tar lib/libcurl.a include/curl/*.h
     - name: publish artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
-        name: libcurl_${{ matrix.arch }}-${{ env.dest }}
+        name: libcurl_${{ matrix.arch }}-windows-${{ env.dest }}
         path: libcurl-static.tar
