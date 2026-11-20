@@ -133,19 +133,19 @@ Only the prerequisites differ and they are described in this section.
 * Using [MSYS2](https://www.msys2.org/) is the official way of compiling this project on Windows. Download the MSYS2 installer
   and follow the installation steps.
 
-  It is recommended to use the _MSYS2 MinGW 64-bit_ shell. Run it and make sure the required dependencies are installed:
+  It is recommended to use the _MSYS2 UCRT64_ shell. Run it and make sure the required dependencies are installed:
 
   ```shell
   pacman -S base-devel \
   	git \
-  	mingw-w64-x86_64-gcc \
+  	mingw-w64-ucrt-x86_64-gcc \
   	make \
   	libtool \
   	autoconf \
   	automake-wrapper \
   	pkg-config \
   	libcurl-devel \
-  	mingw-w64-x86_64-libzip
+  	mingw-w64-ucrt-x86_64-libzip
   ```
   NOTE: You can use a different shell and different compiler according to your needs. Adapt the above command accordingly.
 
