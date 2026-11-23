@@ -637,6 +637,111 @@ const char* restore_progress_string(unsigned int operation)
 	}
 }
 
+const char* checkpoint_string(uint16_t checkpoint){
+#define CP(id,str) case id: return str
+	switch (checkpoint){
+		CP(0x0104,"handle_new_connections");
+		CP(0x0204,"boot_stage");
+		CP(0x0206,"monitoring_child");
+		CP(0x0207,"wifexited");
+		CP(0x0209,"delete_exit_status");
+		CP(0x0400,"umask");
+		CP(0x0402,"setvbuf");
+		CP(0x0403,"kernel_logger_thread");
+		CP(0x0404,"update_root_mount");
+		CP(0x0405,"disable_watchdog");
+		CP(0x0406,"set_progress_0");
+		CP(0x0407,"start_gasgauge_thread");
+		CP(0x0408,"listen_for_log_client");
+		CP(0x040D,"create_listen_socket");
+		CP(0x040E,"enable_usb");
+		CP(0x0600,"client_protocol_version");
+		CP(0x0601,"copy_restore_options");
+		CP(0x0604,"set_weight_from_options");
+		CP(0x0608,"device_has_hoover");
+		CP(0x0609,"load_sep_os");
+		CP(0x060B,"update_ticket");
+		CP(0x060C,"partition_nand");
+		CP(0x060D,"wait_for_storage");
+		CP(0x060E,"update_s3e_firmware");
+		CP(0x060F,"clear_remap_variable");
+		CP(0x0610,"asp_nand_set_writable");
+		CP(0x0611,"reprobe_storage");
+		CP(0x0612,"reprobe_firmware");
+		CP(0x0613,"find_filesystem_partitions");
+		CP(0x0614,"mount_system_partition");
+		CP(0x0615,"copy_hardware_info");
+		CP(0x0616,"fdr_create");
+		CP(0x0617,"fdr_save_data");
+		CP(0x0618,"store_baseband_migration");
+		CP(0x0619,"check_for_restore_log");
+		CP(0x061A,"check_for_ota_logs");
+		CP(0x061B,"submit_update_stats");
+		CP(0x061D,"unmount_unconditionally");
+		CP(0x061F,"format_effaceable_storage");
+		CP(0x0620,"format_storage_for_lwvm");
+		CP(0x0621,"create_filesystem_partitions");
+		CP(0x0622,"reload_filesystem_partitions");
+		CP(0x0624,"restore_images");
+		CP(0x0625,"find_partitions_after_images");
+		CP(0x0626,"mount_filesystem_if_fdr");
+		CP(0x0627,"fdr_restore_saved_data");
+		CP(0x0628,"install_kernel_cache");
+		CP(0x0634,"fdr_recover");
+		CP(0x0635,"update_device_firmware");
+		CP(0x0639,"persistent_boot_args");
+		CP(0x063C,"verify_fdr_data");
+		CP(0x063D,"fdr_verify_sealed_manifest");
+		CP(0x063E,"resize_system_to_fit_content");
+		CP(0x063F,"set_boot_command");
+		CP(0x0640,"set_autoboot_delay");
+		CP(0x0642,"unmount_filesystems");
+		CP(0x0643,"get_apfs_options");
+		CP(0x0645,"check_not_apfs_mount");
+		CP(0x0647,"cleanup_check_result");
+		CP(0x0648,"cleanup_send_final_status");
+		CP(0x0649,"cleanup_wait_status_received");
+		CP(0x064A,"cleanup_write_restore_log");
+		CP(0x064B,"cleanup_post_restore");
+		CP(0x064C,"cleanup_release");
+		CP(0x064D,"check_mounted");
+		CP(0x064E,"clean_nand");
+		CP(0x064F,"check_apfs_format");
+		CP(0x0651,"cleanup_failure_warning");
+		CP(0x0652,"clear_fips_data_file");
+		CP(0x0653,"create_readwrite_ramdisk");
+		CP(0x0654,"read_previous_os_build_version");
+		CP(0x0655,"is_host_compatible");
+		CP(0x065C,"print_nvram_variables");
+		CP(0x065D,"delete_mobilebackups");
+		CP(0x065E,"update_partitions_for_apfs");
+		CP(0x0900,"baseband_migration_data");
+		CP(0x0901,"check_update");
+		CP(0x0E00,"install_kernel_cache");
+		CP(0x0E01,"install_secure_vault_daemon");
+		CP(0x0E02,"write_ticket");
+		CP(0x0F00,"fixup_var");
+		CP(0x0F01,"restore_ota_logs");
+		CP(0x0F03,"modify_fstab");
+		CP(0x0F04,"create_partition_mountpoints");
+		CP(0x1300,"update_iBoot");
+		CP(0x1301,"update_gas_gauge");
+		CP(0x1302,"update_ir_mcu");
+		CP(0x1303,"update_baseband");
+		CP(0x1304,"update_stockholm");
+		CP(0x1305,"update_swdhid");
+		CP(0x1306,"update_tcon");
+		CP(0x1307,"update_orion");
+		CP(0x1308,"update_madea");
+		CP(0x1309,"update_se");
+		CP(0x130A,"install_fud");
+		CP(0x130B,"update_usbc");
+		CP(0x130C,"update_aht");
+	default: return "unknown";
+	}
+#undef CP
+}
+
 struct restored_service_client {
 
 };
@@ -5803,7 +5908,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 			plist_get_uint_val(node, &ckpt_id);
 			// Get checkpoint_name
 			node = plist_dict_get_item(message, "CHECKPOINT_NAME");
-			ckpt_name = (node) ? plist_get_string_ptr(node, NULL) : "unknown";
+			ckpt_name = (node) ? plist_get_string_ptr(node, NULL) : checkpoint_string(ckpt_id);
 			// Get checkpoint result
 			node = plist_dict_get_item(message, "CHECKPOINT_RESULT");
 			if (!node || plist_get_node_type(node) != PLIST_INT) {

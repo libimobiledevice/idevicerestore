@@ -50,6 +50,7 @@ void restore_client_free(struct idevicerestore_client_t* client);
 int restore_is_image4_supported(struct idevicerestore_client_t* client);
 int restore_reboot(struct idevicerestore_client_t* client);
 const char* restore_progress_string(unsigned int operation);
+const char* checkpoint_string(uint16_t checkpoint);
 int restore_handle_status_msg(struct idevicerestore_client_t* client, plist_t message);
 int restore_handle_progress_msg(struct idevicerestore_client_t* client, plist_t message);
 int restore_handle_data_request_msg(struct idevicerestore_client_t* client, plist_t message);
