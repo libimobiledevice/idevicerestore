@@ -473,15 +473,19 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		/* reconnect */
 		logger(LL_DEBUG, "Waiting for device to disconnect...\n");
 		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
-		if (client->mode != MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
+		/* A device in DFU over Debug USB (KIS) can keep that USB device
+		 * after iBSS and present recovery mode through it instead. */
+		if ((client->mode != MODE_UNKNOWN && client->mode != MODE_RECOVERY) || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			if (!(client->flags & FLAG_QUIT)) {
 				logger(LL_ERROR, "Device did not disconnect. Possibly invalid iBSS. Reset device and try again.\n");
 			}
 			return -1;
 		}
-		logger(LL_DEBUG, "Waiting for device to reconnect...\n");
-		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
+		if (client->mode == MODE_UNKNOWN) {
+			logger(LL_DEBUG, "Waiting for device to reconnect...\n");
+			cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
+		}
 		if ((client->mode != MODE_DFU && client->mode != MODE_RECOVERY) || (client->flags & FLAG_QUIT)) {
 			mutex_unlock(&client->device_event_mutex);
 			if (!(client->flags & FLAG_QUIT)) {
