@@ -42,16 +42,16 @@ jobs:
           echo "target_triplet=`${{ matrix.cc }} -dumpmachine`" >> $GITHUB_ENV
     - name: fetch curl source
       run: |
-          curl -Ls -o curl-8.10.1.tar.bz2 https://github.com/curl/curl/releases/download/curl-8_10_1/curl-8.10.1.tar.bz2
-          tar xjf curl-8.10.1.tar.bz2
+          curl -Ls -o curl-8.23.0.tar.bz2 https://github.com/curl/curl/releases/download/curl-8_23_0/curl-8.23.0.tar.bz2
+          tar xjf curl-8.23.0.tar.bz2
     - name: configure curl
       run: |
-          cd curl-8.10.1
+          cd curl-8.23.0
           ./configure --disable-ldap --disable-ldaps --disable-rtsp --disable-dict --disable-telnet --disable-tftp --disable-pop3 --disable-imap --disable-smb --disable-smtp --disable-gopher --disable-mqtt --disable-manual --disable-threaded-resolver --disable-pthreads --disable-sspi --disable-aws --disable-ntlm --disable-ntlm-wb --disable-tls-srp --disable-unix-sockets --disable-doh --disable-dnsshuffle --disable-alt-svc --disable-hsts --disable-websockets --with-openssl --without-brotli --without-libidn2 --without-ngtcp2 --without-quiche --without-msh3 --without-nghttp2 --without-libpsl
     - name: build libcurl
       run: |
           CURDIR=`pwd`
-          cd curl-8.10.1/lib
+          cd curl-8.23.0/lib
           make
           cp .libs/libcurl.a .
           cd ..
