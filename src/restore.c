@@ -5772,6 +5772,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	if (client->restore_boot_args) {
 		plist_dict_set_item(opts, "RestoreBootArgs", plist_new_string(client->restore_boot_args));
 	}
+	if (client->post_restore_action) {
+		plist_dict_set_item(opts, "PostRestoreAction", plist_new_string(client->post_restore_action));
+	}
 	plist_t spp = plist_access_path(build_identity, 2, "Info", "SystemPartitionPadding");
 	if (spp) {
 		spp = plist_copy(spp);

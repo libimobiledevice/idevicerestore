@@ -112,6 +112,7 @@ struct idevicerestore_client_t {
 	char* device_build;
 	int build_major;
 	char* restore_boot_args;
+	char* post_restore_action;
 	char* cache_dir;
 	unsigned char* root_ticket;
 	int root_ticket_len;

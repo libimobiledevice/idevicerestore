@@ -85,6 +85,9 @@ void idevicerestore_set_flags(struct idevicerestore_client_t* client, int flags)
 void idevicerestore_set_ipsw(struct idevicerestore_client_t* client, const char* path);
 void idevicerestore_set_cache_path(struct idevicerestore_client_t* client, const char* path);
 void idevicerestore_set_progress_callback(struct idevicerestore_client_t* client, idevicerestore_progress_cb_t cbfunc, void* userdata);
+/* What the restore OS does once it has sent its final status: "Reboot" (its
+ * default) or "Shutdown". NULL sends no PostRestoreAction. */
+void idevicerestore_set_post_restore_action(struct idevicerestore_client_t* client, const char* action);
 
 int idevicerestore_start(struct idevicerestore_client_t* client);
 const char* idevicerestore_get_error(void);

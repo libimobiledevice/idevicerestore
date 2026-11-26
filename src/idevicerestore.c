@@ -1657,6 +1657,7 @@ void idevicerestore_client_free(struct idevicerestore_client_t* client)
 	if (client->restore_boot_args) {
 		free(client->restore_boot_args);
 	}
+	free(client->post_restore_action);
 	if (client->cache_dir) {
 		free(client->cache_dir);
 	}
@@ -1714,6 +1715,14 @@ void idevicerestore_set_ipsw(struct idevicerestore_client_t* client, const char*
 	if (path) {
 		client->ipsw = ipsw_open(path);
 	}
+}
+
+void idevicerestore_set_post_restore_action(struct idevicerestore_client_t* client, const char* action)
+{
+	if (!client)
+		return;
+	free(client->post_restore_action);
+	client->post_restore_action = action ? strdup(action) : NULL;
 }
 
 void idevicerestore_set_cache_path(struct idevicerestore_client_t* client, const char* path)
