@@ -119,8 +119,6 @@
 #define SEALING_SYSTEM_VOLUME         77
 #define UPDATING_APPLETCON            81
 
-static int restore_finished = 0;
-
 static int restore_device_connected = 0;
 
 int restore_client_new(struct idevicerestore_client_t* client)
@@ -937,12 +935,18 @@ int restore_handle_status_msg(struct idevicerestore_client_t* client, plist_t ms
 
 	// read status code
 	plist_t node = plist_dict_get_item(msg, "Status");
+	if (!node || plist_get_node_type(node) != PLIST_INT) {
+		logger(LL_WARNING, "Ignoring status message without an integer Status\n");
+		logger_dump_plist(LL_VERBOSE, msg, 1);
+		return 0;
+	}
 	plist_get_uint_val(node, &value);
+	client->final_status = value;
+	client->final_status_received = 1;
 
 	switch(value) {
 		case 0:
 			logger(LL_INFO, "Status: Restore Finished\n");
-			restore_finished = 1;
 			break;
 		case 0xFFFFFFFFFFFFFFFFLL:
 			logger(LL_INFO, "Status: Verification Error\n");
@@ -5489,7 +5493,9 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 	THREAD_T fdr_thread = THREAD_T_NULL;
 #endif
 
-	restore_finished = 0;
+	if (client) {
+		client->final_status_received = 0;
+	}
 
 	// open our connection to the device and verify we're in restore mode
 	err = restore_open_with_timeout(client);
@@ -5887,7 +5893,7 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		// process or often to signal an error has been encountered
 		else if (!strcmp(type, "StatusMsg")) {
 			err = restore_handle_status_msg(client, message);
-			if (restore_finished) {
+			if (client->final_status_received && client->final_status == 0) {
 				plist_t dict = plist_new_dict();
 				plist_dict_set_item(dict, "MsgType", plist_new_string("ReceivedFinalStatusMsg"));
 				restored_send(restore, dict);

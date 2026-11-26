@@ -129,6 +129,9 @@ struct idevicerestore_client_t {
 	char* filesystem;
 	int delete_fs;
 	int async_err;
+	/* The Status of the last StatusMsg the restore OS sent, once one did. */
+	int final_status_received;
+	uint64_t final_status;
 };
 
 extern int global_quit_flag;

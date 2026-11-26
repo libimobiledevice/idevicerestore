@@ -370,6 +370,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		return -1;
 	}
 
+	client->final_status_received = 0;
+
 	if ((client->flags & FLAG_LATEST) && (client->flags & FLAG_CUSTOM)) {
 		logger(LL_ERROR, "FLAG_LATEST cannot be used with FLAG_CUSTOM.\n");
 		return -1;
@@ -1715,6 +1717,14 @@ void idevicerestore_set_ipsw(struct idevicerestore_client_t* client, const char*
 	if (path) {
 		client->ipsw = ipsw_open(path);
 	}
+}
+
+int idevicerestore_get_final_status(struct idevicerestore_client_t* client, uint64_t* status)
+{
+	if (!client || !status || !client->final_status_received)
+		return -1;
+	*status = client->final_status;
+	return 0;
 }
 
 void idevicerestore_set_post_restore_action(struct idevicerestore_client_t* client, const char* action)

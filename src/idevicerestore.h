@@ -90,6 +90,11 @@ void idevicerestore_set_progress_callback(struct idevicerestore_client_t* client
 void idevicerestore_set_post_restore_action(struct idevicerestore_client_t* client, const char* action);
 
 int idevicerestore_start(struct idevicerestore_client_t* client);
+/* Returns 0 and sets *status to the last raw unsigned Status value the restore
+ * OS sent during the current restore attempt. A finished restore reports 0
+ * and a verification error reports 0xFFFFFFFFFFFFFFFF. Returns -1 if no
+ * integer Status was received or either argument is NULL. */
+int idevicerestore_get_final_status(struct idevicerestore_client_t* client, uint64_t* status);
 const char* idevicerestore_get_error(void);
 
 irecv_device_t get_irecv_device(struct idevicerestore_client_t* client);
