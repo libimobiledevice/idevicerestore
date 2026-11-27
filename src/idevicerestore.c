@@ -361,6 +361,54 @@ static void irecv_event_cb(const irecv_device_event_t* event, void *userdata)
 
 int build_identity_check_components_in_ipsw(plist_t build_identity, ipsw_archive_t ipsw);
 
+static void refresh_device_version(struct idevicerestore_client_t* client)
+{
+	plist_t pver = normal_get_lockdown_value(client, NULL, "ProductVersion");
+	if (pver) {
+		free(client->device_version);
+		client->device_version = NULL;
+		plist_get_string_val(pver, &client->device_version);
+		plist_free(pver);
+	}
+	pver = normal_get_lockdown_value(client, NULL, "BuildVersion");
+	if (pver) {
+		free(client->device_build);
+		client->device_build = NULL;
+		plist_get_string_val(pver, &client->device_build);
+		plist_free(pver);
+	}
+}
+
+/* The device can reboot (e.g. recovery mode timeout) during long operations such
+ * as the IPSW download. Wait for it to reappear and pick up its current mode. */
+static int resync_device_mode(struct idevicerestore_client_t* client, const struct idevicerestore_mode_t** known_mode)
+{
+	time_t start = time(NULL);
+	mutex_lock(&client->device_event_mutex);
+	while (client->mode == MODE_UNKNOWN && !(client->flags & FLAG_QUIT)) {
+		if (time(NULL) - start >= 60) {
+			break;
+		}
+		cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 1000);
+	}
+	if (client->mode == MODE_UNKNOWN || (client->flags & FLAG_QUIT)) {
+		mutex_unlock(&client->device_event_mutex);
+		logger(LL_ERROR, "Device is no longer connected. Please make sure it is attached and try again.\n");
+		return -1;
+	}
+	const struct idevicerestore_mode_t* mode = client->mode;
+	mutex_unlock(&client->device_event_mutex);
+
+	if (mode != *known_mode) {
+		logger(LL_NOTICE, "Device mode changed from %s to %s\n", (*known_mode)->string, mode->string);
+		*known_mode = mode;
+		if (mode == MODE_NORMAL) {
+			refresh_device_version(client);
+		}
+	}
+	return 0;
+}
+
 int idevicerestore_start(struct idevicerestore_client_t* client)
 {
 	int tss_enabled = 0;
@@ -527,16 +575,7 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 	}
 
 	if (client->mode == MODE_NORMAL) {
-		plist_t pver = normal_get_lockdown_value(client, NULL, "ProductVersion");
-		if (pver) {
-			plist_get_string_val(pver, &client->device_version);
-			plist_free(pver);
-		}
-		pver = normal_get_lockdown_value(client, NULL, "BuildVersion");
-		if (pver) {
-			plist_get_string_val(pver, &client->device_build);
-			plist_free(pver);
-		}
+		refresh_device_version(client);
 	}
 	logger(LL_INFO, "Device Product Version: %s\n", (client->device_version) ? client->device_version : "N/A");
 	logger(LL_INFO, "Device Product Build: %s\n", (client->device_build) ? client->device_build : "N/A");
@@ -574,6 +613,8 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 		}
 #endif
 	}
+
+	const struct idevicerestore_mode_t* detected_mode = client->mode;
 
 	if (client->flags & FLAG_LATEST) {
 		char *fwurl = NULL;
@@ -672,6 +713,10 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				return -1;
 			}
 			free(ipsw);
+		}
+		// the download can take long enough for the device to have rebooted
+		if (resync_device_mode(client, &detected_mode) < 0) {
+			return -1;
 		}
 	}
 	idevicerestore_progress(client, RESTORE_STEP_DETECT, 0.6);
@@ -1198,6 +1243,11 @@ int idevicerestore_start(struct idevicerestore_client_t* client)
 				return -1;
 			}
 			client->filesystem = tmpf;
+
+			// the extraction can take long enough for the device to have rebooted
+			if (resync_device_mode(client, &detected_mode) < 0) {
+				return -1;
+			}
 		}
 	}
 
